@@ -1,0 +1,7 @@
+نرم افزاری که بهش وصلی برای مدیریت کامل از 0 تا 100 آرایشگاه است
+پروژرو بررسی کن میخوام ادامه توسعرو باهم یریم
+این آدرسه دیتابیس
+DATABASE_URL="postgresql://postgres:Lord7knows@localhost:5432/barbershop?schema=public"
+JWT_SECRET="your-super-secret-key-here"
+NEXT_PUBLIC_API_URL=http://localhost:3001
+PORT=3001
