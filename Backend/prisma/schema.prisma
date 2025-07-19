@@ -1,0 +1,359 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  email       String   @unique
+  password    String
+  firstName   String
+  lastName    String
+  phoneNumber String   @unique
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  id          Int      @id @default(autoincrement())
+  role        String   @default("CUSTOMER")
+  profile     Profile?
+  smsLogs     SmsLog[]
+  permissions Permission[]
+
+  @@map("users")
+}
+
+model Customer {
+  id           Int           @id @default(autoincrement())
+  email        String?   @db.Text   // ایمیل اختیاری و قابل null
+  firstName    String
+  lastName     String
+  phoneNumber  String        @unique
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime
+  birthDate    DateTime?
+  notes        String?
+  gender       Gender        @default(UNSPECIFIED)
+  rating       Int?          @default(0)
+  appointments Appointment[]
+  barberId     Int?
+  barber       Barber?       @relation(fields: [barberId], references: [id])
+
+  @@map("customers")
+}
+
+model Barber {
+  id           Int           @id @default(autoincrement())
+  email        String        @unique
+  firstName    String
+  lastName     String
+  phoneNumber  String        @unique
+  bio          String?
+  avatar       String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime
+  appointments Appointment[]
+  salaries     Salary[]
+  services     Service[]     @relation("BarberToService")
+  customers    Customer[]    // ارتباط معکوس با مشتریان
+  withdrawalRequests BarberWithdrawalRequest[]
+
+  @@map("barbers")
+}
+
+model Service {
+  name                String
+  description         String?
+  duration            Int
+  price               Float
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime
+  id                  Int                  @id @default(autoincrement())
+  barbers             Barber[]             @relation("BarberToService")
+  appointmentServices AppointmentService[]
+
+  @@map("services")
+}
+
+model Profile {
+  avatar      String?
+  bio         String?
+  specialties String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  id          Int      @id @default(autoincrement())
+  userId      Int      @unique
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@map("profiles")
+}
+
+model Appointment {
+  date         DateTime
+  notes        String?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime
+  followUpSent Boolean              @default(false)
+  reminderSent Boolean              @default(false)
+  id           Int                  @id @default(autoincrement())
+  customerId   Int
+  barberId     Int
+  status       AppointmentStatus    @default(PENDING)
+  barber       Barber               @relation(fields: [barberId], references: [id])
+  customer     Customer             @relation(fields: [customerId], references: [id])
+  transactions Transaction[]
+  services     AppointmentService[]
+
+  @@map("appointments")
+}
+
+model AppointmentService {
+  id            Int         @id @default(autoincrement())
+  appointment   Appointment @relation(fields: [appointmentId], references: [id])
+  appointmentId Int
+  service       Service     @relation(fields: [serviceId], references: [id])
+  serviceId     Int
+  price         Float
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime
+
+  @@map("appointment_services")
+}
+
+model SmsLog {
+  id          Int      @id @default(autoincrement())
+  phoneNumber String
+  message     String
+  status      String
+  error       String?
+  createdAt   DateTime @default(now())
+  customerId  Int?
+  user        User?    @relation(fields: [customerId], references: [id])
+
+  @@map("sms_logs")
+}
+
+model SmsSettings {
+  id                    Int      @id @default(autoincrement())
+  apiKey                String?
+  lineNumber            String?
+  isEnabled             Boolean  @default(false)
+  sendBeforeAppointment Int      @default(60)
+  sendAfterAppointment  Int      @default(0)
+  defaultMessage        String?
+  updatedAt             DateTime
+
+  @@map("sms_settings")
+}
+
+model SmsTemplate {
+  id        Int      @id @default(autoincrement())
+  name      String
+  content   String
+  variables String[]
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+
+  @@map("sms_templates")
+}
+
+model Transaction {
+  amount        Float
+  paymentMethod String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime
+  id            Int                 @id @default(autoincrement())
+  appointmentId Int
+  status        TransactionStatus   @default(PENDING)
+  category      TransactionCategory @default(SERVICE_PAYMENT)
+  appointment   Appointment         @relation(fields: [appointmentId], references: [id])
+  type          TransactionType    @default(NORMAL)
+  bankAccountId Int?
+  bankAccount   BankAccount?        @relation(fields: [bankAccountId], references: [id])
+  description   String?
+
+  @@map("transactions")
+}
+
+model FinancialCategory {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique
+  type        CategoryType
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime
+  entries     FinancialEntry[]
+
+  @@map("financial_categories")
+}
+
+model FinancialEntry {
+  id            Int               @id @default(autoincrement())
+  amount        Float
+  type          EntryType
+  date          DateTime
+  description   String?
+  categoryId    Int
+  reference     String?
+  paymentMethod String?
+  createdBy     Int
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime
+  attachmentUrl String?
+  status        EntryStatus       @default(COMPLETED)
+  category      FinancialCategory @relation(fields: [categoryId], references: [id])
+  bankAccountId Int?
+  bankAccount   BankAccount?      @relation(fields: [bankAccountId], references: [id])
+}
+
+model Salary {
+  id          Int       @id @default(autoincrement())
+  barberId    Int
+  amount      Float
+  month       DateTime
+  isPaid      Boolean   @default(false)
+  paidAt      DateTime?
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  barber      Barber    @relation(fields: [barberId], references: [id])
+
+  @@map("salaries")
+}
+
+model BankAccount {
+  id         Int      @id @default(autoincrement())
+  name       String
+  cardNumber String   @unique @db.VarChar(19)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime
+  transactions Transaction[]
+  financialEntries FinancialEntry[]
+
+  @@map("bank_accounts")
+}
+
+model Setting {
+  id    Int    @id @default(autoincrement())
+  key   String @unique
+  value String
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  UNSPECIFIED
+}
+
+enum Role {
+  ADMIN
+  BARBER
+  CUSTOMER
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+}
+
+enum EntryType {
+  INCOME
+  EXPENSE
+}
+
+enum EntryStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum TransactionCategory {
+  SERVICE_PAYMENT
+  SALARY
+  UTILITY
+  RENT
+  SUPPLIES
+  OTHER
+}
+
+model TipTransaction {
+  id            Int                  @id @default(autoincrement())
+  amount        Int
+  date          DateTime             @default(now())
+  staffId       Int?
+  appointmentId Int?
+  type          TipTransactionType
+  status        TipTransactionStatus @default(pending)
+  createdById   Int?
+}
+
+enum TipTransactionType {
+  deposit
+  withdraw
+}
+
+enum TipTransactionStatus {
+  pending
+  approved
+  rejected
+}
+
+enum TransactionType {
+  NORMAL
+  TRANSFER
+}
+
+model BarberWithdrawalRequest {
+  id          Int      @id @default(autoincrement())
+  barberId    Int
+  amount      Float
+  status      WithdrawalStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  approvedBy  Int?
+  barber      Barber   @relation(fields: [barberId], references: [id])
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Permission {
+  id         Int      @id @default(autoincrement())
+  role       String   // نقش (مثلاً ADMIN, BARBER, CUSTOMER)
+  userId     Int?     // اگر بخواهیم برای کاربر خاص هم دسترسی بدهیم (nullable)
+  page       String   // نام صفحه (مثلاً appointments, accounting, dashboard)
+  feature    String   // نام بخش یا قابلیت (مثلاً view, edit, delete, approve, withdraw, salary, ...)
+  canView    Boolean  @default(false)
+  canEdit    Boolean  @default(false)
+  canDelete  Boolean  @default(false)
+  canCreate  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@index([role, page, feature])
+  @@index([userId, page, feature])
+}

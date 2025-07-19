@@ -1,0 +1,26 @@
+/* استایل جمع‌وجور برای تقویم شمسی */
+.custom-persian-calendar {
+  font-size: 12px !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  padding: 8px 0 !important;
+}
+.custom-persian-calendar .Calendar__day {
+  border-radius: 8px !important;
+}
+.custom-persian-calendar .Calendar__day.-selected {
+  background: #0fbcf9 !important;
+  color: #fff !important;
+}
+.custom-persian-calendar .Calendar__day.-today {
+  border: 1px solid #0fbcf9 !important;
+}
+.custom-persian-calendar .Calendar__monthText {
+  font-size: 13px !important;
+}
+.custom-persian-calendar .Calendar__yearText {
+  font-size: 13px !important;
+}
+.custom-persian-calendar .Calendar__weekDays {
+  font-size: 11px !important;
+} 
