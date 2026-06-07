@@ -1,0 +1,59 @@
+/* ========================================== */
+/* GLOBAL BACKGROUND - فقط mainbackground.jpg */
+/* ========================================== */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden !important;
+  width: 100vw;
+  max-width: 100%;
+  position: relative;
+}
+
+body {
+  background-image: url('/images/mainbackground.jpg');
+  background-size: 100% auto !important;
+  background-position: top center !important;
+  background-repeat: repeat-y !important;
+  background-attachment: scroll;
+  min-height: 100vh;
+  overflow-x: hidden !important;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+/* همه صفحات transparent - فقط body background */
+[data-app-wrapper="true"],
+[data-page="login"],
+[data-page="register"],
+.min-h-screen {
+  background: transparent !important;
+}
+
+/* Override هر gradient یا background دیگه */
+.bg-gradient-to-br {
+  background: transparent !important;
+}
+
+/* Responsive - mobile با fix برای zoom issue */
+@media (max-width: 768px) {
+  body {
+    background-attachment: scroll;
+    background-size: 100% auto !important;
+    background-position: top center !important;
+    background-repeat: repeat-y !important;
+  }
+}
+
+/* Print - no background */
+@media print {
+  body {
+    background: none !important;
+  }
+}
+

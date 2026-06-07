@@ -1,0 +1,822 @@
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateTransactionDto } from './dto/create-transaction.dto';
+import { UpdateTransactionDto } from './dto/update-transaction.dto';
+import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
+import { CreateAccountDto } from './dto/create-account.dto';
+import { UpdateAccountDto } from './dto/update-account.dto';
+import { CreateTransferDto } from './dto/create-transfer.dto';
+import { TransactionType } from '@prisma/client';
+
+@Injectable()
+export class AccountingService {
+  constructor(private prisma: PrismaService) {}
+
+  // ==================== TRANSACTIONS ====================
+
+  /**
+   * Create a new transaction
+   * Updates bank account balance if accountId provided
+   * Idempotent if meta.externalRef exists
+   */
+  async createTransaction(dto: CreateTransactionDto, userId?: number) {
+    // Check for duplicate based on externalRef in meta
+    if (dto.meta && dto.meta.externalRef) {
+      const existing = await this.prisma.transaction.findFirst({
+        where: {
+          meta: {
+            path: ['externalRef'],
+            equals: dto.meta.externalRef
+          },
+          deletedAt: null
+        }
+      });
+
+      if (existing) {
+        console.log(`⚠️ Transaction with externalRef ${dto.meta.externalRef} already exists`);
+        return existing;
+      }
+    }
+
+    // Validate category exists
+    if (dto.categoryId) {
+      const category = await this.prisma.transactionCategory.findFirst({
+        where: { id: dto.categoryId, deletedAt: null }
+      });
+      if (!category) {
+        throw new NotFoundException('Category not found');
+      }
+      // Validate category type matches transaction type
+      if (category.type !== dto.type) {
+        throw new BadRequestException(`Category type (${category.type}) doesn't match transaction type (${dto.type})`);
+      }
+    }
+
+    // Validate account exists
+    if (dto.accountId) {
+      const account = await this.prisma.bankAccount.findFirst({
+        where: { id: dto.accountId, deletedAt: null }
+      });
+      if (!account) {
+        throw new NotFoundException('Bank account not found');
+      }
+    }
+
+    // Use Prisma transaction for atomicity
+    return this.prisma.$transaction(async (tx) => {
+      // Create transaction
+      const transaction = await tx.transaction.create({
+        data: {
+          type: dto.type,
+          amount: BigInt(dto.amount),
+          currency: dto.currency || 'IRR',
+          description: dto.description,
+          categoryId: dto.categoryId,
+          accountId: dto.accountId,
+          sourceType: dto.sourceType,
+          sourceId: dto.sourceId,
+          paymentMethod: dto.paymentMethod,
+          occurredAt: dto.occurredAt ? new Date(dto.occurredAt) : new Date(),
+          createdBy: userId,
+          meta: dto.meta || {},
+        },
+        include: {
+          category: true,
+          account: true,
+          createdByUser: {
+            select: { id: true, name: true, phone: true }
+          }
+        }
+      });
+
+      // Update account balance if accountId provided
+      if (dto.accountId) {
+        const balanceChange = dto.type === 'INCOME' 
+          ? BigInt(dto.amount) 
+          : BigInt(-dto.amount);
+
+        await tx.bankAccount.update({
+          where: { id: dto.accountId },
+          data: {
+            balance: {
+              increment: balanceChange
+            }
+          }
+        });
+
+        console.log(`✅ Updated account ${dto.accountId} balance by ${balanceChange}`);
+      }
+
+      // Convert BigInt to Number for JSON serialization
+      return {
+        ...transaction,
+        amount: Number(transaction.amount),
+        account: transaction.account ? {
+          ...transaction.account,
+          balance: Number(transaction.account.balance)
+        } : null
+      };
+    });
+  }
+
+  /**
+   * Find all transactions with filtering
+   */
+  async findAll(filters?: {
+    type?: TransactionType;
+    accountId?: number;
+    categoryId?: number;
+    sourceType?: string;
+    from?: string;
+    to?: string;
+    skip?: number;
+    take?: number;
+  }) {
+    console.log('🔍 [AccountingService] findAll called with filters:', filters);
+
+    const where: any = {
+      deletedAt: null
+    };
+
+    if (filters?.type) where.type = filters.type;
+    if (filters?.accountId) where.accountId = filters.accountId;
+    if (filters?.categoryId) where.categoryId = filters.categoryId;
+    if (filters?.sourceType) where.sourceType = filters.sourceType;
+    
+    if (filters?.from || filters?.to) {
+      where.occurredAt = {};
+      if (filters.from) where.occurredAt.gte = new Date(filters.from);
+      if (filters.to) where.occurredAt.lte = new Date(filters.to);
+    }
+
+    console.log('🔍 [AccountingService] Query where:', where);
+
+    try {
+      const [transactions, total] = await Promise.all([
+        this.prisma.transaction.findMany({
+          where,
+          include: {
+            category: true,
+            account: true,
+            destinationAccount: true, // For TRANSFER transactions
+            createdByUser: {
+              select: { id: true, name: true }
+            }
+          },
+          orderBy: { occurredAt: 'desc' },
+          skip: filters?.skip || 0,
+          take: filters?.take || 50
+        }),
+        this.prisma.transaction.count({ where })
+      ]);
+
+      console.log(`✅ [AccountingService] Found ${transactions.length} transactions`);
+
+      // Convert BigInt to Number for JSON serialization
+      const serializedTransactions = transactions.map(tx => ({
+        ...tx,
+        amount: Number(tx.amount),
+        account: tx.account ? {
+          ...tx.account,
+          balance: Number(tx.account.balance)
+        } : null,
+        destinationAccount: tx.destinationAccount ? {
+          ...tx.destinationAccount,
+          balance: Number(tx.destinationAccount.balance)
+        } : null
+      }));
+
+      const result = {
+        data: serializedTransactions,
+        total,
+        page: Math.floor((filters?.skip || 0) / (filters?.take || 50)) + 1,
+        pages: Math.ceil(total / (filters?.take || 50))
+      };
+
+      console.log(`✅ [AccountingService] Returning result with ${result.data.length} items`);
+      return result;
+    } catch (error) {
+      console.error('❌ [AccountingService] Error in findAll:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Find one transaction by ID
+   */
+  async findOne(id: number) {
+    const transaction = await this.prisma.transaction.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        category: true,
+        account: true,
+        destinationAccount: true,
+        createdByUser: {
+          select: { id: true, name: true, phone: true }
+        }
+      }
+    });
+
+    if (!transaction) {
+      throw new NotFoundException('Transaction not found');
+    }
+
+    // Convert BigInt to Number for JSON serialization
+    return {
+      ...transaction,
+      amount: Number(transaction.amount),
+      account: transaction.account ? {
+        ...transaction.account,
+        balance: Number(transaction.account.balance)
+      } : null,
+      destinationAccount: transaction.destinationAccount ? {
+        ...transaction.destinationAccount,
+        balance: Number(transaction.destinationAccount.balance)
+      } : null
+    };
+  }
+
+  /**
+   * Update transaction
+   * Recalculates account balance if account changed
+   */
+  async update(id: number, dto: UpdateTransactionDto, userId?: number) {
+    const existing = await this.findOne(id);
+
+    return this.prisma.$transaction(async (tx) => {
+      // If account or amount or type changed, recalculate balances
+      if (dto.accountId !== undefined || dto.amount !== undefined || dto.type !== undefined) {
+        const oldAccountId = existing.accountId;
+        const newAccountId = dto.accountId ?? existing.accountId;
+        const oldAmount = Number(existing.amount);
+        const newAmount = dto.amount ?? oldAmount;
+        const oldType = existing.type;
+        const newType = dto.type ?? oldType;
+
+        // Revert old balance change
+        if (oldAccountId) {
+          const oldChange = oldType === 'INCOME' ? BigInt(-oldAmount) : BigInt(oldAmount);
+          await tx.bankAccount.update({
+            where: { id: oldAccountId },
+            data: { balance: { increment: oldChange } }
+          });
+        }
+
+        // Apply new balance change
+        if (newAccountId) {
+          const newChange = newType === 'INCOME' ? BigInt(newAmount) : BigInt(-newAmount);
+          await tx.bankAccount.update({
+            where: { id: newAccountId },
+            data: { balance: { increment: newChange } }
+          });
+        }
+      }
+
+      // Update transaction
+      const updated = await tx.transaction.update({
+        where: { id },
+        data: {
+          ...(dto.type && { type: dto.type }),
+          ...(dto.amount !== undefined && { amount: BigInt(dto.amount) }),
+          ...(dto.description !== undefined && { description: dto.description }),
+          ...(dto.categoryId !== undefined && { categoryId: dto.categoryId }),
+          ...(dto.accountId !== undefined && { accountId: dto.accountId }),
+          ...(dto.sourceType !== undefined && { sourceType: dto.sourceType }),
+          ...(dto.sourceId !== undefined && { sourceId: dto.sourceId }),
+          ...(dto.paymentMethod !== undefined && { paymentMethod: dto.paymentMethod }),
+          ...(dto.occurredAt && { occurredAt: new Date(dto.occurredAt) }),
+          ...(dto.meta !== undefined && { meta: dto.meta }),
+        },
+        include: {
+          category: true,
+          account: true,
+          createdByUser: { select: { id: true, name: true } }
+        }
+      });
+
+      // Convert BigInt to Number for JSON serialization
+      return {
+        ...updated,
+        amount: Number(updated.amount),
+        account: updated.account ? {
+          ...updated.account,
+          balance: Number(updated.account.balance)
+        } : null
+      };
+    });
+  }
+
+  /**
+   * Soft delete transaction
+   * Reverses account balance
+   */
+  async remove(id: number) {
+    const transaction = await this.findOne(id);
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Reverse account balances based on transaction type
+      if (transaction.type === 'TRANSFER') {
+        // For transfers, reverse both accounts
+        if (transaction.accountId) {
+          // Reverse source account (add back the amount)
+          await tx.bankAccount.update({
+            where: { id: transaction.accountId },
+            data: { balance: { increment: BigInt(Number(transaction.amount)) } }
+          });
+          console.log(`✅ Reversed source account ${transaction.accountId} balance`);
+        }
+        
+        if (transaction.destinationAccountId) {
+          // Reverse destination account (subtract the amount)
+          await tx.bankAccount.update({
+            where: { id: transaction.destinationAccountId },
+            data: { balance: { decrement: BigInt(Number(transaction.amount)) } }
+          });
+          console.log(`✅ Reversed destination account ${transaction.destinationAccountId} balance`);
+        }
+      } else if (transaction.accountId) {
+        // For INCOME/EXPENSE, reverse the single account
+        const balanceChange = transaction.type === 'INCOME'
+          ? BigInt(-Number(transaction.amount))
+          : BigInt(Number(transaction.amount));
+
+        await tx.bankAccount.update({
+          where: { id: transaction.accountId },
+          data: { balance: { increment: balanceChange } }
+        });
+
+        console.log(`✅ Reversed account ${transaction.accountId} balance by ${balanceChange}`);
+      }
+
+      // Soft delete
+      return tx.transaction.update({
+        where: { id },
+        data: { deletedAt: new Date() }
+      });
+    });
+
+    // Convert BigInt to Number for JSON serialization
+    return {
+      ...result,
+      amount: Number(result.amount)
+    };
+  }
+
+  /**
+   * Create inter-account transfer
+   * Moves money from one account to another atomically
+   */
+  async createTransfer(dto: CreateTransferDto, userId?: number) {
+    // Validate accounts exist and are different
+    if (dto.fromAccountId === dto.toAccountId) {
+      throw new BadRequestException('Cannot transfer to the same account');
+    }
+
+    const fromAccount = await this.findOneAccount(dto.fromAccountId);
+    const toAccount = await this.findOneAccount(dto.toAccountId);
+
+    // Check sufficient balance
+    if (Number(fromAccount.balance) < dto.amount) {
+      throw new BadRequestException(
+        `Insufficient balance in ${fromAccount.name}. Available: ${Number(fromAccount.balance)} Rials`
+      );
+    }
+
+    // Create transfer using Prisma transaction
+    return this.prisma.$transaction(async (tx) => {
+      // Create the transfer transaction record
+      const transaction = await tx.transaction.create({
+        data: {
+          type: 'TRANSFER',
+          amount: BigInt(dto.amount),
+          currency: 'IRR',
+          description: dto.description || `انتقال از ${fromAccount.name} به ${toAccount.name}`,
+          accountId: dto.fromAccountId, // Source account
+          destinationAccountId: dto.toAccountId, // Destination account
+          sourceType: 'TRANSFER',
+          occurredAt: dto.occurredAt ? new Date(dto.occurredAt) : new Date(),
+          createdBy: userId,
+          meta: {
+            transferType: 'inter_account',
+            fromAccount: fromAccount.name,
+            toAccount: toAccount.name
+          }
+        },
+        include: {
+          account: true,
+          destinationAccount: true,
+          createdByUser: {
+            select: { id: true, name: true, phone: true }
+          }
+        }
+      });
+
+      // Update source account (decrease balance)
+      await tx.bankAccount.update({
+        where: { id: dto.fromAccountId },
+        data: {
+          balance: {
+            decrement: BigInt(dto.amount)
+          }
+        }
+      });
+
+      // Update destination account (increase balance)
+      await tx.bankAccount.update({
+        where: { id: dto.toAccountId },
+        data: {
+          balance: {
+            increment: BigInt(dto.amount)
+          }
+        }
+      });
+
+      console.log(`✅ Transfer: ${dto.amount} Rials from account ${dto.fromAccountId} to ${dto.toAccountId}`);
+
+      // Convert BigInt to Number for JSON serialization
+      return {
+        ...transaction,
+        amount: Number(transaction.amount),
+        account: transaction.account ? {
+          ...transaction.account,
+          balance: Number(transaction.account.balance)
+        } : null,
+        destinationAccount: transaction.destinationAccount ? {
+          ...transaction.destinationAccount,
+          balance: Number(transaction.destinationAccount.balance)
+        } : null
+      };
+    });
+  }
+
+  // ==================== CATEGORIES ====================
+
+  async createCategory(dto: CreateCategoryDto) {
+    // Validate parent exists
+    if (dto.parentId) {
+      const parent = await this.prisma.transactionCategory.findFirst({
+        where: { id: dto.parentId, deletedAt: null }
+      });
+      if (!parent) {
+        throw new NotFoundException('Parent category not found');
+      }
+    }
+
+    return this.prisma.transactionCategory.create({
+      data: dto,
+      include: {
+        parent: true,
+        children: true
+      }
+    });
+  }
+
+  async findAllCategories(type?: TransactionType) {
+    const where: any = { deletedAt: null };
+    if (type) where.type = type;
+
+    return this.prisma.transactionCategory.findMany({
+      where,
+      include: {
+        parent: true,
+        children: true,
+        _count: {
+          select: { transactions: true }
+        }
+      },
+      orderBy: { name: 'asc' }
+    });
+  }
+
+  async findOneCategory(id: number) {
+    const category = await this.prisma.transactionCategory.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        parent: true,
+        children: true,
+        _count: { select: { transactions: true } }
+      }
+    });
+
+    if (!category) {
+      throw new NotFoundException('Category not found');
+    }
+
+    return category;
+  }
+
+  async updateCategory(id: number, dto: UpdateCategoryDto) {
+    await this.findOneCategory(id);
+
+    return this.prisma.transactionCategory.update({
+      where: { id },
+      data: dto,
+      include: {
+        parent: true,
+        children: true
+      }
+    });
+  }
+
+  async removeCategory(id: number) {
+    const category = await this.findOneCategory(id);
+
+    // Check if has transactions
+    const transactionCount = await this.prisma.transaction.count({
+      where: { categoryId: id, deletedAt: null }
+    });
+
+    if (transactionCount > 0) {
+      throw new BadRequestException(`Cannot delete category with ${transactionCount} transactions. Set inactive instead.`);
+    }
+
+    return this.prisma.transactionCategory.update({
+      where: { id },
+      data: { deletedAt: new Date() }
+    });
+  }
+
+  // ==================== BANK ACCOUNTS ====================
+
+  async createAccount(dto: CreateAccountDto) {
+    // If setting as default, unset other defaults
+    if (dto.isDefault) {
+      await this.prisma.bankAccount.updateMany({
+        where: { isDefault: true, deletedAt: null },
+        data: { isDefault: false }
+      });
+    }
+
+    const created = await this.prisma.bankAccount.create({
+      data: dto
+    });
+
+    // Convert BigInt to Number for JSON serialization
+    return {
+      ...created,
+      balance: Number(created.balance)
+    };
+  }
+
+  async findAllAccounts(activeOnly = false) {
+    const where: any = { deletedAt: null };
+    if (activeOnly) where.isActive = true;
+
+    const accounts = await this.prisma.bankAccount.findMany({
+      where,
+      include: {
+        _count: {
+          select: { transactions: true }
+        }
+      },
+      orderBy: [
+        { isDefault: 'desc' },
+        { name: 'asc' }
+      ]
+    });
+
+    // Convert BigInt to Number for JSON serialization
+    return accounts.map(acc => ({
+      ...acc,
+      balance: Number(acc.balance)
+    }));
+  }
+
+  async findOneAccount(id: number) {
+    const account = await this.prisma.bankAccount.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        _count: { select: { transactions: true } }
+      }
+    });
+
+    if (!account) {
+      throw new NotFoundException('Bank account not found');
+    }
+
+    // Convert BigInt to Number for JSON serialization
+    return {
+      ...account,
+      balance: Number(account.balance)
+    };
+  }
+
+  async updateAccount(id: number, dto: UpdateAccountDto) {
+    await this.findOneAccount(id);
+
+    // If setting as default, unset others
+    if (dto.isDefault) {
+      await this.prisma.bankAccount.updateMany({
+        where: { isDefault: true, deletedAt: null, NOT: { id } },
+        data: { isDefault: false }
+      });
+    }
+
+    const updated = await this.prisma.bankAccount.update({
+      where: { id },
+      data: dto
+    });
+
+    // Convert BigInt to Number for JSON serialization
+    return {
+      ...updated,
+      balance: Number(updated.balance)
+    };
+  }
+
+  async setDefaultAccount(id: number) {
+    await this.findOneAccount(id);
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Unset all defaults
+      await tx.bankAccount.updateMany({
+        where: { isDefault: true, deletedAt: null },
+        data: { isDefault: false }
+      });
+
+      // Set new default
+      return tx.bankAccount.update({
+        where: { id },
+        data: { isDefault: true, isActive: true }
+      });
+    });
+
+    // Convert BigInt to Number for JSON serialization
+    return {
+      ...result,
+      balance: Number(result.balance)
+    };
+  }
+
+  async removeAccount(id: number) {
+    const account = await this.findOneAccount(id);
+
+    if (account.isDefault) {
+      throw new BadRequestException('Cannot delete default account. Set another account as default first.');
+    }
+
+    // Check if has transactions
+    const transactionCount = await this.prisma.transaction.count({
+      where: { accountId: id, deletedAt: null }
+    });
+
+    if (transactionCount > 0) {
+      throw new BadRequestException(`Cannot delete account with ${transactionCount} transactions. Set inactive instead.`);
+    }
+
+    return this.prisma.bankAccount.update({
+      where: { id },
+      data: { deletedAt: new Date() }
+    });
+  }
+
+  /**
+   * Recalculate account balance from all transactions
+   */
+  async recalculateAccountBalance(accountId: number) {
+    const account = await this.findOneAccount(accountId);
+
+    const aggregations = await this.prisma.transaction.groupBy({
+      by: ['type'],
+      where: {
+        accountId,
+        deletedAt: null
+      },
+      _sum: {
+        amount: true
+      }
+    });
+
+    let balance = BigInt(0);
+    for (const agg of aggregations) {
+      const sum = agg._sum.amount || BigInt(0);
+      if (agg.type === 'INCOME') {
+        balance += BigInt(sum);
+      } else if (agg.type === 'EXPENSE') {
+        balance -= BigInt(sum);
+      }
+    }
+
+    const updated = await this.prisma.bankAccount.update({
+      where: { id: accountId },
+      data: { balance }
+    });
+
+    // Convert BigInt to Number for JSON serialization
+    return {
+      ...updated,
+      balance: Number(updated.balance)
+    };
+  }
+
+  // ==================== REPORTS & AGGREGATIONS ====================
+
+  /**
+   * Get financial summary for a period
+   */
+  async getSummary(from?: string, to?: string) {
+    const where: any = { deletedAt: null };
+    
+    if (from || to) {
+      where.occurredAt = {};
+      if (from) where.occurredAt.gte = new Date(from);
+      if (to) where.occurredAt.lte = new Date(to);
+    }
+
+    const [income, expense] = await Promise.all([
+      this.prisma.transaction.aggregate({
+        where: { ...where, type: 'INCOME' },
+        _sum: { amount: true },
+        _count: true
+      }),
+      this.prisma.transaction.aggregate({
+        where: { ...where, type: 'EXPENSE' },
+        _sum: { amount: true },
+        _count: true
+      })
+    ]);
+
+    const totalIncome = Number(income._sum.amount || 0);
+    const totalExpense = Number(expense._sum.amount || 0);
+
+    return {
+      totalIncome,
+      totalExpense,
+      netProfit: totalIncome - totalExpense,
+      incomeCount: income._count,
+      expenseCount: expense._count,
+      period: { from, to }
+    };
+  }
+
+  /**
+   * Get summary by category
+   */
+  async getSummaryByCategory(type?: TransactionType, from?: string, to?: string) {
+    const where: any = { deletedAt: null, categoryId: { not: null } };
+    if (type) where.type = type;
+    
+    if (from || to) {
+      where.occurredAt = {};
+      if (from) where.occurredAt.gte = new Date(from);
+      if (to) where.occurredAt.lte = new Date(to);
+    }
+
+    const groups = await this.prisma.transaction.groupBy({
+      by: ['categoryId'],
+      where,
+      _sum: { amount: true },
+      _count: true
+    });
+
+    // Get category details
+    const categoryIds = groups.map(g => g.categoryId).filter(id => id !== null);
+    const categories = await this.prisma.transactionCategory.findMany({
+      where: { id: { in: categoryIds } }
+    });
+
+    const categoryMap = new Map(categories.map(c => [c.id, c]));
+
+    return groups.map(group => ({
+      categoryId: group.categoryId,
+      categoryName: categoryMap.get(group.categoryId)?.name || 'Unknown',
+      total: Number(group._sum.amount || 0),
+      count: group._count
+    }));
+  }
+
+  /**
+   * Get daily report
+   */
+  async getDailyReport(date: string) {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    return this.getSummary(startOfDay.toISOString(), endOfDay.toISOString());
+  }
+
+  /**
+   * Get balance by account
+   */
+  async getBalanceByAccount() {
+    const accounts = await this.prisma.bankAccount.findMany({
+      where: { deletedAt: null, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        balance: true,
+        currency: true
+      },
+      orderBy: { isDefault: 'desc' }
+    });
+
+    return accounts.map(acc => ({
+      ...acc,
+      balance: Number(acc.balance)
+    }));
+  }
+}

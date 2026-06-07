@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔧 تشخیص مشکل Notification - Doocard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 30px;
+      backdrop-filter: blur(10px);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #ffd93d;
+    }
+    .section {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .section h2 {
+      color: #ffd93d;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+    .diagnostic-item {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 15px;
+      margin-bottom: 10px;
+      border-radius: 8px;
+      border-right: 4px solid #666;
+    }
+    .diagnostic-item.pass {
+      border-right-color: #51cf66;
+    }
+    .diagnostic-item.fail {
+      border-right-color: #ff6b6b;
+    }
+    .diagnostic-item.warn {
+      border-right-color: #ffd93d;
+    }
+    .result {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .status {
+      font-weight: bold;
+      padding: 5px 15px;
+      border-radius: 5px;
+    }
+    .status.pass {
+      background: #51cf66;
+      color: #000;
+    }
+    .status.fail {
+      background: #ff6b6b;
+      color: #fff;
+    }
+    .status.warn {
+      background: #ffd93d;
+      color: #000;
+    }
+    button {
+      width: 100%;
+      padding: 15px;
+      margin-bottom: 10px;
+      border: none;
+      border-radius: 10px;
+      background: #ffd93d;
+      color: #000;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(255, 217, 61, 0.4);
+    }
+    .solution {
+      background: rgba(255, 107, 107, 0.2);
+      border: 2px solid #ff6b6b;
+      border-radius: 10px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+    .solution h3 {
+      color: #ff6b6b;
+      margin-bottom: 10px;
+    }
+    .step {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+      border-right: 3px solid #ffd93d;
+    }
+    code {
+      background: rgba(0, 0, 0, 0.5);
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      color: #ffd93d;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 تشخیص مشکل Notification</h1>
+    
+    <div class="section">
+      <h2>📊 نتایج تشخیص:</h2>
+      <div id="diagnostics"></div>
+    </div>
+
+    <button onclick="runDiagnostics()">🔄 اجرای تشخیص مجدد</button>
+    <button onclick="testNotification()">🧪 تست Notification</button>
+    <button onclick="openWindowsSettings()">⚙️ باز کردن تنظیمات Windows</button>
+    <button onclick="openChromeSettings()">🌐 باز کردن تنظیمات Chrome</button>
+
+    <div id="solutions"></div>
+  </div>
+
+  <script>
+    const diagnosticResults = [];
+
+    function addDiagnostic(name, status, message, details = '') {
+      diagnosticResults.push({ name, status, message, details });
+    }
+
+    async function runDiagnostics() {
+      diagnosticResults.length = 0;
+      
+      console.log('🔍 Starting diagnostics...');
+
+      // 1. Notification API
+      if ('Notification' in window) {
+        addDiagnostic('Notification API', 'pass', 'پشتیبانی می‌شود');
+      } else {
+        addDiagnostic('Notification API', 'fail', 'پشتیبانی نمی‌شود', 'مرورگر شما قدیمی است');
+      }
+
+      // 2. Permission
+      const permission = Notification.permission;
+      if (permission === 'granted') {
+        addDiagnostic('Permission', 'pass', 'دسترسی داده شده');
+      } else if (permission === 'denied') {
+        addDiagnostic('Permission', 'fail', 'دسترسی رد شده', 'باید از تنظیمات Chrome فعال شود');
+      } else {
+        addDiagnostic('Permission', 'warn', 'هنوز درخواست نشده');
+      }
+
+      // 3. Service Worker
+      if ('serviceWorker' in navigator) {
+        try {
+          const reg = await navigator.serviceWorker.getRegistration();
+          if (reg) {
+            addDiagnostic('Service Worker', 'pass', 'ثبت شده', `Scope: ${reg.scope}`);
+          } else {
+            addDiagnostic('Service Worker', 'warn', 'ثبت نشده');
+          }
+        } catch(e) {
+          addDiagnostic('Service Worker', 'fail', 'خطا', e.message);
+        }
+      } else {
+        addDiagnostic('Service Worker', 'fail', 'پشتیبانی نمی‌شود');
+      }
+
+      // 4. Browser Detection
+      const ua = navigator.userAgent;
+      const browser = ua.includes('Chrome') ? 'Chrome' :
+                     ua.includes('Firefox') ? 'Firefox' :
+                     ua.includes('Safari') ? 'Safari' : 'Unknown';
+      addDiagnostic('Browser', 'pass', browser, ua);
+
+      // 5. HTTPS Check
+      if (location.protocol === 'https:') {
+        addDiagnostic('Protocol', 'pass', 'HTTPS فعال است');
+      } else {
+        addDiagnostic('Protocol', 'warn', 'HTTP است (برای push باید HTTPS باشد)');
+      }
+
+      // 6. Window Focus
+      const focused = document.hasFocus();
+      addDiagnostic('Window Focus', focused ? 'warn' : 'pass', 
+        focused ? 'صفحه در حالت Focus است' : 'صفحه در Background است',
+        'برای تست بهتر، tab را minimize کنید');
+
+      // 7. Notification Constructor Test
+      try {
+        const testNotif = new Notification('تست', {
+          body: 'این یک تست است',
+          tag: 'diagnostic-test-' + Date.now(),
+          requireInteraction: false,
+          silent: true
+        });
+        testNotif.close();
+        addDiagnostic('Notification Constructor', 'pass', 'کار می‌کند');
+      } catch(e) {
+        addDiagnostic('Notification Constructor', 'fail', 'خطا', e.message);
+      }
+
+      // 8. Check if notifications are actually showing
+      const testStatus = await testActualNotification();
+      addDiagnostic('Notification Display', testStatus.status, testStatus.message, testStatus.details);
+
+      renderDiagnostics();
+      renderSolutions();
+    }
+
+    async function testActualNotification() {
+      return new Promise((resolve) => {
+        if (Notification.permission !== 'granted') {
+          resolve({ status: 'fail', message: 'Permission داده نشده', details: 'ابتدا Allow کنید' });
+          return;
+        }
+
+        let shown = false;
+        const notification = new Notification('🔔 تست نمایش', {
+          body: 'اگر این را می‌بینید، notifications کار می‌کنند!',
+          icon: '/logo/logo-192.png',
+          tag: 'display-test-' + Date.now(),
+          requireInteraction: true,
+          vibrate: [200, 100, 200]
+        });
+
+        notification.onshow = () => {
+          shown = true;
+          console.log('✅ Notification shown!');
+        };
+
+        notification.onerror = (e) => {
+          console.error('❌ Notification error:', e);
+          resolve({ status: 'fail', message: 'خطا در نمایش', details: e.toString() });
+        };
+
+        notification.onclick = () => {
+          notification.close();
+        };
+
+        // Wait 2 seconds to see if it shows
+        setTimeout(() => {
+          notification.close();
+          if (shown) {
+            resolve({ status: 'pass', message: 'Notification نمایش داده شد!' });
+          } else {
+            resolve({ 
+              status: 'fail', 
+              message: 'Notification نمایش داده نشد',
+              details: 'احتمالاً Windows Notifications غیرفعال است'
+            });
+          }
+        }, 2000);
+      });
+    }
+
+    function renderDiagnostics() {
+      const container = document.getElementById('diagnostics');
+      container.innerHTML = diagnosticResults.map(item => `
+        <div class="diagnostic-item ${item.status}">
+          <div class="result">
+            <div>
+              <strong>${item.name}:</strong> ${item.message}
+              ${item.details ? `<br><small style="opacity: 0.8">${item.details}</small>` : ''}
+            </div>
+            <span class="status ${item.status}">${item.status === 'pass' ? '✓' : item.status === 'fail' ? '✗' : '⚠'}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderSolutions() {
+      const failures = diagnosticResults.filter(d => d.status === 'fail' || d.status === 'warn');
+      const container = document.getElementById('solutions');
+      
+      if (failures.length === 0) {
+        container.innerHTML = `
+          <div class="solution" style="border-color: #51cf66; background: rgba(81, 207, 102, 0.2);">
+            <h3 style="color: #51cf66;">✅ همه چیز درست است!</h3>
+            <p>اگر هنوز notification نمی‌بینید، Windows Settings را چک کنید.</p>
+          </div>
+        `;
+        return;
+      }
+
+      let solutions = '<div class="solution"><h3>🔧 راه‌حل‌های پیشنهادی:</h3>';
+
+      // Check for Permission issues
+      if (failures.some(f => f.name === 'Permission')) {
+        solutions += `
+          <div class="step">
+            <strong>1️⃣ فعال کردن Permission در Chrome:</strong><br>
+            1. روی آیکون قفل در نوار آدرس کلیک کنید<br>
+            2. "Notifications" را پیدا کنید<br>
+            3. آن را "Allow" کنید<br>
+            4. صفحه را Refresh کنید
+          </div>
+        `;
+      }
+
+      // Check for Display issues
+      if (failures.some(f => f.name === 'Notification Display')) {
+        solutions += `
+          <div class="step">
+            <strong>2️⃣ فعال کردن Windows Notifications:</strong><br>
+            1. Windows Key + I (Settings)<br>
+            2. System → Notifications<br>
+            3. "Notifications" را On کنید<br>
+            4. "Google Chrome" را پیدا کنید و On کنید<br>
+            5. "Focus assist" را Off کنید (خیلی مهم!)
+          </div>
+          <div class="step">
+            <strong>3️⃣ چک کردن Chrome Notifications:</strong><br>
+            1. <code>chrome://settings/content/notifications</code><br>
+            2. "Sites can ask to send notifications" را On کنید<br>
+            3. در لیست Allowed، <code>www.doocardbarbershop.com</code> باشد
+          </div>
+        `;
+      }
+
+      solutions += `
+        <div class="step">
+          <strong>🎯 تست سریع:</strong><br>
+          بعد از تغییر تنظیمات، روی دکمه "🧪 تست Notification" کلیک کنید.<br>
+          اگر هنوز نمی‌بینید، کامپیوتر را Restart کنید.
+        </div>
+      `;
+
+      solutions += '</div>';
+      container.innerHTML = solutions;
+    }
+
+    function testNotification() {
+      if (Notification.permission !== 'granted') {
+        alert('ابتدا باید Permission بدهید!');
+        Notification.requestPermission().then(p => {
+          if (p === 'granted') {
+            testNotification();
+          }
+        });
+        return;
+      }
+
+      const notif = new Notification('🎉 تست موفق!', {
+        body: 'اگر این را می‌بینید، notifications کار می‌کنند!\n\nحالا می‌توانید از Push Notifications استفاده کنید.',
+        icon: '/logo/logo-192.png',
+        badge: '/logo/logo-192.png',
+        tag: 'success-test-' + Date.now(),
+        requireInteraction: true,
+        vibrate: [200, 100, 200, 100, 200],
+        dir: 'rtl',
+        lang: 'fa'
+      });
+
+      notif.onclick = () => {
+        alert('✅ عالی! Notification کلیک شد!\n\nحالا می‌توانید از Push Notifications استفاده کنید.');
+        notif.close();
+      };
+
+      console.log('🧪 Test notification created');
+    }
+
+    function openWindowsSettings() {
+      alert('⚙️ دستورات:\n\n1. Windows Key + I\n2. System → Notifications\n3. Notifications را On کنید\n4. Chrome را پیدا کنید و On کنید\n5. Focus assist را Off کنید');
+    }
+
+    function openChromeSettings() {
+      window.open('chrome://settings/content/notifications', '_blank');
+    }
+
+    // Auto-run on load
+    window.addEventListener('load', () => {
+      console.log('🚀 Diagnostic tool loaded');
+      runDiagnostics();
+    });
+  </script>
+</body>
+</html>
+

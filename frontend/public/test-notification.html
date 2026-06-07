@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تست نوتیفیکیشن - Doocard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    body {
+      background: linear-gradient(135deg, #1C2529 0%, #2a3f47 100%);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 600px;
+      width: 100%;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    h1 {
+      color: #A1D1B1;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .status {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 5px;
+    }
+    .status-value {
+      font-weight: bold;
+      color: #A1D1B1;
+    }
+    .status-value.error {
+      color: #ff6b6b;
+    }
+    .status-value.success {
+      color: #51cf66;
+    }
+    button {
+      width: 100%;
+      padding: 15px;
+      margin-bottom: 10px;
+      border: none;
+      border-radius: 10px;
+      background: #A1D1B1;
+      color: #1C2529;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    button:hover {
+      background: #8bc19d;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(161, 209, 177, 0.4);
+    }
+    button:disabled {
+      background: #555;
+      cursor: not-allowed;
+      transform: none;
+    }
+    #log {
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 10px;
+      padding: 20px;
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+    .log-entry {
+      margin-bottom: 5px;
+      padding: 5px;
+      border-right: 3px solid #A1D1B1;
+    }
+    .log-error {
+      border-right-color: #ff6b6b;
+      color: #ff6b6b;
+    }
+    .log-success {
+      border-right-color: #51cf66;
+      color: #51cf66;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔔 تست نوتیفیکیشن Doocard</h1>
+    
+    <div class="status">
+      <h3 style="margin-bottom: 15px;">وضعیت سیستم:</h3>
+      <div class="status-item">
+        <span>مرورگر:</span>
+        <span class="status-value" id="browser">--</span>
+      </div>
+      <div class="status-item">
+        <span>Notification API:</span>
+        <span class="status-value" id="notif-api">--</span>
+      </div>
+      <div class="status-item">
+        <span>Permission:</span>
+        <span class="status-value" id="permission">--</span>
+      </div>
+      <div class="status-item">
+        <span>Service Worker:</span>
+        <span class="status-value" id="sw-status">--</span>
+      </div>
+      <div class="status-item">
+        <span>Push Manager:</span>
+        <span class="status-value" id="push-status">--</span>
+      </div>
+    </div>
+
+    <button onclick="checkStatus()">🔄 بررسی وضعیت</button>
+    <button onclick="requestPermission()" id="btn-permission">📢 درخواست مجوز</button>
+    <button onclick="showTestNotification()" id="btn-test">🧪 ارسال نوتیفیکیشن تستی</button>
+    <button onclick="showAdvancedNotification()">⚡ نوتیفیکیشن پیشرفته</button>
+    <button onclick="registerServiceWorker()">🔧 ثبت Service Worker</button>
+    <button onclick="clearLogs()">🗑️ پاک کردن لاگ‌ها</button>
+
+    <div id="log"></div>
+  </div>
+
+  <script>
+    function log(message, type = 'info') {
+      const logDiv = document.getElementById('log');
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString('fa-IR')}] ${message}`;
+      logDiv.insertBefore(entry, logDiv.firstChild);
+    }
+
+    function updateStatus(id, value, isGood = true) {
+      const el = document.getElementById(id);
+      el.textContent = value;
+      el.className = 'status-value ' + (isGood ? 'success' : 'error');
+    }
+
+    async function checkStatus() {
+      log('🔍 در حال بررسی وضعیت سیستم...');
+      
+      // Browser
+      const browserName = navigator.userAgent.includes('Chrome') ? 'Chrome' :
+                         navigator.userAgent.includes('Firefox') ? 'Firefox' :
+                         navigator.userAgent.includes('Safari') ? 'Safari' : 'Unknown';
+      updateStatus('browser', browserName);
+      log(`مرورگر شناسایی شد: ${browserName}`);
+
+      // Notification API
+      if ('Notification' in window) {
+        updateStatus('notif-api', 'پشتیبانی می‌شود ✓', true);
+        log('✅ Notification API پشتیبانی می‌شود');
+      } else {
+        updateStatus('notif-api', 'پشتیبانی نمی‌شود ✗', false);
+        log('❌ Notification API پشتیبانی نمی‌شود', 'error');
+        return;
+      }
+
+      // Permission
+      const permission = Notification.permission;
+      updateStatus('permission', permission, permission === 'granted');
+      log(`Permission: ${permission}`);
+
+      // Service Worker
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.getRegistration();
+          if (registration) {
+            updateStatus('sw-status', 'ثبت شده ✓', true);
+            log('✅ Service Worker ثبت شده است');
+          } else {
+            updateStatus('sw-status', 'ثبت نشده', false);
+            log('⚠️ Service Worker ثبت نشده است');
+          }
+        } catch(e) {
+          updateStatus('sw-status', 'خطا', false);
+          log('❌ خطا در بررسی Service Worker: ' + e.message, 'error');
+        }
+      } else {
+        updateStatus('sw-status', 'پشتیبانی نمی‌شود', false);
+        log('❌ Service Worker پشتیبانی نمی‌شود', 'error');
+      }
+
+      // Push Manager
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        updateStatus('push-status', 'پشتیبانی می‌شود ✓', true);
+        log('✅ Push Manager پشتیبانی می‌شود');
+      } else {
+        updateStatus('push-status', 'پشتیبانی نمی‌شود', false);
+        log('❌ Push Manager پشتیبانی نمی‌شود', 'error');
+      }
+    }
+
+    async function requestPermission() {
+      log('📢 درخواست مجوز نوتیفیکیشن...');
+      
+      if (!('Notification' in window)) {
+        log('❌ مرورگر شما از نوتیفیکیشن پشتیبانی نمی‌کند', 'error');
+        return;
+      }
+
+      try {
+        const permission = await Notification.requestPermission();
+        log(`Permission result: ${permission}`, permission === 'granted' ? 'success' : 'error');
+        updateStatus('permission', permission, permission === 'granted');
+        
+        if (permission === 'granted') {
+          log('✅ مجوز با موفقیت دریافت شد!', 'success');
+        } else if (permission === 'denied') {
+          log('❌ مجوز رد شد. لطفاً در تنظیمات مرورگر آن را فعال کنید.', 'error');
+        }
+      } catch(e) {
+        log('❌ خطا در درخواست مجوز: ' + e.message, 'error');
+      }
+    }
+
+    function showTestNotification() {
+      log('🧪 ارسال نوتیفیکیشن تستی...');
+      
+      if (Notification.permission !== 'granted') {
+        log('❌ ابتدا باید مجوز نوتیفیکیشن را دریافت کنید', 'error');
+        return;
+      }
+
+      try {
+        const notification = new Notification('تست Doocard', {
+          body: 'این یک نوتیفیکیشن تستی است',
+          icon: '/logo/logo-192.png',
+          badge: '/logo/logo-192.png',
+          tag: 'test-' + Date.now(),
+          requireInteraction: true,
+          vibrate: [200, 100, 200],
+          timestamp: Date.now(),
+          dir: 'rtl',
+          lang: 'fa'
+        });
+
+        notification.onclick = function() {
+          log('✅ نوتیفیکیشن کلیک شد!', 'success');
+          window.focus();
+          notification.close();
+        };
+
+        log('✅ نوتیفیکیشن با موفقیت ارسال شد!', 'success');
+      } catch(e) {
+        log('❌ خطا در ارسال نوتیفیکیشن: ' + e.message, 'error');
+      }
+    }
+
+    function showAdvancedNotification() {
+      log('⚡ ارسال نوتیفیکیشن پیشرفته با requireInteraction...');
+      
+      if (Notification.permission !== 'granted') {
+        log('❌ ابتدا باید مجوز نوتیفیکیشن را دریافت کنید', 'error');
+        return;
+      }
+
+      try {
+        const notification = new Notification('🔔 نوبت جدید - Doocard', {
+          body: 'مشتری: علی احمدی\nخدمات: اصلاح مو\nزمان: ۱۴:۳۰',
+          icon: '/logo/logo-192.png',
+          badge: '/logo/logo-192.png',
+          tag: 'appointment-' + Date.now(),
+          requireInteraction: true, // ⚡ CRITICAL
+          renotify: true,
+          vibrate: [200, 100, 200, 100, 200],
+          timestamp: Date.now(),
+          dir: 'rtl',
+          lang: 'fa',
+          data: { url: '/dashboard/appointments' }
+        });
+
+        notification.onclick = function() {
+          log('✅ نوتیفیکیشن کلیک شد - باز کردن داشبورد', 'success');
+          window.open('/dashboard/appointments', '_blank');
+          notification.close();
+        };
+
+        log('✅ نوتیفیکیشن پیشرفته با requireInteraction ارسال شد!', 'success');
+        log('⚠️ این notification باید تا زمان کلیک باقی بماند', 'info');
+      } catch(e) {
+        log('❌ خطا: ' + e.message, 'error');
+      }
+    }
+
+    async function registerServiceWorker() {
+      log('🔧 در حال ثبت Service Worker...');
+      
+      if (!('serviceWorker' in navigator)) {
+        log('❌ Service Worker پشتیبانی نمی‌شود', 'error');
+        return;
+      }
+
+      try {
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        log('✅ Service Worker با موفقیت ثبت شد!', 'success');
+        log(`Scope: ${registration.scope}`, 'success');
+        updateStatus('sw-status', 'ثبت شده ✓', true);
+      } catch(e) {
+        log('❌ خطا در ثبت Service Worker: ' + e.message, 'error');
+      }
+    }
+
+    function clearLogs() {
+      document.getElementById('log').innerHTML = '';
+      log('🗑️ لاگ‌ها پاک شدند');
+    }
+
+    // Auto-check status on load
+    window.addEventListener('load', () => {
+      log('🚀 صفحه تست نوتیفیکیشن بارگذاری شد');
+      checkStatus();
+    });
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,18 @@
+{
+  "name": "backup-restore-test",
+  "version": "1.0.0",
+  "description": "Test script for backup and restore functionality",
+  "main": "test-backup-restore.js",
+  "scripts": {
+    "test": "node test-backup-restore.js",
+    "install-deps": "npm install"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "form-data": "^4.0.0"
+  },
+  "devDependencies": {},
+  "keywords": ["backup", "restore", "test", "barbershop"],
+  "author": "Barbershop Management System",
+  "license": "MIT"
+}

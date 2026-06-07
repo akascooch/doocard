@@ -1,0 +1,33 @@
+/* ========================================== */
+/* HOMEPAGE SPECIFIC BACKGROUND FIX */
+/* ========================================== */
+/* This CSS is loaded ONLY on homepage (page.tsx) */
+
+/* Force background image to show on homepage */
+body {
+  background-image: url('/images/mainbackground.jpg') !important;
+  background-size: 100% auto !important;
+  background-position: top center !important;
+  background-repeat: repeat-y !important;
+  background-attachment: scroll !important;
+}
+
+/* Remove any background-color that might override the image */
+html,
+body,
+#__next,
+[data-app-wrapper="true"] {
+  background-color: transparent !important;
+}
+
+
+/* Mobile optimization */
+@media (max-width: 768px) {
+  body {
+    background-attachment: scroll !important;
+    background-size: 100% auto !important;
+    background-position: top center !important;
+    background-repeat: repeat-y !important;
+  }
+}
+

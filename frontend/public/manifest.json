@@ -1,0 +1,80 @@
+{
+  "name": "آرایشگاه مردانه دوکارد",
+  "short_name": "دوکارد",
+  "description": "آرایشگاه مردانه دوکارد - خدمات حرفه‌ای آرایشگری، اصلاح، رنگ مو و مراقبت از مو و پوست",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1C2529",
+  "theme_color": "#1C2529",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "fa",
+  "dir": "rtl",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/logo/applogo-2048.jpg",
+      "sizes": "2048x2048",
+      "type": "image/jpeg",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/logo/applogo-4096.jpg",
+      "sizes": "4096x4096",
+      "type": "image/jpeg",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/logo/applogo-512.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "maskable any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "ورود سریع",
+      "short_name": "ورود",
+      "description": "ورود سریع به سیستم",
+      "url": "/login",
+      "icons": [
+        {
+          "src": "/logo/applogo-2048.jpg",
+          "sizes": "2048x2048"
+        }
+      ]
+    },
+    {
+      "name": "داشبورد",
+      "short_name": "داشبورد",
+      "description": "داشبورد اصلی سیستم",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "/logo/applogo-2048.jpg",
+          "sizes": "2048x2048"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/logo/applogo-4096.jpg",
+      "sizes": "4096x4096",
+      "type": "image/jpeg",
+      "form_factor": "narrow"
+    }
+  ],
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
+  "permissions": [
+    "notifications"
+  ],
+  "gcm_sender_id": "103953800507"
+}

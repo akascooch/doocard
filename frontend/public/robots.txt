@@ -1,0 +1,21 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://www.doocardbarbershop.com/sitemap.xml
+
+# Disallow admin and sensitive areas
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /admin/
+Disallow: /_next/
+Disallow: /offline/
+
+# Allow public pages
+Allow: /
+Allow: /login
+Allow: /register
+Allow: /book-appointment
+
+# Crawl delay
+Crawl-delay: 1

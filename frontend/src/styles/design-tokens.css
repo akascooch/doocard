@@ -1,0 +1,303 @@
+/**
+ * ============================================
+ * DOOCARD DESIGN SYSTEM - COMPREHENSIVE TOKENS
+ * Version: 2.0
+ * Date: 2025-10-28
+ * ============================================
+ */
+
+:root {
+  /* ========== BRAND COLORS (Primary Palette) ========== */
+  /* Orange - Primary Brand Color */
+  --brand-grey: #9CA3AF;
+  --brand-grey-rgb: 255, 136, 80;
+  --brand-grey-50: #fff5f0;
+  --brand-grey-100: #ffe5d9;
+  --brand-grey-200: #ffcbb3;
+  --brand-grey-300: #ffb18c;
+  --brand-grey-400: #ff9a6e;
+  --brand-grey-500: #9CA3AF; /* Primary */
+  --brand-grey-600: #6B7280;
+  --brand-grey-700: #4B5563;
+  --brand-grey-800: #cc3e00;
+  --brand-grey-900: #b33600;
+
+  /* Dark Green - Secondary Brand Color */
+  --brand-darkgreen: #6ea090;
+  --brand-darkgreen-rgb: 110, 160, 144;
+  --brand-darkgreen-50: #f0f7f5;
+  --brand-darkgreen-100: #d9ede7;
+  --brand-darkgreen-200: #b3dbd0;
+  --brand-darkgreen-300: #8eb8a8;
+  --brand-darkgreen-400: #7eac9c;
+  --brand-darkgreen-500: #6ea090; /* Primary */
+  --brand-darkgreen-600: #5a8a7a;
+  --brand-darkgreen-700: #4a7165;
+  --brand-darkgreen-800: #3a5950;
+  --brand-darkgreen-900: #2a403b;
+
+  /* Dark Background - Brand Dark */
+  --brand-dark: #232220;
+  --brand-dark-rgb: 35, 34, 32;
+  --brand-dark-lighter: #2a2928;
+  --brand-dark-darker: #1a1918;
+
+  /* Light Grey - Brand Light */
+  --brand-light: #e7e8e4;
+  --brand-light-rgb: 231, 232, 228;
+  --brand-light-darker: #d4d5d1;
+  --brand-light-lighter: #f5f5f3;
+
+  /* ========== SEMANTIC COLORS (Light Theme) ========== */
+  /* Background */
+  --bg-primary: #fafafa;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f5f5f5;
+  --bg-dark: var(--brand-dark);
+  --bg-muted: var(--brand-light);
+
+  /* Text */
+  --text-primary: #1a1918;
+  --text-secondary: #4a4948;
+  --text-tertiary: #6a6968;
+  --text-muted: #8a8988;
+  --text-inverse: #ffffff;
+  --text-on-brand: #ffffff;
+
+  /* Borders */
+  --border-primary: #e0e0e0;
+  --border-secondary: #d0d0d0;
+  --border-muted: #f0f0f0;
+  --border-focus: var(--brand-grey);
+
+  /* State Colors */
+  --success: #10b981;
+  --success-bg: #ecfdf5;
+  --success-border: #a7f3d0;
+  
+  --warning: #f59e0b;
+  --warning-bg: #fffbeb;
+  --warning-border: #fde68a;
+  
+  --error: #ef4444;
+  --error-bg: #fef2f2;
+  --error-border: #fecaca;
+  
+  --info: #3b82f6;
+  --info-bg: #eff6ff;
+  --info-border: #bfdbfe;
+
+  /* Interactive */
+  --interactive-primary: var(--brand-grey);
+  --interactive-primary-hover: var(--brand-grey-600);
+  --interactive-primary-active: var(--brand-grey-700);
+  
+  --interactive-secondary: var(--brand-darkgreen);
+  --interactive-secondary-hover: var(--brand-darkgreen-600);
+  --interactive-secondary-active: var(--brand-darkgreen-700);
+
+  /* ========== SHADOWS ========== */
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+
+  /* Brand Shadows (with color) */
+  --shadow-orange-sm: 0 1px 3px 0 rgba(255, 136, 80, 0.2);
+  --shadow-orange-md: 0 4px 6px -1px rgba(255, 136, 80, 0.2);
+  --shadow-orange-lg: 0 10px 15px -3px rgba(255, 136, 80, 0.3);
+  
+  --shadow-green-sm: 0 1px 3px 0 rgba(110, 160, 144, 0.2);
+  --shadow-green-md: 0 4px 6px -1px rgba(110, 160, 144, 0.2);
+  --shadow-green-lg: 0 10px 15px -3px rgba(110, 160, 144, 0.3);
+
+  /* ========== BORDER RADIUS ========== */
+  --radius-xs: 0.25rem;   /* 4px */
+  --radius-sm: 0.5rem;    /* 8px */
+  --radius-md: 0.75rem;   /* 12px - Default */
+  --radius-lg: 1rem;      /* 16px */
+  --radius-xl: 1.5rem;    /* 24px */
+  --radius-2xl: 2rem;     /* 32px */
+  --radius-full: 9999px;  /* Fully rounded */
+
+  /* ========== SPACING SCALE ========== */
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;   /* 4px */
+  --spacing-2: 0.5rem;    /* 8px */
+  --spacing-3: 0.75rem;   /* 12px */
+  --spacing-4: 1rem;      /* 16px */
+  --spacing-5: 1.25rem;   /* 20px */
+  --spacing-6: 1.5rem;    /* 24px */
+  --spacing-8: 2rem;      /* 32px */
+  --spacing-10: 2.5rem;   /* 40px */
+  --spacing-12: 3rem;     /* 48px */
+  --spacing-16: 4rem;     /* 64px */
+  --spacing-20: 5rem;     /* 80px */
+  --spacing-24: 6rem;     /* 96px */
+
+  /* ========== MOTION & ANIMATION ========== */
+  /* Durations */
+  --duration-instant: 0ms;
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 350ms;
+  --duration-slower: 500ms;
+
+  /* Easings */
+  --ease-linear: linear;
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-smooth: cubic-bezier(0.16, 0.84, 0.24, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* ========== TYPOGRAPHY ========== */
+  /* Font Families */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+  --font-mono: 'Fira Code', 'Consolas', 'Monaco', monospace;
+
+  /* Font Sizes */
+  --text-xs: 0.75rem;     /* 12px */
+  --text-sm: 0.875rem;    /* 14px */
+  --text-base: 1rem;      /* 16px */
+  --text-lg: 1.125rem;    /* 18px */
+  --text-xl: 1.25rem;     /* 20px */
+  --text-2xl: 1.5rem;     /* 24px */
+  --text-3xl: 1.875rem;   /* 30px */
+  --text-4xl: 2.25rem;    /* 36px */
+  --text-5xl: 3rem;       /* 48px */
+  --text-6xl: 3.75rem;    /* 60px */
+
+  /* Font Weights */
+  --weight-light: 300;
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-extrabold: 800;
+
+  /* Line Heights */
+  --leading-none: 1;
+  --leading-tight: 1.25;
+  --leading-snug: 1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+  --leading-loose: 2;
+
+  /* ========== Z-INDEX SCALE ========== */
+  --z-base: 0;
+  --z-dropdown: 1000;
+  --z-sticky: 1100;
+  --z-fixed: 1200;
+  --z-modal-backdrop: 1300;
+  --z-modal: 1400;
+  --z-popover: 1500;
+  --z-tooltip: 1600;
+  --z-notification: 1700;
+  --z-max: 9999;
+}
+
+/* ========== DARK THEME OVERRIDES ========== */
+[data-theme="dark"],
+.dark {
+  /* Background */
+  --bg-primary: var(--brand-dark);
+  --bg-secondary: var(--brand-dark-lighter);
+  --bg-tertiary: #2f3331;
+  --bg-muted: #3a3a38;
+
+  /* Text */
+  --text-primary: #fafafa;
+  --text-secondary: #e0e0e0;
+  --text-tertiary: #c0c0c0;
+  --text-muted: #a0a0a0;
+  --text-inverse: var(--brand-dark);
+
+  /* Borders */
+  --border-primary: #404040;
+  --border-secondary: #505050;
+  --border-muted: #303030;
+
+  /* Shadows (darker in dark mode) */
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px -1px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+}
+
+/* ========== BACKGROUND IMAGES ========== */
+[data-app-wrapper="true"] {
+  background-image: url('/images/mainbackground.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* Login page override */
+[data-page="login"] {
+  background-image: url('/images/loginbackground.jpg') !important;
+}
+
+/* Responsive background images */
+@media (max-width: 768px) {
+  [data-app-wrapper="true"] {
+    background-attachment: scroll;
+    background-size: cover;
+  }
+}
+
+/* ========== UTILITY CLASSES ========== */
+.bg-brand-grey { background-color: var(--brand-grey); }
+.bg-brand-darkgreen { background-color: var(--brand-darkgreen); }
+.bg-brand-dark { background-color: var(--brand-dark); }
+.bg-brand-light { background-color: var(--brand-light); }
+
+.text-brand-grey { color: var(--brand-grey); }
+.text-brand-darkgreen { color: var(--brand-darkgreen); }
+.text-brand-dark { color: var(--brand-dark); }
+.text-brand-light { color: var(--brand-light); }
+
+.border-brand-grey { border-color: var(--brand-grey); }
+.border-brand-darkgreen { border-color: var(--brand-darkgreen); }
+
+/* ========== ACCESSIBILITY ========== */
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --border-primary: #000000;
+    --text-primary: #000000;
+  }
+  
+  [data-theme="dark"],
+  .dark {
+    --border-primary: #ffffff;
+    --text-primary: #ffffff;
+  }
+}
+
+/* ========== PRINT STYLES ========== */
+@media print {
+  [data-app-wrapper="true"] {
+    background-image: none !important;
+    background-color: white !important;
+  }
+}
+

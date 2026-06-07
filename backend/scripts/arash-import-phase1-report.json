@@ -1,0 +1,100 @@
+{
+  "phase": "PHASE_1_PRE_IMPORT_VALIDATION",
+  "timestamp": "2026-02-23T15:21:44.321Z",
+  "database": "configured",
+  "employee": {
+    "found": true,
+    "phone": "09124081450",
+    "userId": 10,
+    "name": "آرش بهمن",
+    "role": "EMPLOYEE",
+    "employeeId": 8,
+    "isActive": true
+  },
+  "customer": {
+    "found": true,
+    "phone": "09370504588",
+    "userId": 18,
+    "name": "مشتری عمومی",
+    "customerId": 13
+  },
+  "services": {
+    "found": true,
+    "items": [
+      {
+        "name": "Pedicure",
+        "id": 1,
+        "found": true
+      },
+      {
+        "name": "Manicure",
+        "id": 4,
+        "found": true
+      }
+    ]
+  },
+  "excel": {
+    "fileExists": true,
+    "filePath": "C:\\Users\\a.hosseini\\Desktop\\apk\\backups\\arash-data.xlsx",
+    "sampleRowCount": 5,
+    "totalRows": 1379,
+    "dateFormat": "Jalali",
+    "invalidRows": 0,
+    "missingServices": [
+      "پدیکور",
+      "مانیکور"
+    ],
+    "duplicateRisk": "high",
+    "scheduledAtMustBeComputed": true,
+    "sheetNames": [
+      "Sheet1"
+    ],
+    "columns": [
+      "تاریخ",
+      "کارمند",
+      "قیمت (ریال)",
+      "نام"
+    ],
+    "rawSampleRows": [
+      {
+        "تاریخ": "1403/01/02",
+        "کارمند": "آرش",
+        "قیمت (ریال)": "10,000,000",
+        "نام": "پدیکور"
+      },
+      {
+        "تاریخ": "1403/01/03",
+        "کارمند": "آرش",
+        "قیمت (ریال)": "6,000,000",
+        "نام": "پدیکور"
+      },
+      {
+        "تاریخ": "1403/01/03",
+        "کارمند": "آرش",
+        "قیمت (ریال)": "5,000,000",
+        "نام": "پدیکور"
+      },
+      {
+        "تاریخ": "1403/01/03",
+        "کارمند": "آرش",
+        "قیمت (ریال)": "15,000,000",
+        "نام": "پدیکور"
+      },
+      {
+        "تاریخ": "1403/01/03",
+        "کارمند": "آرش",
+        "قیمت (ریال)": "12,000,000",
+        "نام": "پدیکور"
+      }
+    ],
+    "amountColumn": "قیمت (ریال)",
+    "dateRange": {
+      "min": "1403/01/02",
+      "max": "1404/11/30"
+    }
+  },
+  "summary": {
+    "readyForImport": true,
+    "blockReasons": []
+  }
+}

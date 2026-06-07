@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تست نوتیفیکیشن iOS - Doocard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            direction: rtl;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 30px;
+        }
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .log-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            direction: ltr;
+            text-align: left;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #667eea;
+            padding-left: 10px;
+        }
+        .log-success { border-color: #4caf50; color: #81c784; }
+        .log-error { border-color: #f44336; color: #e57373; }
+        .log-warning { border-color: #ff9800; color: #ffb74d; }
+        .log-info { border-color: #2196f3; color: #64b5f6; }
+        button {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102,126,234,0.3); }
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+        }
+        .btn-secondary:hover { background: #e0e0e0; }
+        .status {
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .status-success { background: #e8f5e9; color: #2e7d32; }
+        .status-error { background: #ffebee; color: #c62828; }
+        .status-warning { background: #fff3e0; color: #ef6c00; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔔 تست نوتیفیکیشن iOS</h1>
+        <div class="subtitle">Doocard Barbershop - iPhone/iPad Debug Tool</div>
+        
+        <div id="status"></div>
+        
+        <div style="background: #fff3cd; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; color: #856404; font-size: 14px;">
+            ⚠️ <strong>مهم:</strong> ابتدا باید در صفحه اصلی login کنید، سپس به این صفحه برگردید.
+            <br>
+            <a href="/login" style="color: #667eea; font-weight: bold; text-decoration: none;">← برو به صفحه Login</a>
+        </div>
+        
+        <button class="btn-primary" onclick="checkiOSSupport()">1. بررسی پشتیبانی iOS</button>
+        <button class="btn-primary" onclick="requestPermission()">2. درخواست مجوز</button>
+        <button class="btn-primary" onclick="subscribeToPush()">3. اشتراک Push</button>
+        <button class="btn-primary" onclick="sendTestNotification()">4. ارسال تست</button>
+        <button class="btn-secondary" onclick="clearLogs()">پاک کردن لاگ‌ها</button>
+        
+        <div class="log-container" id="logs"></div>
+    </div>
+
+    <script>
+        const API_URL = 'https://www.doocardbarbershop.com/api';
+        let subscription = null;
+
+        function log(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const time = new Date().toLocaleTimeString('fa-IR');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${time}] ${message}`;
+            logs.insertBefore(entry, logs.firstChild);
+            console.log(message);
+        }
+
+        function setStatus(message, type) {
+            const status = document.getElementById('status');
+            status.className = `status status-${type}`;
+            status.innerHTML = message;
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+            setStatus('', 'info');
+        }
+
+        async function checkiOSSupport() {
+            log('🔍 در حال بررسی وضعیت iOS...', 'info');
+            
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isStandalone = window.navigator.standalone;
+            const isPWA = window.matchMedia('(display-mode: standalone)').matches;
+            
+            log(`دستگاه: ${isIOS ? 'iOS' : 'سایر'}`, 'info');
+            log(`حالت Standalone: ${isStandalone}`, isStandalone ? 'success' : 'error');
+            log(`حالت PWA: ${isPWA}`, isPWA ? 'success' : 'error');
+            log(`Service Worker: ${'serviceWorker' in navigator ? 'پشتیبانی می‌شود' : 'پشتیبانی نمی‌شود'}`, 'serviceWorker' in navigator ? 'success' : 'error');
+            log(`Push Manager: ${'PushManager' in window ? 'پشتیبانی می‌شود' : 'پشتیبانی نمی‌شود'}`, 'PushManager' in window ? 'success' : 'error');
+            log(`Notification API: ${'Notification' in window ? 'پشتیبانی می‌شود' : 'پشتیبانی نمی‌شود'}`, 'Notification' in window ? 'success' : 'error');
+            log(`Permission: ${Notification.permission}`, Notification.permission === 'granted' ? 'success' : 'warning');
+
+            if (isIOS && !isStandalone && !isPWA) {
+                setStatus('⚠️ برای iOS باید برنامه را به Home Screen اضافه کنید (Add to Home Screen)', 'warning');
+                log('❌ برای استفاده از Push در iOS، باید PWA نصب شود', 'error');
+            } else if (isIOS && (isStandalone || isPWA)) {
+                setStatus('✅ PWA در حالت standalone اجرا می‌شود - آماده برای Push!', 'success');
+                log('✅ PWA به درستی نصب شده است', 'success');
+            } else {
+                setStatus('✅ سیستم آماده است', 'success');
+            }
+        }
+
+        async function requestPermission() {
+            log('📢 درخواست مجوز نوتیفیکیشن...', 'info');
+            
+            if (!('Notification' in window)) {
+                log('❌ Notification API پشتیبانی نمی‌شود', 'error');
+                setStatus('❌ Notification API پشتیبانی نمی‌شود', 'error');
+                return;
+            }
+
+            // Check if user is logged in
+            const token = localStorage.getItem('token');
+            if (!token) {
+                log('⚠️ ابتدا باید login کنید!', 'warning');
+                log('برای login: به صفحه اصلی بروید و login کنید، سپس به این صفحه برگردید', 'warning');
+                setStatus('⚠️ ابتدا باید login کنید! به صفحه اصلی بروید.', 'warning');
+                return;
+            }
+
+            const permission = await Notification.requestPermission();
+            log(`Permission result: ${permission}`, permission === 'granted' ? 'success' : 'error');
+            
+            if (permission === 'granted') {
+                setStatus('✅ مجوز با موفقیت دریافت شد!', 'success');
+                log('✅ مجوز با موفقیت دریافت شد!', 'success');
+            } else {
+                setStatus('❌ مجوز رد شد', 'error');
+                log('❌ مجوز رد شد', 'error');
+            }
+        }
+
+        async function subscribeToPush() {
+            log('🔔 شروع فرآیند اشتراک...', 'info');
+            
+            try {
+                // Check if logged in
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    log('❌ ابتدا باید login کنید!', 'error');
+                    log('برای login: به صفحه اصلی بروید → Login → سپس برگردید', 'warning');
+                    setStatus('❌ ابتدا login کنید!', 'error');
+                    return;
+                }
+                
+                // Check permission
+                if (Notification.permission !== 'granted') {
+                    log('❌ ابتدا مجوز را دریافت کنید (دکمه 2)', 'error');
+                    setStatus('❌ ابتدا مجوز را دریافت کنید', 'error');
+                    return;
+                }
+
+                // Register service worker
+                log('📝 ثبت Service Worker...', 'info');
+                const registration = await navigator.serviceWorker.register('/sw.js');
+                await navigator.serviceWorker.ready;
+                log('✅ Service Worker ثبت شد', 'success');
+
+                // Get VAPID key
+                log('🔑 دریافت VAPID key...', 'info');
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/push-notifications/public-key`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                const { publicKey } = await response.json();
+                log('✅ VAPID key دریافت شد', 'success');
+
+                // Convert VAPID key
+                const applicationServerKey = urlBase64ToUint8Array(publicKey);
+
+                // Subscribe
+                log('📤 ایجاد subscription...', 'info');
+                subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: applicationServerKey
+                });
+                
+                log('✅ Subscription ایجاد شد', 'success');
+                log(`Endpoint: ${subscription.endpoint.substring(0, 60)}...`, 'info');
+
+                // Send to backend
+                // Convert to URL-safe Base64 (required for Apple)
+                const p256dhKey = subscription.getKey('p256dh');
+                const authKey = subscription.getKey('auth');
+                
+                const subscriptionData = {
+                    endpoint: subscription.endpoint,
+                    keys: {
+                        p256dh: arrayBufferToUrlBase64(p256dhKey),
+                        auth: arrayBufferToUrlBase64(authKey)
+                    }
+                };
+
+                const subResponse = await fetch(`${API_URL}/push-notifications/subscribe`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(subscriptionData)
+                });
+
+                if (subResponse.ok) {
+                    log('✅ Subscription به backend ارسال شد', 'success');
+                    setStatus('✅ اشتراک با موفقیت انجام شد!', 'success');
+                } else {
+                    const error = await subResponse.text();
+                    log(`❌ خطا در ارسال به backend: ${error}`, 'error');
+                    setStatus('❌ خطا در ارسال به backend', 'error');
+                }
+            } catch (error) {
+                log(`❌ خطا: ${error.message}`, 'error');
+                setStatus(`❌ خطا: ${error.message}`, 'error');
+            }
+        }
+
+        async function sendTestNotification() {
+            log('🧪 ارسال نوتیفیکیشن تستی...', 'info');
+            
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    log('❌ ابتدا باید login کنید!', 'error');
+                    log('برای login: به صفحه اصلی بروید → Login → سپس برگردید', 'warning');
+                    setStatus('❌ ابتدا login کنید!', 'error');
+                    return;
+                }
+                
+                const response = await fetch(`${API_URL}/push-notifications/test`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    log('✅ نوتیفیکیشن با موفقیت ارسال شد!', 'success');
+                    log('⏳ لطفاً چند ثانیه صبر کنید تا نوتیفیکیشن نمایش داده شود...', 'info');
+                    setStatus('✅ نوتیفیکیشن ارسال شد - لطفاً دستگاه خود را چک کنید', 'success');
+                } else {
+                    const error = await response.text();
+                    log(`❌ خطا: ${error}`, 'error');
+                    setStatus(`❌ خطا در ارسال: ${error}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ خطا: ${error.message}`, 'error');
+                setStatus(`❌ خطا: ${error.message}`, 'error');
+            }
+        }
+
+        // Helper functions
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding)
+                .replace(/-/g, '+')
+                .replace(/_/g, '/');
+            
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            
+            return outputArray;
+        }
+
+        // Convert ArrayBuffer to URL-safe Base64 (required for Apple Push)
+        function arrayBufferToUrlBase64(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary)
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+        }
+
+        // Auto-check on load
+        window.onload = () => {
+            log('🚀 صفحه تست بارگذاری شد', 'info');
+            log('📱 لطفاً دکمه‌ها را به ترتیب کلیک کنید', 'info');
+            checkiOSSupport();
+        };
+
+        // Listen for push events
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', event => {
+                log(`📨 پیام از SW: ${JSON.stringify(event.data)}`, 'info');
+            });
+        }
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,18 @@
+# systemd unit (optional alternative to PM2 for backend only)
+# /etc/systemd/system/doocard-backend.service
+[Unit]
+Description=Doocard NestJS Backend
+After=network.target postgresql.service redis.service
+
+[Service]
+Type=simple
+User=doocard
+WorkingDirectory=/var/www/doocard/backend
+Environment=NODE_ENV=production
+EnvironmentFile=/var/www/doocard/backend/.env
+ExecStart=/usr/bin/node dist/src/main.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

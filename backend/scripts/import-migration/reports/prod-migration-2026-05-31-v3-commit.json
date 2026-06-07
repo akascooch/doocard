@@ -1,0 +1,59 @@
+{
+  "batchId": "prod-migration-2026-05-31-v3",
+  "generatedAt": "2026-06-02T13:25:04.405Z",
+  "mode": "commit",
+  "options": {
+    "dryRun": false,
+    "commit": true,
+    "createMissing": true,
+    "paysOnly": false,
+    "appointmentsOnly": false,
+    "dedup": "skip-exact",
+    "batchId": "prod-migration-2026-05-31-v3",
+    "paysPath": "C:/Users/a.hosseini/Desktop/apk/files/Pays.xlsx",
+    "apptPath": "C:/Users/a.hosseini/Desktop/apk/files/1402-1405.xlsx",
+    "createIncomeTx": true
+  },
+  "prerequisites": {
+    "adminUserId": 1,
+    "defaultBankAccountId": 1,
+    "calendarDates1402_1405": 1136,
+    "ok": true,
+    "blockers": []
+  },
+  "pays": {
+    "totalRows": 129,
+    "validRows": 129,
+    "invalidRows": 0,
+    "duplicateRows": 0,
+    "unmappedCategories": [],
+    "amountTotalRial": "10357701900",
+    "failures": []
+  },
+  "appointments": {
+    "totalRows": 17578,
+    "validRows": 17578,
+    "invalidRows": 0,
+    "duplicateRows": 5095,
+    "unmappedServices": [],
+    "unresolvedEmployees": [],
+    "unresolvedCustomers": [],
+    "missingCalendarDates": [],
+    "amountTotalRial": "270462500004",
+    "failures": []
+  },
+  "importResult": {
+    "pays": {
+      "created": 129,
+      "skippedDuplicate": 0,
+      "failed": 0
+    },
+    "appointments": {
+      "created": 12483,
+      "skippedDuplicate": 5095,
+      "failed": 0
+    },
+    "incomeTransactions": 12483,
+    "expenseTransactions": 129
+  }
+}

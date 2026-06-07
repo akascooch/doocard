@@ -1,0 +1,277 @@
+/* FORCE DARK THEME OVERRIDE - Doocard Minimal Two-Color Theme */
+
+/* Force dark background everywhere - EXACT COLORS */
+html, body, #__next, [data-theme], .light, .dark, * {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--primary)) !important;
+  color-scheme: dark !important;
+}
+
+/* Force all text elements to use accent color */
+h1, h2, h3, h4, h5, h6, p, span, div, a, button, input, textarea, select, label, li, td, th, strong, em, small {
+  color: hsl(var(--primary)) !important;
+}
+
+/* Override any existing card styles */
+.card, .bg-white, .bg-gray-50, .bg-gray-100, .bg-slate-50, .bg-zinc-50, .bg-neutral-50,
+.bg-gray-200, .bg-gray-300, .bg-slate-100, .bg-slate-200, .bg-zinc-100, .bg-zinc-200 {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--primary)) !important;
+  border-color: rgba(161, 209, 177, 0.2) !important;
+}
+
+/* Override ALL text color classes */
+.text-gray-900, .text-gray-800, .text-gray-700, .text-gray-600, .text-gray-500, .text-gray-400, .text-gray-300, .text-gray-200, .text-gray-100, .text-gray-50,
+.text-neutral-900, .text-neutral-800, .text-neutral-700, .text-neutral-600, .text-neutral-500, .text-neutral-400, .text-neutral-300, .text-neutral-200, .text-neutral-100, .text-neutral-50,
+.text-slate-900, .text-slate-800, .text-slate-700, .text-slate-600, .text-slate-500, .text-slate-400, .text-slate-300, .text-slate-200, .text-slate-100, .text-slate-50,
+.text-zinc-900, .text-zinc-800, .text-zinc-700, .text-zinc-600, .text-zinc-500, .text-zinc-400, .text-zinc-300, .text-zinc-200, .text-zinc-100, .text-zinc-50,
+.text-stone-900, .text-stone-800, .text-stone-700, .text-stone-600, .text-stone-500, .text-stone-400, .text-stone-300, .text-stone-200, .text-stone-100, .text-stone-50,
+.text-black, .text-slate-900, .text-muted-foreground, .text-foreground, .text-primary-foreground, .text-secondary-foreground {
+  color: hsl(var(--primary)) !important;
+}
+
+/* Override ALL background classes */
+.bg-gray-900, .bg-gray-800, .bg-gray-700, .bg-gray-600, .bg-gray-500, .bg-gray-400, .bg-gray-300, .bg-gray-200, .bg-gray-100, .bg-gray-50,
+.bg-neutral-900, .bg-neutral-800, .bg-neutral-700, .bg-neutral-600, .bg-neutral-500, .bg-neutral-400, .bg-neutral-300, .bg-neutral-200, .bg-neutral-100, .bg-neutral-50,
+.bg-slate-900, .bg-slate-800, .bg-slate-700, .bg-slate-600, .bg-slate-500, .bg-slate-400, .bg-slate-300, .bg-slate-200, .bg-slate-100, .bg-slate-50,
+.bg-zinc-900, .bg-zinc-800, .bg-zinc-700, .bg-zinc-600, .bg-zinc-500, .bg-zinc-400, .bg-zinc-300, .bg-zinc-200, .bg-zinc-100, .bg-zinc-50,
+.bg-stone-900, .bg-stone-800, .bg-stone-700, .bg-stone-600, .bg-stone-500, .bg-stone-400, .bg-stone-300, .bg-stone-200, .bg-stone-100, .bg-stone-50,
+.bg-white, .bg-light, .bg-background, .bg-muted, .bg-primary, .bg-secondary, .bg-card {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+/* Force accent colors for interactive elements */
+.bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-indigo-600,
+.bg-purple-500, .bg-pink-500, .bg-red-500, .bg-green-500, .bg-emerald-500,
+.bg-teal-500, .bg-cyan-500, .bg-sky-500, .bg-violet-500 {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--card)) !important;
+}
+
+.text-blue-500, .text-blue-600, .text-indigo-500, .text-indigo-600,
+.text-purple-500, .text-pink-500, .text-red-500, .text-green-500, .text-emerald-500,
+.text-teal-500, .text-cyan-500, .text-sky-500, .text-violet-500 {
+  color: hsl(var(--primary)) !important;
+}
+
+/* Override button styles */
+.btn, button, .button, [role="button"] {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--card)) !important;
+  border-color: hsl(var(--primary)) !important;
+}
+
+.btn:hover, button:hover, .button:hover, [role="button"]:hover {
+  background-color: rgba(161, 209, 177, 0.9) !important;
+}
+
+.btn-outline, button[class*="outline"] {
+  background-color: transparent !important;
+  color: hsl(var(--primary)) !important;
+  border-color: hsl(var(--primary)) !important;
+}
+
+/* Override input styles */
+input, textarea, select, [role="textbox"] {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--primary)) !important;
+  border-color: rgba(161, 209, 177, 0.3) !important;
+}
+
+input:focus, textarea:focus, select:focus, [role="textbox"]:focus {
+  border-color: hsl(var(--primary)) !important;
+  box-shadow: 0 0 0 2px rgba(161, 209, 177, 0.2) !important;
+  outline: none !important;
+}
+
+::placeholder, input::placeholder, textarea::placeholder {
+  color: rgba(161, 209, 177, 0.6) !important;
+}
+
+/* Override sidebar and navigation */
+.sidebar, .nav, .navigation, .navbar, .header {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--primary)) !important;
+  border-color: rgba(161, 209, 177, 0.2) !important;
+}
+
+.nav-item, .nav-link, .menu-item, .menu-link {
+  color: hsl(var(--primary)) !important;
+}
+
+.nav-item:hover, .nav-link:hover, .menu-item:hover, .menu-link:hover {
+  background-color: rgba(161, 209, 177, 0.1) !important;
+}
+
+.nav-item.active, .nav-link.active, .menu-item.active, .menu-link.active {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--card)) !important;
+}
+
+/* Override table styles */
+table, .table {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--primary)) !important;
+  border-color: rgba(161, 209, 177, 0.2) !important;
+}
+
+th, td, .table th, .table td, thead, tbody, tfoot {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--primary)) !important;
+  border-color: rgba(161, 209, 177, 0.2) !important;
+}
+
+tr:hover, .table tr:hover, tbody tr:hover {
+  background-color: rgba(161, 209, 177, 0.05) !important;
+}
+
+/* Override modal and dialog */
+.modal, .dialog, .popup, .overlay, [role="dialog"] {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--primary)) !important;
+  border-color: rgba(161, 209, 177, 0.2) !important;
+}
+
+.modal-backdrop, .dialog-backdrop, .overlay-backdrop {
+  background-color: rgba(28, 37, 41, 0.8) !important;
+}
+
+/* Override form elements */
+.form-group, .form-control, .form-input, .form-textarea, .form-select {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--primary)) !important;
+  border-color: rgba(161, 209, 177, 0.3) !important;
+}
+
+label, .form-label, .label {
+  color: hsl(var(--primary)) !important;
+}
+
+/* Override badges and tags */
+.badges, .tag, .chip, .pill, [class*="badge"] {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--card)) !important;
+}
+
+/* Override progress bars */
+.progress, .progress-bar {
+  background-color: hsl(var(--card)) !important;
+  border-color: rgba(161, 209, 177, 0.2) !important;
+}
+
+.progress-bar-fill, .progress-fill {
+  background-color: hsl(var(--primary)) !important;
+}
+
+/* Override dropdowns */
+.dropdown, .dropdown-menu, .select-menu, [role="listbox"] {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--primary)) !important;
+  border-color: rgba(161, 209, 177, 0.2) !important;
+}
+
+.dropdown-item, .select-item, [role="option"] {
+  color: hsl(var(--primary)) !important;
+}
+
+.dropdown-item:hover, .select-item:hover, [role="option"]:hover {
+  background-color: rgba(161, 209, 177, 0.1) !important;
+}
+
+/* Override alerts and notifications */
+.alert, .notification, .toast, [role="alert"] {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--primary)) !important;
+  border-color: rgba(161, 209, 177, 0.2) !important;
+}
+
+.alert-success, .notification-success {
+  background-color: rgba(161, 209, 177, 0.1) !important;
+  color: hsl(var(--primary)) !important;
+  border-color: hsl(var(--primary)) !important;
+}
+
+.alert-error, .alert-danger, .notification-error {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+  color: #EF4444 !important;
+  border-color: #EF4444 !important;
+}
+
+.alert-warning, .notification-warning {
+  background-color: rgba(251, 191, 36, 0.1) !important;
+  color: #FBBF24 !important;
+  border-color: #FBBF24 !important;
+}
+
+.alert-info, .notification-info {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+  color: #3B82F6 !important;
+  border-color: #3B82F6 !important;
+}
+
+/* Override any inline styles */
+[style*="background-color: white"], [style*="background-color: #fff"], [style*="background-color: #ffffff"],
+[style*="background-color: #f9fafb"], [style*="background-color: #f3f4f6"], [style*="background-color: #e5e7eb"] {
+  background-color: hsl(var(--card)) !important;
+}
+
+[style*="color: black"], [style*="color: #000"], [style*="color: #000000"],
+[style*="color: #111827"], [style*="color: #1f2937"], [style*="color: #374151"] {
+  color: hsl(var(--primary)) !important;
+}
+
+/* Ensure proper contrast for accessibility */
+a, .link, [role="link"] {
+  color: hsl(var(--primary)) !important;
+}
+
+a:hover, .link:hover, [role="link"]:hover {
+  color: rgba(161, 209, 177, 0.8) !important;
+}
+
+/* Override any remaining light theme elements */
+.bg-light, .bg-white-50, .bg-gray-50, .bg-slate-50, .bg-zinc-50, .bg-neutral-50,
+.bg-gray-100, .bg-slate-100, .bg-zinc-100, .bg-neutral-100 {
+  background-color: hsl(var(--card)) !important;
+}
+
+.text-dark, .text-gray-900, .text-slate-900, .text-zinc-900, .text-neutral-900,
+.text-gray-800, .text-slate-800, .text-zinc-800, .text-neutral-800 {
+  color: hsl(var(--primary)) !important;
+}
+
+/* Force dark theme for all components */
+*, *::before, *::after {
+  color-scheme: dark !important;
+}
+
+/* Ultra-aggressive text color override */
+[class*="text-"]:not([class*="text-[hsl(var(--primary))]"]) {
+  color: hsl(var(--primary)) !important;
+}
+
+/* Ultra-aggressive background color override */
+[class*="bg-"]:not([class*="bg-[hsl(var(--card))]"]):not([class*="bg-[hsl(var(--primary))]"]) {
+  background-color: hsl(var(--card)) !important;
+}
+
+/* Force all icons to use accent color */
+svg, [class*="icon"], .icon {
+  color: hsl(var(--primary)) !important;
+  fill: hsl(var(--primary)) !important;
+}
+
+/* Override any remaining problematic classes */
+.text-muted, .text-secondary, .text-tertiary {
+  color: hsl(var(--primary)) !important;
+}
+
+.bg-muted, .bg-secondary, .bg-tertiary {
+  background-color: hsl(var(--card)) !important;
+}
+
+/* Ensure all borders use accent color */
+[class*="border-"]:not([class*="border-[hsl(var(--primary))]"]) {
+  border-color: rgba(161, 209, 177, 0.2) !important;
+}

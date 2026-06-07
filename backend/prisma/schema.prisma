@@ -1,0 +1,584 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  email               String?
+  password            String
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  id                  Int                @id @default(autoincrement())
+  name                String
+  phone               String             @unique
+  role                UserRole           @default(CUSTOMER)
+  permissions         Permission[]
+  paidAppointments    Appointment[]      @relation("AppointmentPaidBy")
+  settledDebts        CustomerDebt[]     @relation("DebtSettledBy")
+  customer            Customer?
+  dayClosings         DayClosing[]
+  employee            Employee?
+  importJobs          ImportJob[]        @relation("ImportJobs")
+  notifications       Notification[]     @relation("UserNotifications")
+  pushSubscriptions   PushSubscription[] @relation("UserPushSubscriptions")
+  refreshTokens       RefreshToken[]     @relation("UserRefreshTokens")
+  smsLogs             SmsLog[]
+  createdTransactions Transaction[]      @relation("TransactionCreator")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        Int       @id @default(autoincrement())
+  token     String    @unique
+  userId    Int
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  ipAddress String?
+  userAgent String?
+  isRevoked Boolean   @default(false)
+  revokedAt DateTime?
+  user      User      @relation("UserRefreshTokens", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation("UserPushSubscriptions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+model Employee {
+  id               Int               @id @default(autoincrement())
+  userId           Int               @unique
+  specialty        String?
+  baseSalary       Float             @default(0)
+  commissionRate   Float             @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  isActive         Boolean           @default(true)
+  isDefault        Boolean           @default(false)
+  appointments     Appointment[]
+  blockedTimes     BlockedTime[]
+  customers        Customer[]
+  employeeServices EmployeeService[]
+  user             User              @relation(fields: [userId], references: [id])
+  salaries         Salary[]
+  tips             Tip[]
+  workSchedules    WorkSchedule[]
+
+  @@map("employees")
+}
+
+model Customer {
+  id                  Int            @id @default(autoincrement())
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  notes               String?
+  birthdate           DateTime?
+  userId              Int            @unique
+  preferredEmployeeId Int?
+  preferredDate       DateTime?
+  appointments        Appointment[]
+  debts               CustomerDebt[]
+  preferredEmployee   Employee?      @relation(fields: [preferredEmployeeId], references: [id])
+  user                User           @relation(fields: [userId], references: [id])
+
+  @@map("customers")
+}
+
+model Service {
+  name                String
+  price               Float
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  id                  Int                  @id @default(autoincrement())
+  durationMinutes     Int
+  description         String?
+  appointmentServices AppointmentService[]
+  appointments        Appointment[]
+  employeeServices    EmployeeService[]
+
+  @@map("services")
+}
+
+model CalendarDate {
+  id                 Int           @id @default(autoincrement())
+  gregorianDate      DateTime      @unique @db.Date
+  jalaliDate         String        @unique
+  gregorianDayOfWeek Int
+  jalaliDayOfWeek    Int
+  isoWeek            Int?
+  gregorianYear      Int
+  gregorianMonth     Int
+  gregorianDay       Int
+  jalaliYear         Int
+  jalaliMonth        Int
+  jalaliDay          Int
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  appointments       Appointment[]
+
+  @@index([gregorianDate])
+  @@index([jalaliDate])
+  @@index([gregorianYear, gregorianMonth])
+  @@index([jalaliYear, jalaliMonth])
+  @@map("calendar_dates")
+}
+
+model Appointment {
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  id                  Int                  @id @default(autoincrement())
+  customerId          Int
+  status              AppointmentStatus    @default(PENDING)
+  employeeId          Int?
+  serviceId           Int?
+  accountId           Int?
+  amount              BigInt?
+  deletedAt           DateTime?
+  durationMin         Int
+  notes               String?
+  paidAt              DateTime?
+  paidBy              Int?
+  paymentMethod       PaymentMethod?
+  scheduledAt         DateTime
+  services            Json
+  tipAmount           BigInt?
+  calendarDateId      Int?
+  appointmentServices AppointmentService[]
+  calendarDate        CalendarDate?        @relation(fields: [calendarDateId], references: [id])
+  customer            Customer             @relation(fields: [customerId], references: [id])
+  employee            Employee?            @relation(fields: [employeeId], references: [id])
+  paidByUser          User?                @relation("AppointmentPaidBy", fields: [paidBy], references: [id])
+  service             Service?             @relation(fields: [serviceId], references: [id])
+  tips                Tip[]
+  transactions        Transaction[]
+
+  @@index([customerId])
+  @@index([employeeId])
+  @@index([scheduledAt])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([calendarDateId])
+  @@map("appointments")
+}
+
+model AppointmentService {
+  id            Int         @id @default(autoincrement())
+  appointmentId Int
+  serviceId     Int
+  price         Float
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  service       Service     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([appointmentId, serviceId])
+  @@map("appointment_services")
+}
+
+model EmployeeService {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  serviceId  Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  service    Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, serviceId])
+  @@map("employee_services")
+}
+
+model Transaction {
+  amount               BigInt
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  id                   Int                  @id @default(autoincrement())
+  type                 TransactionType
+  relatedId            Int?
+  accountId            Int?
+  categoryId           Int?
+  createdBy            Int?
+  currency             String               @default("IRR")
+  deletedAt            DateTime?
+  description          String?
+  meta                 Json?
+  occurredAt           DateTime             @default(now())
+  paymentMethod        PaymentMethod?
+  sourceId             Int?
+  sourceType           String?
+  destinationAccountId Int?
+  account              BankAccount?         @relation("TransactionAccount", fields: [accountId], references: [id])
+  category             TransactionCategory? @relation(fields: [categoryId], references: [id])
+  createdByUser        User?                @relation("TransactionCreator", fields: [createdBy], references: [id])
+  destinationAccount   BankAccount?         @relation("TransactionDestination", fields: [destinationAccountId], references: [id])
+  appointment          Appointment?         @relation(fields: [relatedId], references: [id])
+
+  @@index([sourceType, sourceId])
+  @@index([type, occurredAt])
+  @@index([accountId])
+  @@index([destinationAccountId])
+  @@index([categoryId])
+  @@index([deletedAt])
+  @@map("transactions")
+}
+
+model TransactionCategory {
+  id           Int                   @id @default(autoincrement())
+  name         String
+  type         TransactionType
+  description  String?
+  parentId     Int?
+  isActive     Boolean               @default(true)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  deletedAt    DateTime?
+  parent       TransactionCategory?  @relation("CategoryParent", fields: [parentId], references: [id])
+  children     TransactionCategory[] @relation("CategoryParent")
+  transactions Transaction[]
+
+  @@map("transaction_categories")
+}
+
+model BankAccount {
+  id                      Int           @id @default(autoincrement())
+  name                    String
+  provider                String?
+  accountNo               String?
+  cardNo                  String?
+  iban                    String?
+  isDefault               Boolean       @default(false)
+  isActive                Boolean       @default(true)
+  balance                 BigInt        @default(0)
+  currency                String        @default("IRR")
+  description             String?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  deletedAt               DateTime?
+  transactions            Transaction[] @relation("TransactionAccount")
+  destinationTransactions Transaction[] @relation("TransactionDestination")
+
+  @@map("bank_accounts")
+}
+
+model Category {
+  id        Int          @id @default(autoincrement())
+  name      String
+  type      CategoryType
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@map("categories")
+}
+
+model Tip {
+  id            Int         @id @default(autoincrement())
+  appointmentId Int
+  employeeId    Int
+  amount        Float
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  appointment   Appointment @relation(fields: [appointmentId], references: [id])
+  employee      Employee    @relation(fields: [employeeId], references: [id])
+
+  @@map("tips")
+}
+
+model Salary {
+  id          Int          @id @default(autoincrement())
+  amount      Float
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  employeeId  Int
+  periodEnd   DateTime
+  periodStart DateTime
+  status      SalaryStatus @default(PENDING)
+  employee    Employee     @relation(fields: [employeeId], references: [id])
+
+  @@map("salaries")
+}
+
+model Permission {
+  id        Int      @id @default(autoincrement())
+  role      String
+  userId    Int?
+  page      String
+  feature   String
+  canView   Boolean  @default(false)
+  canEdit   Boolean  @default(false)
+  canDelete Boolean  @default(false)
+  canCreate Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([role, page, feature])
+  @@index([userId, page, feature])
+}
+
+model SmsLog {
+  id          Int      @id @default(autoincrement())
+  phoneNumber String
+  message     String
+  status      String
+  error       String?
+  createdAt   DateTime @default(now())
+  customerId  Int?
+  user        User?    @relation(fields: [customerId], references: [id])
+
+  @@map("sms_logs")
+}
+
+model SmsSettings {
+  id                    Int      @id @default(autoincrement())
+  apiKey                String?
+  lineNumber            String?
+  isEnabled             Boolean  @default(false)
+  sendBeforeAppointment Int      @default(60)
+  sendAfterAppointment  Int      @default(0)
+  defaultMessage        String?
+  updatedAt             DateTime
+
+  @@map("sms_settings")
+}
+
+model SmsTemplate {
+  id        Int      @id @default(autoincrement())
+  name      String
+  content   String
+  variables String[]
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+
+  @@map("sms_templates")
+}
+
+model SmsEvent {
+  id            Int       @id @default(autoincrement())
+  appointmentId Int?
+  to            String
+  message       String?
+  status        String
+  providerResp  String?
+  attempts      Int       @default(0)
+  lastAttemptAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([appointmentId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("sms_events")
+}
+
+model HomepageDetails {
+  id           Int      @id @default(autoincrement())
+  about        String?
+  team         String?
+  products     String?
+  trainings    String?
+  testimonials String?
+  contact      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("homepage_details")
+}
+
+model DayClosing {
+  id            Int       @id @default(autoincrement())
+  date          DateTime  @unique
+  totalIncome   Float     @default(0)
+  totalExpense  Float     @default(0)
+  totalTips     Float     @default(0)
+  totalSalaries Float     @default(0)
+  isClosed      Boolean   @default(false)
+  closedAt      DateTime?
+  closedBy      Int?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  closedByUser  User?     @relation(fields: [closedBy], references: [id])
+
+  @@map("day_closings")
+}
+
+model CustomerDebt {
+  id            Int       @id @default(autoincrement())
+  customerId    Int
+  amount        BigInt
+  sourceType    String?
+  sourceId      Int?
+  description   String?
+  createdAt     DateTime  @default(now())
+  dueAt         DateTime?
+  settledAt     DateTime?
+  settledBy     Int?
+  meta          Json?
+  customer      Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  settledByUser User?     @relation("DebtSettledBy", fields: [settledBy], references: [id])
+
+  @@index([customerId])
+  @@index([settledAt])
+  @@map("customer_debts")
+}
+
+model WorkSchedule {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  weekday    Int
+  startTime  String
+  endTime    String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, weekday, startTime])
+  @@index([employeeId, weekday])
+  @@map("work_schedules")
+}
+
+model BlockedTime {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  startAt    DateTime
+  endAt      DateTime
+  reason     String?
+  createdBy  Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, startAt, endAt])
+  @@map("blocked_times")
+}
+
+model Notification {
+  id            Int              @id @default(autoincrement())
+  title         String
+  message       String
+  type          NotificationType
+  roleTarget    String?
+  userIdTarget  Int?
+  relatedEntity String?
+  isRead        Boolean          @default(false)
+  readAt        DateTime?
+  createdAt     DateTime         @default(now())
+  user          User?            @relation("UserNotifications", fields: [userIdTarget], references: [id], onDelete: Cascade)
+
+  @@index([userIdTarget, isRead])
+  @@index([roleTarget, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model ImportJob {
+  id         Int          @id @default(autoincrement())
+  userId     Int
+  entity     String
+  filename   String
+  batchId    String       @unique
+  totalRows  Int          @default(0)
+  created    Int          @default(0)
+  updated    Int          @default(0)
+  failed     Int          @default(0)
+  status     ImportStatus @default(PENDING)
+  logPath    String?
+  metadata   Json?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime     @default(now())
+  user       User         @relation("ImportJobs", fields: [userId], references: [id])
+
+  @@index([userId, status])
+  @@index([batchId])
+  @@index([createdAt])
+  @@map("import_jobs")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+  CUSTOMER
+  ACCOUNTANT
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  PAID
+  SETTLED
+  PENDING_CONFIRMATION
+}
+
+enum TransactionType {
+  SERVICE
+  TIP
+  EXPENSE
+  SALARY
+  INCOME
+  TRANSFER
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  ONLINE
+  TRANSFER
+  CHEQUE
+  CARD2CARD
+  DEBT
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+}
+
+enum SalaryStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum NotificationType {
+  CUSTOMER_REGISTERED
+  APPOINTMENT_CREATED
+  APPOINTMENT_CONFIRMED
+  APPOINTMENT_SETTLED
+  APPOINTMENT_CANCELLED
+  DEBT_CREATED
+  DEBT_SETTLED
+  TRANSACTION_CREATED
+  PAYMENT_RECEIVED
+  GENERAL
+}
+
+enum ImportStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}

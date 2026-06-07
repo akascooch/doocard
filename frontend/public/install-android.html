@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📱 نصب Doocard - Android</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1C2529">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    body {
+      background: #1C2529;
+      color: #A1D1B1;
+      min-height: 100vh;
+      padding: 0;
+    }
+    .hero {
+      background: linear-gradient(135deg, #A1D1B1 0%, #8bc19d 100%);
+      padding: 40px 20px;
+      text-align: center;
+      color: #1C2529;
+    }
+    .hero h1 {
+      font-size: 32px;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+    .hero p {
+      font-size: 16px;
+      opacity: 0.9;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .status-box {
+      background: rgba(161, 209, 177, 0.1);
+      border: 2px solid #A1D1B1;
+      border-radius: 15px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      margin: 8px 0;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      border-right: 4px solid #666;
+    }
+    .status-item.good {
+      border-right-color: #51cf66;
+    }
+    .status-item.bad {
+      border-right-color: #ff6b6b;
+    }
+    .badge {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+    .badge.good {
+      background: #51cf66;
+      color: #000;
+    }
+    .badge.bad {
+      background: #ff6b6b;
+      color: #fff;
+    }
+    .step {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 20px;
+      margin: 15px 0;
+      border-radius: 12px;
+      border-right: 4px solid #A1D1B1;
+    }
+    .step-num {
+      display: inline-block;
+      background: #A1D1B1;
+      color: #1C2529;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 32px;
+      font-weight: bold;
+      margin-left: 10px;
+      font-size: 16px;
+    }
+    button {
+      width: 100%;
+      padding: 18px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 12px;
+      background: #A1D1B1;
+      color: #1C2529;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 0 4px 12px rgba(161, 209, 177, 0.3);
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    button.secondary {
+      background: rgba(161, 209, 177, 0.2);
+      color: #A1D1B1;
+      border: 2px solid #A1D1B1;
+    }
+    .warning {
+      background: rgba(255, 107, 107, 0.2);
+      border: 2px solid #ff6b6b;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 20px 0;
+      color: #ff6b6b;
+    }
+    .success {
+      background: rgba(81, 207, 102, 0.2);
+      border: 2px solid #51cf66;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 20px 0;
+      color: #51cf66;
+    }
+    .visual-guide {
+      background: rgba(0, 0, 0, 0.5);
+      padding: 15px;
+      border-radius: 10px;
+      margin: 15px 0;
+      font-family: monospace;
+      font-size: 14px;
+      line-height: 1.8;
+    }
+    code {
+      background: rgba(161, 209, 177, 0.2);
+      padding: 3px 8px;
+      border-radius: 4px;
+      color: #A1D1B1;
+      font-weight: bold;
+    }
+    .big-emoji {
+      font-size: 64px;
+      text-align: center;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <h1>📱 نصب Doocard</h1>
+    <p>سیستم مدیریت سالن زیبایی</p>
+  </div>
+
+  <div class="container">
+    <!-- Status -->
+    <div class="status-box">
+      <h3 style="margin-bottom: 15px; font-size: 18px;">📊 وضعیت نصب:</h3>
+      <div id="status-items">
+        <div class="status-item">
+          <span>در حال بررسی...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Install Button -->
+    <div id="install-section" style="display: none;">
+      <button id="install-btn" onclick="installPWA()">
+        📲 نصب اپلیکیشن روی گوشی
+      </button>
+    </div>
+
+    <!-- Manual Steps -->
+    <div class="step">
+      <h3 style="margin-bottom: 15px; color: #A1D1B1;">🔧 مراحل نصب دستی:</h3>
+      
+      <div style="margin: 15px 0;">
+        <span class="step-num">1</span>
+        <strong>باز کردن منو Chrome:</strong><br>
+        <span style="font-size: 14px; opacity: 0.9; display: inline-block; margin-right: 42px;">
+          روی آیکون سه نقطه <code>⋮</code> در گوشه بالای Chrome کلیک کنید
+        </span>
+      </div>
+
+      <div style="margin: 15px 0;">
+        <span class="step-num">2</span>
+        <strong>انتخاب گزینه نصب:</strong><br>
+        <span style="font-size: 14px; opacity: 0.9; display: inline-block; margin-right: 42px;">
+          یکی از این گزینه‌ها را انتخاب کنید:<br>
+          • <code>"Add to Home screen"</code><br>
+          • <code>"Install app"</code><br>
+          • <code>"نصب برنامه"</code>
+        </span>
+      </div>
+
+      <div style="margin: 15px 0;">
+        <span class="step-num">3</span>
+        <strong>تأیید نصب:</strong><br>
+        <span style="font-size: 14px; opacity: 0.9; display: inline-block; margin-right: 42px;">
+          در پنجره باز شده، روی <code>"Add"</code> یا <code>"Install"</code> کلیک کنید
+        </span>
+      </div>
+
+      <div style="margin: 15px 0;">
+        <span class="step-num">4</span>
+        <strong>آیکون در صفحه اصلی:</strong><br>
+        <span style="font-size: 14px; opacity: 0.9; display: inline-block; margin-right: 42px;">
+          آیکون Doocard در Home Screen گوشی شما ایجاد می‌شود
+        </span>
+      </div>
+
+      <div class="big-emoji">✅</div>
+    </div>
+
+    <!-- Important Warning -->
+    <div class="warning">
+      <h3 style="margin-bottom: 10px;">⚠️ بسیار مهم:</h3>
+      <strong>بعد از نصب، حتماً از آیکون صفحه اصلی باز کنید!</strong><br>
+      <span style="font-size: 14px; margin-top: 10px; display: block;">
+        اگر از Chrome browser باز کنید، فقط یک bookmark است و نوتیفیکیشن کار نمی‌کند.
+      </span>
+    </div>
+
+    <!-- Next Steps -->
+    <div class="success" id="success-section" style="display: none;">
+      <h3 style="margin-bottom: 10px;">✅ نصب موفق!</h3>
+      <p>حالا این مراحل را دنبال کنید:</p>
+      <ol style="margin: 15px 0 15px 20px; line-height: 1.8;">
+        <li>از Home Screen آیکون Doocard را باز کنید</li>
+        <li>Login کنید</li>
+        <li>"فعال‌سازی اعلان‌ها" را بزنید</li>
+        <li>"Allow" را بزنید</li>
+        <li>Settings → Apps → Doocard → Notifications: On</li>
+      </ol>
+    </div>
+
+    <!-- Action Buttons -->
+    <button onclick="location.href='/'" class="secondary">
+      🏠 رفتن به صفحه اصلی
+    </button>
+
+    <button onclick="checkAgain()" class="secondary">
+      🔄 بررسی مجدد
+    </button>
+
+    <button onclick="location.href='/dashboard'" class="secondary">
+      📊 رفتن به Dashboard
+    </button>
+  </div>
+
+  <script>
+    let deferredPrompt = null;
+    let isInstalled = false;
+
+    // Check if already installed
+    function checkIfInstalled() {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                          window.navigator.standalone === true;
+      return isStandalone;
+    }
+
+    // Listen for beforeinstallprompt
+    window.addEventListener('beforeinstallprompt', (e) => {
+      console.log('beforeinstallprompt event fired');
+      e.preventDefault();
+      deferredPrompt = e;
+      document.getElementById('install-section').style.display = 'block';
+      updateStatus('install-prompt', true, 'دکمه نصب آماده است');
+    });
+
+    // Listen for appinstalled
+    window.addEventListener('appinstalled', (e) => {
+      console.log('App installed successfully');
+      showSuccess();
+    });
+
+    // Install PWA
+    async function installPWA() {
+      if (!deferredPrompt) {
+        alert('لطفاً از منوی Chrome (⋮) گزینه نصب را انتخاب کنید');
+        return;
+      }
+
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log('User choice:', outcome);
+
+      if (outcome === 'accepted') {
+        showSuccess();
+      }
+
+      deferredPrompt = null;
+    }
+
+    function showSuccess() {
+      document.getElementById('install-section').style.display = 'none';
+      document.getElementById('success-section').style.display = 'block';
+      setTimeout(() => {
+        if (confirm('✅ نصب موفق!\n\nآیا می‌خواهید به Dashboard بروید؟')) {
+          location.href = '/dashboard';
+        }
+      }, 1000);
+    }
+
+    async function updateStatus(name, isGood, message) {
+      const container = document.getElementById('status-items');
+      const item = document.createElement('div');
+      item.className = 'status-item ' + (isGood ? 'good' : 'bad');
+      item.innerHTML = `
+        <span>${name}: ${message}</span>
+        <span class="badge ${isGood ? 'good' : 'bad'}">${isGood ? '✓' : '✗'}</span>
+      `;
+      container.appendChild(item);
+    }
+
+    async function checkStatus() {
+      const container = document.getElementById('status-items');
+      container.innerHTML = '';
+
+      // Check installed
+      isInstalled = checkIfInstalled();
+      updateStatus('نصب', isInstalled, isInstalled ? 'نصب شده است ✅' : 'هنوز نصب نشده');
+
+      // Check Service Worker
+      let swOk = false;
+      if ('serviceWorker' in navigator) {
+        try {
+          const reg = await navigator.serviceWorker.getRegistration();
+          swOk = !!reg;
+          updateStatus('Service Worker', swOk, swOk ? 'ثبت شده' : 'در حال ثبت...');
+          
+          if (!swOk) {
+            const newReg = await navigator.serviceWorker.register('/sw.js');
+            swOk = true;
+            console.log('Service Worker registered:', newReg.scope);
+          }
+        } catch (e) {
+          updateStatus('Service Worker', false, 'خطا: ' + e.message);
+        }
+      }
+
+      // Check Manifest
+      let manifestOk = false;
+      try {
+        const response = await fetch('/manifest.json');
+        if (response.ok) {
+          const manifest = await response.json();
+          manifestOk = manifest && manifest.name;
+          updateStatus('Manifest', manifestOk, manifestOk ? manifest.name : 'نامعتبر');
+        } else {
+          updateStatus('Manifest', false, 'یافت نشد (HTTP ' + response.status + ')');
+        }
+      } catch (e) {
+        updateStatus('Manifest', false, 'خطا: ' + e.message);
+      }
+
+      // Check Icons
+      try {
+        const iconTest = await fetch('/logo/applogo-192.png', { method: 'HEAD' });
+        updateStatus('آیکون‌ها', iconTest.ok, iconTest.ok ? 'موجود' : 'یافت نشد');
+      } catch (e) {
+        updateStatus('آیکون‌ها', false, 'خطا');
+      }
+
+      // Show result
+      if (isInstalled) {
+        showSuccess();
+      } else if (!manifestOk || !swOk) {
+        showManualInstructions();
+      }
+    }
+
+    function showManualInstructions() {
+      updateStatus('راهنما', true, 'مراحل دستی را در پایین دنبال کنید');
+    }
+
+    function checkAgain() {
+      location.reload();
+    }
+
+    // Auto check on load
+    window.addEventListener('load', () => {
+      console.log('Page loaded');
+      checkStatus();
+    });
+  </script>
+</body>
+</html>
+

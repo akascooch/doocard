@@ -1,0 +1,271 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@layer base {
+  /* Minimal Two-Color Theme */
+  :root {
+    --background: 28 37 41; /* hsl(var(--card)) */
+    --foreground: 161 209 177; /* hsl(var(--primary)) */
+    --card: 28 37 41; /* hsl(var(--card)) */
+    --card-foreground: 161 209 177; /* hsl(var(--primary)) */
+    --popover: 28 37 41; /* hsl(var(--card)) */
+    --popover-foreground: 161 209 177; /* hsl(var(--primary)) */
+    --primary: 161 209 177; /* hsl(var(--primary)) */
+    --primary-foreground: 28 37 41; /* hsl(var(--card)) */
+    --secondary: 28 37 41; /* hsl(var(--card)) */
+    --secondary-foreground: 161 209 177; /* hsl(var(--primary)) */
+    --muted: 28 37 41; /* hsl(var(--card)) */
+    --muted-foreground: 161 209 177; /* hsl(var(--primary)) */
+    --accent: 161 209 177; /* hsl(var(--primary)) */
+    --accent-foreground: 28 37 41; /* hsl(var(--card)) */
+    --destructive: 161 209 177; /* hsl(var(--primary)) */
+    --destructive-foreground: 28 37 41; /* hsl(var(--card)) */
+    --success: 161 209 177; /* hsl(var(--primary)) */
+    --success-foreground: 28 37 41; /* hsl(var(--card)) */
+    --warning: 161 209 177; /* hsl(var(--primary)) */
+    --warning-foreground: 28 37 41; /* hsl(var(--card)) */
+    --info: 161 209 177; /* hsl(var(--primary)) */
+    --info-foreground: 28 37 41; /* hsl(var(--card)) */
+    --border: 161 209 177; /* hsl(var(--primary)) */
+    --input: 28 37 41; /* hsl(var(--card)) */
+    --ring: 161 209 177; /* hsl(var(--primary)) */
+    --radius: 0.75rem; /* 12px */
+  }
+
+  * {
+    color-scheme: dark;
+  }
+
+  .light {
+    --background: 28 37 41 !important;
+    --foreground: 161 209 177 !important;
+    --card: 28 37 41 !important;
+    --card-foreground: 161 209 177 !important;
+    --popover: 28 37 41 !important;
+    --popover-foreground: 161 209 177 !important;
+    --primary: 161 209 177 !important;
+    --primary-foreground: 28 37 41 !important;
+    --secondary: 28 37 41 !important;
+    --secondary-foreground: 161 209 177 !important;
+    --muted: 28 37 41 !important;
+    --muted-foreground: 161 209 177 !important;
+    --accent: 161 209 177 !important;
+    --accent-foreground: 28 37 41 !important;
+    --destructive: 161 209 177 !important;
+    --destructive-foreground: 28 37 41 !important;
+    --success: 161 209 177 !important;
+    --success-foreground: 28 37 41 !important;
+    --warning: 161 209 177 !important;
+    --warning-foreground: 28 37 41 !important;
+    --info: 161 209 177 !important;
+    --info-foreground: 28 37 41 !important;
+    --border: 161 209 177 !important;
+    --input: 28 37 41 !important;
+    --ring: 161 209 177 !important;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+    font-size: 16px;
+    color-scheme: dark;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    background-color: hsl(var(--card)) !important;
+    color: hsl(var(--primary)) !important;
+    font-family: 'Inter', sans-serif;
+    direction: rtl;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.5;
+  }
+
+  /* Force all elements to use minimal theme */
+  html, body {
+    background-color: hsl(var(--card)) !important;
+    color: hsl(var(--primary)) !important;
+    font-family: 'Inter', sans-serif;
+    direction: rtl;
+  }
+
+  * {
+    border-color: rgba(161, 209, 177, 0.2) !important;
+  }
+
+  a, button, h1, h2, h3, h4, h5, h6, label, input, select, span, p {
+    color: hsl(var(--primary)) !important;
+  }
+
+  ::placeholder {
+    color: rgba(161, 209, 177, 0.5);
+  }
+
+  .card, .panel, .box, .container, .sidebar {
+    background-color: hsl(var(--card)) !important;
+    color: hsl(var(--primary)) !important;
+    border-radius: 12px;
+    border: 1px solid rgba(161, 209, 177, 0.1);
+  }
+
+  button {
+    background-color: hsl(var(--primary)) !important;
+    color: hsl(var(--card)) !important;
+    border: none !important;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.2s ease-in-out;
+  }
+
+  button:hover {
+    background-color: #91C4A1 !important;
+    transform: scale(1.02);
+  }
+
+  input, textarea, select {
+    background-color: hsl(var(--card)) !important;
+    border: 1px solid rgba(161, 209, 177, 0.3);
+    color: hsl(var(--primary)) !important;
+  }
+
+  /* Typography - Minimal Theme */
+  h1, h2, h3, h4, h5, h6 {
+    color: hsl(var(--primary)) !important;
+    font-weight: 700;
+  }
+  
+  p, label, span, div {
+    color: hsl(var(--primary)) !important;
+    font-weight: 400;
+  }
+
+  a {
+    color: hsl(var(--primary)) !important;
+    text-decoration: none;
+    transition: color 0.2s ease-in-out;
+  }
+
+  a:hover {
+    color: #91C4A1 !important;
+  }
+
+  /* Persian text support */
+  [lang="fa"], [dir="rtl"] {
+    font-family: 'Inter', 'Tahoma', 'Arial', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer components {
+  /* Minimal Button System */
+  .btn-primary {
+    background-color: hsl(var(--primary)) !important;
+    color: hsl(var(--card)) !important;
+    border: none !important;
+    border-radius: 8px;
+    font-weight: 600;
+    padding: 8px 16px;
+    transition: all 0.2s ease-in-out;
+  }
+
+  .btn-primary:hover {
+    background-color: #91C4A1 !important;
+    transform: scale(1.02);
+  }
+
+  /* Minimal Card System */
+  .card-modern {
+    background-color: hsl(var(--card)) !important;
+    color: hsl(var(--primary)) !important;
+    border-radius: 12px;
+    border: 1px solid rgba(161, 209, 177, 0.15);
+    padding: 16px;
+  }
+
+  /* Minimal Input System */
+  .input-modern {
+    background-color: hsl(var(--card)) !important;
+    border: 1px solid rgba(161, 209, 177, 0.3);
+    color: hsl(var(--primary)) !important;
+    border-radius: 8px;
+    padding: 8px 12px;
+  }
+
+  .input-modern:focus {
+    outline: none;
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 2px rgba(161, 209, 177, 0.2);
+  }
+
+  .input-modern::placeholder {
+    color: rgba(161, 209, 177, 0.5);
+  }
+
+  /* Minimal Navigation System */
+  .nav-item {
+    background-color: hsl(var(--card)) !important;
+    color: hsl(var(--primary)) !important;
+    border-radius: 8px;
+    padding: 8px 16px;
+    transition: all 0.2s ease-in-out;
+  }
+
+  .nav-item:hover {
+    background-color: rgba(161, 209, 177, 0.1) !important;
+  }
+
+  .nav-item-active {
+    background-color: rgba(161, 209, 177, 0.1) !important;
+    border-left: 2px solid hsl(var(--primary));
+  }
+}
+
+/* Force override ALL existing styles - Minimal Two-Color Theme */
+* {
+  color-scheme: dark !important;
+}
+
+body, html {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+/* Remove ALL unwanted colors and force minimal theme */
+[class*="text-yellow"], [class*="bg-yellow"], [class*="border-yellow"],
+[class*="text-amber"], [class*="bg-amber"], [class*="border-amber"],
+[class*="text-orange"], [class*="bg-orange"], [class*="border-orange"],
+[class*="text-brown"], [class*="bg-brown"], [class*="border-brown"],
+[class*="text-beige"], [class*="bg-beige"], [class*="border-beige"],
+[class*="text-gray"], [class*="bg-gray"], [class*="border-gray"],
+[class*="text-white"], [class*="bg-white"], [class*="border-white"],
+[class*="text-blue"], [class*="bg-blue"], [class*="border-blue"],
+[class*="text-green"], [class*="bg-green"], [class*="border-green"],
+[class*="text-red"], [class*="bg-red"], [class*="border-red"],
+[class*="text-purple"], [class*="bg-purple"], [class*="border-purple"],
+[class*="text-pink"], [class*="bg-pink"], [class*="border-pink"],
+[class*="text-indigo"], [class*="bg-indigo"], [class*="border-indigo"],
+[class*="text-mint"], [class*="bg-mint"], [class*="border-mint"] {
+  color: hsl(var(--primary)) !important;
+  background-color: hsl(var(--card)) !important;
+  border-color: rgba(161, 209, 177, 0.2) !important;
+}
+
+/* Force all backgrounds to use minimal theme */
+[class*="bg-"]:not([class*="bg-[hsl(var(--card))]"]):not([class*="bg-[hsl(var(--primary))]"]) {
+  background-color: hsl(var(--card)) !important;
+}
+
+/* Force all text to use accent color */
+[class*="text-"]:not([class*="text-[hsl(var(--primary))]"]) {
+  color: hsl(var(--primary)) !important;
+}
