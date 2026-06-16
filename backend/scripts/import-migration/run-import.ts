@@ -1,5 +1,5 @@
 /**
- * Production historical import: Pays.xlsx + 1402-1405.xlsx
+ * Production historical import: Pays.xlsx + LASTDATTA.xlsx
  *
  * Usage:
  *   npx ts-node -r tsconfig-paths/register scripts/import-migration/run-import.ts --dry-run
@@ -14,7 +14,6 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import * as XLSX from 'xlsx';
 import { PrismaClient, Prisma } from '@prisma/client';
 import {
   DEFAULT_APPT_PATH,
@@ -31,21 +30,18 @@ import {
   ensureCalendarDate,
   externalRefAppointment,
   externalRefExpense,
-  formatJalaliKey,
-  getRowString,
   hashImportPassword,
-  normalizeExcelHeaders,
   normalizeIranianPhone,
   parseAmountRial,
+  parseAppointmentRows,
+  parseExpenseRows,
   parseJalaliDateAppointments,
   parseJalaliDateExpenses,
-  parseSharePercent,
   resolveCalendarFromIndexes,
   resolveCategoryFromIndexes,
   resolveCustomerFromIndexes,
   resolveEmployeeFromIndexes,
   resolveServiceFromIndexes,
-  resolveServiceName,
   sha1,
   ServiceRef,
 } from './helpers';
@@ -139,87 +135,6 @@ function parseCli(): CliOptions {
     apptPath: process.env.APPT_XLSX_PATH || DEFAULT_APPT_PATH,
     createIncomeTx: !args.includes('--skip-income-tx'),
   };
-}
-
-function loadExcelRows(filePath: string, sourceFile: string): { rowNumber: number; data: Record<string, unknown> }[] {
-  if (!fs.existsSync(filePath)) {
-    throw new Error(`File not found: ${filePath}`);
-  }
-  const wb = XLSX.readFile(filePath, { cellDates: false });
-  const sheet = wb.Sheets[wb.SheetNames[0]];
-  const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
-  return json.map((data, idx) => ({ rowNumber: idx + 2, data }));
-}
-
-function parseExpenseRows(filePath: string): ParsedExpenseRow[] {
-  const raw = loadExcelRows(filePath, path.basename(filePath));
-  const parsed: ParsedExpenseRow[] = [];
-  for (const { rowNumber, data } of raw) {
-    const row = normalizeExcelHeaders(data);
-    const groupName = getRowString(row, 'GroupName');
-    const amount = parseAmountRial(getRowString(row, 'Amount') || row.Amount);
-    const shamsi = getRowString(row, 'ShamsiDate');
-    const descRaw = getRowString(row, 'Description');
-    const description = descRaw === '-' || descRaw === '' ? null : descRaw;
-    const date = parseJalaliDateExpenses(shamsi);
-
-    if (!groupName || !amount || !date) continue;
-
-    parsed.push({
-      sourceFile: path.basename(filePath),
-      rowNumber,
-      groupName,
-      amountRial: amount,
-      shamsiDateRaw: shamsi,
-      jalaliDateKey: date.jalaliDateKey,
-      description,
-    });
-  }
-  return parsed;
-}
-
-function parseAppointmentRows(filePath: string): ParsedAppointmentRow[] {
-  const raw = loadExcelRows(filePath, path.basename(filePath));
-  const parsed: ParsedAppointmentRow[] = [];
-
-  for (const { rowNumber, data } of raw) {
-    const row = normalizeExcelHeaders(data);
-    const jalaliRaw = getRowString(row, 'تاریخ');
-    const customerPhoneRaw = getRowString(row, 'موبایل');
-    const customerName = getRowString(row, 'مشتری');
-    const employeeShareRaw = getRowString(row, 'دریافت کارمند');
-    const sharePercentRaw = getRowString(row, 'درصد دریافت');
-    const employeeName = getRowString(row, 'کارمند');
-    const employeePhoneRaw = getRowString(row, 'موبایل کارمند');
-    const priceRaw = getRowString(row, 'قیمت', ' قیمت');
-    const serviceRaw = getRowString(row, 'نام خدمات');
-
-    const date = parseJalaliDateAppointments(jalaliRaw);
-    const totalPriceRial = parseAmountRial(priceRaw);
-    const employeeShareRial = parseAmountRial(employeeShareRaw) ?? 0n;
-    const customerPhone = normalizeIranianPhone(customerPhoneRaw);
-
-    if (!date || !totalPriceRial || !customerPhone || !serviceRaw.trim()) continue;
-
-    const serviceNameCanonical = resolveServiceName(serviceRaw);
-
-    parsed.push({
-      sourceFile: path.basename(filePath),
-      rowNumber,
-      jalaliDateRaw: jalaliRaw,
-      jalaliDateKey: date.jalaliDateKey,
-      customerPhone,
-      customerName,
-      employeeShareRial,
-      sharePercent: parseSharePercent(sharePercentRaw),
-      employeeName,
-      employeePhone: normalizeIranianPhone(employeePhoneRaw) || employeePhoneRaw,
-      totalPriceRial,
-      serviceNameRaw: serviceRaw.trim(),
-      serviceNameCanonical,
-    });
-  }
-  return parsed;
 }
 
 function countDuplicates<T>(items: T[], keyFn: (item: T, index: number) => string): {
@@ -339,7 +254,23 @@ async function validateAndReport(
     }
   }
 
-  const paysDup = countDuplicates(expenseRows, (r) => computeExpenseDedupKey(r));
+  const paysDup = countDuplicates(expenseRows, (r, i) => {
+    if (opts.dedup !== 'import-all') {
+      return computeExpenseDedupKey(r, 0);
+    }
+    const baseKey = sha1(
+      [r.groupName, r.amountRial.toString(), r.jalaliDateKey, r.description ?? ''].join('|'),
+    );
+    let occurrence = 0;
+    for (let j = 0; j < i; j++) {
+      const other = expenseRows[j];
+      const otherBase = sha1(
+        [other.groupName, other.amountRial.toString(), other.jalaliDateKey, other.description ?? ''].join('|'),
+      );
+      if (otherBase === baseKey) occurrence++;
+    }
+    return computeExpenseDedupKey(r, occurrence);
+  });
   const apptDup = countDuplicates(appointmentRows, (r, i) =>
     computeAppointmentDedupKey(r, opts.dedup === 'import-all' ? i : 0),
   );
@@ -561,6 +492,7 @@ async function runImport(
   }
 
   const apptKeyOccurrence = new Map<string, number>();
+  const paysKeyOccurrence = new Map<string, number>();
   const seenAppointmentDedupKeys = new Set<string>();
 
   const calendarCache = new Map<string, number>(indexes.calendarByJalali);
@@ -571,9 +503,24 @@ async function runImport(
     await prisma.$transaction(async (tx) => {
       for (const row of batch) {
         try {
-          const dedupKey = computeExpenseDedupKey(row);
+          const paysBaseKey = sha1(
+            [
+              row.groupName,
+              row.amountRial.toString(),
+              row.jalaliDateKey,
+              row.description ?? '',
+            ].join('|'),
+          );
+          const paysOccurrence = paysKeyOccurrence.get(paysBaseKey) || 0;
+          paysKeyOccurrence.set(paysBaseKey, paysOccurrence + 1);
+
+          const dedupKey =
+            opts.dedup === 'import-all'
+              ? computeExpenseDedupKey(row, paysOccurrence)
+              : computeExpenseDedupKey(row, 0);
+
           const extRef = externalRefExpense(opts.batchId, dedupKey);
-          if (await expenseExists(prisma, extRef)) {
+          if (opts.dedup === 'skip-exact' && (await expenseExists(prisma, extRef))) {
             result.pays.skippedDuplicate++;
             continue;
           }
@@ -583,6 +530,11 @@ async function runImport(
           if (!date) {
             result.pays.failed++;
             continue;
+          }
+
+          let occurredAt = date.occurredAt;
+          if (opts.dedup === 'import-all' && paysOccurrence > 0) {
+            occurredAt = new Date(occurredAt.getTime() + paysOccurrence * 60_000);
           }
 
           await tx.transaction.create({
@@ -595,7 +547,7 @@ async function runImport(
               accountId: indexes.defaultBankAccountId!,
               sourceType: SOURCE_TYPE_PAYS,
               paymentMethod: 'CASH',
-              occurredAt: date.occurredAt,
+              occurredAt,
               createdBy: indexes.adminUserId!,
               meta: {
                 externalRef: extRef,

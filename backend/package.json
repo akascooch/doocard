@@ -53,6 +53,8 @@
     "import:historical": "ts-node -r tsconfig-paths/register scripts/import-historical.ts",
     "import:migration:dry-run": "ts-node scripts/import-migration/run-import.ts --dry-run",
     "import:migration:commit": "ts-node scripts/import-migration/run-import.ts --commit --create-missing",
+    "import:migration:reset:dry": "ts-node scripts/import-migration/reset-domain.ts --dry-run",
+    "import:migration:reset": "ts-node scripts/import-migration/reset-domain.ts --confirm",
     "import:migration:rollback:dry": "ts-node scripts/import-migration/rollback.ts --dry-run",
     "docker:build": "docker build -t barbershop-backend .",
     "docker:run": "docker run -p 3001:3001 barbershop-backend",

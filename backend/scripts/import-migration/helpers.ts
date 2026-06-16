@@ -1,4 +1,7 @@
 import * as crypto from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as XLSX from 'xlsx';
 import * as jalaali from 'jalaali-js';
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -16,7 +19,13 @@ export const DEFAULT_PAYS_PATH =
   'C:/Users/a.hosseini/Desktop/apk/files/Pays.xlsx';
 export const DEFAULT_APPT_PATH =
   process.env.APPT_XLSX_PATH ||
-  'C:/Users/a.hosseini/Desktop/apk/files/1402-1405.xlsx';
+  'C:/Users/a.hosseini/Desktop/apk/files/LASTDATTA.xlsx';
+
+/** Known invalid Jalali dates in source spreadsheets → corrected value */
+export const JALALI_DATE_CORRECTIONS: Record<string, string> = {
+  '1401/12/30': '1401/12/29',
+  '1401-12-30': '1401/12/29',
+};
 
 /** Excel service name -> canonical DB service name */
 export const SERVICE_ALIAS_MAP: Record<string, string> = {
@@ -128,15 +137,25 @@ export function formatJalaliKey(jy: number, jm: number, jd: number): string {
   return `${jy}-${pad2(jm)}-${pad2(jd)}`;
 }
 
+/** Apply spreadsheet-specific Jalali date corrections before parsing */
+export function correctInvalidJalaliDate(raw: string): string {
+  const trimmed = raw.trim();
+  const slashForm = trimmed.replace(/-/g, '/');
+  if (JALALI_DATE_CORRECTIONS[trimmed]) return JALALI_DATE_CORRECTIONS[trimmed];
+  if (JALALI_DATE_CORRECTIONS[slashForm]) return JALALI_DATE_CORRECTIONS[slashForm];
+  return trimmed;
+}
+
 /**
- * Appointments file: YYYY/MM/DD (e.g. 1402/01/02)
+ * Jalali YYYY/MM/DD (appointments + Pays.xlsx)
  */
-export function parseJalaliDateAppointments(raw: string): {
+export function parseJalaliDateYMD(raw: string): {
   jalaliDateKey: string;
-  scheduledAt: Date;
+  at: Date;
 } | null {
   if (!raw?.trim()) return null;
-  const normalized = raw.trim().replace(/-/g, '/');
+  const corrected = correctInvalidJalaliDate(raw);
+  const normalized = corrected.replace(/-/g, '/');
   const parts = normalized.split('/').map((p) => Number(p.trim()));
   if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return null;
 
@@ -144,40 +163,43 @@ export function parseJalaliDateAppointments(raw: string): {
   if (!jalaali.isValidJalaaliDate(jy, jm, jd)) return null;
 
   const g = jalaali.toGregorian(jy, jm, jd);
-  const scheduledAt = new Date(
+  const at = new Date(
     Date.UTC(g.gy, g.gm - 1, g.gd, TEHRAN_NOON_UTC_HOUR, TEHRAN_NOON_UTC_MINUTE, 0, 0),
   );
 
   return {
     jalaliDateKey: formatJalaliKey(jy, jm, jd),
-    scheduledAt,
+    at,
   };
 }
 
-/**
- * Pays file: DD/MM/YYYY (e.g. 01/03/1404)
- */
+/** Appointments / LASTDATTA.xlsx: YYYY/MM/DD */
+export function parseJalaliDateAppointments(raw: string): {
+  jalaliDateKey: string;
+  scheduledAt: Date;
+} | null {
+  const parsed = parseJalaliDateYMD(raw);
+  if (!parsed) return null;
+  return { jalaliDateKey: parsed.jalaliDateKey, scheduledAt: parsed.at };
+}
+
+/** Pays.xlsx: YYYY/MM/DD (same as appointments) */
 export function parseJalaliDateExpenses(raw: string): {
   jalaliDateKey: string;
   occurredAt: Date;
 } | null {
-  if (!raw?.trim()) return null;
-  const normalized = raw.trim().replace(/-/g, '/');
-  const parts = normalized.split('/').map((p) => Number(p.trim()));
-  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return null;
+  const parsed = parseJalaliDateYMD(raw);
+  if (!parsed) return null;
+  return { jalaliDateKey: parsed.jalaliDateKey, occurredAt: parsed.at };
+}
 
-  const [jd, jm, jy] = parts;
-  if (!jalaali.isValidJalaaliDate(jy, jm, jd)) return null;
-
-  const g = jalaali.toGregorian(jy, jm, jd);
-  const occurredAt = new Date(
-    Date.UTC(g.gy, g.gm - 1, g.gd, TEHRAN_NOON_UTC_HOUR, TEHRAN_NOON_UTC_MINUTE, 0, 0),
-  );
-
-  return {
-    jalaliDateKey: formatJalaliKey(jy, jm, jd),
-    occurredAt,
-  };
+/** Merge Pays description with optional counterparty (طرف حساب) */
+export function buildExpenseDescription(descRaw: string, partyRaw: string): string | null {
+  const desc = descRaw === '-' || descRaw === '' ? null : descRaw.trim();
+  const party = partyRaw.trim();
+  if (party && desc) return `${desc} | طرف حساب: ${party}`;
+  if (party) return `طرف حساب: ${party}`;
+  return desc;
 }
 
 export function resolveServiceName(raw: string): string {
@@ -185,13 +207,17 @@ export function resolveServiceName(raw: string): string {
   return SERVICE_ALIAS_MAP[trimmed] ?? trimmed;
 }
 
-export function computeExpenseDedupKey(row: ParsedExpenseRow): string {
+export function computeExpenseDedupKey(
+  row: ParsedExpenseRow,
+  occurrenceIndex = 0,
+): string {
   return sha1(
     [
       row.groupName,
       row.amountRial.toString(),
       row.jalaliDateKey,
       row.description ?? '',
+      String(occurrenceIndex),
     ].join('|'),
   );
 }
@@ -303,7 +329,7 @@ export async function buildReferenceIndexes(prisma: PrismaClient): Promise<{
 
   const calendarRows = await prisma.calendarDate.findMany({
     where: {
-      jalaliYear: { gte: 1402, lte: 1405 },
+      jalaliYear: { gte: 1401, lte: 1405 },
     },
     select: { id: true, jalaliDate: true },
   });
@@ -433,4 +459,96 @@ export function resolveCalendarFromIndexes(
   jalaliDateKey: string,
 ): number | null {
   return indexes.calendarByJalali.get(jalaliDateKey) ?? null;
+}
+
+function loadExcelRows(filePath: string): { rowNumber: number; data: Record<string, unknown> }[] {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`File not found: ${filePath}`);
+  }
+  const wb = XLSX.readFile(filePath, { cellDates: false });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+  return json.map((data, idx) => ({ rowNumber: idx + 2, data }));
+}
+
+/**
+ * Pays.xlsx → expense rows (Persian headers)
+ */
+export function parseExpenseRows(filePath: string): ParsedExpenseRow[] {
+  const raw = loadExcelRows(filePath);
+  const parsed: ParsedExpenseRow[] = [];
+  const sourceFile = path.basename(filePath);
+
+  for (const { rowNumber, data } of raw) {
+    const row = normalizeExcelHeaders(data);
+    const groupName = getRowString(row, 'دسته بندی', 'GroupName');
+    const amount = parseAmountRial(getRowString(row, 'قیمت', 'Amount') || row.Amount);
+    const shamsiRaw = getRowString(row, 'تاریخ', 'ShamsiDate');
+    const shamsi = correctInvalidJalaliDate(shamsiRaw);
+    const descRaw = getRowString(row, 'توضیحات', 'Description');
+    const partyRaw = getRowString(row, 'طرف حساب');
+    const description = buildExpenseDescription(descRaw, partyRaw);
+    const date = parseJalaliDateExpenses(shamsi);
+
+    if (!groupName || !amount || !date) continue;
+
+    parsed.push({
+      sourceFile,
+      rowNumber,
+      groupName,
+      amountRial: amount,
+      shamsiDateRaw: shamsi,
+      jalaliDateKey: date.jalaliDateKey,
+      description,
+    });
+  }
+  return parsed;
+}
+
+/**
+ * LASTDATTA.xlsx → appointment rows (Persian headers)
+ */
+export function parseAppointmentRows(filePath: string): ParsedAppointmentRow[] {
+  const raw = loadExcelRows(filePath);
+  const parsed: ParsedAppointmentRow[] = [];
+  const sourceFile = path.basename(filePath);
+
+  for (const { rowNumber, data } of raw) {
+    const row = normalizeExcelHeaders(data);
+    const jalaliRaw = getRowString(row, 'تاریخ');
+    const customerPhoneRaw = getRowString(row, 'موبایل مشتری', 'موبایل');
+    const customerName = getRowString(row, 'مشتری');
+    const employeeShareRaw = getRowString(row, 'دریافت کارمند');
+    const sharePercentRaw = getRowString(row, 'درصد دریافت');
+    const employeeName = getRowString(row, 'کارمند');
+    const employeePhoneRaw = getRowString(row, 'شماره کارمند', 'موبایل کارمند');
+    const priceRaw = getRowString(row, 'قیمت', ' قیمت');
+    const serviceRaw = getRowString(row, 'نام', 'نام خدمات');
+
+    const date = parseJalaliDateAppointments(jalaliRaw);
+    const totalPriceRial = parseAmountRial(priceRaw);
+    const employeeShareRial = parseAmountRial(employeeShareRaw) ?? 0n;
+    const customerPhone = normalizeIranianPhone(customerPhoneRaw);
+
+    if (!date || !totalPriceRial || !customerPhone || !serviceRaw.trim()) continue;
+
+    const serviceNameCanonical = resolveServiceName(serviceRaw);
+
+    parsed.push({
+      sourceFile,
+      rowNumber,
+      jalaliDateRaw: jalaliRaw,
+      jalaliDateKey: date.jalaliDateKey,
+      customerPhone,
+      customerName,
+      employeeShareRial,
+      sharePercent: parseSharePercent(sharePercentRaw),
+      employeeName,
+      employeePhone: normalizeIranianPhone(employeePhoneRaw) || employeePhoneRaw,
+      totalPriceRial,
+      serviceNameRaw: serviceRaw.trim(),
+      serviceNameCanonical,
+    });
+  }
+  return parsed;
 }
