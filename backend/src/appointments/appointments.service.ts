@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { 
   CreateAppointmentDto, 
@@ -23,6 +23,12 @@ interface ServiceSnapshot {
   durationMin: number;
   serviceName?: string;
 }
+
+/** Slot grid and booking window (Asia/Tehran business hours). */
+const SLOT_INTERVAL_MIN = 30;
+const BOOKING_DURATION_MIN = 60;
+const BUSINESS_HOUR_START = 10;
+const BUSINESS_HOUR_END = 22;
 
 @Injectable()
 export class AppointmentsService {
@@ -65,6 +71,22 @@ export class AppointmentsService {
     return { nowUtc, dateStr, timeStr };
   }
 
+  /** Half-open interval overlap: [startA, endA) vs [startB, endB). */
+  private intervalsOverlap(startA: Date, endA: Date, startB: Date, endB: Date): boolean {
+    return startA.getTime() < endB.getTime() && endA.getTime() > startB.getTime();
+  }
+
+  private clampBusinessHours(
+    windows: { start: number; end: number }[],
+  ): { start: number; end: number }[] {
+    return windows
+      .map((w) => ({
+        start: Math.max(BUSINESS_HOUR_START, w.start),
+        end: Math.min(BUSINESS_HOUR_END, w.end),
+      }))
+      .filter((w) => w.start < w.end);
+  }
+
   /**
    * Reserve slot with PostgreSQL advisory lock (concurrent-safe)
    * Creates appointment with atomic slot reservation
@@ -80,6 +102,12 @@ export class AppointmentsService {
       // Parse Jalali date + time (Iran timezone: UTC+3:30)
       const gregorianDate = this.calendarService.toGregorian(dto.jalaliDate);
       const [hours, minutes] = dto.time.split(':').map(Number);
+
+      if (minutes % SLOT_INTERVAL_MIN !== 0) {
+        throw new BadRequestException(
+          `زمان نوبت باید در بازه‌های ${SLOT_INTERVAL_MIN} دقیقه‌ای باشد (مثلاً 14:00 یا 14:30)`,
+        );
+      }
       
       // Convert Iran local time to UTC using ISO 8601 with timezone offset
       // Iran is UTC+3:30
@@ -123,12 +151,21 @@ export class AppointmentsService {
     const todayTehran = nowUtc.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
     const bookingDateTehran = scheduledAt.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
 
+    const isCustomer = currentUser?.role === 'CUSTOMER';
+    const isStaff = currentUser?.role === 'ADMIN' || currentUser?.role === 'EMPLOYEE';
+
     // [TZ-VALIDATE STEP 4] Midnight boundary (no logic change)
     const nowTehranStr = nowUtc.toLocaleString('en-US', { timeZone: 'Asia/Tehran' });
     const selectedTehranStr = scheduledAt.toLocaleString('en-US', { timeZone: 'Asia/Tehran' });
     console.log('[TZ-VALIDATE midnight] nowTehran:', nowTehranStr, '| selectedTehran:', selectedTehranStr, '| isToday:', bookingDateTehran === todayTehran);
 
-    if (bookingDateTehran === todayTehran) {
+    /*
+     * Customer bookings require a 2-hour minimum lead time.
+     * Staff (ADMIN / EMPLOYEE) can register past times for operational reasons
+     * such as back-office appointment registration.
+     * Unauthenticated callers are treated like customers.
+     */
+    if (bookingDateTehran === todayTehran && !isStaff) {
       const minAllowedAtUtc = new Date(nowUtc.getTime() + 2 * 60 * 60 * 1000);
       // [TZ-VALIDATE STEP 3] 2h rule (no logic change)
       console.log('[TZ-VALIDATE 2h] nowUtc:', nowUtc.toISOString());
@@ -138,6 +175,8 @@ export class AppointmentsService {
       if (scheduledAt < minAllowedAtUtc) {
         throw new BadRequestException('نوبت باید حداقل ۲ ساعت قبل از زمان نوبت ثبت شود');
       }
+    } else if (bookingDateTehran === todayTehran && isStaff) {
+      console.log('[BOOKING] Staff same-day create: 2h lead-time rule skipped for', currentUser?.role);
     }
 
     // Validate customer
@@ -246,10 +285,12 @@ export class AppointmentsService {
             overlapping.scheduledAt.getTime() + overlapping.durationMin * 60 * 1000
           );
 
-          const hasConflict =
-            (scheduledAt >= overlapping.scheduledAt && scheduledAt < overlappingEnd) ||
-            (endAt > overlapping.scheduledAt && endAt <= overlappingEnd) ||
-            (scheduledAt <= overlapping.scheduledAt && endAt >= overlappingEnd);
+          const hasConflict = this.intervalsOverlap(
+            scheduledAt,
+            endAt,
+            overlapping.scheduledAt,
+            overlappingEnd,
+          );
 
           if (hasConflict) {
             console.log('❌ Overlap detected with appointment:', overlapping.id);
@@ -484,12 +525,18 @@ export class AppointmentsService {
     // Role-based filtering
     if (currentUser) {
       if (currentUser.role === 'CUSTOMER') {
+        /**
+         * SECURITY FIX: fail-closed — customers must never see unscoped appointment data.
+         */
         const customer = await this.prisma.customer.findUnique({
-          where: { userId: currentUser.sub || currentUser.id },
+          where: { userId: currentUser.id },
         });
-        if (customer) {
-          where.customerId = customer.id;
+
+        if (!customer) {
+          throw new ForbiddenException('Customer profile not found');
         }
+
+        where.customerId = customer.id;
       } else if (currentUser.role === 'EMPLOYEE') {
         const employee = await this.prisma.employee.findUnique({
           where: { userId: currentUser.sub || currentUser.id },
@@ -673,8 +720,17 @@ export class AppointmentsService {
    * Get available time slots for an employee on a given date
    * Enhanced with WorkSchedule and BlockedTime
    */
-  async getAvailableSlots(dto: GetSlotsDto) {
-    const { employeeId, date, durationMin = 30, bufferMin = 5, slotIntervalMin = 60 } = dto;
+  async getAvailableSlots(dto: GetSlotsDto, currentUser?: any) {
+    const {
+      employeeId,
+      date,
+      durationMin = BOOKING_DURATION_MIN,
+      bufferMin = 0,
+      slotIntervalMin = SLOT_INTERVAL_MIN,
+    } = dto;
+
+    const isStaff =
+      currentUser?.role === 'ADMIN' || currentUser?.role === 'EMPLOYEE';
 
     // [TZ-VALIDATE STEP 1] Server time (no logic change)
     console.log('[TZ-VALIDATE] Server ISO:', new Date().toISOString());
@@ -747,7 +803,7 @@ export class AppointmentsService {
     }
 
     // Working hours: from DB or fallback 10:00–22:00 Asia/Tehran (hours from Tehran midnight)
-    const workingHours =
+    const workingHours = this.clampBusinessHours(
       workSchedules.length > 0
         ? workSchedules.map(ws => {
             const [startHour, startMin] = ws.startTime.split(':').map(Number);
@@ -757,7 +813,8 @@ export class AppointmentsService {
               end: endHour + endMin / 60,
             };
           })
-        : [{ start: 10, end: 22 }]; // Fallback: 10:00 - 22:00 Tehran (no DB write)
+        : [{ start: BUSINESS_HOUR_START, end: BUSINESS_HOUR_END }],
+    );
 
     // [TZ-VALIDATE STEP 2] Window bounds (no logic change)
     const win = workingHours[0];
@@ -836,25 +893,15 @@ export class AppointmentsService {
       while (currentTime < windowEnd) {
         const slotEnd = new Date(currentTime.getTime() + durationMin * 60 * 1000);
 
-        if (slotEnd > windowEnd) break;
-
         const hasAppointmentOverlap = existingAppointments.some(apt => {
           const aptStart = apt.scheduledAt;
-          const aptEnd = new Date(aptStart.getTime() + (apt.durationMin + bufferMin) * 60 * 1000);
-          return (
-            (currentTime >= aptStart && currentTime < aptEnd) ||
-            (slotEnd > aptStart && slotEnd <= aptEnd) ||
-            (currentTime <= aptStart && slotEnd >= aptEnd)
-          );
+          const aptEnd = new Date(aptStart.getTime() + apt.durationMin * 60 * 1000);
+          return this.intervalsOverlap(currentTime, slotEnd, aptStart, aptEnd);
         });
 
-        const hasBlockedOverlap = blockedTimes.some(block => {
-          return (
-            (currentTime >= block.startAt && currentTime < block.endAt) ||
-            (slotEnd > block.startAt && slotEnd <= block.endAt) ||
-            (currentTime <= block.startAt && slotEnd >= block.endAt)
-          );
-        });
+        const hasBlockedOverlap = blockedTimes.some(block =>
+          this.intervalsOverlap(currentTime, slotEnd, block.startAt, block.endAt),
+        );
 
         if (!hasAppointmentOverlap && !hasBlockedOverlap) {
           availableSlots.push({
@@ -880,25 +927,15 @@ export class AppointmentsService {
       while (currentTime < windowEnd) {
         const slotEnd = new Date(currentTime.getTime() + durationMin * 60 * 1000);
 
-        if (slotEnd > windowEnd) break;
-
         const conflictingAppointment = existingAppointments.find(apt => {
           const aptStart = apt.scheduledAt;
-          const aptEnd = new Date(aptStart.getTime() + (apt.durationMin + bufferMin) * 60 * 1000);
-          return (
-            (currentTime >= aptStart && currentTime < aptEnd) ||
-            (slotEnd > aptStart && slotEnd <= aptEnd) ||
-            (currentTime <= aptStart && slotEnd >= aptEnd)
-          );
+          const aptEnd = new Date(aptStart.getTime() + apt.durationMin * 60 * 1000);
+          return this.intervalsOverlap(currentTime, slotEnd, aptStart, aptEnd);
         });
 
-        const conflictingBlock = blockedTimes.find(block => {
-          return (
-            (currentTime >= block.startAt && currentTime < block.endAt) ||
-            (slotEnd > block.startAt && slotEnd <= block.endAt) ||
-            (currentTime <= block.startAt && slotEnd >= block.endAt)
-          );
-        });
+        const conflictingBlock = blockedTimes.find(block =>
+          this.intervalsOverlap(currentTime, slotEnd, block.startAt, block.endAt),
+        );
 
         const available = !conflictingAppointment && !conflictingBlock;
         let reason: string | undefined;
@@ -908,9 +945,7 @@ export class AppointmentsService {
         allSlots.push({
           time: currentTime.toISOString(),
           endTime: slotEnd.toISOString(),
-          displayTime: slotIntervalMin >= 60
-            ? currentTime.toLocaleTimeString('fa-IR', { ...tehranTimeOpts })
-            : currentTime.toLocaleTimeString('fa-IR', tehranTimeOpts),
+          displayTime: currentTime.toLocaleTimeString('fa-IR', tehranTimeOpts),
           available,
           ...(reason && { reason }),
         });
@@ -944,7 +979,7 @@ export class AppointmentsService {
       requestedDateISO: new Date(requestedDate).toISOString(),
       todayTehranISO: new Date(todayTehran).toISOString(),
     });
-    if (requestedDate === todayTehran) {
+    if (requestedDate === todayTehran && !isStaff) {
       const minGapMinutes = 2 * 60; // 2 hours in minutes
       for (const slot of allSlots) {
         const gapMinutes = (new Date(slot.time).getTime() - nowUtc.getTime()) / 60000;
@@ -1013,7 +1048,7 @@ export class AppointmentsService {
     console.log('[Earliest] Tehran now (date/time):', todayTehranStr, tehranTimeStr);
     console.log('[Earliest] Base Tehran date for earliest search:', todayTehranStr);
 
-    const durationMin = service.durationMinutes;
+    const durationMin = BOOKING_DURATION_MIN;
 
     const addDaysToGregorian = (dateStr: string, days: number): string => {
       const d = new Date(dateStr + 'T12:00:00.000Z');
@@ -1030,7 +1065,7 @@ export class AppointmentsService {
         employeeId,
         date: dateStr,
         durationMin,
-        slotIntervalMin: 60,
+        slotIntervalMin: SLOT_INTERVAL_MIN,
       });
 
       const totalSlots = result.slots.length;
@@ -1382,10 +1417,12 @@ export class AppointmentsService {
             overlapping.scheduledAt.getTime() + overlapping.durationMin * 60 * 1000
           );
 
-          const hasConflict =
-            (scheduledAt >= overlapping.scheduledAt && scheduledAt < overlappingEnd) ||
-            (endAt > overlapping.scheduledAt && endAt <= overlappingEnd) ||
-            (scheduledAt <= overlapping.scheduledAt && endAt >= overlappingEnd);
+          const hasConflict = this.intervalsOverlap(
+            scheduledAt,
+            endAt,
+            overlapping.scheduledAt,
+            overlappingEnd,
+          );
 
           if (hasConflict) {
             console.log('❌ Conflict detected during confirmation');
@@ -1475,10 +1512,11 @@ export class AppointmentsService {
         overlapping.scheduledAt.getTime() + overlapping.durationMin * 60 * 1000
       );
 
-      return (
-        (startTime >= overlapping.scheduledAt && startTime < overlappingEnd) ||
-        (endTime > overlapping.scheduledAt && endTime <= overlappingEnd) ||
-        (startTime <= overlapping.scheduledAt && endTime >= overlappingEnd)
+      return this.intervalsOverlap(
+        startTime,
+        endTime,
+        overlapping.scheduledAt,
+        overlappingEnd,
       );
     }
 
@@ -1598,14 +1636,17 @@ export class AppointmentsService {
    * Customer appointment history (completed/cancelled)
    */
   async getCustomerHistory(currentUser: any) {
-    const customer = await this.prisma.customer.findFirst({
-      where: {
-        user: { email: currentUser.email },
-      },
+    /**
+     * SECURITY FIX:
+     * Customer must be resolved by userId instead of email.
+     * Email is optional and not a reliable identity key.
+     */
+    const customer = await this.prisma.customer.findUnique({
+      where: { userId: currentUser.id },
     });
 
     if (!customer) {
-      throw new NotFoundException('Customer not found');
+      throw new ForbiddenException('Customer profile not found');
     }
 
     const appointments = await this.prisma.appointment.findMany({

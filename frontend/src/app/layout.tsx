@@ -8,8 +8,6 @@ import { ThemeProvider } from "../lib/theme"
 import { Toaster } from '../components/ui/toaster'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { registerServiceWorker } from '../lib/serviceWorker'
-import { PwaInstallPromptWrapper } from '../components/PwaInstallPromptWrapper'
-
 
 export const metadata: Metadata = {
   title: "آرایشگاه مردانه دوکارد",
@@ -224,7 +222,6 @@ export default function RootLayout({ children }: RootLayoutProps) {
           }}
         />
         <Toaster />
-        <PwaInstallPromptWrapper />
       </body>
     </html>
   )

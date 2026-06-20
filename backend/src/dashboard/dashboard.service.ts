@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppointmentStatus } from '@prisma/client';
 import { normalizeAppointmentFields } from '../common/utils/appointment-response.util';
@@ -636,15 +636,18 @@ export class DashboardService {
 
   // Customer dashboard stats
   async getCustomerStats(currentUser: any) {
-    const customer = await this.prisma.customer.findFirst({
-      where: { 
-        user: { email: currentUser.email }
-      },
-      include: { user: true }
+    /**
+     * SECURITY FIX:
+     * Customer must be resolved by userId instead of email.
+     * Email is optional and not a reliable identity key.
+     */
+    const customer = await this.prisma.customer.findUnique({
+      where: { userId: currentUser.id },
+      include: { user: true },
     });
 
     if (!customer) {
-      throw new Error('Customer not found');
+      throw new ForbiddenException('Customer profile not found');
     }
 
     const today = new Date();
@@ -703,15 +706,18 @@ export class DashboardService {
   }
 
   async getCustomerUpcomingAppointments(currentUser: any) {
-    const customer = await this.prisma.customer.findFirst({
-      where: { 
-        user: { email: currentUser.email }
-      },
-      include: { user: true }
+    /**
+     * SECURITY FIX:
+     * Customer must be resolved by userId instead of email.
+     * Email is optional and not a reliable identity key.
+     */
+    const customer = await this.prisma.customer.findUnique({
+      where: { userId: currentUser.id },
+      include: { user: true },
     });
 
     if (!customer) {
-      throw new Error('Customer not found');
+      throw new ForbiddenException('Customer profile not found');
     }
 
     const today = new Date();
