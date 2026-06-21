@@ -278,11 +278,13 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
         day: '2-digit',
       })
       const dateStr = formatter.format(gregorianDate)
+      const selectedService = services.find(s => s.id === parseInt(formData.serviceId))
+      const durationMin = 60
       
       console.log(`🔄 Fetching slots for Jalali: ${formData.appointmentDate} → Gregorian: ${dateStr}`)
       
       const res = await fetch(
-        `/api/appointments/slots?date=${dateStr}&employeeId=${formData.employeeId}`
+        `/api/appointments/slots?date=${dateStr}&employeeId=${formData.employeeId}&durationMin=${durationMin}&slotIntervalMin=30`
       )
 
       if (res.ok) {
@@ -294,7 +296,7 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
         const availableCount = allSlots.filter(s => s.available !== false).length
         const busyCount = allSlots.length - availableCount
         
-        console.log(`🕐 Loaded ${allSlots.length} hourly time slots (${availableCount} available, ${busyCount} busy)`)
+        console.log(`🕐 Loaded ${allSlots.length} time slots (${availableCount} available, ${busyCount} busy)`)
 
         if (availableCount === 0) {
           toast({
@@ -417,24 +419,23 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
       const servicesPayload = [{
         serviceId: selectedService.id,
         priceAtBooking: selectedService.price, // Already in RIAL
-        durationMin: selectedService.durationMinutes,
+        durationMin: 60,
       }]
 
-      // Extract time in HH:00 format from ISO datetime (hourly slots only)
+      const tehranTimeFormatter = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Tehran',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      })
+
       let timeStr = formData.appointmentTime
-      
-      // If appointmentTime is ISO datetime (e.g., "2025-11-01T14:00:00.000Z"), extract time
       if (timeStr.includes('T')) {
-        const timeDate = new Date(timeStr)
-        const hours = timeDate.getHours().toString().padStart(2, '0')
-        // For hourly slots, always use :00 minutes
-        timeStr = `${hours}:00`
+        timeStr = tehranTimeFormatter.format(new Date(timeStr))
       } else if (timeStr.includes(':')) {
-        // If already in HH:mm format, ensure it's hourly (round to :00)
-        const [h] = timeStr.split(':')
-        timeStr = `${h.padStart(2, '0')}:00`
+        const [h, m] = timeStr.split(':')
+        timeStr = `${h.padStart(2, '0')}:${m.padStart(2, '0')}`
       } else {
-        // If just hour number (e.g., "14"), format as HH:00
         timeStr = `${timeStr.padStart(2, '0')}:00`
       }
 

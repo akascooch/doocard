@@ -28,6 +28,7 @@ model User {
   refreshTokens       RefreshToken[]     @relation("UserRefreshTokens")
   smsLogs             SmsLog[]
   createdTransactions Transaction[]      @relation("TransactionCreator")
+  financialReportsAccessUpdates FinancialReportsAccess[] @relation("FinancialReportsAccessUpdatedBy")
 
   @@map("users")
 }
@@ -230,6 +231,7 @@ model Transaction {
   createdByUser        User?                @relation("TransactionCreator", fields: [createdBy], references: [id])
   destinationAccount   BankAccount?         @relation("TransactionDestination", fields: [destinationAccountId], references: [id])
   appointment          Appointment?         @relation(fields: [relatedId], references: [id])
+  chequeLeaves         ChequeLeaf[]
 
   @@index([sourceType, sourceId])
   @@index([type, occurredAt])
@@ -274,8 +276,54 @@ model BankAccount {
   deletedAt               DateTime?
   transactions            Transaction[] @relation("TransactionAccount")
   destinationTransactions Transaction[] @relation("TransactionDestination")
+  chequebooks             Chequebook[]
 
   @@map("bank_accounts")
+}
+
+model Chequebook {
+  id            Int          @id @default(autoincrement())
+  bankAccountId Int
+  serialNumber  String?
+  startNumber   Int
+  endNumber     Int
+  leafCount     Int
+  issuedAt      DateTime?
+  isActive      Boolean      @default(true)
+  description   String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?
+  bankAccount   BankAccount  @relation(fields: [bankAccountId], references: [id])
+  leaves        ChequeLeaf[]
+
+  @@index([bankAccountId])
+  @@index([deletedAt])
+  @@map("chequebooks")
+}
+
+model ChequeLeaf {
+  id            Int              @id @default(autoincrement())
+  chequebookId  Int
+  leafNumber    Int
+  status        ChequeLeafStatus @default(BLANK)
+  amount        BigInt?
+  payee         String?
+  dueDate       DateTime?
+  issuedAt      DateTime?
+  clearedAt     DateTime?
+  transactionId Int?
+  description   String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  deletedAt     DateTime?
+  chequebook    Chequebook       @relation(fields: [chequebookId], references: [id])
+  transaction   Transaction?     @relation(fields: [transactionId], references: [id])
+
+  @@unique([chequebookId, leafNumber])
+  @@index([chequebookId, status])
+  @@index([deletedAt])
+  @@map("cheque_leaves")
 }
 
 model Category {
@@ -551,6 +599,14 @@ enum PaymentMethod {
   DEBT
 }
 
+enum ChequeLeafStatus {
+  BLANK
+  ISSUED
+  CLEARED
+  BOUNCED
+  CANCELLED
+}
+
 enum CategoryType {
   INCOME
   EXPENSE
@@ -581,4 +637,16 @@ enum ImportStatus {
   COMPLETED
   FAILED
   CANCELLED
+}
+
+model FinancialReportsAccess {
+  id              Int      @id @default(1)
+  passwordHash    String?
+  tokenVersion    Int      @default(1)
+  updatedByUserId Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  updatedBy       User?    @relation("FinancialReportsAccessUpdatedBy", fields: [updatedByUserId], references: [id])
+
+  @@map("financial_reports_access")
 }

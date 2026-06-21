@@ -70,7 +70,7 @@ export default function SlotPicker({
           date: isoDate,
           durationMin,
           bufferMin: 5,
-          slotIntervalMin: 15,
+          slotIntervalMin: 30,
         },
       });
 

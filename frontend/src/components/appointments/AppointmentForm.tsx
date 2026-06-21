@@ -280,7 +280,7 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
             key={slotRefreshKey}
             employeeId={formData.employeeId}
             date={formData.date}
-            durationMin={totalDuration || 60}
+            durationMin={60}
             selectedTime={formData.time}
             onChange={(time) => setFormData({ ...formData, time })}
             label="زمان *"

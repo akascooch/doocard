@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Label } from '@/components/ui/label'
+import { PasswordInput } from '@/components/ui/password-input'
 import {
   Table,
   TableBody,
@@ -48,6 +50,11 @@ import {
 } from 'recharts'
 import axios from '@/lib/axios'
 import { toThousandTomans } from '@/lib/money'
+import {
+  isFinancialAccessValid,
+  setFinancialAccess,
+  clearFinancialAccess,
+} from '@/lib/financial-reports-access'
 
 interface FinancialData {
   totalRevenue: number
@@ -87,45 +94,99 @@ export default function AdminFinancialPage() {
   const [financialData, setFinancialData] = useState<FinancialData | null>(null)
   const [yearlyReport, setYearlyReport] = useState<YearlyReport | null>(null)
   const [year, setYear] = useState(DEFAULT_YEAR)
-  const [loading, setLoading] = useState(true)
-  const [yearlyLoading, setYearlyLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [yearlyLoading, setYearlyLoading] = useState(false)
   const [dateRange, setDateRange] = useState('month')
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
+  const [isUnlocked, setIsUnlocked] = useState(false)
+  const [gatePassword, setGatePassword] = useState('')
+  const [verifying, setVerifying] = useState(false)
+  const [gateError, setGateError] = useState('')
   const { toast } = useToast()
 
+  useEffect(() => {
+    setIsUnlocked(isFinancialAccessValid())
+  }, [])
+
+  const handleFinancialApiError = useCallback((err: any) => {
+    const status = err?.response?.status ?? err?.statusCode
+    if (status === 403) {
+      clearFinancialAccess()
+      setIsUnlocked(false)
+      setGateError('دسترسی منقضی شده است. دوباره رمز را وارد کنید.')
+    }
+  }, [])
+
   const fetchFinancialData = useCallback(async () => {
+    if (!isFinancialAccessValid()) return
     try {
       setLoading(true)
       const res = await axios.get('/dashboard/financial-stats')
       setFinancialData(res.data)
     } catch (err) {
       console.error('Error fetching financial data:', err)
+      handleFinancialApiError(err)
       toast({ title: 'خطا', description: 'خطا در بارگذاری اطلاعات مالی', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
-  }, [toast])
+  }, [toast, handleFinancialApiError])
 
   const fetchYearlyReport = useCallback(async () => {
+    if (!isFinancialAccessValid()) return
     try {
       setYearlyLoading(true)
       const res = await axios.get(`/admin/financial/yearly-report?year=${year}`)
       setYearlyReport(res.data)
     } catch (err) {
       console.error('Error fetching yearly report:', err)
+      handleFinancialApiError(err)
       toast({ title: 'خطا', description: 'خطا در بارگذاری گزارش سالانه', variant: 'destructive' })
     } finally {
       setYearlyLoading(false)
     }
-  }, [year, toast])
+  }, [year, toast, handleFinancialApiError])
+
+  const handleVerifyAccess = async () => {
+    if (!gatePassword.trim()) {
+      setGateError('لطفاً رمز عبور را وارد کنید.')
+      return
+    }
+    setVerifying(true)
+    setGateError('')
+    try {
+      const res = await axios.post('/admin/financial/verify-access', {
+        password: gatePassword,
+      })
+      setFinancialAccess(res.data.accessToken, res.data.expiresIn ?? 900)
+      setIsUnlocked(true)
+      setGatePassword('')
+    } catch (err: any) {
+      const status = err?.response?.status ?? err?.statusCode
+      const message = err?.response?.data?.message
+      if (status === 403) {
+        setGateError('ابتدا رمز گزارشات مالی را از تنظیمات ثبت کنید.')
+      } else if (status === 401) {
+        setGateError('رمز عبور اشتباه است.')
+      } else {
+        setGateError(message || 'خطا در تأیید رمز عبور')
+      }
+    } finally {
+      setVerifying(false)
+    }
+  }
 
   useEffect(() => {
-    fetchFinancialData()
-  }, [fetchFinancialData, dateRange, selectedMonth])
+    if (isUnlocked) {
+      fetchFinancialData()
+    }
+  }, [isUnlocked, fetchFinancialData, dateRange, selectedMonth])
 
   useEffect(() => {
-    fetchYearlyReport()
-  }, [fetchYearlyReport])
+    if (isUnlocked) {
+      fetchYearlyReport()
+    }
+  }, [isUnlocked, fetchYearlyReport])
 
   const formatDate = (date: string) => new Date(date).toLocaleDateString('fa-IR')
 
@@ -140,6 +201,43 @@ export default function AdminFinancialPage() {
 
   const amountValue = (amount: number | string) =>
     typeof amount === 'string' ? Number(amount) : amount
+
+  if (!isUnlocked) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>ورود به گزارشات مالی</CardTitle>
+            <CardDescription>
+              برای مشاهده گزارشات مالی، رمز تعیین‌شده در تنظیمات را وارد کنید.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="financial-gate-password">رمز عبور</Label>
+              <PasswordInput
+                id="financial-gate-password"
+                value={gatePassword}
+                onChange={(e) => setGatePassword(e.target.value)}
+                placeholder="رمز گزارشات مالی"
+                onKeyDown={(e) => e.key === 'Enter' && handleVerifyAccess()}
+              />
+            </div>
+            {gateError && (
+              <p className="text-sm text-destructive">{gateError}</p>
+            )}
+            <Button
+              className="w-full min-h-10"
+              onClick={handleVerifyAccess}
+              disabled={verifying}
+            >
+              {verifying ? 'در حال بررسی...' : 'تایید و ورود'}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   if (loading) {
     return (

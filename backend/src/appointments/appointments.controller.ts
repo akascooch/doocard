@@ -23,6 +23,7 @@ import {
   QueryAppointmentsDto
 } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { PermissionGuard } from '../common/guards/permission.guard';
 
@@ -53,12 +54,13 @@ export class AppointmentsController {
   }
 
   /**
-   * Get available time slots (PUBLIC - for booking page)
+   * Get available time slots (public; optional JWT for staff slot override)
    */
   @Get('slots')
-  getSlots(@Query() dto: GetSlotsDto) {
-    console.log('🕐 GET /appointments/slots (PUBLIC) - Query:', dto);
-    return this.service.getAvailableSlots(dto);
+  @UseGuards(OptionalJwtAuthGuard)
+  getSlots(@Query() dto: GetSlotsDto, @Req() req: any) {
+    console.log('🕐 GET /appointments/slots - Query:', dto, 'User:', req.user?.role ?? 'anonymous');
+    return this.service.getAvailableSlots(dto, req.user);
   }
 
   /**

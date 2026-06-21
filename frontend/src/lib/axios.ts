@@ -1,4 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { getFinancialAccessToken } from './financial-reports-access';
 
 const isServer = typeof window === 'undefined';
 
@@ -69,6 +70,17 @@ api.interceptors.request.use(
       const token = localStorage.getItem('token');
       if (token && !config.headers.Authorization) {
         config.headers.Authorization = `Bearer ${token}`;
+      }
+
+      const url = config.url || '';
+      if (
+        url.includes('/dashboard/financial-stats') ||
+        url.includes('/admin/financial/yearly-report')
+      ) {
+        const financialToken = getFinancialAccessToken();
+        if (financialToken) {
+          config.headers['x-financial-access-token'] = financialToken;
+        }
       }
     }
     return config;

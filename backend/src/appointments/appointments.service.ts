@@ -538,12 +538,16 @@ export class AppointmentsService {
 
         where.customerId = customer.id;
       } else if (currentUser.role === 'EMPLOYEE') {
+        /**
+         * SECURITY: fail-closed — employees must never see unscoped appointment data.
+         */
         const employee = await this.prisma.employee.findUnique({
           where: { userId: currentUser.sub || currentUser.id },
         });
-        if (employee) {
-          where.employeeId = employee.id;
+        if (!employee) {
+          throw new ForbiddenException('Employee profile not found');
         }
+        where.employeeId = employee.id;
       }
       // ADMIN sees all
     }

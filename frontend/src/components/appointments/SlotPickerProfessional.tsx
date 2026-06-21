@@ -73,7 +73,7 @@ export default function SlotPickerProfessional({
           date: gregorianDate, // Send Gregorian date (YYYY-MM-DD)
           durationMin,
           bufferMin: 5,
-          slotIntervalMin: 60, // 60 minutes = hourly slots only
+          slotIntervalMin: 30,
         },
       });
 

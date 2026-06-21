@@ -639,4 +639,86 @@ describe('Accounting Integration Tests', () => {
       // daily closing returns totalIncome/totalRevenue, not totalExpense
     });
   });
+
+  describe('Chequebooks', () => {
+    let bankAccountId: number;
+
+    beforeEach(async () => {
+      const account = await prismaTestService.bankAccount.create({
+        data: {
+          name: 'Cheque Test Account',
+          provider: 'Test Bank',
+          balance: BigInt(0),
+        },
+      });
+      bankAccountId = account.id;
+    });
+
+    it('POST /accounting/chequebooks should create chequebook and leaves', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/accounting/chequebooks')
+        .send({
+          bankAccountId,
+          serialNumber: 'SER-001',
+          startNumber: 5001,
+          endNumber: 5003,
+        })
+        .expect(201);
+
+      expect(response.body).toHaveProperty('id');
+      expect(response.body.leafCount).toBe(3);
+
+      const leaves = await prismaTestService.chequeLeaf.findMany({
+        where: { chequebookId: response.body.id, deletedAt: null },
+        orderBy: { leafNumber: 'asc' },
+      });
+
+      expect(leaves).toHaveLength(3);
+      expect(leaves[0].leafNumber).toBe(5001);
+      expect(leaves[0].status).toBe('BLANK');
+    });
+
+    it('PATCH /accounting/cheque-leaves/:id should update status safely', async () => {
+      const book = await request(app.getHttpServer())
+        .post('/accounting/chequebooks')
+        .send({ bankAccountId, startNumber: 6001, endNumber: 6001 })
+        .expect(201);
+
+      const leavesRes = await request(app.getHttpServer())
+        .get(`/accounting/chequebooks/${book.body.id}/leaves`)
+        .expect(200);
+
+      const leafId = leavesRes.body.data[0].id;
+
+      const updated = await request(app.getHttpServer())
+        .patch(`/accounting/cheque-leaves/${leafId}`)
+        .send({ status: 'ISSUED', amount: 1000000, payee: 'Supplier A' })
+        .expect(200);
+
+      expect(updated.body.status).toBe('ISSUED');
+      expect(updated.body.amount).toBe(1000000);
+      expect(typeof updated.body.amount).toBe('number');
+    });
+
+    it('DELETE /accounting/chequebooks/:id should soft delete chequebook and leaves', async () => {
+      const book = await request(app.getHttpServer())
+        .post('/accounting/chequebooks')
+        .send({ bankAccountId, startNumber: 7001, endNumber: 7002 })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .delete(`/accounting/chequebooks/${book.body.id}`)
+        .expect(200);
+
+      const deletedBook = await prismaTestService.chequebook.findUnique({
+        where: { id: book.body.id },
+      });
+      expect(deletedBook?.deletedAt).not.toBeNull();
+
+      const deletedLeaves = await prismaTestService.chequeLeaf.count({
+        where: { chequebookId: book.body.id, deletedAt: { not: null } },
+      });
+      expect(deletedLeaves).toBe(2);
+    });
+  });
 });

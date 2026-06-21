@@ -1,17 +1,20 @@
-import { Controller, Get, Post, Delete, Body, UseGuards, Res, UploadedFile, UseInterceptors, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, UseGuards, Res, Req, UploadedFile, UseInterceptors, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator } from '@nestjs/common';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { PermissionGuard } from '../common/guards/permission.guard';
 import { SettingsService } from './settings.service';
+import { FinancialReportsAccessService } from './financial-reports-access.service';
+import { SetFinancialReportsPasswordDto } from './dto/set-financial-reports-password.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import * as fs from 'fs';
-import * as path from 'path';
 
 @Controller('settings')
 @UseGuards(JwtAuthGuard, PermissionGuard)
 export class SettingsController {
-  constructor(private readonly settingsService: SettingsService) {}
+  constructor(
+    private readonly settingsService: SettingsService,
+    private readonly financialReportsAccessService: FinancialReportsAccessService,
+  ) {}
 
   @Get('logo')
   async getLogo() {
@@ -108,6 +111,25 @@ export class SettingsController {
   @Roles('ADMIN')
   async getBackupInfo() {
     return this.settingsService.getBackupInfo();
+  }
+
+  @Get('financial-reports-password/status')
+  @Roles('ADMIN')
+  async getFinancialReportsPasswordStatus() {
+    return this.financialReportsAccessService.getPasswordStatus();
+  }
+
+  @Post('financial-reports-password')
+  @Roles('ADMIN')
+  async setFinancialReportsPassword(
+    @Req() req: any,
+    @Body() dto: SetFinancialReportsPasswordDto,
+  ) {
+    return this.financialReportsAccessService.setPassword(
+      req.user.id,
+      dto.newPassword,
+      dto.currentPassword,
+    );
   }
 
   @Post('test-restore')

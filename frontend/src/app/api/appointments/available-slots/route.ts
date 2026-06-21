@@ -8,6 +8,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const date = searchParams.get('date')
     const employeeId = searchParams.get('employeeId')
+    const durationMin = searchParams.get('durationMin') ?? '60'
+    const slotIntervalMin = searchParams.get('slotIntervalMin') ?? '30'
     
     if (!date || !employeeId) {
       return NextResponse.json(
@@ -15,8 +17,15 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    const query = new URLSearchParams({
+      date,
+      employeeId,
+      durationMin,
+      slotIntervalMin,
+    })
     
-    const response = await fetch(`${API_BASE_URL}/api/appointments/slots?date=${date}&employeeId=${employeeId}`, {
+    const response = await fetch(`${API_BASE_URL}/api/appointments/slots?${query.toString()}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

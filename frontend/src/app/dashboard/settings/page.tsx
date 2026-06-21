@@ -9,6 +9,8 @@ import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 import axios from "../../../lib/axios"
+import { PasswordInput } from "@/components/ui/password-input"
+import { clearFinancialAccess } from "@/lib/financial-reports-access"
 
 function SettingsSection({
   title,
@@ -45,11 +47,29 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
   const [showResetDialog, setShowResetDialog] = useState(false)
+  const [financialPasswordSet, setFinancialPasswordSet] = useState(false)
+  const [financialCurrentPassword, setFinancialCurrentPassword] = useState("")
+  const [financialNewPassword, setFinancialNewPassword] = useState("")
+  const [financialConfirmPassword, setFinancialConfirmPassword] = useState("")
+  const [financialPasswordLoading, setFinancialPasswordLoading] = useState(false)
 
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+    const loadFinancialStatus = async () => {
+      try {
+        const res = await axios.get('/settings/financial-reports-password/status')
+        setFinancialPasswordSet(!!res.data?.isSet)
+      } catch {
+        // ignore — admin-only endpoint
+      }
+    }
+    loadFinancialStatus()
+  }, [mounted])
 
   useEffect(() => {
     if (!mounted) return; // Don't run until mounted
@@ -206,6 +226,67 @@ export default function SettingsPage() {
     }
   };
 
+  const handleFinancialPasswordSubmit = async () => {
+    if (financialNewPassword.length < 6) {
+      toast({
+        title: "خطا",
+        description: "رمز جدید باید حداقل ۶ کاراکتر باشد.",
+        variant: "destructive",
+      })
+      return
+    }
+    if (financialNewPassword !== financialConfirmPassword) {
+      toast({
+        title: "خطا",
+        description: "تکرار رمز جدید مطابقت ندارد.",
+        variant: "destructive",
+      })
+      return
+    }
+    if (financialPasswordSet && !financialCurrentPassword) {
+      toast({
+        title: "خطا",
+        description: "رمز فعلی الزامی است.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setFinancialPasswordLoading(true)
+    const wasAlreadySet = financialPasswordSet
+    try {
+      const body: { newPassword: string; currentPassword?: string } = {
+        newPassword: financialNewPassword,
+      }
+      if (financialPasswordSet) {
+        body.currentPassword = financialCurrentPassword
+      }
+      await axios.post('/settings/financial-reports-password', body)
+      clearFinancialAccess()
+      setFinancialPasswordSet(true)
+      setFinancialCurrentPassword("")
+      setFinancialNewPassword("")
+      setFinancialConfirmPassword("")
+      toast({
+        title: wasAlreadySet
+          ? "رمز گزارشات مالی با موفقیت تغییر کرد."
+          : "رمز گزارشات مالی با موفقیت ثبت شد.",
+      })
+    } catch (error: any) {
+      const status = error?.response?.status ?? error?.statusCode
+      toast({
+        title: "خطا",
+        description:
+          status === 401
+            ? "رمز فعلی اشتباه است."
+            : error?.response?.data?.message || "خطا در ذخیره رمز گزارشات مالی",
+        variant: "destructive",
+      })
+    } finally {
+      setFinancialPasswordLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -347,6 +428,52 @@ export default function SettingsPage() {
                 <p>• شامل: کاربران، مشتریان، نوبت‌ها، مالی و...</p>
               </div>
             </div>
+          </div>
+        </SettingsSection>
+
+        {/* امنیت گزارشات مالی */}
+        <SettingsSection title="امنیت گزارشات مالی" icon="Lock">
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              رمز جداگانه برای دسترسی به صفحه گزارشات مالی. این رمز با رمز ورود سیستم متفاوت است.
+            </p>
+            {financialPasswordSet && (
+              <div className="space-y-2">
+                <label className="block text-sm font-medium">رمز فعلی</label>
+                <PasswordInput
+                  value={financialCurrentPassword}
+                  onChange={(e) => setFinancialCurrentPassword(e.target.value)}
+                  placeholder="رمز فعلی گزارشات مالی"
+                />
+              </div>
+            )}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium">رمز جدید</label>
+              <PasswordInput
+                value={financialNewPassword}
+                onChange={(e) => setFinancialNewPassword(e.target.value)}
+                placeholder="حداقل ۶ کاراکتر"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium">تکرار رمز جدید</label>
+              <PasswordInput
+                value={financialConfirmPassword}
+                onChange={(e) => setFinancialConfirmPassword(e.target.value)}
+                placeholder="تکرار رمز جدید"
+              />
+            </div>
+            <Button
+              onClick={handleFinancialPasswordSubmit}
+              disabled={financialPasswordLoading}
+              className="w-full"
+            >
+              {financialPasswordLoading
+                ? 'در حال ذخیره...'
+                : financialPasswordSet
+                  ? 'تغییر رمز گزارشات مالی'
+                  : 'ثبت رمز گزارشات مالی'}
+            </Button>
           </div>
         </SettingsSection>
 

@@ -369,6 +369,42 @@ export const isJalaliDateBefore = (a: string, b: string): boolean => {
   return ad < bd;
 };
 
+/** Gregorian YYYY-MM-DD for "today" in Asia/Tehran */
+export const getTehranTodayGregorian = (): string => {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
+};
+
+/** ISO datetime with explicit +03:30 offset */
+export const tehranIsoFromGregorianDate = (
+  gregorianDate: string,
+  time: string = '00:00:00',
+): string => `${gregorianDate}T${time}+03:30`;
+
+/** Full-day bounds for a Jalali date in Tehran timezone */
+export const jalaliDayBoundsTehran = (
+  jalaliDate: string,
+): { from: string; to: string } | null => {
+  const g = jalaliToGregorian(jalaliDate);
+  if (!g) return null;
+  return {
+    from: tehranIsoFromGregorianDate(g, '00:00:00'),
+    to: tehranIsoFromGregorianDate(g, '23:59:59'),
+  };
+};
+
+/** Jalali date + HH:mm → ISO with +03:30 */
+export const jalaliDateTimeTehranIso = (
+  jalaliDate: string,
+  time: string,
+): string | null => {
+  const g = jalaliToGregorian(jalaliDate);
+  if (!g || !time) return null;
+  const [h, m] = time.split(':');
+  const hh = (h ?? '00').padStart(2, '0');
+  const mm = (m ?? '00').padStart(2, '0');
+  return tehranIsoFromGregorianDate(g, `${hh}:${mm}:00`);
+};
+
 // Export dayjs configured with Jalali for advanced use cases
 export const jalaliDayjs = dayjs;
 

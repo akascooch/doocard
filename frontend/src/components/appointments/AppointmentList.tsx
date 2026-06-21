@@ -156,6 +156,87 @@ export default function AppointmentList({
     }
   };
 
+  const renderActions = (appointment: Appointment) => (
+    <div className="flex flex-wrap gap-1">
+      {(userRole === 'ADMIN' || userRole === 'EMPLOYEE') &&
+        appointment.status === 'PENDING_CONFIRMATION' && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleConfirm(appointment.id)}
+            className="text-green-600 hover:text-green-700 min-h-9"
+            title="تأیید نوبت"
+          >
+            <CheckCircle className="h-4 w-4 ml-1" />
+            <span className="text-xs">تأیید</span>
+          </Button>
+        )}
+
+      {userRole === 'ADMIN' &&
+        appointment.status !== 'SETTLED' &&
+        appointment.status !== 'PAID' &&
+        appointment.status !== 'CANCELLED' && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setSettleId(appointment.id)}
+            className="text-main-orange hover:text-main-orange/90 min-h-9"
+            title="تسویه نوبت"
+          >
+            <DollarSign className="h-4 w-4 ml-1" />
+            <span className="text-xs">تسویه</span>
+          </Button>
+        )}
+
+      {userRole === 'ADMIN' &&
+        (appointment.status === 'SETTLED' || appointment.status === 'PAID') && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleRevertSettlement(appointment.id)}
+            className="text-amber-700 hover:text-amber-800 min-h-9"
+            title="برگشت از تسویه"
+          >
+            <RotateCcw className="h-4 w-4 ml-1" />
+            <span className="text-xs">برگشت از تسویه</span>
+          </Button>
+        )}
+
+      {appointment.status !== 'SETTLED' &&
+        appointment.status !== 'PAID' &&
+        appointment.status !== 'CANCELLED' && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleCancel(appointment.id)}
+            className="text-red-600 hover:text-red-700 min-h-9"
+            title="لغو نوبت"
+          >
+            <XCircle className="h-4 w-4 ml-1" />
+            <span className="text-xs">لغو</span>
+          </Button>
+        )}
+
+      {userRole === 'ADMIN' && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setDeleteId(appointment.id)}
+          className="text-red-600 hover:text-red-700 min-h-9"
+          title="حذف نوبت"
+        >
+          <Trash2 className="h-4 w-4 ml-1" />
+          <span className="text-xs">حذف</span>
+        </Button>
+      )}
+    </div>
+  );
+
+  const getServiceLabel = (appointment: Appointment) =>
+    appointment.services
+      .map((s, idx) => s.serviceName || `سرویس ${idx + 1}`)
+      .join('، ');
+
   if (appointments.length === 0) {
     return (
       <div className="text-center py-12 text-foreground/80">
@@ -167,7 +248,43 @@ export default function AppointmentList({
 
   return (
     <>
-      <div className="rounded-md border">
+      {/* Mobile card layout */}
+      <div className="md:hidden space-y-3">
+        {appointments.map((appointment) => (
+          <div
+            key={appointment.id}
+            className="rounded-lg border bg-card p-4 space-y-3 shadow-sm"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="font-semibold">{appointment.customerName}</p>
+                <p className="text-sm text-muted-foreground">{getServiceLabel(appointment)}</p>
+              </div>
+              {getStatusBadge(appointment.status)}
+            </div>
+            <div className="text-sm space-y-1">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span>
+                  {formatToJalali(appointment.scheduledAt, 'YYYY/MM/DD')}{' '}
+                  {new Date(appointment.scheduledAt).toLocaleTimeString('fa-IR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: 'Asia/Tehran',
+                  })}
+                </span>
+              </div>
+              {userRole !== 'CUSTOMER' && appointment.amount ? (
+                <p className="font-medium">{toTomans(appointment.amount)}</p>
+              ) : null}
+            </div>
+            {renderActions(appointment)}
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -228,84 +345,7 @@ export default function AppointmentList({
                   </TableCell>
                 )}
                 <TableCell>
-                  <div className="flex gap-1">
-                    {/* Confirm button (EMPLOYEE/ADMIN only, PENDING_CONFIRMATION status) */}
-                    {(userRole === 'ADMIN' || userRole === 'EMPLOYEE') &&
-                      appointment.status === 'PENDING_CONFIRMATION' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleConfirm(appointment.id)}
-                          className="text-green-600 hover:text-green-700"
-                          title="تأیید نوبت"
-                        >
-                          <CheckCircle className="h-4 w-4 ml-1" />
-                          <span className="text-xs">تأیید</span>
-                        </Button>
-                      )}
-
-                    {/* Settle button (ADMIN only, not yet settled/paid/cancelled) */}
-                    {userRole === 'ADMIN' && 
-                      appointment.status !== 'SETTLED' && 
-                      appointment.status !== 'PAID' && 
-                      appointment.status !== 'CANCELLED' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setSettleId(appointment.id)}
-                        className="text-main-orange hover:text-main-orange/90"
-                        title="تسویه نوبت"
-                      >
-                        <DollarSign className="h-4 w-4 ml-1" />
-                        <span className="text-xs">تسویه</span>
-                      </Button>
-                    )}
-
-                    {/* Revert Settlement button (ADMIN only, settled/paid) */}
-                    {userRole === 'ADMIN' &&
-                      (appointment.status === 'SETTLED' || appointment.status === 'PAID') && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleRevertSettlement(appointment.id)}
-                        className="text-amber-700 hover:text-amber-800"
-                        title="برگشت از تسویه"
-                      >
-                        <RotateCcw className="h-4 w-4 ml-1" />
-                        <span className="text-xs">برگشت از تسویه</span>
-                      </Button>
-                    )}
-
-                    {/* Cancel button */}
-                    {appointment.status !== 'SETTLED' &&
-                      appointment.status !== 'PAID' &&
-                      appointment.status !== 'CANCELLED' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleCancel(appointment.id)}
-                          className="text-red-600 hover:text-red-700"
-                          title="لغو نوبت"
-                        >
-                          <XCircle className="h-4 w-4 ml-1" />
-                          <span className="text-xs">لغو</span>
-                        </Button>
-                      )}
-
-                    {/* Delete button (ADMIN only) */}
-                    {userRole === 'ADMIN' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setDeleteId(appointment.id)}
-                        className="text-red-600 hover:text-red-700"
-                        title="حذف نوبت"
-                      >
-                        <Trash2 className="h-4 w-4 ml-1" />
-                        <span className="text-xs">حذف</span>
-                      </Button>
-                    )}
-                  </div>
+                  {renderActions(appointment)}
                 </TableCell>
               </TableRow>
             ))}

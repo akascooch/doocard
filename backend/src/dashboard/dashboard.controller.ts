@@ -3,6 +3,7 @@ import { DashboardService } from './dashboard.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { PermissionGuard } from '../common/guards/permission.guard';
+import { FinancialReportsAccessGuard } from '../common/guards/financial-reports-access.guard';
 
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -98,6 +99,7 @@ export class DashboardController {
 
   @Get('financial-stats')
   @Roles('ADMIN')
+  @UseGuards(FinancialReportsAccessGuard)
   async getFinancialStats(@Req() req: any) {
     return this.dashboardService.getFinancialStats();
   }

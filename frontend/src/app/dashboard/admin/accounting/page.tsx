@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -34,23 +34,27 @@ import {
   Plus, 
   Edit, 
   Trash2, 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign,
-  CreditCard,
   Building2,
   FileText,
-  Download,
   RefreshCcw,
-  Calendar,
-  Filter
+  Search
 } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 import { api } from '@/lib/axios'
 import MoneyInput from '@/components/ui/MoneyInput'
 import PersianDatePicker from '@/components/ui/PersianDatePicker'
-import { toThousandTomans } from '@/lib/money'
+import { toThousandTomans, formatRials } from '@/lib/money'
 import { formatToJalali, parseFromJalali, getCurrentJalaliDate, jalaliToISO } from '@/lib/date'
+import { Chequebooks } from '@/components/accounting/chequebooks'
+
+const jalaliToISOEndOfDay = (jalaliDate: string): string | null => {
+  const date = parseFromJalali(jalaliDate)
+  if (!date) return null
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}T23:59:59.999Z`
+}
 
 interface Transaction {
   id: number
@@ -114,10 +118,6 @@ export default function AccountingPage() {
   const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false)
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null)
 
-  // Reports state
-  const [summary, setSummary] = useState<any>(null)
-  const [summaryLoading, setSummaryLoading] = useState(true)
-
   // Forms
   const [transactionForm, setTransactionForm] = useState({
     type: 'INCOME' as 'INCOME' | 'EXPENSE',
@@ -153,24 +153,56 @@ export default function AccountingPage() {
 
   const [filterType, setFilterType] = useState<string | null>(null)
   const [filterCategoryId, setFilterCategoryId] = useState<number | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
 
   useEffect(() => {
     fetchCategories()
     fetchAccounts()
-    fetchSummary()
   }, [])
 
   useEffect(() => {
     fetchTransactions()
-  }, [filterType, filterCategoryId])
+  }, [filterType, filterCategoryId, startDate, endDate])
+
+  const filteredTransactions = useMemo(() => {
+    if (!searchTerm.trim()) return transactions
+    const term = searchTerm.trim().toLowerCase()
+    return transactions.filter((t) => {
+      const description = (t.description || '').toLowerCase()
+      const accountName = (t.account?.name || '').toLowerCase()
+      const destinationAccountName = (t.destinationAccount?.name || '').toLowerCase()
+      return (
+        description.includes(term) ||
+        accountName.includes(term) ||
+        destinationAccountName.includes(term)
+      )
+    })
+  }, [transactions, searchTerm])
+
+  const totalAmount = useMemo(
+    () => filteredTransactions.reduce((sum, t) => sum + Number(t.amount), 0),
+    [filteredTransactions]
+  )
 
   const fetchTransactions = async () => {
     try {
       setTransactionsLoading(true)
+      const dateParams: Record<string, string> = {}
+      if (startDate) {
+        const from = jalaliToISO(startDate)
+        if (from) dateParams.from = from
+      }
+      if (endDate) {
+        const to = jalaliToISOEndOfDay(endDate)
+        if (to) dateParams.to = to
+      }
       const response = await api.get('/accounting/transactions', {
         params: {
           ...(filterType ? { type: filterType } : {}),
-          ...(filterCategoryId ? { categoryId: filterCategoryId } : {})
+          ...(filterCategoryId ? { categoryId: filterCategoryId } : {}),
+          ...dateParams
         }
       })
       setTransactions(response.data.data || [])
@@ -208,17 +240,6 @@ export default function AccountingPage() {
     }
   }
 
-  const fetchSummary = async () => {
-    try {
-      const response = await api.get('/accounting/reports/summary')
-      setSummary(response.data)
-    } catch (error) {
-      console.error('Error fetching summary:', error)
-    } finally {
-      setSummaryLoading(false)
-    }
-  }
-
   // Transaction handlers
   const handleCreateTransaction = async () => {
     try {
@@ -251,7 +272,6 @@ export default function AccountingPage() {
       // Refresh data
       fetchTransactions()
       fetchAccounts()
-      fetchSummary()
     } catch (error: any) {
       console.error('❌ Error creating transaction:', error)
       toast({
@@ -282,7 +302,6 @@ export default function AccountingPage() {
       resetTransactionForm()
       fetchTransactions()
       fetchAccounts()
-      fetchSummary()
     } catch (error: any) {
       toast({
         title: 'خطا',
@@ -299,7 +318,6 @@ export default function AccountingPage() {
       toast({ title: 'موفق', description: 'تراکنش حذف شد' })
       fetchTransactions()
       fetchAccounts()
-      fetchSummary()
     } catch (error: any) {
       toast({ title: 'خطا', description: 'خطا در حذف تراکنش', variant: 'destructive' })
     }
@@ -407,7 +425,6 @@ export default function AccountingPage() {
       // Refresh data
       fetchTransactions()
       fetchAccounts()
-      fetchSummary()
     } catch (error: any) {
       console.error('❌ Error creating transfer:', error)
       toast({
@@ -492,62 +509,13 @@ export default function AccountingPage() {
         <p className="text-muted-foreground mt-2">مدیریت تراکنش‌ها، حساب‌ها و گزارشات مالی</p>
       </div>
 
-      {/* Summary Cards */}
-      {!summaryLoading && summary && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">کل درآمد</CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {toThousandTomans(summary.totalIncome)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {summary.incomeCount} تراکنش
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">کل هزینه</CardTitle>
-              <TrendingDown className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                {toThousandTomans(summary.totalExpense)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {summary.expenseCount} تراکنش
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">سود خالص</CardTitle>
-              <DollarSign className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${summary.netProfit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                {summary.netProfit >= 0 ? '' : '-'}{toThousandTomans(Math.abs(summary.netProfit))}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                تفاوت درآمد و هزینه
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="transactions">تراکنش‌ها</TabsTrigger>
           <TabsTrigger value="categories">دسته‌بندی‌ها</TabsTrigger>
           <TabsTrigger value="accounts">حساب‌های بانکی</TabsTrigger>
+          <TabsTrigger value="chequebooks">دسته چک</TabsTrigger>
           <TabsTrigger value="reports">گزارشات</TabsTrigger>
         </TabsList>
 
@@ -555,9 +523,10 @@ export default function AccountingPage() {
         <TabsContent value="transactions" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>لیست تراکنش‌ها</CardTitle>
-                <div className="flex gap-2">
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <CardTitle>لیست تراکنش‌ها</CardTitle>
+                  <div className="flex gap-2">
                   <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
                     <DialogTrigger asChild>
                       <Button variant="outline" className="border-blue-500 text-blue-600 hover:bg-blue-50" onClick={resetTransferForm}>
@@ -762,42 +731,98 @@ export default function AccountingPage() {
                     </DialogContent>
                   </Dialog>
                 </div>
+                </div>
+                <Badge
+                  variant="secondary"
+                  className="w-fit bg-muted/50 text-foreground border border-border font-normal px-3 py-1.5 text-sm"
+                >
+                  مجموع تراکنش‌های این لیست: {formatRials(totalAmount)}
+                </Badge>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap items-center gap-4 mb-4">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-muted-foreground" />
-                  <Select
-                    value={filterType ?? 'ALL'}
-                    onValueChange={(v) => setFilterType(v === 'ALL' ? null : v)}
-                  >
-                    <SelectTrigger className="w-[140px] bg-background border-input text-foreground">
-                      <SelectValue placeholder="نوع" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">همه</SelectItem>
-                      <SelectItem value="INCOME">درآمد</SelectItem>
-                      <SelectItem value="EXPENSE">هزینه</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <div className="flex flex-col gap-3 mb-4">
+                <div className="flex flex-col xl:flex-row flex-wrap items-stretch xl:items-end gap-3">
+                  <div className="flex-1 min-w-[220px]">
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">متن جستجو</Label>
+                    <div className="relative">
+                      <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="جستجو در توضیحات یا نام حساب..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pr-10 bg-background border-input text-foreground"
+                      />
+                    </div>
+                  </div>
+                  <div className="w-full sm:w-[140px]">
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">نوع</Label>
+                    <Select
+                      value={filterType ?? 'ALL'}
+                      onValueChange={(v) => setFilterType(v === 'ALL' ? null : v)}
+                    >
+                      <SelectTrigger className="w-full bg-background border-input text-foreground">
+                        <SelectValue placeholder="نوع" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL">همه</SelectItem>
+                        <SelectItem value="INCOME">درآمد</SelectItem>
+                        <SelectItem value="EXPENSE">هزینه</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="w-full sm:w-[180px]">
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">دسته‌بندی</Label>
+                    <Select
+                      value={filterCategoryId === null ? 'ALL' : String(filterCategoryId)}
+                      onValueChange={(v) => setFilterCategoryId(v === 'ALL' ? null : Number(v))}
+                    >
+                      <SelectTrigger className="w-full bg-background border-input text-foreground">
+                        <SelectValue placeholder="دسته‌بندی" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL">همه</SelectItem>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.id} value={String(cat.id)}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="w-full sm:w-[160px]">
+                    <PersianDatePicker
+                      value={startDate}
+                      onChange={setStartDate}
+                      label="از تاریخ"
+                      placeholder="۱۴۰۳/۰۱/۰۱"
+                      maxDate={endDate || getCurrentJalaliDate()}
+                    />
+                  </div>
+                  <div className="w-full sm:w-[160px]">
+                    <PersianDatePicker
+                      value={endDate}
+                      onChange={setEndDate}
+                      label="تا تاریخ"
+                      placeholder="۱۴۰۳/۱۲/۲۹"
+                      minDate={startDate || undefined}
+                      maxDate={getCurrentJalaliDate()}
+                    />
+                  </div>
+                  {(startDate || endDate) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-border text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setStartDate('')
+                        setEndDate('')
+                      }}
+                    >
+                      پاک کردن تاریخ
+                    </Button>
+                  )}
                 </div>
-                <Select
-                  value={filterCategoryId === null ? 'ALL' : String(filterCategoryId)}
-                  onValueChange={(v) => setFilterCategoryId(v === 'ALL' ? null : Number(v))}
-                >
-                  <SelectTrigger className="w-[180px] bg-background border-input text-foreground">
-                    <SelectValue placeholder="دسته‌بندی" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">همه</SelectItem>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={String(cat.id)}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
               {transactionsLoading ? (
                 <div className="flex justify-center py-8">
@@ -817,7 +842,7 @@ export default function AccountingPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {transactions.length === 0 ? (
+                    {filteredTransactions.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                           <div className="flex flex-col items-center gap-2">
@@ -828,7 +853,7 @@ export default function AccountingPage() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      transactions.map((transaction) => (
+                      filteredTransactions.map((transaction) => (
                         <TableRow key={transaction.id}>
                           <TableCell>{formatToJalali(transaction.occurredAt)}</TableCell>
                           <TableCell>
@@ -1080,6 +1105,11 @@ export default function AccountingPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Chequebooks Tab */}
+        <TabsContent value="chequebooks" className="space-y-4">
+          <Chequebooks accounts={accounts} />
         </TabsContent>
 
         {/* Reports Tab */}

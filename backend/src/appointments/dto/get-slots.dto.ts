@@ -1,5 +1,5 @@
 import { IsNotEmpty, IsNumber, IsDateString, IsOptional, Min } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
+import { Type } from 'class-transformer';
 
 export class GetSlotsDto {
   @IsNumber()
@@ -14,19 +14,18 @@ export class GetSlotsDto {
   @IsNumber()
   @Type(() => Number)
   @Min(1, { message: 'مدت زمان باید حداقل 1 دقیقه باشد' })
-  @IsOptional() // Made optional for public booking - defaults to 30 minutes
-  durationMin?: number; // Total duration needed (default: 30)
+  @IsOptional()
+  durationMin?: number; // Total duration needed (default: 60 minutes)
 
   @IsNumber()
   @Type(() => Number)
   @IsOptional()
   @Min(0)
-  bufferMin?: number; // Buffer between appointments (default: 5 minutes)
+  bufferMin?: number; // Optional gap after appointment end (default: 0; not applied to slot end boundary)
 
   @IsNumber()
   @Type(() => Number)
   @IsOptional()
-  @Min(5)
-  slotIntervalMin?: number; // Slot interval granularity (default: 60 minutes - hourly slots)
+  @Min(15)
+  slotIntervalMin?: number; // Slot start granularity (default: 30 minutes)
 }
-

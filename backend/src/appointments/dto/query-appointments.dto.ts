@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 
 export enum AppointmentStatusEnum {
   PENDING = 'PENDING',
+  PENDING_CONFIRMATION = 'PENDING_CONFIRMATION',
   CONFIRMED = 'CONFIRMED',
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED',

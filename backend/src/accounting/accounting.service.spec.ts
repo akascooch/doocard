@@ -63,6 +63,26 @@ describe('AccountingService', () => {
       findMany: jest.fn(),
       create: jest.fn(),
     },
+    bankAccount: {
+      findFirst: jest.fn(),
+    },
+    chequebook: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      count: jest.fn(),
+    },
+    chequeLeaf: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      createMany: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      count: jest.fn(),
+    },
+    $transaction: jest.fn((callback) => callback(mockPrismaService)),
   };
 
   beforeEach(async () => {
@@ -421,6 +441,72 @@ describe('AccountingService', () => {
       expect(result).toHaveProperty('date');
       expect(result).toHaveProperty('totalIncome');
       expect(result).toHaveProperty('totalRevenue');
+    });
+  });
+
+  describe('Chequebooks', () => {
+    it('should create chequebook and auto-generate leaves in a transaction', async () => {
+      mockPrismaService.bankAccount.findFirst.mockResolvedValue({ id: 1, deletedAt: null });
+      mockPrismaService.chequebook.findFirst.mockResolvedValue(null);
+      mockPrismaService.chequebook.create.mockResolvedValue({
+        id: 10,
+        bankAccountId: 1,
+        startNumber: 1001,
+        endNumber: 1003,
+        leafCount: 3,
+        bankAccount: { id: 1, name: 'Main', provider: 'Melli' },
+      });
+      mockPrismaService.chequeLeaf.createMany.mockResolvedValue({ count: 3 });
+
+      const result = await service.createChequebook({
+        bankAccountId: 1,
+        startNumber: 1001,
+        endNumber: 1003,
+      });
+
+      expect(result.id).toBe(10);
+      expect(mockPrismaService.chequeLeaf.createMany).toHaveBeenCalledWith({
+        data: [
+          { chequebookId: 10, leafNumber: 1001, status: 'BLANK' },
+          { chequebookId: 10, leafNumber: 1002, status: 'BLANK' },
+          { chequebookId: 10, leafNumber: 1003, status: 'BLANK' },
+        ],
+      });
+    });
+
+    it('should reject invalid cheque leaf status transition', async () => {
+      mockPrismaService.chequeLeaf.findFirst.mockResolvedValue({
+        id: 5,
+        status: 'CLEARED',
+        deletedAt: null,
+        transaction: null,
+      });
+
+      await expect(
+        service.updateChequeLeaf(5, { status: 'ISSUED' as any })
+      ).rejects.toThrow('Cannot transition cheque leaf');
+    });
+
+    it('should serialize cheque leaf BigInt amount as number', async () => {
+      mockPrismaService.chequeLeaf.findFirst.mockResolvedValue({
+        id: 5,
+        status: 'BLANK',
+        deletedAt: null,
+        amount: BigInt(25000000),
+        transaction: null,
+      });
+      mockPrismaService.chequeLeaf.update.mockResolvedValue({
+        id: 5,
+        status: 'ISSUED',
+        amount: BigInt(25000000),
+        chequebook: { id: 1, serialNumber: 'A1', bankAccount: { id: 1, name: 'Main' } },
+        transaction: null,
+      });
+
+      const result = await service.updateChequeLeaf(5, { status: 'ISSUED' as any });
+
+      expect(result.amount).toBe(25000000);
+      expect(typeof result.amount).toBe('number');
     });
   });
 });

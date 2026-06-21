@@ -1,0 +1,45 @@
+{
+  "batchId": "excel-migration-1781617696083",
+  "generatedAt": "2026-06-16T13:48:18.234Z",
+  "mode": "dry-run",
+  "options": {
+    "dryRun": true,
+    "commit": false,
+    "createMissing": true,
+    "paysOnly": false,
+    "appointmentsOnly": false,
+    "dedup": "import-all",
+    "batchId": "excel-migration-1781617696083",
+    "paysPath": "C:/Users/a.hosseini/Desktop/apk/files/Pays.xlsx",
+    "apptPath": "C:/Users/a.hosseini/Desktop/apk/files/LASTDATTA.xlsx",
+    "createIncomeTx": true
+  },
+  "prerequisites": {
+    "adminUserId": 1,
+    "defaultBankAccountId": 1,
+    "calendarDates1402_1405": 1137,
+    "ok": true,
+    "blockers": []
+  },
+  "pays": {
+    "totalRows": 265,
+    "validRows": 265,
+    "invalidRows": 0,
+    "duplicateRows": 117,
+    "unmappedCategories": [],
+    "amountTotalRial": "19326005350",
+    "failures": []
+  },
+  "appointments": {
+    "totalRows": 19800,
+    "validRows": 19800,
+    "invalidRows": 0,
+    "duplicateRows": 0,
+    "unmappedServices": [],
+    "unresolvedEmployees": [],
+    "unresolvedCustomers": [],
+    "missingCalendarDates": [],
+    "amountTotalRial": "302723600004",
+    "failures": []
+  }
+}

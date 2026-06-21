@@ -99,8 +99,13 @@ export default function BookAppointmentPage() {
   }
 
   const fetchTimeSlots = async () => {
+    if (!selectedDate || !formData.employeeId) return
+
     try {
-      const response = await fetch(`/api/appointments/available-slots?date=${selectedDate.toISOString()}&employeeId=${formData.employeeId}`)
+      const dateStr = selectedDate.toISOString().split('T')[0]
+      const response = await fetch(
+        `/api/appointments/available-slots?date=${dateStr}&employeeId=${formData.employeeId}&durationMin=60&slotIntervalMin=30`
+      )
       if (response.ok) {
         const data = await response.json()
         setTimeSlots(data.slots || [])

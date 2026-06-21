@@ -20,6 +20,11 @@ import { CreateAccountDto } from './dto/create-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { QueryTransactionsDto } from './dto/query-transactions.dto';
 import { CreateTransferDto } from './dto/create-transfer.dto';
+import { CreateChequebookDto } from './dto/create-chequebook.dto';
+import { UpdateChequebookDto } from './dto/update-chequebook.dto';
+import { CreateChequeLeafDto } from './dto/create-cheque-leaf.dto';
+import { UpdateChequeLeafDto } from './dto/update-cheque-leaf.dto';
+import { QueryChequeLeavesDto } from './dto/query-cheque-leaves.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { PermissionGuard } from '../common/guards/permission.guard';
@@ -214,5 +219,77 @@ export class AccountingController {
   @Roles('ADMIN', 'ACCOUNTANT')
   getBalanceByAccount() {
     return this.accountingService.getBalanceByAccount();
+  }
+
+  // ==================== CHEQUEBOOKS ====================
+
+  @Post('chequebooks')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  createChequebook(@Body() dto: CreateChequebookDto) {
+    return this.accountingService.createChequebook(dto);
+  }
+
+  @Get('chequebooks')
+  @Roles('ADMIN', 'ACCOUNTANT', 'EMPLOYEE')
+  findAllChequebooks(@Query('bankAccountId') bankAccountId?: string) {
+    const parsed = bankAccountId ? parseInt(bankAccountId, 10) : undefined;
+    return this.accountingService.findAllChequebooks(parsed);
+  }
+
+  @Get('chequebooks/:id')
+  @Roles('ADMIN', 'ACCOUNTANT', 'EMPLOYEE')
+  findOneChequebook(@Param('id', ParseIntPipe) id: number) {
+    return this.accountingService.findOneChequebook(id);
+  }
+
+  @Patch('chequebooks/:id')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  updateChequebook(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateChequebookDto
+  ) {
+    return this.accountingService.updateChequebook(id, dto);
+  }
+
+  @Delete('chequebooks/:id')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  removeChequebook(@Param('id', ParseIntPipe) id: number) {
+    return this.accountingService.removeChequebook(id);
+  }
+
+  @Get('chequebooks/:id/leaves')
+  @Roles('ADMIN', 'ACCOUNTANT', 'EMPLOYEE')
+  findChequeLeavesByChequebook(
+    @Param('id', ParseIntPipe) id: number,
+    @Query() query: QueryChequeLeavesDto
+  ) {
+    return this.accountingService.findChequeLeavesByChequebook(id, query);
+  }
+
+  @Get('cheque-leaves')
+  @Roles('ADMIN', 'ACCOUNTANT', 'EMPLOYEE')
+  findAllChequeLeaves(@Query() query: QueryChequeLeavesDto) {
+    return this.accountingService.findAllChequeLeaves(query);
+  }
+
+  @Post('cheque-leaves')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  createChequeLeaf(@Body() dto: CreateChequeLeafDto) {
+    return this.accountingService.createChequeLeaf(dto);
+  }
+
+  @Patch('cheque-leaves/:id')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  updateChequeLeaf(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateChequeLeafDto
+  ) {
+    return this.accountingService.updateChequeLeaf(id, dto);
+  }
+
+  @Delete('cheque-leaves/:id')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  removeChequeLeaf(@Param('id', ParseIntPipe) id: number) {
+    return this.accountingService.removeChequeLeaf(id);
   }
 }

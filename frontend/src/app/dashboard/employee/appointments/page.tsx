@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,11 +13,25 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Search, Plus, RefreshCcw, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Calendar, Search, Plus, RefreshCcw, Clock, CheckCircle, AlertCircle, SlidersHorizontal } from 'lucide-react';
 import { AppointmentForm, AppointmentList } from '@/components/appointments';
+import PersianDatePicker from '@/components/ui/PersianDatePicker';
 import { api } from '@/lib/axios';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
+import {
+  getTehranTodayGregorian,
+  tehranIsoFromGregorianDate,
+  jalaliDayBoundsTehran,
+  jalaliDateTimeTehranIso,
+} from '@/lib/date';
 
 interface Appointment {
   id: number;
@@ -32,46 +46,36 @@ interface Appointment {
   notes?: string;
 }
 
-// Helper function to get date range (timezone-safe)
-const getDateRange = (filter: 'today' | 'tomorrow' | 'week' | 'all') => {
-  const today = new Date();
-  
-  // Get local date components (no timezone conversion!)
-  const getLocalDateString = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
+type PresetFilter = 'today' | 'tomorrow' | 'week' | 'all';
+type FilterMode = 'preset' | 'singleDay' | 'dateTimeRange';
+type AdvancedMode = 'singleDay' | 'dateTimeRange';
 
-  const todayStr = getLocalDateString(today);
-  
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = getLocalDateString(tomorrow);
+const addDaysGregorian = (gregorianDate: string, days: number): string => {
+  const d = new Date(`${gregorianDate}T12:00:00+03:30`);
+  d.setDate(d.getDate() + days);
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
+};
 
-  const weekEnd = new Date(today);
-  weekEnd.setDate(weekEnd.getDate() + 7);
-  const weekEndStr = getLocalDateString(weekEnd);
+const getPresetDateRange = (filter: PresetFilter): { from?: string; to?: string } => {
+  const todayStr = getTehranTodayGregorian();
+  const tomorrowStr = addDaysGregorian(todayStr, 1);
+  const weekEndStr = addDaysGregorian(todayStr, 7);
 
   switch (filter) {
     case 'today':
-      // From today 00:00:00 to today 23:59:59
-      return { 
-        from: `${todayStr}T00:00:00`, 
-        to: `${todayStr}T23:59:59` 
+      return {
+        from: tehranIsoFromGregorianDate(todayStr, '00:00:00'),
+        to: tehranIsoFromGregorianDate(todayStr, '23:59:59'),
       };
     case 'tomorrow':
-      // From tomorrow 00:00:00 to tomorrow 23:59:59
-      return { 
-        from: `${tomorrowStr}T00:00:00`, 
-        to: `${tomorrowStr}T23:59:59` 
+      return {
+        from: tehranIsoFromGregorianDate(tomorrowStr, '00:00:00'),
+        to: tehranIsoFromGregorianDate(tomorrowStr, '23:59:59'),
       };
     case 'week':
-      // From today 00:00:00 to 7 days later 23:59:59
-      return { 
-        from: `${todayStr}T00:00:00`, 
-        to: `${weekEndStr}T23:59:59` 
+      return {
+        from: tehranIsoFromGregorianDate(todayStr, '00:00:00'),
+        to: tehranIsoFromGregorianDate(weekEndStr, '23:59:59'),
       };
     case 'all':
     default:
@@ -79,7 +83,6 @@ const getDateRange = (filter: 'today' | 'tomorrow' | 'week' | 'all') => {
   }
 };
 
-// Smart sorting: PENDING_CONFIRMATION first, then by scheduled time (nearest first)
 const sortAppointments = (appointments: Appointment[]) => {
   const statusPriority: Record<string, number> = {
     PENDING_CONFIRMATION: 1,
@@ -92,15 +95,9 @@ const sortAppointments = (appointments: Appointment[]) => {
   };
 
   return [...appointments].sort((a, b) => {
-    // First, sort by status priority
     const aPriority = statusPriority[a.status] || 99;
     const bPriority = statusPriority[b.status] || 99;
-    
-    if (aPriority !== bPriority) {
-      return aPriority - bPriority;
-    }
-
-    // Then, sort by scheduled time (earliest first for today's appointments)
+    if (aPriority !== bPriority) return aPriority - bPriority;
     return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
   });
 };
@@ -111,37 +108,52 @@ export default function EmployeeAppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [dateFilter, setDateFilter] = useState<'today' | 'tomorrow' | 'week' | 'all'>('today'); // Default to today
+  const [dateFilter, setDateFilter] = useState<PresetFilter>('today');
+  const [filterMode, setFilterMode] = useState<FilterMode>('preset');
 
-  useEffect(() => {
-    loadAppointments();
-  }, [dateFilter]);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [advancedMode, setAdvancedMode] = useState<AdvancedMode>('singleDay');
+  const [singleJalaliDate, setSingleJalaliDate] = useState('');
+  const [rangeStartDate, setRangeStartDate] = useState('');
+  const [rangeStartTime, setRangeStartTime] = useState('');
+  const [rangeEndDate, setRangeEndDate] = useState('');
+  const [rangeEndTime, setRangeEndTime] = useState('');
+  const [advancedLabel, setAdvancedLabel] = useState('');
 
-  const loadAppointments = async () => {
+  const buildDateParams = useCallback((): { from?: string; to?: string } => {
+    if (filterMode === 'preset') {
+      return getPresetDateRange(dateFilter);
+    }
+    if (filterMode === 'singleDay' && singleJalaliDate) {
+      return jalaliDayBoundsTehran(singleJalaliDate) || {};
+    }
+    if (filterMode === 'dateTimeRange' && rangeStartDate && rangeEndDate) {
+      const from = jalaliDateTimeTehranIso(rangeStartDate, rangeStartTime);
+      const to = jalaliDateTimeTehranIso(rangeEndDate, rangeEndTime);
+      if (from && to) return { from, to };
+    }
+    return {};
+  }, [
+    filterMode,
+    dateFilter,
+    singleJalaliDate,
+    rangeStartDate,
+    rangeStartTime,
+    rangeEndDate,
+    rangeEndTime,
+  ]);
+
+  const loadAppointments = useCallback(async () => {
     try {
       setLoading(true);
-      const params: any = {};
-      
-      // Add date range filter (timezone-safe)
-      const dateRange = getDateRange(dateFilter);
+      const params: Record<string, string> = {};
+      const dateRange = buildDateParams();
       if (dateRange.from) params.from = dateRange.from;
       if (dateRange.to) params.to = dateRange.to;
-
-      console.log('📅 Date filter:', dateFilter, 'Range:', dateRange);
-
-      // Add search
-      if (searchTerm) {
-        params.search = searchTerm;
-      }
-      
-      // Add status filter
-      if (statusFilter !== 'ALL') {
-        params.status = statusFilter;
-      }
+      if (searchTerm) params.search = searchTerm;
+      if (statusFilter !== 'ALL') params.status = statusFilter;
 
       const response = await api.get('/appointments', { params });
-      console.log('📅 Loaded employee appointments:', response.data);
-      
       setAppointments(response.data.data || response.data || []);
     } catch (error) {
       console.error('Error loading appointments:', error);
@@ -153,57 +165,100 @@ export default function EmployeeAppointmentsPage() {
     } finally {
       setLoading(false);
     }
+  }, [buildDateParams, searchTerm, statusFilter, toast]);
+
+  useEffect(() => {
+    if (filterMode === 'preset') {
+      loadAppointments();
+    }
+  }, [dateFilter, filterMode, loadAppointments]);
+
+  const handlePresetClick = (preset: PresetFilter) => {
+    setFilterMode('preset');
+    setDateFilter(preset);
+    setAdvancedLabel('');
+  };
+
+  const validateAdvanced = (): string | null => {
+    if (advancedMode === 'singleDay') {
+      if (!singleJalaliDate) return 'لطفاً تاریخ را انتخاب کنید.';
+      if (!jalaliDayBoundsTehran(singleJalaliDate)) return 'تاریخ انتخاب شده نامعتبر است.';
+      return null;
+    }
+    if (!rangeStartDate || !rangeStartTime || !rangeEndDate || !rangeEndTime) {
+      return 'لطفاً بازه زمانی را کامل وارد کنید.';
+    }
+    const from = jalaliDateTimeTehranIso(rangeStartDate, rangeStartTime);
+    const to = jalaliDateTimeTehranIso(rangeEndDate, rangeEndTime);
+    if (!from || !to) return 'تاریخ یا زمان وارد شده نامعتبر است.';
+    if (new Date(from).getTime() > new Date(to).getTime()) {
+      return 'زمان شروع نمی‌تواند بعد از زمان پایان باشد.';
+    }
+    return null;
+  };
+
+  const applyAdvancedFilter = () => {
+    const error = validateAdvanced();
+    if (error) {
+      toast({ title: 'خطا', description: error, variant: 'destructive' });
+      return;
+    }
+
+    if (advancedMode === 'singleDay') {
+      setFilterMode('singleDay');
+      setAdvancedLabel(`یک روز: ${singleJalaliDate}`);
+    } else {
+      setFilterMode('dateTimeRange');
+      setAdvancedLabel(`بازه: ${rangeStartDate} ${rangeStartTime} تا ${rangeEndDate} ${rangeEndTime}`);
+    }
+    setAdvancedOpen(false);
+    setTimeout(() => loadAppointments(), 0);
   };
 
   const handleFormSuccess = () => {
     loadAppointments();
   };
 
-  // Apply client-side filtering and sorting
   const filteredAndSortedAppointments = useMemo(() => {
     let filtered = appointments;
-
-    // Filter by status
     if (statusFilter !== 'ALL') {
       filtered = filtered.filter((apt) => apt.status === statusFilter);
     }
-
-    // Filter by search term
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (apt) =>
-          apt.customerName?.toLowerCase().includes(searchLower)
+      filtered = filtered.filter((apt) =>
+        apt.customerName?.toLowerCase().includes(searchLower),
       );
     }
-
-    // Smart sort: PENDING_CONFIRMATION first, then by time
     return sortAppointments(filtered);
   }, [appointments, statusFilter, searchTerm]);
 
-  const stats = useMemo(() => {
-    return {
-      total: filteredAndSortedAppointments.length,
-      pending: filteredAndSortedAppointments.filter((a) => a.status === 'PENDING_CONFIRMATION').length,
-      confirmed: filteredAndSortedAppointments.filter((a) => a.status === 'CONFIRMED').length,
-      completed: filteredAndSortedAppointments.filter((a) => a.status === 'SETTLED' || a.status === 'PAID').length,
-    };
-  }, [filteredAndSortedAppointments]);
+  const stats = useMemo(() => ({
+    total: filteredAndSortedAppointments.length,
+    pending: filteredAndSortedAppointments.filter((a) => a.status === 'PENDING_CONFIRMATION').length,
+    confirmed: filteredAndSortedAppointments.filter((a) => a.status === 'CONFIRMED').length,
+    completed: filteredAndSortedAppointments.filter(
+      (a) => a.status === 'SETTLED' || a.status === 'PAID',
+    ).length,
+  }), [filteredAndSortedAppointments]);
+
+  const subtitle =
+    filterMode === 'preset'
+      ? {
+          today: 'نوبت‌های امروز شما',
+          tomorrow: 'نوبت‌های فردا شما',
+          week: 'نوبت‌های این هفته شما',
+          all: 'همه نوبت‌های شما',
+        }[dateFilter]
+      : advancedLabel || 'فیلتر سفارشی';
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">نوبت‌های من</h1>
-        <p className="text-muted-foreground">
-          {dateFilter === 'today' && 'نوبت‌های امروز شما'}
-          {dateFilter === 'tomorrow' && 'نوبت‌های فردا شما'}
-          {dateFilter === 'week' && 'نوبت‌های این هفته شما'}
-          {dateFilter === 'all' && 'همه نوبت‌های شما'}
-        </p>
+        <h1 className="text-2xl sm:text-3xl font-bold">نوبت‌های من</h1>
+        <p className="text-muted-foreground text-sm sm:text-base">{subtitle}</p>
       </div>
 
-      {/* Quick Date Filters */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -211,110 +266,172 @@ export default function EmployeeAppointmentsPage() {
             فیلتر سریع زمانی
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant={dateFilter === 'today' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setDateFilter('today')}
-              className={cn(
-                'flex items-center gap-2',
-                dateFilter === 'today' && 'bg-primary text-primary-foreground hover:bg-primary/90'
-              )}
-            >
-              <Clock className="h-4 w-4" />
-              امروز
-              {dateFilter === 'today' && stats.total > 0 && (
-                <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
-                  {stats.total}
-                </span>
-              )}
-            </Button>
-            <Button
-              variant={dateFilter === 'tomorrow' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setDateFilter('tomorrow')}
-              className={cn(
-                'flex items-center gap-2',
-                dateFilter === 'tomorrow' && 'bg-primary text-primary-foreground hover:bg-primary/90'
-              )}
-            >
-              <Calendar className="h-4 w-4" />
-              فردا
-            </Button>
-            <Button
-              variant={dateFilter === 'week' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setDateFilter('week')}
-              className={cn(
-                'flex items-center gap-2',
-                dateFilter === 'week' && 'bg-primary text-primary-foreground hover:bg-primary/90'
-              )}
-            >
-              <Calendar className="h-4 w-4" />
-              این هفته
-            </Button>
-            <Button
-              variant={dateFilter === 'all' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setDateFilter('all')}
-              className={cn(
-                dateFilter === 'all' && 'bg-primary text-primary-foreground hover:bg-primary/90'
-              )}
-            >
-              همه نوبت‌ها
-            </Button>
+            {(
+              [
+                ['today', 'امروز', Clock],
+                ['tomorrow', 'فردا', Calendar],
+                ['week', 'این هفته', Calendar],
+                ['all', 'همه', null],
+              ] as const
+            ).map(([key, label, Icon]) => (
+              <Button
+                key={key}
+                variant={filterMode === 'preset' && dateFilter === key ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handlePresetClick(key)}
+                className={cn(
+                  'flex items-center gap-2 min-h-10',
+                  filterMode === 'preset' && dateFilter === key && 'bg-primary text-primary-foreground',
+                )}
+              >
+                {Icon && <Icon className="h-4 w-4" />}
+                {label}
+                {filterMode === 'preset' && dateFilter === key && key === 'today' && stats.total > 0 && (
+                  <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">{stats.total}</span>
+                )}
+              </Button>
+            ))}
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full sm:w-auto min-h-10"
+            onClick={() => setAdvancedOpen(true)}
+          >
+            <SlidersHorizontal className="h-4 w-4 ml-2" />
+            فیلتر پیشرفته
+            {filterMode !== 'preset' && advancedLabel && (
+              <span className="mr-2 text-xs text-muted-foreground truncate max-w-[160px]">
+                ({advancedLabel})
+              </span>
+            )}
+          </Button>
         </CardContent>
       </Card>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
+        <DialogContent className="max-w-md w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>فیلتر پیشرفته</DialogTitle>
+            <DialogDescription>انتخاب روز خاص یا بازه زمانی دقیق</DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant={advancedMode === 'singleDay' ? 'default' : 'outline'}
+              size="sm"
+              className="min-h-10"
+              onClick={() => setAdvancedMode('singleDay')}
+            >
+              یک روز خاص
+            </Button>
+            <Button
+              type="button"
+              variant={advancedMode === 'dateTimeRange' ? 'default' : 'outline'}
+              size="sm"
+              className="min-h-10"
+              onClick={() => setAdvancedMode('dateTimeRange')}
+            >
+              بازه زمانی
+            </Button>
+          </div>
+
+          {advancedMode === 'singleDay' ? (
+            <div className="space-y-2">
+              <Label>تاریخ</Label>
+              <PersianDatePicker
+                value={singleJalaliDate}
+                onChange={setSingleJalaliDate}
+                placeholder="انتخاب تاریخ"
+                disablePortal
+              />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-3">
+                <div className="space-y-2">
+                  <Label>تاریخ شروع</Label>
+                  <PersianDatePicker
+                    value={rangeStartDate}
+                    onChange={setRangeStartDate}
+                    placeholder="تاریخ شروع"
+                    disablePortal
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>ساعت شروع</Label>
+                  <Input type="time" value={rangeStartTime} onChange={(e) => setRangeStartTime(e.target.value)} className="min-h-10" />
+                </div>
+                <div className="space-y-2">
+                  <Label>تاریخ پایان</Label>
+                  <PersianDatePicker
+                    value={rangeEndDate}
+                    onChange={setRangeEndDate}
+                    placeholder="تاریخ پایان"
+                    disablePortal
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>ساعت پایان</Label>
+                  <Input type="time" value={rangeEndTime} onChange={(e) => setRangeEndTime(e.target.value)} className="min-h-10" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-2 pt-2">
+            <Button variant="outline" onClick={() => setAdvancedOpen(false)} className="w-full sm:w-auto">
+              انصراف
+            </Button>
+            <Button onClick={applyAdvancedFilter} className="w-full sm:w-auto">
+              اعمال فیلتر
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-1">
+            <CardDescription className="flex items-center gap-1 text-xs sm:text-sm">
               <Calendar className="h-4 w-4" />
               کل نوبت‌ها
             </CardDescription>
-            <CardTitle className="text-3xl">{stats.total}</CardTitle>
+            <CardTitle className="text-2xl sm:text-3xl">{stats.total}</CardTitle>
           </CardHeader>
         </Card>
         <Card className="border-l-4 border-l-amber-500">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-1">
+            <CardDescription className="flex items-center gap-1 text-xs sm:text-sm">
               <AlertCircle className="h-4 w-4" />
               نیاز به تأیید
             </CardDescription>
-            <CardTitle className="text-3xl text-amber-600">
-              {stats.pending}
-            </CardTitle>
+            <CardTitle className="text-2xl sm:text-3xl text-amber-600">{stats.pending}</CardTitle>
           </CardHeader>
         </Card>
         <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-1">
+            <CardDescription className="flex items-center gap-1 text-xs sm:text-sm">
               <CheckCircle className="h-4 w-4" />
               تأیید شده
             </CardDescription>
-            <CardTitle className="text-3xl text-blue-600">
-              {stats.confirmed}
-            </CardTitle>
+            <CardTitle className="text-2xl sm:text-3xl text-blue-600">{stats.confirmed}</CardTitle>
           </CardHeader>
         </Card>
         <Card className="border-l-4 border-l-green-500">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-1">
+            <CardDescription className="flex items-center gap-1 text-xs sm:text-sm">
               <CheckCircle className="h-4 w-4" />
               تسویه شده
             </CardDescription>
-            <CardTitle className="text-3xl text-green-600">
-              {stats.completed}
-            </CardTitle>
+            <CardTitle className="text-2xl sm:text-3xl text-green-600">{stats.completed}</CardTitle>
           </CardHeader>
         </Card>
       </div>
 
-      {/* Tabs */}
       <Tabs defaultValue="list" className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="list">
@@ -327,9 +444,7 @@ export default function EmployeeAppointmentsPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* List Tab */}
         <TabsContent value="list" className="space-y-4">
-          {/* Filters */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">فیلتر و جستجو</CardTitle>
@@ -344,15 +459,14 @@ export default function EmployeeAppointmentsPage() {
                       placeholder="نام مشتری..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pr-10"
+                      className="pr-10 min-h-10"
                     />
                   </div>
                 </div>
-
                 <div>
                   <Label>وضعیت</Label>
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger>
+                    <SelectTrigger className="min-h-10">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -364,13 +478,8 @@ export default function EmployeeAppointmentsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-
                 <div className="flex items-end">
-                  <Button
-                    onClick={loadAppointments}
-                    variant="outline"
-                    className="w-full"
-                  >
+                  <Button onClick={loadAppointments} variant="outline" className="w-full min-h-10">
                     <RefreshCcw className="h-4 w-4 ml-2" />
                     بروزرسانی
                   </Button>
@@ -379,11 +488,10 @@ export default function EmployeeAppointmentsPage() {
             </CardContent>
           </Card>
 
-          {/* Appointments List */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>نوبت‌های امروز ({filteredAndSortedAppointments.length})</span>
+              <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-lg">
+                <span>نوبت‌ها ({filteredAndSortedAppointments.length})</span>
                 {stats.pending > 0 && (
                   <span className="text-sm font-normal text-amber-600 flex items-center gap-1">
                     <AlertCircle className="h-4 w-4" />
@@ -398,7 +506,7 @@ export default function EmployeeAppointmentsPage() {
             <CardContent>
               {loading ? (
                 <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-main-orange"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-main-orange" />
                 </div>
               ) : (
                 <AppointmentList
@@ -411,7 +519,6 @@ export default function EmployeeAppointmentsPage() {
           </Card>
         </TabsContent>
 
-        {/* New Appointment Tab */}
         <TabsContent value="new">
           <AppointmentForm role="EMPLOYEE" onSuccess={handleFormSuccess} />
         </TabsContent>

@@ -103,7 +103,7 @@ const adminMenuItems = [
   },
   {
     title: 'تنظیمات',
-    href: '/dashboard/admin/settings',
+    href: '/dashboard/settings',
     icon: Settings,
     description: 'تنظیمات سیستم'
   },

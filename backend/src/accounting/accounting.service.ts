@@ -7,10 +7,25 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { CreateTransferDto } from './dto/create-transfer.dto';
-import { TransactionType } from '@prisma/client';
+import { CreateChequebookDto } from './dto/create-chequebook.dto';
+import { UpdateChequebookDto } from './dto/update-chequebook.dto';
+import { CreateChequeLeafDto } from './dto/create-cheque-leaf.dto';
+import { UpdateChequeLeafDto } from './dto/update-cheque-leaf.dto';
+import { QueryChequeLeavesDto } from './dto/query-cheque-leaves.dto';
+import { TransactionType, ChequeLeafStatus } from '@prisma/client';
 
 @Injectable()
 export class AccountingService {
+  private static readonly MAX_CHEQUEBOOK_LEAVES = 500;
+
+  private static readonly CHEQUE_LEAF_TRANSITIONS: Record<ChequeLeafStatus, ChequeLeafStatus[]> = {
+    BLANK: [ChequeLeafStatus.ISSUED, ChequeLeafStatus.CANCELLED],
+    ISSUED: [ChequeLeafStatus.CLEARED, ChequeLeafStatus.BOUNCED, ChequeLeafStatus.CANCELLED],
+    CLEARED: [],
+    BOUNCED: [],
+    CANCELLED: [],
+  };
+
   constructor(private prisma: PrismaService) {}
 
   // ==================== TRANSACTIONS ====================
@@ -665,6 +680,14 @@ export class AccountingService {
       throw new BadRequestException(`Cannot delete account with ${transactionCount} transactions. Set inactive instead.`);
     }
 
+    const chequebookCount = await this.prisma.chequebook.count({
+      where: { bankAccountId: id, deletedAt: null }
+    });
+
+    if (chequebookCount > 0) {
+      throw new BadRequestException(`Cannot delete account with ${chequebookCount} chequebooks. Remove chequebooks first.`);
+    }
+
     return this.prisma.bankAccount.update({
       where: { id },
       data: { deletedAt: new Date() }
@@ -818,5 +841,378 @@ export class AccountingService {
       ...acc,
       balance: Number(acc.balance)
     }));
+  }
+
+  // ==================== CHEQUEBOOKS ====================
+
+  private serializeChequeLeaf<T extends { amount?: bigint | null }>(leaf: T) {
+    return {
+      ...leaf,
+      amount: leaf.amount != null ? Number(leaf.amount) : null,
+    };
+  }
+
+  private assertValidChequeRange(startNumber: number, endNumber: number) {
+    if (startNumber > endNumber) {
+      throw new BadRequestException('startNumber must be less than or equal to endNumber');
+    }
+    const leafCount = endNumber - startNumber + 1;
+    if (leafCount > AccountingService.MAX_CHEQUEBOOK_LEAVES) {
+      throw new BadRequestException(
+        `Chequebook cannot exceed ${AccountingService.MAX_CHEQUEBOOK_LEAVES} leaves`
+      );
+    }
+    return leafCount;
+  }
+
+  private assertChequeLeafTransition(current: ChequeLeafStatus, next: ChequeLeafStatus) {
+    if (current === next) return;
+    const allowed = AccountingService.CHEQUE_LEAF_TRANSITIONS[current] || [];
+    if (!allowed.includes(next)) {
+      throw new BadRequestException(`Cannot transition cheque leaf from ${current} to ${next}`);
+    }
+  }
+
+  async createChequebook(dto: CreateChequebookDto) {
+    const account = await this.prisma.bankAccount.findFirst({
+      where: { id: dto.bankAccountId, deletedAt: null }
+    });
+    if (!account) {
+      throw new NotFoundException('Bank account not found');
+    }
+
+    const leafCount = this.assertValidChequeRange(dto.startNumber, dto.endNumber);
+
+    const existingOverlap = await this.prisma.chequebook.findFirst({
+      where: {
+        bankAccountId: dto.bankAccountId,
+        deletedAt: null,
+        startNumber: { lte: dto.endNumber },
+        endNumber: { gte: dto.startNumber },
+      }
+    });
+    if (existingOverlap) {
+      throw new ConflictException('Cheque number range overlaps with an existing chequebook for this account');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const chequebook = await tx.chequebook.create({
+        data: {
+          bankAccountId: dto.bankAccountId,
+          serialNumber: dto.serialNumber,
+          startNumber: dto.startNumber,
+          endNumber: dto.endNumber,
+          leafCount,
+          issuedAt: dto.issuedAt ? new Date(dto.issuedAt) : null,
+          description: dto.description,
+        },
+        include: {
+          bankAccount: { select: { id: true, name: true, provider: true } },
+        },
+      });
+
+      const leavesData = Array.from({ length: leafCount }, (_, index) => ({
+        chequebookId: chequebook.id,
+        leafNumber: dto.startNumber + index,
+        status: ChequeLeafStatus.BLANK,
+      }));
+
+      await tx.chequeLeaf.createMany({ data: leavesData });
+
+      return {
+        ...chequebook,
+        _count: { leaves: leafCount },
+      };
+    });
+  }
+
+  async findAllChequebooks(bankAccountId?: number) {
+    const where: any = { deletedAt: null };
+    if (bankAccountId) where.bankAccountId = bankAccountId;
+
+    const chequebooks = await this.prisma.chequebook.findMany({
+      where,
+      include: {
+        bankAccount: { select: { id: true, name: true, provider: true } },
+        _count: { select: { leaves: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return chequebooks;
+  }
+
+  async findOneChequebook(id: number) {
+    const chequebook = await this.prisma.chequebook.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        bankAccount: { select: { id: true, name: true, provider: true } },
+        _count: { select: { leaves: true } },
+      },
+    });
+
+    if (!chequebook) {
+      throw new NotFoundException('Chequebook not found');
+    }
+
+    return chequebook;
+  }
+
+  async updateChequebook(id: number, dto: UpdateChequebookDto) {
+    const existing = await this.findOneChequebook(id);
+
+    if (dto.startNumber !== undefined || dto.endNumber !== undefined) {
+      throw new BadRequestException('Cannot change cheque number range after creation');
+    }
+
+    if (dto.bankAccountId !== undefined && dto.bankAccountId !== existing.bankAccountId) {
+      throw new BadRequestException('Cannot change bank account after creation');
+    }
+
+    return this.prisma.chequebook.update({
+      where: { id },
+      data: {
+        ...(dto.serialNumber !== undefined && { serialNumber: dto.serialNumber }),
+        ...(dto.issuedAt !== undefined && { issuedAt: dto.issuedAt ? new Date(dto.issuedAt) : null }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+      },
+      include: {
+        bankAccount: { select: { id: true, name: true, provider: true } },
+        _count: { select: { leaves: true } },
+      },
+    });
+  }
+
+  async removeChequebook(id: number) {
+    const chequebook = await this.findOneChequebook(id);
+
+    const activeLeaves = await this.prisma.chequeLeaf.count({
+      where: {
+        chequebookId: id,
+        deletedAt: null,
+        status: { in: [ChequeLeafStatus.ISSUED, ChequeLeafStatus.CLEARED] },
+      },
+    });
+
+    if (activeLeaves > 0) {
+      throw new BadRequestException(
+        'Cannot delete chequebook with issued or cleared leaves'
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.chequeLeaf.updateMany({
+        where: { chequebookId: id, deletedAt: null },
+        data: { deletedAt: new Date() },
+      });
+
+      return tx.chequebook.update({
+        where: { id: chequebook.id },
+        data: { deletedAt: new Date(), isActive: false },
+      });
+    });
+  }
+
+  async findChequeLeavesByChequebook(chequebookId: number, query?: QueryChequeLeavesDto) {
+    await this.findOneChequebook(chequebookId);
+    return this.findAllChequeLeaves({ ...query, chequebookId });
+  }
+
+  async findAllChequeLeaves(query?: QueryChequeLeavesDto) {
+    const where: any = { deletedAt: null };
+
+    if (query?.chequebookId) where.chequebookId = query.chequebookId;
+    if (query?.status) where.status = query.status;
+    if (query?.bankAccountId) {
+      where.chequebook = { bankAccountId: query.bankAccountId, deletedAt: null };
+    }
+
+    const take = query?.take || 100;
+    const skip = query?.skip || 0;
+
+    const [leaves, total] = await Promise.all([
+      this.prisma.chequeLeaf.findMany({
+        where,
+        include: {
+          chequebook: {
+            select: {
+              id: true,
+              serialNumber: true,
+              startNumber: true,
+              endNumber: true,
+              bankAccount: { select: { id: true, name: true } },
+            },
+          },
+          transaction: {
+            select: { id: true, type: true, amount: true, occurredAt: true },
+          },
+        },
+        orderBy: [{ chequebookId: 'asc' }, { leafNumber: 'asc' }],
+        skip,
+        take,
+      }),
+      this.prisma.chequeLeaf.count({ where }),
+    ]);
+
+    return {
+      data: leaves.map((leaf) => ({
+        ...this.serializeChequeLeaf(leaf),
+        transaction: leaf.transaction
+          ? { ...leaf.transaction, amount: Number(leaf.transaction.amount) }
+          : null,
+      })),
+      total,
+      page: Math.floor(skip / take) + 1,
+      pages: Math.ceil(total / take),
+    };
+  }
+
+  async createChequeLeaf(dto: CreateChequeLeafDto) {
+    const chequebook = await this.findOneChequebook(dto.chequebookId);
+
+    if (dto.leafNumber < chequebook.startNumber || dto.leafNumber > chequebook.endNumber) {
+      throw new BadRequestException('leafNumber is outside the chequebook range');
+    }
+
+    const existing = await this.prisma.chequeLeaf.findFirst({
+      where: {
+        chequebookId: dto.chequebookId,
+        leafNumber: dto.leafNumber,
+        deletedAt: null,
+      },
+    });
+    if (existing) {
+      throw new ConflictException('Cheque leaf number already exists in this chequebook');
+    }
+
+    if (dto.transactionId) {
+      await this.validateChequeLeafTransaction(dto.transactionId);
+    }
+
+    const created = await this.prisma.chequeLeaf.create({
+      data: {
+        chequebookId: dto.chequebookId,
+        leafNumber: dto.leafNumber,
+        amount: dto.amount != null ? BigInt(dto.amount) : null,
+        payee: dto.payee,
+        dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+        issuedAt: dto.issuedAt ? new Date(dto.issuedAt) : null,
+        description: dto.description,
+        transactionId: dto.transactionId,
+        status: dto.issuedAt || dto.amount ? ChequeLeafStatus.ISSUED : ChequeLeafStatus.BLANK,
+      },
+      include: {
+        chequebook: {
+          select: { id: true, serialNumber: true, bankAccount: { select: { id: true, name: true } } },
+        },
+        transaction: { select: { id: true, type: true, amount: true } },
+      },
+    });
+
+    return {
+      ...this.serializeChequeLeaf(created),
+      transaction: created.transaction
+        ? { ...created.transaction, amount: Number(created.transaction.amount) }
+        : null,
+    };
+  }
+
+  async updateChequeLeaf(id: number, dto: UpdateChequeLeafDto) {
+    const existing = await this.prisma.chequeLeaf.findFirst({
+      where: { id, deletedAt: null },
+      include: { transaction: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Cheque leaf not found');
+    }
+
+    if (dto.status) {
+      this.assertChequeLeafTransition(existing.status, dto.status);
+    }
+
+    if (dto.transactionId !== undefined && dto.transactionId !== null) {
+      await this.validateChequeLeafTransaction(dto.transactionId, id);
+    }
+
+    const nextStatus = dto.status ?? existing.status;
+    const updateData: any = {
+      ...(dto.amount !== undefined && { amount: dto.amount != null ? BigInt(dto.amount) : null }),
+      ...(dto.payee !== undefined && { payee: dto.payee }),
+      ...(dto.dueDate !== undefined && { dueDate: dto.dueDate ? new Date(dto.dueDate) : null }),
+      ...(dto.description !== undefined && { description: dto.description }),
+      ...(dto.transactionId !== undefined && { transactionId: dto.transactionId }),
+      ...(dto.status !== undefined && { status: dto.status }),
+    };
+
+    if (nextStatus === ChequeLeafStatus.ISSUED && !existing.issuedAt && !dto.issuedAt) {
+      updateData.issuedAt = new Date();
+    } else if (dto.issuedAt !== undefined) {
+      updateData.issuedAt = dto.issuedAt ? new Date(dto.issuedAt) : null;
+    }
+
+    if (nextStatus === ChequeLeafStatus.CLEARED) {
+      updateData.clearedAt = dto.clearedAt ? new Date(dto.clearedAt) : new Date();
+    } else if (dto.clearedAt !== undefined) {
+      updateData.clearedAt = dto.clearedAt ? new Date(dto.clearedAt) : null;
+    }
+
+    const updated = await this.prisma.chequeLeaf.update({
+      where: { id },
+      data: updateData,
+      include: {
+        chequebook: {
+          select: { id: true, serialNumber: true, bankAccount: { select: { id: true, name: true } } },
+        },
+        transaction: { select: { id: true, type: true, amount: true, occurredAt: true } },
+      },
+    });
+
+    return {
+      ...this.serializeChequeLeaf(updated),
+      transaction: updated.transaction
+        ? { ...updated.transaction, amount: Number(updated.transaction.amount) }
+        : null,
+    };
+  }
+
+  async removeChequeLeaf(id: number) {
+    const existing = await this.prisma.chequeLeaf.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Cheque leaf not found');
+    }
+
+    if (existing.status === ChequeLeafStatus.ISSUED || existing.status === ChequeLeafStatus.CLEARED) {
+      throw new BadRequestException('Cannot delete issued or cleared cheque leaves');
+    }
+
+    return this.prisma.chequeLeaf.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  private async validateChequeLeafTransaction(transactionId: number, excludeLeafId?: number) {
+    const transaction = await this.prisma.transaction.findFirst({
+      where: { id: transactionId, deletedAt: null },
+    });
+    if (!transaction) {
+      throw new NotFoundException('Transaction not found');
+    }
+
+    const linked = await this.prisma.chequeLeaf.findFirst({
+      where: {
+        transactionId,
+        deletedAt: null,
+        ...(excludeLeafId ? { NOT: { id: excludeLeafId } } : {}),
+      },
+    });
+    if (linked) {
+      throw new ConflictException('Transaction is already linked to another cheque leaf');
+    }
   }
 }

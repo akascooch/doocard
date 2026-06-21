@@ -61,7 +61,7 @@ export default function NewAppointmentPage() {
   const [services, setServices] = useState<Service[]>([])
   const [selectedDate, setSelectedDate] = useState<Date>()
   const [selectedTime, setSelectedTime] = useState('')
-  const [availableSlots, setAvailableSlots] = useState<string[]>([])
+  const [availableSlots, setAvailableSlots] = useState<{ time: string; displayTime: string }[]>([])
   const [quickOpen, setQuickOpen] = useState(false)
   const [quickName, setQuickName] = useState('')
   const [quickPhone, setQuickPhone] = useState('')
@@ -134,8 +134,17 @@ export default function NewAppointmentPage() {
 
   const fetchAvailableSlots = async (date: string, employeeId: string) => {
     try {
-      const response = await axios.get(`/appointments/available-slots?date=${date}&employeeId=${employeeId}`)
-      setAvailableSlots(response.data)
+      const response = await axios.get(
+        `/appointments/available-slots?date=${date}&employeeId=${employeeId}&durationMin=60&slotIntervalMin=30`
+      )
+      const slots = response.data?.slots ?? []
+      const available = slots.filter((s: { available?: boolean }) => s.available !== false)
+      setAvailableSlots(
+        available.map((s: { time: string; displayTime: string }) => ({
+          time: s.time,
+          displayTime: s.displayTime,
+        }))
+      )
     } catch (error) {
       console.error('Error fetching available slots:', error)
       setAvailableSlots([])
@@ -397,8 +406,8 @@ export default function NewAppointmentPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {availableSlots.map((slot) => (
-                      <SelectItem key={slot} value={slot}>
-                        {slot}
+                      <SelectItem key={slot.time} value={slot.time}>
+                        {slot.displayTime}
                       </SelectItem>
                     ))}
                   </SelectContent>
