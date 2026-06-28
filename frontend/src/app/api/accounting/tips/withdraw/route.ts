@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   const body = await req.json() as { amount: number };
   // فرض: کارمند لاگین کرده و barberId را باید از session یا توکن بگیرید. فعلاً تستی مقداردهی می‌شود.

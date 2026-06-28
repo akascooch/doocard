@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const API_BASE_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
+export const dynamic = 'force-dynamic'
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string; serviceId: string } }
