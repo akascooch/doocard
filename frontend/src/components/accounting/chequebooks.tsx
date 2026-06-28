@@ -572,20 +572,27 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
               <Label>وضعیت</Label>
               <Select
                 value={leafForm.status}
-                onValueChange={(val: ChequeLeafStatus) => setLeafForm({ ...leafForm, status: val })}
+                onValueChange={(val) =>
+                  setLeafForm((prev) => ({
+                    ...prev,
+                    status: val as ChequeLeafStatus,
+                  }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {editingLeaf &&
-                    [editingLeaf.status, ...(NEXT_STATUS_OPTIONS[editingLeaf.status] || [])].filter(
-                      (v, i, arr) => arr.indexOf(v) === i
-                    ).map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {STATUS_LABELS[status]}
-                      </SelectItem>
-                    ))}
+                    (
+                      [editingLeaf.status, ...(NEXT_STATUS_OPTIONS[editingLeaf.status] || [])] as ChequeLeafStatus[]
+                    )
+                      .filter((v, i, arr) => arr.indexOf(v) === i)
+                      .map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {STATUS_LABELS[status]}
+                        </SelectItem>
+                      ))}
                 </SelectContent>
               </Select>
             </div>
