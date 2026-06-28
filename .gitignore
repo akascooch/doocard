@@ -30,6 +30,8 @@ pnpm-debug.log*
 .env.local
 .env.development
 .env.production
+backend/env.production
+frontend/env.production
 
 # ==============================
 # OS / Editor

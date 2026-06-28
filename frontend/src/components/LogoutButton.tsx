@@ -2,6 +2,7 @@
 
 import { LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { logout } from '@/lib/auth'
 
 interface LogoutButtonProps {
   isCollapsed?: boolean
@@ -10,12 +11,8 @@ interface LogoutButtonProps {
 }
 
 export function LogoutButton({ isCollapsed = false, isHovered = false, isMobile = false }: LogoutButtonProps) {
-  const handleLogout = () => {
-    // حذف توکن از localStorage
-    localStorage.removeItem('token')
-    // حذف توکن از cookies
-    document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-    // ریدایرکت به صفحه لاگین
+  const handleLogout = async () => {
+    await logout()
     window.location.href = '/login'
   }
 

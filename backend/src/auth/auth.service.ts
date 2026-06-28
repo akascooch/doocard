@@ -1,8 +1,13 @@
 import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import {
+  getJwtAccessExpiresIn,
+  getRefreshTokenExpiresAt,
+} from './auth-token.config';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 
@@ -11,6 +16,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private configService: ConfigService,
   ) {}
 
   async validateUser(identifier: string, password: string): Promise<any> {
@@ -66,7 +72,7 @@ export class AuthService {
   }
 
   /**
-   * Generate access token (short-lived: 15 minutes)
+   * Generate access token (TTL from JWT_EXPIRES_IN, default 24h).
    */
   private generateAccessToken(user: any): string {
     const payload = { 
@@ -77,24 +83,20 @@ export class AuthService {
     };
     
     return this.jwtService.sign(payload, {
-      expiresIn: '15m', // 15 minutes
+      expiresIn: getJwtAccessExpiresIn(this.configService),
     });
   }
 
   /**
-   * Generate refresh token (long-lived: 30 days)
+   * Generate refresh token (TTL from JWT_REFRESH_EXPIRES_IN, default 365d).
    */
   private async generateRefreshToken(
     userId: number, 
     ipAddress?: string,
     userAgent?: string
   ): Promise<string> {
-    // Generate cryptographically secure random token
     const token = randomBytes(64).toString('hex');
-    
-    // Calculate expiration date (30 days from now)
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30);
+    const expiresAt = getRefreshTokenExpiresAt(this.configService);
 
     // Store in database
     await this.prisma.refreshToken.create({

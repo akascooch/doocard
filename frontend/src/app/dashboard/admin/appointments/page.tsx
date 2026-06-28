@@ -14,29 +14,17 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Search, Plus, RefreshCcw, Clock, CheckCircle, AlertCircle, DollarSign, Users, Filter, X, TrendingUp } from 'lucide-react';
+import { Calendar, Search, Plus, RefreshCcw, Clock, CheckCircle, AlertCircle, Filter, X } from 'lucide-react';
 import { AppointmentForm, AppointmentList } from '@/components/appointments';
 import { api } from '@/lib/axios';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import PersianDatePicker from '@/components/ui/PersianDatePicker';
 import { jalaliToISO, getCurrentJalaliDate } from '@/lib/date';
-import { formatCompactMoney } from '@/lib/money';
 import { type EmployeeListItem, normalizeEmployeeList, getEmployeeDisplayName } from '@/lib/employee';
+import { type AppointmentRecord } from '@/lib/appointment';
 
-interface Appointment {
-  id: number;
-  services: any[];
-  scheduledAt: string;
-  durationMin: number;
-  status: string;
-  amount?: number;
-  tipAmount?: number;
-  customerName: string;
-  employeeName: string;
-  employeeId?: number;
-  notes?: string;
-}
+interface Appointment extends AppointmentRecord {}
 
 type Employee = EmployeeListItem;
 
@@ -304,23 +292,13 @@ export default function AdminAppointmentsPage() {
 
   // Advanced Stats (for filtered appointments)
   const advancedStats = useMemo(() => {
-    const totalAppointments = filteredAndSortedAppointments.length;
-    const totalRevenue = filteredAndSortedAppointments.reduce((sum, apt) => {
-      // فقط نوبت‌های تسویه شده را حساب می‌کنیم
-      if ((apt.status === 'SETTLED' || apt.status === 'PAID') && apt.amount) {
-        return sum + (apt.amount || 0);
-      }
-      return sum;
-    }, 0);
-    
     const settledCount = filteredAndSortedAppointments.filter(
       (a) => a.status === 'SETTLED' || a.status === 'PAID'
     ).length;
 
     return {
-      totalAppointments,
-      totalRevenue, // in Rials
       settledCount,
+      filteredCount: filteredAndSortedAppointments.length,
     };
   }, [filteredAndSortedAppointments]);
 
@@ -541,24 +519,7 @@ export default function AdminAppointmentsPage() {
 
       {/* Advanced Stats (only shown when advanced filters are active) */}
       {showAdvancedFilters && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="border-l-4 border-l-blue-500 bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/20 dark:to-background">
-            <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                <Calendar className="h-5 w-5" />
-                تعداد کل نوبت‌ها
-              </CardDescription>
-              <CardTitle className="text-4xl text-blue-700 dark:text-blue-300">
-                {advancedStats.totalAppointments}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                در بازه زمانی انتخاب شده
-              </p>
-            </CardContent>
-          </Card>
-
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
           <Card className="border-l-4 border-l-green-500 bg-gradient-to-br from-green-50 to-white dark:from-green-950/20 dark:to-background">
             <CardHeader className="pb-2">
               <CardDescription className="flex items-center gap-2 text-green-600 dark:text-green-400">
@@ -571,26 +532,8 @@ export default function AdminAppointmentsPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                از {advancedStats.totalAppointments} نوبت
+                از {advancedStats.filteredCount} نوبت
               </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-[hsl(var(--primary))] bg-gradient-to-br from-[hsl(var(--primary))]/10 to-white dark:from-[hsl(var(--primary))]/5 dark:to-background">
-            <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2 text-[hsl(var(--primary))]">
-                <DollarSign className="h-5 w-5" />
-                مجموع درآمد
-              </CardDescription>
-              <CardTitle className="text-2xl text-[#8BC1A1]">
-                {formatCompactMoney(advancedStats.totalRevenue)}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <TrendingUp className="h-4 w-4" />
-                فقط نوبت‌های تسویه شده
-              </div>
             </CardContent>
           </Card>
         </div>

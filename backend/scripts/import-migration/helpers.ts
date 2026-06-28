@@ -5,6 +5,10 @@ import * as XLSX from 'xlsx';
 import * as jalaali from 'jalaali-js';
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import type {
+  RawAppointmentParseFailure,
+  RawAppointmentParseResult,
+} from '../../src/import/lib/appointment-workbook.parser';
 
 /** 12:00 Asia/Tehran stored as UTC (matches import-historical.ts) */
 export const TEHRAN_NOON_UTC_HOUR = 8;
@@ -52,7 +56,43 @@ export interface ParsedAppointmentRow {
   totalPriceRial: bigint;
   serviceNameRaw: string;
   serviceNameCanonical: string;
+  /** خرداد.xlsx فاکتور — used for identity + conservative dedup */
+  invoiceId?: string;
 }
+
+/** @deprecated use RawAppointmentParseFailure */
+export type KhordadParseFailure = RawAppointmentParseFailure;
+/** @deprecated use RawAppointmentParseResult */
+export type KhordadParseResult = RawAppointmentParseResult;
+
+export type {
+  RawAppointmentParseFailure,
+  RawAppointmentParseResult,
+  SkippedSingletonDay,
+  SingletonDayFilterResult,
+} from '../../src/import/lib/appointment-workbook.parser';
+
+export {
+  persianToEnglishDigits,
+  syntheticPhoneFromStableKey,
+  filterSingletonAppointmentDays,
+  filterDifferentialAppointmentDays,
+  computeConservativeAppointmentDedupKey,
+  isRawServicesExportWorkbook,
+  detectArzeServicesExportHeaderRow,
+  parseRawAppointmentWorkbookFromBuffer,
+  parseRawAppointmentWorkbookFromPath,
+} from '../../src/import/lib/appointment-workbook.parser';
+
+export {
+  getAppointmentCountsByJalaliDates,
+  ensureGenericImportCustomer,
+} from '../../src/import/lib/appointment-commit.lib';
+
+/** Backward-compatible alias */
+export { parseRawAppointmentWorkbookFromPath as parseKhordadAppointmentRows } from '../../src/import/lib/appointment-workbook.parser';
+/** @deprecated use detectArzeServicesExportHeaderRow */
+export { detectArzeServicesExportHeaderRow as detectArzeKhordadHeaderRow } from '../../src/import/lib/appointment-workbook.parser';
 
 export interface ParsedExpenseRow {
   sourceFile: string;

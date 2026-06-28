@@ -27,26 +27,13 @@ import { api } from '@/lib/axios';
 import { useToast } from '@/components/ui/use-toast';
 import { formatToJalali } from '@/lib/date';
 import { toTomans } from '@/lib/money';
+import {
+  type AppointmentRecord,
+  formatTipAssignmentLabel,
+  getAppointmentServices,
+} from '@/lib/appointment';
 
-interface Service {
-  serviceId: number;
-  priceAtBooking: number;
-  durationMin: number;
-  serviceName?: string;
-}
-
-interface Appointment {
-  id: number;
-  services: Service[];
-  scheduledAt: string;
-  durationMin: number;
-  status: string;
-  amount?: number;
-  tipAmount?: number;
-  customerName: string;
-  employeeName: string;
-  notes?: string;
-}
+type Appointment = AppointmentRecord;
 
 interface AppointmentListProps {
   appointments: Appointment[];
@@ -62,6 +49,7 @@ export default function AppointmentList({
   const { toast } = useToast();
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [settleId, setSettleId] = useState<number | null>(null);
+  const [settleAppointment, setSettleAppointment] = useState<Appointment | null>(null);
 
   const getStatusBadge = (status: string) => {
     const configs: Record<string, { label: string; className: string }> = {
@@ -179,7 +167,10 @@ export default function AppointmentList({
           <Button
             size="sm"
             variant="outline"
-            onClick={() => setSettleId(appointment.id)}
+            onClick={() => {
+              setSettleId(appointment.id);
+              setSettleAppointment(appointment);
+            }}
             className="text-main-orange hover:text-main-orange/90 min-h-9"
             title="تسویه نوبت"
           >
@@ -233,9 +224,26 @@ export default function AppointmentList({
   );
 
   const getServiceLabel = (appointment: Appointment) =>
-    appointment.services
+    getAppointmentServices(appointment)
       .map((s, idx) => s.serviceName || `سرویس ${idx + 1}`)
-      .join('، ');
+      .join('، ') || '—';
+
+  const renderTipSummary = (appointment: Appointment) => {
+    if (!appointment.tipAmount || appointment.tipAmount <= 0) return null;
+    const assignmentLabel = formatTipAssignmentLabel(appointment);
+    return (
+      <div className="text-xs text-foreground/80">
+        + {toTomans(appointment.tipAmount)} انعام
+        {assignmentLabel && (
+          <span className="block text-[10px] text-muted-foreground">
+            {assignmentLabel}
+            {appointment.tipStaffShareRial != null &&
+              ` — پرسنل: ${toTomans(appointment.tipStaffShareRial)}`}
+          </span>
+        )}
+      </div>
+    );
+  };
 
   if (appointments.length === 0) {
     return (
@@ -275,7 +283,10 @@ export default function AppointmentList({
                 </span>
               </div>
               {userRole !== 'CUSTOMER' && appointment.amount ? (
-                <p className="font-medium">{toTomans(appointment.amount)}</p>
+                <div>
+                  <p className="font-medium">{toTomans(appointment.amount)}</p>
+                  {renderTipSummary(appointment)}
+                </div>
               ) : null}
             </div>
             {renderActions(appointment)}
@@ -319,7 +330,7 @@ export default function AppointmentList({
                 <TableCell>{appointment.employeeName || 'نامشخص'}</TableCell>
                 <TableCell>
                   <div className="max-w-xs">
-                    {appointment.services.map((s, idx) => (
+                    {getAppointmentServices(appointment).map((s, idx) => (
                       <div key={idx} className="text-sm">
                         {s.serviceName || `سرویس ${idx + 1}`}
                       </div>
@@ -333,11 +344,7 @@ export default function AppointmentList({
                     {appointment.amount ? (
                       <div>
                         <div className="font-medium">{toTomans(appointment.amount)}</div>
-                        {appointment.tipAmount && appointment.tipAmount > 0 && (
-                          <div className="text-xs text-foreground/80">
-                            + {toTomans(appointment.tipAmount)} انعام
-                          </div>
-                        )}
+                        {renderTipSummary(appointment)}
                       </div>
                     ) : (
                       <span className="text-foreground/80">-</span>
@@ -356,8 +363,12 @@ export default function AppointmentList({
       {/* Payment Modal */}
       <PaymentModal
         appointmentId={settleId}
+        prefetchedAppointment={settleAppointment}
         isOpen={settleId !== null}
-        onClose={() => setSettleId(null)}
+        onClose={() => {
+          setSettleId(null);
+          setSettleAppointment(null);
+        }}
         onSuccess={onRefresh}
       />
 

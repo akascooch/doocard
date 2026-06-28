@@ -8,8 +8,6 @@ import { Badge } from '@/components/ui/badge'
 import { 
   Calendar, 
   Users, 
-  DollarSign, 
-  TrendingUp,
   UserCog,
   Scissors,
   Settings,
@@ -31,7 +29,6 @@ import {
   Settings as SettingsIcon,
 } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
-import { formatCompactMoney } from '@/lib/money'
 
 interface AdminStats {
   totalAppointments: number
@@ -147,42 +144,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Main Stats Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card  className="group hover:shadow-xl transition-all duration-300">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-medium">کل نوبت‌ها</CardTitle>
-            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-              <Calendar className="h-5 w-5 text-primary" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-foreground">{stats.totalAppointments}</div>
-            <div className="flex items-center mt-2">
-              <Badge variant="success" className="text-xs">
-                {stats.todayAppointments} امروز
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card  className="group hover:shadow-xl transition-all duration-300">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-medium">درآمد امسال</CardTitle>
-            <div className="h-10 w-10 rounded-xl bg-success/10 flex items-center justify-center group-hover:bg-success/20 transition-colors">
-              <DollarSign className="h-5 w-5 text-success" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-foreground">
-              {formatCompactMoney(stats.monthlyRevenue)}
-            </div>
-            <div className="flex items-center mt-2">
-              <TrendingUp className="h-3 w-3 text-success mr-1" />
-              <span className="text-xs text-success font-medium">سود خالص</span>
-            </div>
-          </CardContent>
-        </Card>
-        
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
         <Card  className="group hover:shadow-xl transition-all duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-sm font-medium">کل مشتریان</CardTitle>

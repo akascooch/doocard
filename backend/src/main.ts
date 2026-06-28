@@ -4,47 +4,96 @@ import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
 import * as compression from 'compression';
+import { json, urlencoded } from 'express';
+import cookieParser from 'cookie-parser';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from '@nestjs/common';
+
+function parseOriginList(value?: string): string[] {
+  if (!value?.trim()) return [];
+  return value
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+function resolveCorsOrigins(configService: ConfigService): string[] {
+  const origins = new Set<string>();
+
+  for (const origin of parseOriginList(configService.get<string>('ALLOWED_ORIGINS'))) {
+    origins.add(origin);
+  }
+  for (const origin of parseOriginList(configService.get<string>('CORS_ORIGIN'))) {
+    origins.add(origin);
+  }
+
+  const frontendUrl = configService.get<string>('FRONTEND_URL')?.trim();
+  if (frontendUrl) {
+    origins.add(frontendUrl);
+  }
+
+  if (origins.size === 0) {
+    origins.add('http://localhost:3000');
+    origins.add('http://localhost:3001');
+  }
+
+  return [...origins];
+}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+    bodyParser: false,
   });
   
   const configService = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
-  
+
+  // Large JSON bodies (restore uploads) — must be registered before routes
+  app.use(json({ limit: '100mb' }));
+  app.use(urlencoded({ limit: '100mb', extended: true }));
+  app.use(cookieParser());
+
   // Security middleware - disable CSP in helmet (let Nginx handle it for PWA compatibility)
   app.use(helmet({
     contentSecurityPolicy: false, // ⚡ DISABLED - Nginx handles CSP for better PWA support
     crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
   }));
   
-  // CORS configuration
+  const corsOrigins = resolveCorsOrigins(configService);
+
+  // CORS — driven by ALLOWED_ORIGINS, CORS_ORIGIN, FRONTEND_URL
   const corsOptions = {
-    origin: configService.get('ALLOWED_ORIGINS', 'http://localhost:3000').split(','),
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    origin: corsOrigins,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: [
-      'Content-Type', 
-      'Authorization', 
+      'Content-Type',
+      'Authorization',
+      'Accept',
       'X-Requested-With',
       'X-Request-Id',
       'X-Correlation-Id',
+      'X-Financial-Access-Token',
     ],
-    exposedHeaders: [
-      'X-Correlation-Id',
-      'X-Request-Id',
-      'X-Response-Time',
-    ],
+    exposedHeaders: ['Content-Disposition', 'Content-Length', 'X-Response-Time'],
     credentials: true,
-    maxAge: 86400, // 24 hours
+    maxAge: 3600,
   };
   app.enableCors(corsOptions);
   
-  // Compression middleware
-  app.use(compression.default());
+  // Compression — skip backup downloads (avoids premature close on large JSON)
+  app.use(
+    compression.default({
+      filter: (req, res) => {
+        const url = req.url || '';
+        if (url.includes('/settings/backup')) {
+          return false;
+        }
+        return compression.filter(req, res);
+      },
+    }),
+  );
   
   // Global prefix
   app.setGlobalPrefix('api');
@@ -96,11 +145,20 @@ async function bootstrap() {
   const host = configService.get('HOST', '0.0.0.0');
   
   await app.listen(port, host);
+
+  const httpServer = app.getHttpServer();
+  httpServer.setTimeout(10 * 60 * 1000);
+  if ('requestTimeout' in httpServer) {
+    (httpServer as any).requestTimeout = 10 * 60 * 1000;
+  }
+  if ('headersTimeout' in httpServer) {
+    (httpServer as any).headersTimeout = 10 * 60 * 1000;
+  }
   
   logger.log(`🚀 Application is running on: http://${host}:${port}`);
   logger.log(`📚 API Documentation: http://${host}:${port}/api/docs`);
   logger.log(`🌍 Environment: ${configService.get('NODE_ENV', 'development')}`);
-  logger.log(`🔒 CORS Origins: ${corsOptions.origin}`);
+  logger.log(`🔒 CORS Origins: ${corsOrigins.join(', ')}`);
   
   // Graceful shutdown
   const gracefulShutdown = (signal: string) => {

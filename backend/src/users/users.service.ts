@@ -66,8 +66,8 @@ export class UsersService {
       }
     }
 
-    // If user is EMPLOYEE, also add to employees table
-    if (createUserDto.role === 'EMPLOYEE') {
+    // If user is EMPLOYEE or SERVICE, also add to employees table (tip/salary flows need Employee row)
+    if (createUserDto.role === 'EMPLOYEE' || createUserDto.role === 'SERVICE') {
       try {
         await this.prisma.employee.create({
           data: {
@@ -173,7 +173,7 @@ export class UsersService {
     });
 
     // Role sync: idempotent. No duplicate create; no delete of Employee.
-    if (updateUserDto.role === 'EMPLOYEE') {
+    if (updateUserDto.role === 'EMPLOYEE' || updateUserDto.role === 'SERVICE') {
       await this.prisma.employee.upsert({
         where: { userId: id },
         create: { userId: id, isActive: true },

@@ -6,7 +6,8 @@ import {
   IsString, 
   IsArray, 
   ValidateNested,
-  ArrayMinSize 
+  ArrayMinSize,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { AppointmentServiceDto } from './appointment-service.dto';
@@ -50,4 +51,10 @@ export class CreateAppointmentDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  /** Client-generated idempotency key for offline sync replay */
+  @IsString()
+  @IsOptional()
+  @MaxLength(128)
+  clientOpId?: string;
 } 

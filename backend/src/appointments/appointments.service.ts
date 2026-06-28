@@ -1,13 +1,18 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { 
-  CreateAppointmentDto, 
+import {
+  CreateAppointmentDto,
   UpdateAppointmentDto,
   SettleAppointmentDto,
+  TipRecipientType,
   GetSlotsDto,
   QueryAppointmentsDto,
-  AppointmentServiceDto
+  AppointmentServiceDto,
 } from './dto';
+import {
+  TIP_STAFF_SHARE_PERCENT,
+} from '../common/constants/tip-distribution.constants';
 import { AccountingService } from '../accounting/accounting.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
@@ -17,7 +22,7 @@ import { FarazSmsSendService } from '../sms/faraz-sms-send.service';
 import * as bcrypt from 'bcrypt';
 import { normalizeAppointmentFields } from '../common/utils/appointment-response.util';
 
-interface ServiceSnapshot {
+export interface ServiceSnapshot {
   serviceId: number;
   priceAtBooking: number; // RIAL
   durationMin: number;
@@ -29,6 +34,47 @@ const SLOT_INTERVAL_MIN = 30;
 const BOOKING_DURATION_MIN = 60;
 const BUSINESS_HOUR_START = 10;
 const BUSINESS_HOUR_END = 22;
+
+function computeTipShares(tipRial: bigint): { staffShare: bigint; salonShare: bigint } {
+  const staffShare = (tipRial * BigInt(TIP_STAFF_SHARE_PERCENT)) / 100n;
+  return { staffShare, salonShare: tipRial - staffShare };
+}
+
+function splitTeamTipPool(
+  staffPool: bigint,
+  employeeIds: number[],
+): { employeeId: number; amountRial: bigint }[] {
+  if (employeeIds.length === 0) return [];
+  const sorted = [...employeeIds].sort((a, b) => a - b);
+  const base = staffPool / BigInt(sorted.length);
+  const remainder = Number(staffPool % BigInt(sorted.length));
+  return sorted.map((employeeId, index) => ({
+    employeeId,
+    amountRial: base + (index < remainder ? 1n : 0n),
+  }));
+}
+const BARBER_APPOINTMENT_DEDUCTION_TOMAN = 200000;
+const TOMAN_TO_RIAL = 10;
+const BARBER_APPOINTMENT_DEDUCTION_RIAL = BARBER_APPOINTMENT_DEDUCTION_TOMAN * TOMAN_TO_RIAL;
+
+/** Public user fields only — never expose password or tokens in appointment responses. */
+const APPOINTMENT_USER_SELECT = {
+  id: true,
+  name: true,
+  phone: true,
+  email: true,
+  role: true,
+} as const;
+
+/** Standard relations for appointment list/detail API responses. */
+const APPOINTMENT_DETAIL_INCLUDE = {
+  customer: { include: { user: { select: APPOINTMENT_USER_SELECT } } },
+  employee: { include: { user: { select: APPOINTMENT_USER_SELECT } } },
+  tipRecipientEmployee: { include: { user: { select: APPOINTMENT_USER_SELECT } } },
+  service: true,
+  paidByUser: { select: { id: true, name: true } },
+  calendarDate: true,
+} as const;
 
 @Injectable()
 export class AppointmentsService {
@@ -93,6 +139,18 @@ export class AppointmentsService {
    */
   async create(dto: CreateAppointmentDto, currentUser?: any) {
     console.log('📅 Creating appointment (reserving slot):', dto);
+
+    const clientOpId = dto.clientOpId?.trim();
+    if (clientOpId) {
+      const existing = await this.prisma.appointment.findUnique({
+        where: { clientOpId },
+        include: APPOINTMENT_DETAIL_INCLUDE,
+      });
+      if (existing) {
+        console.log('♻️ Returning existing appointment for clientOpId:', clientOpId);
+        return this.formatAppointment(existing);
+      }
+    }
 
     // Parse date input (jalaliDate + time OR scheduledAt)
     let scheduledAt: Date;
@@ -355,12 +413,9 @@ export class AppointmentsService {
           durationMin: finalDuration,
           status: initialStatus,
           notes: dto.notes,
+          clientOpId: clientOpId || null,
         },
-        include: {
-          customer: { include: { user: true } },
-          employee: { include: { user: true } },
-          calendarDate: true, // Include calendar info
-        },
+        include: APPOINTMENT_DETAIL_INCLUDE,
       });
 
       console.log('✅ Appointment created (slot reserved):', appointment.id);
@@ -577,13 +632,7 @@ export class AppointmentsService {
 
     const appointments = await this.prisma.appointment.findMany({
       where,
-      include: {
-        customer: { include: { user: true } },
-        employee: { include: { user: true } },
-        service: true,
-        paidByUser: { select: { id: true, name: true } },
-        calendarDate: true, // Include calendar info
-      },
+      include: APPOINTMENT_DETAIL_INCLUDE,
       orderBy: { scheduledAt: 'desc' },
       skip: query.skip || 0,
       take: query.take || 200, // Increased default from 50 to 200
@@ -606,11 +655,8 @@ export class AppointmentsService {
     const appointment = await this.prisma.appointment.findFirst({
       where: { id, deletedAt: null },
       include: {
-        customer: { include: { user: true } },
-        employee: { include: { user: true } },
-        paidByUser: { select: { id: true, name: true } },
+        ...APPOINTMENT_DETAIL_INCLUDE,
         transactions: true,
-        calendarDate: true, // Include calendar info
       },
     });
 
@@ -626,6 +672,12 @@ export class AppointmentsService {
    */
   async update(id: number, dto: UpdateAppointmentDto) {
     const existing = await this.findOne(id);
+
+    if (existing.financiallyLockedAt) {
+      throw new BadRequestException(
+        'این نوبت پس از تسویه کمیسیون قفل مالی شده و قابل ویرایش نیست',
+      );
+    }
 
     // Build update data
     const updateData: any = {};
@@ -1118,7 +1170,7 @@ export class AppointmentsService {
       throw new BadRequestException('حساب بانکی برای روش پرداخت الزامی است');
     }
 
-    // Check for duplicate settlement (idempotency)
+    // Check for duplicate settlement (idempotency via externalRef)
     if (dto.externalRef) {
       const existingTransaction = await this.prisma.transaction.findFirst({
         where: {
@@ -1135,13 +1187,132 @@ export class AppointmentsService {
       }
     }
 
+    // Block duplicate settlement when externalRef is absent (race / retry safety)
+    const existingSettlementIncome = await this.prisma.transaction.findFirst({
+      where: {
+        sourceType: 'APPOINTMENT',
+        sourceId: id,
+        type: 'INCOME',
+        deletedAt: null,
+      },
+    });
+    if (existingSettlementIncome) {
+      console.log('⚠️  Settlement INCOME transaction already exists for appointment');
+      return this.findOne(id);
+    }
+
+    if (dto.paymentMethod === 'DEBT') {
+      const existingDebt = await this.prisma.customerDebt.findFirst({
+        where: {
+          sourceType: 'APPOINTMENT',
+          sourceId: id,
+        },
+      });
+      if (existingDebt) {
+        console.log('⚠️  CustomerDebt already exists for appointment settlement');
+        return this.findOne(id);
+      }
+    }
+
+    const tipRial =
+      dto.tipAmount && dto.tipAmount > 0 ? BigInt(dto.tipAmount) : null;
+    if (tipRial) {
+      if (!dto.tipRecipientType) {
+        throw new BadRequestException('انتخاب نوع گیرنده انعام الزامی است');
+      }
+      if (
+        dto.tipRecipientType === TipRecipientType.INDIVIDUAL &&
+        !dto.tipRecipientEmployeeId
+      ) {
+        throw new BadRequestException(
+          'انتخاب پرسنل خدمات برای انعام فردی الزامی است',
+        );
+      }
+    }
+
     return this.prisma.$transaction(async (tx) => {
+      const lockedAppointment = await tx.appointment.findUnique({ where: { id } });
+      if (
+        lockedAppointment?.status === 'SETTLED' ||
+        lockedAppointment?.status === 'PAID'
+      ) {
+        return this.findOne(id);
+      }
+
+      const settlementIncome = await tx.transaction.findFirst({
+        where: {
+          sourceType: 'APPOINTMENT',
+          sourceId: id,
+          type: 'INCOME',
+          deletedAt: null,
+        },
+      });
+      if (settlementIncome) {
+        return this.findOne(id);
+      }
+
+      if (dto.paymentMethod === 'DEBT') {
+        const settlementDebt = await tx.customerDebt.findFirst({
+          where: { sourceType: 'APPOINTMENT', sourceId: id },
+        });
+        if (settlementDebt) {
+          return this.findOne(id);
+        }
+      }
+
+      const deductionPerAppointmentAmount = BigInt(BARBER_APPOINTMENT_DEDUCTION_RIAL);
+      const barberPayoutGrossAmount = BigInt(dto.amount);
+      const settlementDeductionAmount = deductionPerAppointmentAmount;
+      const barberPayoutNetAmount = barberPayoutGrossAmount - settlementDeductionAmount;
+
+      let tipRecipientType: TipRecipientType | null = null;
+      let tipRecipientEmployeeId: number | null = null;
+      let tipStaffShareRial: bigint | null = null;
+      let tipSalonShareRial: bigint | null = null;
+      const tipAllocationRows: { employeeId: number; amountRial: bigint }[] = [];
+
+      if (tipRial && dto.tipRecipientType) {
+        tipRecipientType = dto.tipRecipientType;
+        const shares = computeTipShares(tipRial);
+        tipStaffShareRial = shares.staffShare;
+        tipSalonShareRial = shares.salonShare;
+
+        if (dto.tipRecipientType === TipRecipientType.INDIVIDUAL) {
+          await this.assertEligibleServiceStaff(tx, dto.tipRecipientEmployeeId!);
+          tipRecipientEmployeeId = dto.tipRecipientEmployeeId!;
+          tipAllocationRows.push({
+            employeeId: tipRecipientEmployeeId,
+            amountRial: tipStaffShareRial,
+          });
+        } else {
+          // TEAM: staff pool split among active service staff; no individual recipient on appointment
+          tipRecipientEmployeeId = null;
+          const serviceStaffIds = await this.findActiveServiceStaffIds(tx);
+          if (serviceStaffIds.length === 0) {
+            throw new BadRequestException(
+              'برای انعام تیمی حداقل یک پرسنل خدمات فعال لازم است',
+            );
+          }
+          tipAllocationRows.push(
+            ...splitTeamTipPool(tipStaffShareRial, serviceStaffIds),
+          );
+        }
+      }
+
       // Update appointment
       const updated = await tx.appointment.update({
         where: { id },
         data: {
           amount: BigInt(dto.amount),
-          tipAmount: dto.tipAmount ? BigInt(dto.tipAmount) : null,
+          barberPayoutGrossAmount,
+          settlementDeductionAmount,
+          barberPayoutNetAmount,
+          deductionPerAppointmentAmount,
+          tipAmount: tipRial,
+          tipRecipientType: tipRecipientType ?? undefined,
+          tipRecipientEmployeeId,
+          tipStaffShareRial,
+          tipSalonShareRial,
           paymentMethod: dto.paymentMethod,
           accountId: dto.accountId || null,
           paidAt: new Date(),
@@ -1149,12 +1320,18 @@ export class AppointmentsService {
           status: 'SETTLED',
           notes: dto.notes ? `${appointment.notes || ''}\n${dto.notes}` : appointment.notes,
         },
-        include: {
-          customer: { include: { user: true } },
-          employee: { include: { user: true } },
-          paidByUser: { select: { id: true, name: true } },
-        },
+        include: APPOINTMENT_DETAIL_INCLUDE,
       });
+
+      if (tipAllocationRows.length > 0) {
+        await tx.appointmentTipAllocation.createMany({
+          data: tipAllocationRows.map((row) => ({
+            appointmentId: id,
+            employeeId: row.employeeId,
+            amountRial: row.amountRial,
+          })),
+        });
+      }
 
       const meta = {
         appointmentId: id,
@@ -1209,12 +1386,12 @@ export class AppointmentsService {
 
         console.log('💵 Created INCOME transaction for amount:', dto.amount);
 
-        // Create TIP transaction if tip provided
-        if (dto.tipAmount && dto.tipAmount > 0) {
+        // Create TIP transaction if tip provided (full customer tip; staff/salon split stored on appointment)
+        if (tipRial && tipRial > 0n) {
           await tx.transaction.create({
             data: {
               type: 'INCOME',
-              amount: BigInt(dto.tipAmount),
+              amount: tipRial,
               description: `انعام نوبت #${id}`,
               sourceType: 'TIP',
               sourceId: id,
@@ -1222,7 +1399,13 @@ export class AppointmentsService {
               paymentMethod: dto.paymentMethod,
               occurredAt: new Date(),
               createdBy: adminUser.sub || adminUser.id,
-              meta: { ...meta, isTip: true } as any,
+              meta: {
+                ...meta,
+                isTip: true,
+                tipRecipientType,
+                tipStaffShareRial: tipStaffShareRial?.toString(),
+                tipSalonShareRial: tipSalonShareRial?.toString(),
+              } as any,
             },
           });
 
@@ -1230,11 +1413,11 @@ export class AppointmentsService {
           if (dto.accountId) {
             await tx.bankAccount.update({
               where: { id: dto.accountId },
-              data: { balance: { increment: BigInt(dto.tipAmount) } },
+              data: { balance: { increment: tipRial } },
             });
           }
 
-          console.log('💵 Created TIP transaction for amount:', dto.tipAmount);
+          console.log('💵 Created TIP transaction for amount:', tipRial.toString());
         }
       }
 
@@ -1253,6 +1436,16 @@ export class AppointmentsService {
    */
   async revertSettlement(id: number, adminUser: any) {
     console.log('↩️ Reverting settlement for appointment:', id, 'by admin:', adminUser?.phone);
+
+    const locked = await this.prisma.appointment.findFirst({
+      where: { id, financiallyLockedAt: { not: null } },
+      select: { id: true },
+    });
+    if (locked) {
+      throw new BadRequestException(
+        'این نوبت در تسویه کمیسیون قفل شده و برگشت تسویه مشتری مجاز نیست',
+      );
+    }
 
     const appointment = await this.findOne(id);
 
@@ -1301,13 +1494,25 @@ export class AppointmentsService {
         console.log(`↩️ Deleted ${deletedDebts.count} CustomerDebt row(s) for appointment ${id}`);
       }
 
+      await tx.appointmentTipAllocation.deleteMany({
+        where: { appointmentId: id },
+      });
+
       // E) Clear appointment financial fields and set status to CONFIRMED
       await tx.appointment.update({
         where: { id },
         data: {
           status: 'CONFIRMED',
           amount: null,
+          barberPayoutGrossAmount: null,
+          settlementDeductionAmount: null,
+          barberPayoutNetAmount: null,
+          deductionPerAppointmentAmount: null,
           tipAmount: null,
+          tipRecipientType: null,
+          tipRecipientEmployeeId: null,
+          tipStaffShareRial: null,
+          tipSalonShareRial: null,
           paymentMethod: null,
           accountId: null,
           paidAt: null,
@@ -1660,8 +1865,8 @@ export class AppointmentsService {
         status: { in: ['COMPLETED', 'CANCELLED', 'SETTLED', 'PAID'] },
       },
       include: {
-        customer: { include: { user: true } },
-        employee: { include: { user: true } },
+        customer: { include: { user: { select: APPOINTMENT_USER_SELECT } } },
+        employee: { include: { user: { select: APPOINTMENT_USER_SELECT } } },
         service: true,
         calendarDate: true,
       },
@@ -1671,21 +1876,119 @@ export class AppointmentsService {
     return appointments.map((a) => this.formatAppointment(a));
   }
 
+  private formatTipRecipientEmployee(employee: any) {
+    if (!employee) return null;
+    return {
+      id: employee.id,
+      user: employee.user
+        ? {
+            id: employee.user.id,
+            name: employee.user.name,
+            phone: employee.user.phone,
+            email: employee.user.email,
+            role: employee.user.role,
+          }
+        : null,
+    };
+  }
+
   private formatAppointment(appointment: any) {
-    const services = appointment.services as ServiceSnapshot[];
+    const services = Array.isArray(appointment.services)
+      ? (appointment.services as ServiceSnapshot[])
+      : [];
     const normalized = normalizeAppointmentFields(appointment);
     
     // Calculate amounts in Rials (NO CONVERSION - display as is)
     const totalAmountRials = services?.reduce((sum, s) => sum + (s.priceAtBooking || 0), 0) || 0;
     const amountRials = appointment.amount ? Number(appointment.amount) : null;
+    const barberPayoutGrossAmount = appointment.barberPayoutGrossAmount
+      ? Number(appointment.barberPayoutGrossAmount)
+      : null;
+    const settlementDeductionAmount = appointment.settlementDeductionAmount
+      ? Number(appointment.settlementDeductionAmount)
+      : null;
+    const barberPayoutNetAmount = appointment.barberPayoutNetAmount
+      ? Number(appointment.barberPayoutNetAmount)
+      : null;
+    const deductionPerAppointmentAmount = appointment.deductionPerAppointmentAmount
+      ? Number(appointment.deductionPerAppointmentAmount)
+      : BARBER_APPOINTMENT_DEDUCTION_RIAL;
     const tipAmountRials = appointment.tipAmount ? Number(appointment.tipAmount) : null;
-    
+    const tipStaffShareRial = appointment.tipStaffShareRial
+      ? Number(appointment.tipStaffShareRial)
+      : null;
+    const tipSalonShareRial = appointment.tipSalonShareRial
+      ? Number(appointment.tipSalonShareRial)
+      : null;
+    const tipRecipientEmployee = this.formatTipRecipientEmployee(
+      appointment.tipRecipientEmployee,
+    );
+    const tipRecipientEmployeeName =
+      tipRecipientEmployee?.user?.name ?? null;
+
     return {
-      ...appointment,
+      id: appointment.id,
+      createdAt: appointment.createdAt,
+      updatedAt: appointment.updatedAt,
+      customerId: appointment.customerId,
+      status: appointment.status,
+      employeeId: appointment.employeeId,
+      serviceId: appointment.serviceId,
+      accountId: appointment.accountId,
+      deletedAt: appointment.deletedAt,
+      durationMin: appointment.durationMin,
+      notes: appointment.notes,
+      paidAt: appointment.paidAt,
+      paidBy: appointment.paidBy,
+      paymentMethod: appointment.paymentMethod,
+      scheduledAt: appointment.scheduledAt,
+      financiallyLockedAt: appointment.financiallyLockedAt,
+      calendarDateId: appointment.calendarDateId,
+      customer: appointment.customer
+        ? {
+            ...appointment.customer,
+            user: appointment.customer.user
+              ? {
+                  id: appointment.customer.user.id,
+                  name: appointment.customer.user.name,
+                  phone: appointment.customer.user.phone,
+                  email: appointment.customer.user.email,
+                  role: appointment.customer.user.role,
+                }
+              : null,
+          }
+        : null,
+      employee: appointment.employee
+        ? {
+            id: appointment.employee.id,
+            userId: appointment.employee.userId,
+            user: appointment.employee.user
+              ? {
+                  id: appointment.employee.user.id,
+                  name: appointment.employee.user.name,
+                  phone: appointment.employee.user.phone,
+                  email: appointment.employee.user.email,
+                  role: appointment.employee.user.role,
+                }
+              : null,
+          }
+        : null,
+      tipRecipientEmployee,
+      paidByUser: appointment.paidByUser ?? null,
+      service: appointment.service ?? null,
       ...normalized,
       // Return amounts in RIALS (no Toman conversion)
       amount: amountRials, // RIAL
+      barberPayoutGrossAmount, // RIAL
+      settlementDeductionAmount, // RIAL
+      barberPayoutNetAmount, // RIAL
+      deductionPerAppointmentAmount, // RIAL
       tipAmount: tipAmountRials, // RIAL
+      tipRecipientType: appointment.tipRecipientType ?? null,
+      tipRecipientEmployeeId: appointment.tipRecipientEmployeeId ?? null,
+      tipRecipientEmployeeName,
+      tipStaffShareRial,
+      tipSalonShareRial,
       serviceAmount: totalAmountRials, // RIAL
       totalAmount: totalAmountRials + (tipAmountRials || 0), // RIAL
       services,
@@ -1898,5 +2201,102 @@ export class AppointmentsService {
     } catch (error) {
       console.error('❌ Error sending appointment cancelled notification:', error);
     }
+  }
+
+  private async assertEligibleServiceStaff(
+    tx: Prisma.TransactionClient,
+    employeeId: number,
+  ) {
+    const emp = await tx.employee.findUnique({
+      where: { id: employeeId },
+      include: { user: { select: { role: true } } },
+    });
+    if (!emp || !emp.isActive) {
+      throw new BadRequestException('پرسنل خدمات انتخاب‌شده فعال نیست');
+    }
+    if (emp.user?.role !== 'SERVICE') {
+      throw new BadRequestException(
+        'فقط پرسنل خدمات می‌توانند گیرنده انعام باشند؛ آرایشگر قابل انتخاب نیست',
+      );
+    }
+    return emp;
+  }
+
+  private async findActiveServiceStaffIds(
+    tx: Prisma.TransactionClient,
+  ): Promise<number[]> {
+    const rows = await tx.employee.findMany({
+      where: { isActive: true, user: { role: 'SERVICE' } },
+      select: { id: true },
+      orderBy: { id: 'asc' },
+    });
+    return rows.map((r) => r.id);
+  }
+
+  /**
+   * Daily tip stats from settled appointments (replaces legacy accounting/tips/daily-stats).
+   */
+  async getDailyTipStats(dateStr: string) {
+    const parts = dateStr.split('-').map(Number);
+    if (parts.length !== 3) {
+      throw new BadRequestException('فرمت تاریخ نامعتبر است (YYYY-MM-DD)');
+    }
+    const [year, month, day] = parts;
+    const startOfDay = new Date(year, month - 1, day);
+    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+
+    const appointments = await this.prisma.appointment.findMany({
+      where: {
+        deletedAt: null,
+        paidAt: { gte: startOfDay, lt: endOfDay },
+        tipAmount: { not: null, gt: 0n },
+        status: { in: ['SETTLED', 'PAID', 'COMPLETED'] },
+      },
+      include: {
+        customer: { include: { user: true } },
+        employee: { include: { user: true } },
+        tipRecipientEmployee: { include: { user: true } },
+      },
+      orderBy: { paidAt: 'asc' },
+    });
+
+    let totalAmount = 0n;
+    let staffShareTotal = 0n;
+    let salonShareTotal = 0n;
+    const transactions = appointments.map((apt) => {
+      const amount = apt.tipAmount ?? 0n;
+      totalAmount += amount;
+      staffShareTotal += apt.tipStaffShareRial ?? 0n;
+      salonShareTotal += apt.tipSalonShareRial ?? 0n;
+      const recipientLabel =
+        apt.tipRecipientType === 'TEAM'
+          ? 'تیم خدمات'
+          : apt.tipRecipientEmployee?.user?.name ?? '—';
+      return {
+        id: apt.id,
+        amount: Number(amount),
+        staffShare: apt.tipStaffShareRial ? Number(apt.tipStaffShareRial) : null,
+        salonShare: apt.tipSalonShareRial ? Number(apt.tipSalonShareRial) : null,
+        tipRecipientType: apt.tipRecipientType,
+        createdAt: apt.paidAt?.toISOString() ?? apt.updatedAt.toISOString(),
+        customerName: apt.customer?.user?.name ?? '—',
+        barberName: apt.employee?.user?.name ?? '—',
+        tipRecipientName: recipientLabel,
+        appointmentId: apt.id,
+        description: apt.tipRecipientType
+          ? `انعام ${apt.tipRecipientType === 'TEAM' ? 'تیمی' : 'فردی'}`
+          : 'انعام (بدون تخصیص — داده قدیمی)',
+      };
+    });
+
+    return {
+      date: dateStr,
+      totalAmount: Number(totalAmount),
+      staffShareTotal: Number(staffShareTotal),
+      salonShareTotal: Number(salonShareTotal),
+      transactionCount: transactions.length,
+      isDivided: transactions.some((t) => t.tipRecipientType != null),
+      transactions,
+    };
   }
 }

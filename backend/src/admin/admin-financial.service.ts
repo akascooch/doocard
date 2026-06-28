@@ -19,6 +19,9 @@ export interface YearlyReportMonth {
     total: string;
     employees: Array<{ name: string; count: number }>;
   };
+  settlementDeduction: {
+    total: string;
+  };
 }
 
 export interface YearlyReportDto {
@@ -36,12 +39,13 @@ export class AdminFinancialService {
     const months: YearlyReportMonth[] = [];
 
     for (const { monthName, start, end } of ranges) {
-      const [expenseTotal, expenseByCategory, revenueTotal, revenueByEmployee] =
+      const [expenseTotal, expenseByCategory, revenueTotal, revenueByEmployee, settlementDeductionTotal] =
         await Promise.all([
           this.getMonthlyExpenseTotal(start, end),
           this.getMonthlyExpenseByCategory(start, end),
           this.getMonthlyRevenueTotal(start, end),
           this.getMonthlyRevenueByEmployee(start, end),
+          this.getMonthlySettlementDeductionTotal(start, end),
         ]);
 
       months.push({
@@ -53,6 +57,9 @@ export class AdminFinancialService {
         revenue: {
           total: String(revenueTotal),
           employees: revenueByEmployee,
+        },
+        settlementDeduction: {
+          total: String(settlementDeductionTotal),
         },
       });
     }
@@ -156,6 +163,19 @@ export class AdminFinancialService {
         count: g._count.id,
       }))
       .sort((a, b) => b.count - a.count);
+  }
+
+  private async getMonthlySettlementDeductionTotal(start: Date, end: Date): Promise<bigint> {
+    const agg = await this.prisma.appointment.aggregate({
+      _sum: { settlementDeductionAmount: true },
+      where: {
+        status: { in: SETTLED_STATUSES },
+        deletedAt: null,
+        paidAt: { not: null, gte: start, lte: end },
+        settlementDeductionAmount: { not: null },
+      },
+    });
+    return agg._sum.settlementDeductionAmount ?? BigInt(0);
   }
 
   private async getYearlyEmployeeRanking(

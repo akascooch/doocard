@@ -10,13 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
 import { ArrowLeft, Save, User } from "lucide-react"
-
-const roles = [
-  { value: "ADMIN", label: "ادمین" },
-  { value: "BARBER", label: "آرایشگر" },
-  { value: "SERVICE", label: "خدمات" },
-  { value: "CUSTOMER", label: "مشتری" },
-]
+import { ADMIN_USER_ROLE_OPTIONS } from "@/lib/user-roles"
 
 export default function EditUserPage() {
   const { id } = useParams()
@@ -218,7 +212,7 @@ export default function EditUserPage() {
                   onChange={handleChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  {roles.map(role => (
+                  {ADMIN_USER_ROLE_OPTIONS.map(role => (
                     <option key={role.value} value={role.value}>
                       {role.label}
                     </option>
@@ -239,7 +233,7 @@ export default function EditUserPage() {
               </div>
             </div>
             
-      {formData.role === "BARBER" && (
+      {formData.role === "EMPLOYEE" && (
               <div className="space-y-2">
                 <Label htmlFor="salaryPercentage">درصد حقوق</Label>
                 <Input

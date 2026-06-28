@@ -29,9 +29,14 @@ const setAuthDegraded = () => {
   });
 };
 
+/** Resolved API root — e.g. http://localhost:3001/api or /api (Next proxy). */
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api`
+  : '/api';
+
 // Create axios instance
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL + '/api' : '/api',
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -61,6 +66,14 @@ const processQueue = (error: Error | null, token: string | null = null) => {
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     if (!isServer) {
+      // FormData must not use application/json — browser sets multipart boundary
+      if (config.data instanceof FormData) {
+        if (config.headers) {
+          delete config.headers['Content-Type'];
+          delete config.headers['content-type'];
+        }
+      }
+
       // Add correlation ID
       if (!config.headers['X-Request-Id']) {
         config.headers['X-Request-Id'] = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -103,6 +116,7 @@ api.interceptors.response.use(
       friendlyMessageEn: data?.message_en || data?.message || 'Unknown error',
       statusCode: status,
       internalCode: data?.internalCode,
+      correlationId: data?.correlationId,
       suggestions: data?.suggestions || [],
     };
 
@@ -115,8 +129,15 @@ api.interceptors.response.use(
 
     // Handle 401 - attempt refresh, but never auto-logout or redirect.
     if (status === 401 && !originalRequest._retry && !isServer) {
+      const requestUrl = originalRequest.url || '';
+
+      // Backup routes: never trigger refresh (long I/O + blob/download conflicts).
+      if (requestUrl.includes('/settings/backup')) {
+        return Promise.reject(enhancedError);
+      }
+
       // Don't retry if this is the refresh endpoint itself; just return the error.
-      if (originalRequest.url?.includes('/auth/refresh')) {
+      if (requestUrl.includes('/auth/refresh')) {
         console.log('🚪 Refresh token expired or invalid - not logging out user automatically');
         // Mark auth as degraded so UI can inform the user.
         setAuthDegraded();

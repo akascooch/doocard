@@ -22,7 +22,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  DollarSign,
   TrendingUp,
   TrendingDown,
   Calendar,
@@ -32,7 +31,6 @@ import {
   FileText,
   Users,
   Scissors,
-  Clock,
   ChevronRight,
   ChevronLeft,
 } from 'lucide-react'
@@ -65,6 +63,9 @@ interface FinancialData {
   totalCustomers: number
   totalAppointments: number
   averageAppointmentValue: number
+  totalSettlementDeductionAmount?: number
+  monthlySettlementDeductionAmount?: number
+  dailySettlementDeductionAmount?: number
   topServices: Array<{ name: string; revenue: number; bookings: number }>
   recentTransactions: Array<{
     id: number
@@ -300,20 +301,7 @@ export default function AdminFinancialPage() {
       </div>
 
       {/* Main Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="border-green-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">کل درآمد</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {toThousandTomans(financialData.totalRevenue)}
-            </div>
-            <p className="text-xs text-foreground/80">از ابتدای فعالیت</p>
-          </CardContent>
-        </Card>
-
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="border-blue-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">درآمد ماهانه</CardTitle>
@@ -355,7 +343,7 @@ export default function AdminFinancialPage() {
       </div>
 
       {/* Secondary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">درآمد روزانه</CardTitle>
@@ -382,17 +370,6 @@ export default function AdminFinancialPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">کل نوبت‌ها</CardTitle>
-            <Clock className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{financialData.totalAppointments}</div>
-            <p className="text-xs text-foreground/80">نوبت تکمیل شده</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">میانگین ارزش نوبت</CardTitle>
             <Scissors className="h-4 w-4 text-purple-600" />
           </CardHeader>
@@ -401,6 +378,19 @@ export default function AdminFinancialPage() {
               {toThousandTomans(financialData.averageAppointmentValue)}
             </div>
             <p className="text-xs text-foreground/80">میانگین</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">کسورات سهم آرایشگر</CardTitle>
+            <TrendingDown className="h-4 w-4 text-amber-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-amber-600">
+              {toThousandTomans(financialData.totalSettlementDeductionAmount || 0)}
+            </div>
+            <p className="text-xs text-foreground/80">جمع کل ثبت‌شده</p>
           </CardContent>
         </Card>
       </div>

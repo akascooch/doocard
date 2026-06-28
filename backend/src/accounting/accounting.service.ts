@@ -13,6 +13,7 @@ import { CreateChequeLeafDto } from './dto/create-cheque-leaf.dto';
 import { UpdateChequeLeafDto } from './dto/update-cheque-leaf.dto';
 import { QueryChequeLeavesDto } from './dto/query-cheque-leaves.dto';
 import { TransactionType, ChequeLeafStatus } from '@prisma/client';
+import { EMPLOYEE_EXPENSE_CATEGORY_CODES } from '../common/constants/employee-commission.constants';
 
 @Injectable()
 export class AccountingService {
@@ -27,6 +28,41 @@ export class AccountingService {
   };
 
   constructor(private prisma: PrismaService) {}
+
+  private async assertEmployeeRequiredForCategory(
+    categoryId: number | undefined,
+    employeeId: number | undefined,
+    transactionType: TransactionType,
+  ) {
+    if (!categoryId || transactionType !== TransactionType.EXPENSE) return;
+
+    const category = await this.prisma.transactionCategory.findFirst({
+      where: { id: categoryId, deletedAt: null },
+    });
+    if (!category) return;
+
+    const needsEmployee =
+      category.requiresEmployee ||
+      (category.code != null &&
+        (EMPLOYEE_EXPENSE_CATEGORY_CODES as readonly string[]).includes(
+          category.code,
+        ));
+
+    if (needsEmployee && !employeeId) {
+      throw new BadRequestException(
+        'انتخاب کارمند برای این دسته‌بندی هزینه الزامی است',
+      );
+    }
+
+    if (employeeId) {
+      const employee = await this.prisma.employee.findUnique({
+        where: { id: employeeId },
+      });
+      if (!employee) {
+        throw new NotFoundException('Employee not found');
+      }
+    }
+  }
 
   // ==================== TRANSACTIONS ====================
 
@@ -78,6 +114,18 @@ export class AccountingService {
       }
     }
 
+    if (dto.type === TransactionType.TIP) {
+      throw new BadRequestException(
+        'تراکنش انعام از این مسیر ثبت نمی‌شود؛ انعام جدا از کمیسیون کارمند محاسبه می‌شود',
+      );
+    }
+
+    await this.assertEmployeeRequiredForCategory(
+      dto.categoryId,
+      dto.employeeId,
+      dto.type,
+    );
+
     // Use Prisma transaction for atomicity
     return this.prisma.$transaction(async (tx) => {
       // Create transaction
@@ -88,6 +136,7 @@ export class AccountingService {
           currency: dto.currency || 'IRR',
           description: dto.description,
           categoryId: dto.categoryId,
+          employeeId: dto.employeeId,
           accountId: dto.accountId,
           sourceType: dto.sourceType,
           sourceId: dto.sourceId,
@@ -259,6 +308,17 @@ export class AccountingService {
   async update(id: number, dto: UpdateTransactionDto, userId?: number) {
     const existing = await this.findOne(id);
 
+    const nextType = (dto.type ?? existing.type) as TransactionType;
+    if (nextType === TransactionType.TIP) {
+      throw new BadRequestException('تراکنش انعام در گزارش کمیسیون کارمند لحاظ نمی‌شود');
+    }
+
+    await this.assertEmployeeRequiredForCategory(
+      dto.categoryId ?? existing.categoryId ?? undefined,
+      dto.employeeId ?? (existing as { employeeId?: number }).employeeId,
+      nextType,
+    );
+
     return this.prisma.$transaction(async (tx) => {
       // If account or amount or type changed, recalculate balances
       if (dto.accountId !== undefined || dto.amount !== undefined || dto.type !== undefined) {
@@ -296,6 +356,7 @@ export class AccountingService {
           ...(dto.amount !== undefined && { amount: BigInt(dto.amount) }),
           ...(dto.description !== undefined && { description: dto.description }),
           ...(dto.categoryId !== undefined && { categoryId: dto.categoryId }),
+          ...(dto.employeeId !== undefined && { employeeId: dto.employeeId }),
           ...(dto.accountId !== undefined && { accountId: dto.accountId }),
           ...(dto.sourceType !== undefined && { sourceType: dto.sourceType }),
           ...(dto.sourceId !== undefined && { sourceId: dto.sourceId }),
@@ -747,7 +808,7 @@ export class AccountingService {
       if (to) where.occurredAt.lte = new Date(to);
     }
 
-    const [income, expense] = await Promise.all([
+    const [income, expense, settlementDeductions, tipSplits] = await Promise.all([
       this.prisma.transaction.aggregate({
         where: { ...where, type: 'INCOME' },
         _sum: { amount: true },
@@ -757,7 +818,24 @@ export class AccountingService {
         where: { ...where, type: 'EXPENSE' },
         _sum: { amount: true },
         _count: true
-      })
+      }),
+      this.prisma.appointment.aggregate({
+        _sum: { settlementDeductionAmount: true },
+        where: {
+          deletedAt: null,
+          status: { in: ['SETTLED', 'PAID', 'COMPLETED'] },
+          paidAt: where.occurredAt,
+          settlementDeductionAmount: { not: null },
+        },
+      }),
+      this.prisma.appointment.aggregate({
+        _sum: { tipStaffShareRial: true, tipSalonShareRial: true, tipAmount: true },
+        where: {
+          deletedAt: null,
+          tipAmount: { not: null },
+          ...(where.occurredAt ? { paidAt: where.occurredAt } : {}),
+        },
+      }),
     ]);
 
     const totalIncome = Number(income._sum.amount || 0);
@@ -767,6 +845,10 @@ export class AccountingService {
       totalIncome,
       totalExpense,
       netProfit: totalIncome - totalExpense,
+      totalSettlementDeduction: Number(settlementDeductions._sum.settlementDeductionAmount || 0),
+      totalTipAmount: Number(tipSplits._sum.tipAmount || 0),
+      totalTipStaffShare: Number(tipSplits._sum.tipStaffShareRial || 0),
+      totalTipSalonShare: Number(tipSplits._sum.tipSalonShareRial || 0),
       incomeCount: income._count,
       expenseCount: expense._count,
       period: { from, to }

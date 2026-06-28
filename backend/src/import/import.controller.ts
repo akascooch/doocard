@@ -15,7 +15,8 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { ImportService } from './import.service';
-import { UploadImportDto, CommitImportDto, ClearAllDataDto } from './dto';
+import { CommitImportDto } from './dto';
+import { parseUploadImportBody } from './dto/parse-upload-import-body';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { PermissionGuard } from '../common/guards/permission.guard';
@@ -57,36 +58,55 @@ export class ImportController {
   @UseInterceptors(FileInterceptor('file'))
   async upload(
     @UploadedFile() file: Express.Multer.File,
-    @Body() dto: UploadImportDto,
-    @Req() req: any
+    @Req() req: { user: { sub?: number; id?: number }; body?: Record<string, unknown> },
   ) {
     if (!file) {
       throw new BadRequestException('فایلی انتخاب نشده است');
     }
 
+    const dto = await parseUploadImportBody(req.body);
+    const userId = req.user.sub || req.user.id;
     console.log('📥 Upload import file:', file.originalname, dto.entity);
 
-    // Parse based on entity type
     if (dto.entity === 'CUSTOMERS') {
-      return this.service.parseCustomersExcel(file.buffer, dto.dryRun);
+      return this.service.previewCustomers(file.buffer, file.originalname, userId);
+    }
+
+    if (dto.entity === 'APPOINTMENTS') {
+      return this.service.previewRawAppointments(file.buffer, file.originalname, userId);
     }
 
     throw new BadRequestException('نوع entity پشتیبانی نمی‌شود');
   }
 
   /**
-   * Commit parsed data to database
+   * Commit a previewed import (requires previewToken from upload response).
    */
   @Post('commit')
   async commit(@Body() dto: CommitImportDto, @Req() req: any) {
     const userId = req.user.sub || req.user.id;
-    const batchId = dto.batchId || `batch-${Date.now()}`;
 
-    console.log('💾 Committing import:', dto.entity, batchId);
+    if (!dto.batchId) {
+      throw new BadRequestException('شناسه پیش‌نمایش (batchId) الزامی است');
+    }
+    if (!dto.confirmed) {
+      throw new BadRequestException('تأیید صریح import الزامی است');
+    }
 
-    // This would get rows from a temporary store (Redis/Memory)
-    // For now, we'll require re-upload
-    throw new BadRequestException('این ویژگی در نسخه بعدی اضافه می‌شود. لطفاً مستقیماً import کنید.');
+    console.log('💾 Committing import:', dto.entity, dto.batchId);
+
+    if (dto.entity === 'CUSTOMERS') {
+      return this.service.commitCustomers(dto.batchId, userId);
+    }
+
+    if (dto.entity === 'APPOINTMENTS') {
+      return this.service.commitAppointments(dto.batchId, userId, {
+        createMissing: dto.createMissing,
+        createIncomeTx: dto.createIncomeTx,
+      });
+    }
+
+    throw new BadRequestException('نوع entity پشتیبانی نمی‌شود');
   }
 
   /**

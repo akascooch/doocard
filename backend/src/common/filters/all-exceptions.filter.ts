@@ -34,8 +34,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
-    const correlationId = request.headers['x-request-id'] as string || this.generateId();
 
+    if (response.headersSent) {
+      return;
+    }
+
+    const correlationId = request.headers['x-request-id'] as string || this.generateId();
     const structuredError = this.buildStructuredError(
       exception,
       request,

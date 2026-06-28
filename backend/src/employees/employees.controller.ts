@@ -43,6 +43,12 @@ export class EmployeesController {
     return this.employeesService.findAllActivePublic();
   }
 
+  @Get('service-staff/active')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  findActiveServiceStaff() {
+    return this.employeesService.findActiveServiceStaff();
+  }
+
   @Get('search')
   @Roles('ADMIN', 'EMPLOYEE')
   search(@Query('q') query: string) {

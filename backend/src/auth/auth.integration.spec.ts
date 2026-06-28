@@ -206,37 +206,4 @@ describe('Auth Integration Tests', () => {
         .expect(401);
     });
   });
-
-  describe('GET /auth/debug/users', () => {
-    it('should return list of users', async () => {
-      // Create test users
-      await prismaTestService.user.createMany({
-        data: [
-          {
-            name: 'User 1',
-            email: 'user1@example.com',
-            phone: '09111111111',
-            password: 'hashed',
-            role: 'CUSTOMER',
-          },
-          {
-            name: 'User 2',
-            email: 'user2@example.com',
-            phone: '09222222222',
-            password: 'hashed',
-            role: 'EMPLOYEE',
-          },
-        ],
-      });
-
-      const response = await request(app.getHttpServer())
-        .get('/auth/debug/users')
-        .expect(200);
-
-      expect(response.body.length).toBeGreaterThanOrEqual(2);
-      expect(response.body[0]).toHaveProperty('id');
-      expect(response.body[0]).toHaveProperty('name');
-      expect(response.body[0]).not.toHaveProperty('password');
-    });
-  });
 });

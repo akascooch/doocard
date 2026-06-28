@@ -1,16 +1,42 @@
-import { Controller, Get, Post, Delete, Body, UseGuards, Res, Req, UploadedFile, UseInterceptors, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator } from '@nestjs/common';
-import { Response } from 'express';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  UseGuards,
+  Req,
+  Res,
+  Param,
+  UploadedFile,
+  UseInterceptors,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
+import { Request, Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Public } from '../common/decorators/public.decorator';
+import { SkipResponseTime } from '../common/decorators/skip-response-time.decorator';
 import { PermissionGuard } from '../common/guards/permission.guard';
 import { SettingsService } from './settings.service';
 import { FinancialReportsAccessService } from './financial-reports-access.service';
 import { SetFinancialReportsPasswordDto } from './dto/set-financial-reports-password.dto';
+import { UpdateSystemSettingsDto } from './dto/update-system-settings.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
+
+const MAX_BACKUP_BYTES = 300 * 1024 * 1024;
+const isDev = process.env.NODE_ENV !== 'production';
 
 @Controller('settings')
 @UseGuards(JwtAuthGuard, PermissionGuard)
 export class SettingsController {
+  private readonly logger = new Logger(SettingsController.name);
+
   constructor(
     private readonly settingsService: SettingsService,
     private readonly financialReportsAccessService: FinancialReportsAccessService,
@@ -27,12 +53,13 @@ export class SettingsController {
   }
 
   @Post('upload-logo')
+  @Roles('ADMIN')
   @UseInterceptors(FileInterceptor('logo'))
   async uploadLogo(
     @UploadedFile(
       new ParseFilePipe({
         validators: [
-          new MaxFileSizeValidator({ maxSize: 2 * 1024 * 1024 }), // 2MB
+          new MaxFileSizeValidator({ maxSize: 2 * 1024 * 1024 }),
           new FileTypeValidator({ fileType: '.(png|jpeg|jpg|gif|svg)' }),
         ],
       }),
@@ -43,74 +70,118 @@ export class SettingsController {
   }
 
   @Delete('logo')
+  @Roles('ADMIN')
   async deleteLogo() {
     return this.settingsService.deleteLogo();
   }
 
-  @Post('reset-database')
+  @Get('config')
   @Roles('ADMIN')
-  async resetDatabase() {
-    return this.settingsService.resetDatabase();
+  async getConfig() {
+    return this.settingsService.getConfig();
   }
 
-  @Post('backup')
+  @Patch('config')
   @Roles('ADMIN')
-  async createBackup(@Res() res: Response) {
-    try {
-      const backupData = await this.settingsService.createBackup();
-      
-      // Set headers for file download
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', `attachment; filename="backup-${new Date().toISOString().split('T')[0]}.json"`);
-      
-      res.json(backupData);
-    } catch (error) {
-      res.status(500).json({ error: 'خطا در ایجاد پشتیبان' });
+  async updateConfig(@Body() dto: UpdateSystemSettingsDto) {
+    return this.settingsService.updateConfig(dto);
+  }
+
+  /**
+   * Phase 1 — authenticated: build in-memory backup, return one-time downloadId.
+   */
+  @Post('backup/run')
+  @Roles('ADMIN')
+  @SkipResponseTime()
+  async runBackup(@Req() req: Request) {
+    if (isDev) {
+      const user = (req as any).user;
+      this.logger.debug(
+        `[backup/run] stage download token userId=${user?.id ?? '-'} role=${user?.role ?? '-'}`,
+      );
     }
+    const result = await this.settingsService.stageManualBackupDownload();
+    if (isDev) {
+      this.logger.debug(`[backup/run] staged downloadId=${result.downloadId}`);
+    }
+    return result;
   }
 
-  @Post('restore')
-  @Roles('ADMIN')
-  @UseInterceptors(FileInterceptor('backupFile'))
-  async restoreBackup(
-    @UploadedFile() file: Express.Multer.File,
-  ) {
+  /**
+   * Phase 2 — public one-time GET: browser navigation download (bypasses SW/axios blobs).
+   */
+  @Public()
+  @Get('backup/download-direct/:id')
+  @SkipResponseTime()
+  async downloadBackupDirect(
+    @Param('id') id: string,
+    @Res() res: Response,
+  ): Promise<void> {
     try {
-      console.log('🔄 Restore request received');
-      console.log('📁 File info:', {
-        originalname: file.originalname,
-        size: file.size,
-        mimetype: file.mimetype
-      });
-      
-      const fileContent = file.buffer.toString();
-      console.log('📄 File content length:', fileContent.length);
-      console.log('📄 File content preview:', fileContent.substring(0, 200));
-      
-      const backupData = JSON.parse(fileContent);
-      console.log('✅ JSON parsed successfully');
-      console.log('📊 Backup data structure:', {
-        hasTimestamp: !!backupData.timestamp,
-        hasTables: !!backupData.tables,
-        tableCount: Object.keys(backupData.tables || {}).length
-      });
-      
-      const result = await this.settingsService.restoreBackup(backupData);
-      console.log('✅ Restore completed successfully');
-      return result;
-    } catch (error) {
-      console.error('❌ Error in restore:', error);
-      if (error instanceof SyntaxError) {
-        throw new Error('فایل پشتیبان JSON نامعتبر است');
+      const { buffer, fileName } = this.settingsService.takeManualBackupDownload(id);
+
+      if (isDev) {
+        this.logger.debug(`[backup/download-direct] sending ${buffer.length} bytes`);
       }
-      throw new Error(`خطا در بازیابی: ${error.message}`);
+
+      if (res.headersSent) {
+        return;
+      }
+
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', String(buffer.length));
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+
+      res.status(200).end(buffer);
+    } catch (error) {
+      this.logger.error(
+        `[backup/download-direct] failed id=${id}: ${error?.message ?? error}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      if (!res.headersSent) {
+        throw error;
+      }
+      try {
+        res.end();
+      } catch {
+        // connection closed
+      }
     }
+  }
+
+  @Post('backup/restore')
+  @Roles('ADMIN')
+  @SkipResponseTime()
+  @UseInterceptors(FileInterceptor('backupFile'))
+  async restoreBackupUpload(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [new MaxFileSizeValidator({ maxSize: MAX_BACKUP_BYTES })],
+        fileIsRequired: true,
+      }),
+    )
+    file: Express.Multer.File,
+  ) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('فایل پشتیبان خالی است');
+    }
+    return this.settingsService.restoreBackupFromUpload(file.buffer);
   }
 
   @Get('backup-info')
   @Roles('ADMIN')
   async getBackupInfo() {
     return this.settingsService.getBackupInfo();
+  }
+
+  @Post('reset-database')
+  @Roles('ADMIN')
+  async resetDatabase() {
+    return this.settingsService.resetDatabase();
   }
 
   @Get('financial-reports-password/status')
@@ -131,53 +202,4 @@ export class SettingsController {
       dto.currentPassword,
     );
   }
-
-  @Post('test-restore')
-  @Roles('ADMIN')
-  @UseInterceptors(FileInterceptor('backupFile'))
-  async testRestore(
-    @UploadedFile() file: Express.Multer.File,
-  ) {
-    try {
-      console.log('🧪 Test restore endpoint called');
-      console.log('📁 File info:', {
-        originalname: file.originalname,
-        size: file.size,
-        mimetype: file.mimetype,
-        bufferLength: file.buffer?.length
-      });
-      
-      if (!file.buffer) {
-        throw new Error('فایل buffer ندارد');
-      }
-      
-      const fileContent = file.buffer.toString();
-      console.log('📄 File content length:', fileContent.length);
-      console.log('📄 File content preview:', fileContent.substring(0, 300));
-      
-      const backupData = JSON.parse(fileContent);
-      console.log('✅ JSON parsed successfully');
-      console.log('📊 Backup data keys:', Object.keys(backupData));
-      
-      return {
-        success: true,
-        message: 'فایل پشتیبان معتبر است',
-        fileInfo: {
-          name: file.originalname,
-          size: file.size,
-          contentLength: fileContent.length,
-          hasTimestamp: !!backupData.timestamp,
-          hasTables: !!backupData.tables,
-          tableCount: Object.keys(backupData.tables || {}).length
-        }
-      };
-    } catch (error) {
-      console.error('❌ Error in test restore:', error);
-      return {
-        success: false,
-        error: error.message,
-        stack: error.stack
-      };
-    }
-  }
-} 
+}

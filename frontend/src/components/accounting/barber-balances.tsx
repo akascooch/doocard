@@ -26,6 +26,11 @@ interface BarberBalance {
   serviceAmount: number; // مبلغ خدمات
   tipAmount: number;     // مبلغ تیپ
   salaryAmount: number;  // مبلغ حقوق
+  totalAppointments?: number;
+  payoutGrossBeforeDeduction?: number;
+  deductionPerAppointmentAmount?: number;
+  totalDeduction?: number;
+  payoutNetAfterDeduction?: number;
 }
 
 interface WithdrawalRequest {
@@ -325,6 +330,8 @@ export function BarberBalances() {
                 <TableHead>مبلغ خدمات</TableHead>
                 <TableHead>مبلغ تیپ</TableHead>
                 <TableHead>مبلغ حقوق</TableHead>
+                <TableHead>کسورات تسویه</TableHead>
+                <TableHead>خالص قابل پرداخت</TableHead>
                 <TableHead>کل درآمد</TableHead>
                 <TableHead>برداشت‌ها</TableHead>
                 <TableHead>موجودی فعلی</TableHead>
@@ -346,6 +353,15 @@ export function BarberBalances() {
                   </TableCell>
                   <TableCell className="text-purple-600">
                     {formatAmount(barber.salaryAmount || 0)}
+                  </TableCell>
+                  <TableCell className="text-amber-600">
+                    {formatAmount(barber.totalDeduction || 0)}
+                  </TableCell>
+                  <TableCell className="text-green-700 font-semibold">
+                    {formatAmount(
+                      barber.payoutNetAfterDeduction ??
+                        ((barber.payoutGrossBeforeDeduction || barber.salaryAmount || 0) - (barber.totalDeduction || 0)),
+                    )}
                   </TableCell>
                   <TableCell className="font-bold">
                     {formatAmount(barber.totalIncome)}

@@ -21,6 +21,7 @@ import {
   Settings,
 } from 'lucide-react'
 import { cn } from "@/lib/utils"
+import { logout } from '@/lib/auth'
 
 interface HeaderProps {
   onToggleSidebar?: () => void
@@ -86,10 +87,8 @@ export function Header({ onToggleSidebar, isSidebarOpen }: HeaderProps) {
     return null
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+  const handleLogout = async () => {
+    await logout()
     router.push('/login')
   }
 

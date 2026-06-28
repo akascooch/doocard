@@ -1,12 +1,15 @@
-// Settings service temporarily disabled - needs refactoring for new schema
-// Original file backed up as settings.service.ts.bak
-
 import { Injectable } from '@nestjs/common';
+import { BackupService } from '../backup/backup.service';
+import { BackupDownloadCacheService } from '../backup/backup-download-cache.service';
+import { UpdateSystemSettingsDto } from './dto/update-system-settings.dto';
 
 @Injectable()
 export class SettingsService {
-  // Placeholder service - functionality not implemented yet
-  
+  constructor(
+    private readonly backupService: BackupService,
+    private readonly backupDownloadCache: BackupDownloadCacheService,
+  ) {}
+
   async getLogo() {
     return { message: 'Logo functionality not implemented yet' };
   }
@@ -15,7 +18,7 @@ export class SettingsService {
     return { message: 'Logo info functionality not implemented yet' };
   }
 
-  async uploadLogo(file: any) {
+  async uploadLogo(_file: Express.Multer.File) {
     return { message: 'Upload logo functionality not implemented yet' };
   }
 
@@ -27,15 +30,34 @@ export class SettingsService {
     return { message: 'Reset database functionality not implemented yet' };
   }
 
-  async createBackup() {
-    return { message: 'Create backup functionality not implemented yet' };
+  async getConfig() {
+    return this.backupService.getSystemSettings();
   }
 
-  async restoreBackup(backupData: any) {
-    return { message: 'Restore backup functionality not implemented yet' };
+  async updateConfig(dto: UpdateSystemSettingsDto) {
+    return this.backupService.updateSystemSettings(dto);
+  }
+
+  /** Generate in-memory backup and return a one-time download token. */
+  async stageManualBackupDownload(): Promise<{
+    downloadId: string;
+    fileName: string;
+  }> {
+    const { buffer, fileName } = await this.backupService.exportManualBackup();
+    const downloadId = this.backupDownloadCache.stage(buffer, fileName);
+    return { downloadId, fileName };
+  }
+
+  /** Consume one-time download token and return buffer (removed from cache). */
+  takeManualBackupDownload(downloadId: string): { buffer: Buffer; fileName: string } {
+    return this.backupDownloadCache.take(downloadId);
+  }
+
+  async restoreBackupFromUpload(raw: string | Buffer) {
+    return this.backupService.restoreFromUploadedJson(raw);
   }
 
   async getBackupInfo() {
-    return { message: 'Backup info functionality not implemented yet' };
+    return this.backupService.getBackupInfo();
   }
 }

@@ -81,7 +81,14 @@ interface Category {
   type: 'INCOME' | 'EXPENSE'
   description: string
   isActive: boolean
+  code?: string | null
+  requiresEmployee?: boolean
   _count: { transactions: number }
+}
+
+interface EmployeeOption {
+  id: number
+  name: string
 }
 
 interface BankAccount {
@@ -109,6 +116,7 @@ export default function AccountingPage() {
   // Categories state
   const [categories, setCategories] = useState<Category[]>([])
   const [categoriesLoading, setCategoriesLoading] = useState(true)
+  const [employees, setEmployees] = useState<EmployeeOption[]>([])
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   
@@ -124,6 +132,7 @@ export default function AccountingPage() {
     amount: 0,
     description: '',
     categoryId: 0,
+    employeeId: 0,
     accountId: 0,
     sourceType: 'MANUAL',
     paymentMethod: 'CASH',
@@ -160,7 +169,20 @@ export default function AccountingPage() {
   useEffect(() => {
     fetchCategories()
     fetchAccounts()
+    fetchEmployees()
   }, [])
+
+  const selectedCategory = useMemo(
+    () => categories.find((c) => c.id === transactionForm.categoryId),
+    [categories, transactionForm.categoryId],
+  )
+
+  const categoryRequiresEmployee =
+    transactionForm.type === 'EXPENSE' &&
+    (selectedCategory?.requiresEmployee === true ||
+      ['EMPLOYEE_WITHDRAWAL', 'COMMISSION_SETTLEMENT', 'SALARY_ADVANCE', 'PAYROLL'].includes(
+        selectedCategory?.code || '',
+      ))
 
   useEffect(() => {
     fetchTransactions()
@@ -240,6 +262,19 @@ export default function AccountingPage() {
     }
   }
 
+  const fetchEmployees = async () => {
+    try {
+      const response = await api.get('/employees')
+      const list = (response.data || []).map((e: { id: number; user?: { name: string }; name?: string }) => ({
+        id: e.id,
+        name: e.user?.name ?? e.name ?? `کارمند #${e.id}`,
+      }))
+      setEmployees(list)
+    } catch (error) {
+      console.error('Error fetching employees:', error)
+    }
+  }
+
   // Transaction handlers
   const handleCreateTransaction = async () => {
     try {
@@ -253,11 +288,21 @@ export default function AccountingPage() {
         return
       }
 
+      if (categoryRequiresEmployee && !transactionForm.employeeId) {
+        toast({
+          title: 'خطا',
+          description: 'برای این دسته‌بندی انتخاب کارمند الزامی است',
+          variant: 'destructive',
+        })
+        return
+      }
+
       // Convert Persian date to Gregorian ISO
       const occurredAtISO = jalaliToISO(transactionForm.occurredAt) || new Date().toISOString()
 
       const payload = {
         ...transactionForm,
+        employeeId: transactionForm.employeeId || undefined,
         occurredAt: occurredAtISO
       }
 
@@ -285,11 +330,21 @@ export default function AccountingPage() {
   const handleUpdateTransaction = async () => {
     if (!editingTransaction) return
     try {
+      if (categoryRequiresEmployee && !transactionForm.employeeId) {
+        toast({
+          title: 'خطا',
+          description: 'برای این دسته‌بندی انتخاب کارمند الزامی است',
+          variant: 'destructive',
+        })
+        return
+      }
+
       // Convert Persian date to Gregorian ISO
       const occurredAtISO = jalaliToISO(transactionForm.occurredAt) || new Date().toISOString()
 
       const payload = {
         ...transactionForm,
+        employeeId: transactionForm.employeeId || undefined,
         occurredAt: occurredAtISO
       }
 
@@ -441,6 +496,7 @@ export default function AccountingPage() {
       amount: 0,
       description: '',
       categoryId: 0,
+      employeeId: 0,
       accountId: 0,
       sourceType: 'MANUAL',
       paymentMethod: 'CASH',
@@ -483,6 +539,7 @@ export default function AccountingPage() {
       amount: Number(transaction.amount),
       description: transaction.description || '',
       categoryId: transaction.categoryId || 0,
+      employeeId: (transaction as Transaction & { employeeId?: number }).employeeId || 0,
       accountId: transaction.accountId || 0,
       sourceType: transaction.sourceType || 'MANUAL',
       paymentMethod: transaction.paymentMethod || 'CASH',
@@ -699,6 +756,29 @@ export default function AccountingPage() {
                             </Select>
                           </div>
                         </div>
+
+                        {categoryRequiresEmployee && (
+                          <div>
+                            <Label>کارمند *</Label>
+                            <Select
+                              value={String(transactionForm.employeeId || '')}
+                              onValueChange={(val) =>
+                                setTransactionForm({ ...transactionForm, employeeId: parseInt(val) })
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="انتخاب کارمند" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {employees.map((emp) => (
+                                  <SelectItem key={emp.id} value={String(emp.id)}>
+                                    {emp.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
 
                         <div>
                           <PersianDatePicker

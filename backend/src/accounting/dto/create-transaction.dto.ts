@@ -23,6 +23,10 @@ export class CreateTransactionDto {
 
   @IsOptional()
   @IsInt()
+  employeeId?: number;
+
+  @IsOptional()
+  @IsInt()
   accountId?: number;
 
   @IsOptional()

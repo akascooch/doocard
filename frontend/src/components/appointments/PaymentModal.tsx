@@ -25,6 +25,14 @@ import MoneyInput from '@/components/ui/MoneyInput';
 import { api } from '@/lib/axios';
 import { useToast } from '@/components/ui/use-toast';
 import { toTomans } from '@/lib/money';
+import { getAppointmentServices, isTipRecipientType, type AppointmentRecord } from '@/lib/appointment';
+import { TIP_SPLIT_LABEL_INDIVIDUAL, TIP_SPLIT_LABEL_TEAM } from '@/lib/tip-distribution';
+import { shouldUseOfflineQueue, queueAppointmentSettle } from '@/lib/offline/sync-worker';
+import { isOfflineModeEnabled } from '@/lib/offline/feature-flag';
+import { cacheFromResponse, getReferenceCache, REFERENCE_KEYS } from '@/lib/offline/reference-cache';
+import { checkServerReachability } from '@/lib/offline/connectivity';
+
+const BARBER_APPOINTMENT_DEDUCTION_TOMAN = 200000;
 
 interface Service {
   serviceId: number;
@@ -36,7 +44,7 @@ interface Service {
 interface Appointment {
   id: number;
   services: Service[];
-  amount?: number;
+  amount?: number | null;
   status: string;
   customerName: string;
 }
@@ -49,6 +57,7 @@ interface BankAccount {
 
 interface PaymentModalProps {
   appointmentId: number | null;
+  prefetchedAppointment?: AppointmentRecord | null;
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
@@ -56,6 +65,7 @@ interface PaymentModalProps {
 
 export default function PaymentModal({
   appointmentId,
+  prefetchedAppointment,
   isOpen,
   onClose,
   onSuccess,
@@ -69,10 +79,21 @@ export default function PaymentModal({
   const [formData, setFormData] = useState({
     amount: 0,
     tipAmount: 0,
+    tipRecipientType: '' as '' | 'INDIVIDUAL' | 'TEAM',
+    tipRecipientEmployeeId: null as number | null,
     paymentMethod: 'CASH' as 'CASH' | 'CARD' | 'CARD2CARD' | 'DEBT',
     accountId: null as number | null,
     notes: '',
   });
+  const [serviceStaff, setServiceStaff] = useState<{ id: number; name: string }[]>([]);
+  const [settleExternalRef, setSettleExternalRef] = useState<string | null>(null);
+  const [serverOffline, setServerOffline] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && appointmentId) {
+      setSettleExternalRef(`settle_${appointmentId}_${crypto.randomUUID()}`);
+    }
+  }, [isOpen, appointmentId]);
 
   useEffect(() => {
     if (isOpen && appointmentId) {
@@ -85,31 +106,69 @@ export default function PaymentModal({
 
     try {
       setLoadingData(true);
+      const reachable = await checkServerReachability();
+      setServerOffline(!reachable);
 
-      // Load appointment
-      const apptResponse = await api.get(`/appointments/${appointmentId}`);
-      const apptData = apptResponse.data;
+      let apptData: Appointment | null = null;
+
+      if (reachable) {
+        const apptResponse = await api.get(`/appointments/${appointmentId}`);
+        apptData = apptResponse.data;
+      } else if (prefetchedAppointment && prefetchedAppointment.id === appointmentId) {
+        apptData = prefetchedAppointment;
+      }
+
+      if (!apptData) {
+        toast({
+          title: 'خطا',
+          description: 'برای تسویه آفلاین، ابتدا باید لیست نوبت‌ها در حالت آنلاین بارگذاری شده باشد.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       setAppointment(apptData);
 
-      // Calculate total from services
-      const calculatedAmount = apptData.services.reduce(
-        (sum: number, s: Service) => sum + s.priceAtBooking,
-        0
+      // Calculate total from services (nullable-safe for legacy rows)
+      const calculatedAmount = getAppointmentServices(apptData).reduce(
+        (sum, s) => sum + (s.priceAtBooking || 0),
+        0,
       );
 
       setFormData({
-        ...formData,
         amount: calculatedAmount,
+        tipAmount: 0,
+        tipRecipientType: '',
+        tipRecipientEmployeeId: null,
+        paymentMethod: 'CASH',
+        accountId: null,
+        notes: '',
       });
 
       // Load bank accounts
-      const accountsResponse = await api.get('/accounting/accounts');
-      setAccounts(accountsResponse.data);
+      if (reachable) {
+        const [accountsResponse, staffResponse] = await Promise.all([
+          api.get('/accounting/accounts'),
+          api.get('/employees/service-staff/active').catch(() => ({ data: [] })),
+        ]);
+        await cacheFromResponse(REFERENCE_KEYS.accounts, accountsResponse.data);
+        setAccounts(accountsResponse.data);
+        setServiceStaff(staffResponse.data || []);
 
-      // Set default account
-      const defaultAccount = accountsResponse.data.find((a: BankAccount) => a.id === 1);
-      if (defaultAccount) {
-        setFormData(prev => ({ ...prev, accountId: defaultAccount.id }));
+        const defaultAccount = accountsResponse.data.find((a: BankAccount) => a.id === 1);
+        if (defaultAccount) {
+          setFormData((prev) => ({ ...prev, accountId: defaultAccount.id }));
+        }
+      } else {
+        const cachedAccounts = await getReferenceCache<BankAccount[]>(REFERENCE_KEYS.accounts);
+        if (cachedAccounts?.data?.length) {
+          setAccounts(cachedAccounts.data);
+          const defaultAccount = cachedAccounts.data.find((a) => a.id === 1);
+          if (defaultAccount) {
+            setFormData((prev) => ({ ...prev, accountId: defaultAccount.id }));
+          }
+        }
+        setServiceStaff([]);
       }
 
       console.log('💰 Loaded appointment for settlement:', apptData);
@@ -134,6 +193,73 @@ export default function PaymentModal({
 
     if (!appointmentId || !appointment) return;
 
+    const useOffline = await shouldUseOfflineQueue();
+
+    if (useOffline) {
+      if (formData.paymentMethod !== 'CASH') {
+        toast({
+          title: 'غیرفعال در حالت آفلاین',
+          description: 'در حالت آفلاین فقط تسویه نقدی امکان‌پذیر است.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (formData.tipAmount > 0) {
+        toast({
+          title: 'غیرفعال در حالت آفلاین',
+          description: 'ثبت انعام (فردی یا تیمی) در حالت آفلاین امکان‌پذیر نیست.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (!formData.accountId) {
+        toast({
+          title: 'خطا',
+          description: 'حساب بانکی از حافظه آفلاین یافت نشد. ابتدا یک بار در حالت آنلاین وارد شوید.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (!settleExternalRef) {
+        toast({
+          title: 'خطا',
+          description: 'خطای داخلی: کلید همگام‌سازی تسویه یافت نشد',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      try {
+        setLoading(true);
+        await queueAppointmentSettle({
+          externalRef: settleExternalRef,
+          appointmentRef: { kind: 'server', appointmentId },
+          amount: formData.amount,
+          paymentMethod: 'CASH',
+          accountId: formData.accountId,
+          notes: formData.notes || undefined,
+        });
+
+        toast({
+          title: 'تسویه آفلاین',
+          description:
+            'تسویه به صورت آفلاین ثبت شد و پس از اتصال به سرور همگام‌سازی می‌شود.',
+        });
+        onClose();
+        if (onSuccess) onSuccess();
+      } catch (error) {
+        console.error('Error queueing offline settlement:', error);
+        toast({
+          title: 'خطا',
+          description: 'ثبت آفلاین تسویه با خطا مواجه شد',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (formData.paymentMethod !== 'DEBT' && !formData.accountId) {
       toast({
         title: 'خطا',
@@ -143,10 +269,40 @@ export default function PaymentModal({
       return;
     }
 
+    if (formData.tipAmount > 0) {
+      if (!formData.tipRecipientType) {
+        toast({
+          title: 'خطا',
+          description: 'نوع گیرنده انعام را انتخاب کنید',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (
+        formData.tipRecipientType === 'INDIVIDUAL' &&
+        !formData.tipRecipientEmployeeId
+      ) {
+        toast({
+          title: 'خطا',
+          description: 'پرسنل خدمات گیرنده انعام را انتخاب کنید',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (formData.tipRecipientType === 'TEAM' && serviceStaff.length === 0) {
+        toast({
+          title: 'خطا',
+          description: 'هیچ پرسنل خدمات فعالی برای انعام تیمی وجود ندارد',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     try {
       setLoading(true);
 
-      const payload = {
+      const payload: Record<string, unknown> = {
         amount: formData.amount, // Already in RIAL
         tipAmount: formData.tipAmount || 0, // Already in RIAL
         paymentMethod: formData.paymentMethod,
@@ -154,6 +310,13 @@ export default function PaymentModal({
         notes: formData.notes || undefined,
         externalRef: generateIdempotencyKey(),
       };
+
+      if (formData.tipAmount > 0) {
+        payload.tipRecipientType = formData.tipRecipientType;
+        if (formData.tipRecipientType === 'INDIVIDUAL') {
+          payload.tipRecipientEmployeeId = formData.tipRecipientEmployeeId;
+        }
+      }
 
       console.log('💸 Settling appointment:', payload);
 
@@ -184,7 +347,10 @@ export default function PaymentModal({
   };
 
   const calculatedTotal = appointment
-    ? appointment.services.reduce((sum, s) => sum + s.priceAtBooking, 0)
+    ? getAppointmentServices(appointment).reduce(
+        (sum, s) => sum + (s.priceAtBooking || 0),
+        0,
+      )
     : 0;
 
   return (
@@ -206,11 +372,19 @@ export default function PaymentModal({
           </div>
         ) : appointment ? (
           <form onSubmit={handleSubmit} className="space-y-4">
+            {serverOffline && isOfflineModeEnabled() && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  حالت آفلاین: فقط تسویه نقدی بدون انعام امکان‌پذیر است.
+                </AlertDescription>
+              </Alert>
+            )}
             {/* Services Summary */}
             <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
               <p className="text-sm font-medium mb-2">سرویس‌های انجام شده:</p>
               <ul className="text-sm space-y-1">
-                {appointment.services.map((service, idx) => (
+                {getAppointmentServices(appointment).map((service, idx) => (
                   <li key={idx} className="flex justify-between">
                     <span>{service.serviceName || `سرویس ${idx + 1}`}</span>
                     <span className="text-main-orange font-medium">
@@ -241,13 +415,99 @@ export default function PaymentModal({
               </p>
             </div>
 
+            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 text-sm">
+              <p className="font-medium mb-1">خلاصه سهم آرایشگر (برای تسویه حقوق)</p>
+              <p>کسورات ثابت هر نوبت: {toTomans(BARBER_APPOINTMENT_DEDUCTION_TOMAN * 10)}</p>
+              <p className="text-muted-foreground mt-1">
+                این کسر فقط روی سهم پرداختی آرایشگر اعمال می‌شود و مبلغ پرداختی مشتری/درآمد نوبت را کم نمی‌کند.
+              </p>
+            </div>
+
             {/* Tip Amount */}
             <MoneyInput
               value={formData.tipAmount}
-              onChange={(tipAmount) => setFormData({ ...formData, tipAmount })}
+              onChange={(tipAmount) =>
+                setFormData({
+                  ...formData,
+                  tipAmount,
+                  tipRecipientType: tipAmount > 0 ? formData.tipRecipientType : '',
+                  tipRecipientEmployeeId:
+                    tipAmount > 0 ? formData.tipRecipientEmployeeId : null,
+                })
+              }
               label="انعام (اختیاری)"
               placeholder="مثال: 50,000"
             />
+
+            {formData.tipAmount > 0 && (
+              <div className="space-y-3 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                <div>
+                  <Label>نوع گیرنده انعام *</Label>
+                  <Select
+                    value={formData.tipRecipientType}
+                    onValueChange={(value: string) => {
+                      if (!isTipRecipientType(value)) return;
+                      setFormData({
+                        ...formData,
+                        tipRecipientType: value,
+                        tipRecipientEmployeeId:
+                          value === 'TEAM' ? null : formData.tipRecipientEmployeeId,
+                      });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="انتخاب نوع..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="INDIVIDUAL">{TIP_SPLIT_LABEL_INDIVIDUAL}</SelectItem>
+                      <SelectItem value="TEAM">{TIP_SPLIT_LABEL_TEAM}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {formData.tipRecipientType === 'INDIVIDUAL' && (
+                  <div>
+                    <Label>پرسنل خدمات گیرنده *</Label>
+                    <Select
+                      value={formData.tipRecipientEmployeeId?.toString() || ''}
+                      onValueChange={(val) =>
+                        setFormData({
+                          ...formData,
+                          tipRecipientEmployeeId: parseInt(val, 10),
+                        })
+                      }
+                      disabled={serviceStaff.length === 0}
+                    >
+                      <SelectTrigger>
+                        <SelectValue
+                          placeholder={
+                            serviceStaff.length === 0
+                              ? 'پرسنل خدمات فعالی یافت نشد'
+                              : 'انتخاب پرسنل خدمات...'
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {serviceStaff.map((staff) => (
+                          <SelectItem key={staff.id} value={staff.id.toString()}>
+                            {staff.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      آرایشگرها قابل انتخاب نیستند — فقط پرسنل خدمات
+                    </p>
+                  </div>
+                )}
+
+                {formData.tipRecipientType === 'TEAM' && (
+                  <p className="text-xs text-blue-600 dark:text-blue-400">
+                    سهم پرسنل ({serviceStaff.length} نفر فعال) به‌صورت مساوی بین پرسنل خدمات تقسیم می‌شود.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Payment Method */}
             <div>

@@ -13,6 +13,9 @@ import NotificationProvider from '@/components/NotificationProvider'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import GlobalErrorHandler from '@/components/common/GlobalErrorHandler'
 import NotificationPrompt from '@/components/NotificationPrompt'
+import { isOfflineModeEnabled } from '@/lib/offline/feature-flag'
+import { runOfflineSync } from '@/lib/offline/sync-worker'
+import { startConnectivityPolling } from '@/lib/offline/connectivity'
 
 export default function DashboardLayout({
   children,
@@ -84,6 +87,14 @@ export default function DashboardLayout({
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (!mounted || !isOfflineModeEnabled()) return
+    void runOfflineSync()
+    return startConnectivityPolling(() => {
+      void runOfflineSync()
+    })
+  }, [mounted])
 
   const toggleSidebar = () => {
     if (isMobile) {

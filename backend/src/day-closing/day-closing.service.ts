@@ -119,6 +119,7 @@ export class DayClosingService {
     // Get all transactions for the day
     const transactions = await this.prisma.transaction.findMany({
       where: {
+        deletedAt: null,
         createdAt: {
           gte: startOfDay,
           lt: endOfDay
@@ -150,7 +151,11 @@ export class DayClosingService {
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
     const totalTips = transactions
-      .filter(t => t.type === 'TIP')
+      .filter(
+        (t) =>
+          t.type === 'TIP' ||
+          (t.type === 'INCOME' && t.sourceType === 'TIP'),
+      )
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
     const totalSalaries = transactions

@@ -756,6 +756,9 @@ export class DashboardService {
       totalAppointmentsRevenue,
       monthlyAppointmentsRevenue,
       dailyAppointmentsRevenue,
+      totalSettlementDeduction,
+      monthlySettlementDeduction,
+      dailySettlementDeduction,
       // درآمدهای دیگر (INCOME)
       totalOtherIncome,
       monthlyOtherIncome,
@@ -795,6 +798,32 @@ export class DashboardService {
           deletedAt: null,
           amount: { not: null }
         }
+      }),
+      // کسورات تسویه آرایشگر - کل
+      this.prisma.appointment.aggregate({
+        _sum: { settlementDeductionAmount: true },
+        where: {
+          deletedAt: null,
+          settlementDeductionAmount: { not: null },
+        },
+      }),
+      // کسورات تسویه آرایشگر - ماه جاری
+      this.prisma.appointment.aggregate({
+        _sum: { settlementDeductionAmount: true },
+        where: {
+          createdAt: { gte: startOfMonth },
+          deletedAt: null,
+          settlementDeductionAmount: { not: null },
+        },
+      }),
+      // کسورات تسویه آرایشگر - امروز
+      this.prisma.appointment.aggregate({
+        _sum: { settlementDeductionAmount: true },
+        where: {
+          createdAt: { gte: startOfDay, lt: endOfDay },
+          deletedAt: null,
+          settlementDeductionAmount: { not: null },
+        },
       }),
       // درآمدهای دیگر - کل
       this.prisma.transaction.aggregate({
@@ -884,6 +913,9 @@ export class DashboardService {
     const averageAppointmentValue = totalAppointments > 0
       ? sumAppointments(totalAppointmentsRevenue._sum.amount) / totalAppointments
       : 0;
+    const totalSettlementDeductionAmount = sumAppointments(totalSettlementDeduction._sum.settlementDeductionAmount);
+    const monthlySettlementDeductionAmount = sumAppointments(monthlySettlementDeduction._sum.settlementDeductionAmount);
+    const dailySettlementDeductionAmount = sumAppointments(dailySettlementDeduction._sum.settlementDeductionAmount);
 
     return {
       totalRevenue,
@@ -897,6 +929,9 @@ export class DashboardService {
       dailyNetProfit,
       totalCustomers,
       totalAppointments,
+      totalSettlementDeductionAmount,
+      monthlySettlementDeductionAmount,
+      dailySettlementDeductionAmount,
       averageAppointmentValue,
       topServices: topServices.map(service => ({
         name: service.name,

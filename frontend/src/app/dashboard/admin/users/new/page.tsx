@@ -10,13 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
 import { ArrowLeft, Plus, User } from "lucide-react"
-
-const roles = [
-  { value: "ADMIN", label: "ادمین" },
-  { value: "BARBER", label: "آرایشگر" },
-  { value: "SERVICE", label: "خدمات" },
-  { value: "CUSTOMER", label: "مشتری" },
-]
+import { ADMIN_USER_ROLE_OPTIONS } from "@/lib/user-roles"
 
 export default function CreateUserPage() {
   const router = useRouter()
@@ -143,7 +137,7 @@ export default function CreateUserPage() {
                     <SelectValue placeholder="نقش کاربر را انتخاب کنید" />
                   </SelectTrigger>
                   <SelectContent>
-                    {roles.map(role => (
+                    {ADMIN_USER_ROLE_OPTIONS.map(role => (
                       <SelectItem key={role.value} value={role.value}>
                         {role.label}
                       </SelectItem>
@@ -165,7 +159,7 @@ export default function CreateUserPage() {
               </div>
             </div>
             
-              {formData.role === "BARBER" && (
+              {formData.role === "EMPLOYEE" && (
               <div className="space-y-2">
                 <Label htmlFor="salaryPercentage">درصد حقوق</Label>
                 <Input

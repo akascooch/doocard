@@ -45,6 +45,10 @@ interface SalaryReport {
   totalWithdrawn: number;
   currentBalance: number;
   salonShare: number;
+  deductionPerAppointmentAmount?: number;
+  totalAppointments?: number;
+  totalDeduction?: number;
+  payoutNetAfterDeduction?: number;
 }
 
 interface SalaryCalculation {
@@ -56,6 +60,10 @@ interface SalaryCalculation {
   deductions: number;
   totalSalary: number;
   salonShare: number;
+  deductionPerAppointmentAmount?: number;
+  totalAppointments?: number;
+  totalDeduction?: number;
+  payoutNetAfterDeduction?: number;
 }
 
 export default function SalaryManagement() {
@@ -381,6 +389,8 @@ export default function SalaryManagement() {
                       <TableHead>کل درآمد</TableHead>
                       <TableHead>کل تیپ</TableHead>
                       <TableHead>حقوق محاسبه شده</TableHead>
+                      <TableHead>کسورات</TableHead>
+                      <TableHead>خالص قابل پرداخت</TableHead>
                       <TableHead>سهم آرایشگاه</TableHead>
                       <TableHead>موجودی فعلی</TableHead>
                     </TableRow>
@@ -396,6 +406,12 @@ export default function SalaryManagement() {
                         <TableCell>{formatAmount(report.totalTips)} تومان</TableCell>
                         <TableCell className="font-bold text-green-600">
                           {formatAmount(report.calculatedSalary)} تومان
+                        </TableCell>
+                        <TableCell className="text-amber-600">
+                          {formatAmount(report.totalDeduction || 0)} تومان
+                        </TableCell>
+                        <TableCell className="font-bold text-green-700">
+                          {formatAmount(report.payoutNetAfterDeduction ?? (report.calculatedSalary - (report.totalDeduction || 0)))} تومان
                         </TableCell>
                         <TableCell className="text-blue-600">
                           {formatAmount(report.salonShare)} تومان
@@ -435,7 +451,9 @@ export default function SalaryManagement() {
                       <TableHead>سهم تیپ</TableHead>
                       <TableHead>پاداش</TableHead>
                       <TableHead>کسورات</TableHead>
+                      <TableHead>کسورات تسویه</TableHead>
                       <TableHead>کل حقوق</TableHead>
+                      <TableHead>خالص قابل پرداخت</TableHead>
                       <TableHead>سهم آرایشگاه</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -449,8 +467,14 @@ export default function SalaryManagement() {
                         <TableCell className="text-red-600">
                           {formatAmount(calc.deductions)} تومان
                         </TableCell>
+                        <TableCell className="text-amber-600">
+                          {formatAmount(calc.totalDeduction || 0)} تومان
+                        </TableCell>
                         <TableCell className="font-bold text-green-600">
                           {formatAmount(calc.totalSalary)} تومان
+                        </TableCell>
+                        <TableCell className="font-bold text-green-700">
+                          {formatAmount(calc.payoutNetAfterDeduction ?? (calc.totalSalary - (calc.totalDeduction || 0)))} تومان
                         </TableCell>
                         <TableCell className="text-blue-600">
                           {formatAmount(calc.salonShare)} تومان

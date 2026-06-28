@@ -18,6 +18,7 @@ import {
   getEmployeeDisplayName,
   normalizeEmployeeList,
 } from '@/lib/employee';
+import { cacheFromResponse, getReferenceCache, REFERENCE_KEYS } from '@/lib/offline/reference-cache';
 
 interface Service {
   id: number;
@@ -62,14 +63,20 @@ export default function EmployeeSelectFiltered({
       setLoading(true);
       const response = await api.get('/employees');
       console.log('👥 Loaded employees:', response.data);
-      setEmployees(normalizeEmployeeList(response.data));
+      const data = normalizeEmployeeList(await cacheFromResponse(REFERENCE_KEYS.employees, response.data));
+      setEmployees(data);
     } catch (error) {
       console.error('Error loading employees:', error);
-      toast({
-        title: 'خطا',
-        description: 'بارگذاری لیست آرایشگران با خطا مواجه شد',
-        variant: 'destructive',
-      });
+      const cached = await getReferenceCache<EmployeeListItem[]>(REFERENCE_KEYS.employees);
+      if (cached?.data?.length) {
+        setEmployees(normalizeEmployeeList(cached.data));
+      } else {
+        toast({
+          title: 'خطا',
+          description: 'بارگذاری لیست آرایشگران با خطا مواجه شد',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setLoading(false);
     }

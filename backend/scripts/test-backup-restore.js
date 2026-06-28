@@ -21,7 +21,7 @@ async function testBackupRestore() {
 
     // 1. تست ایجاد پشتیبان
     console.log('📋 1. تست ایجاد پشتیبان...');
-    const backupResponse = await api.post('/settings/backup', {}, {
+    const backupResponse = await api.post('/settings/backup/run', {}, {
       responseType: 'stream'
     });
 
@@ -53,7 +53,7 @@ async function testBackupRestore() {
     const formData = new FormData();
     formData.append('backupFile', fs.createReadStream(backupFilePath));
     
-    const restoreResponse = await api.post('/settings/restore', formData, {
+    const restoreResponse = await api.post('/settings/backup/restore', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

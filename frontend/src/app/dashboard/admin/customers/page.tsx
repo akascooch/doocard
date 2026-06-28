@@ -43,6 +43,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 import axios from '@/lib/axios'
+import { queueCustomerQuick, shouldUseOfflineQueue } from '@/lib/offline/sync-worker'
 import PersianDatePicker from '@/components/ui/PersianDatePicker'
 import { formatToJalali, parseFromJalali } from '@/lib/date'
 
@@ -116,6 +117,22 @@ export default function AdminCustomersPage() {
 
   const handleCreateCustomer = async () => {
     try {
+      const useOffline = await shouldUseOfflineQueue()
+      if (useOffline) {
+        await queueCustomerQuick({
+          name: formData.name,
+          phone: formData.phone,
+        })
+        toast({
+          title: 'مشتری آفلاین',
+          description:
+            'مشتری به صورت آفلاین ثبت شد و پس از اتصال به سرور همگام‌سازی می‌شود.',
+        })
+        setIsCreateDialogOpen(false)
+        resetForm()
+        return
+      }
+
       await axios.post('/customers/quick', {
         name: formData.name,
         phone: formData.phone

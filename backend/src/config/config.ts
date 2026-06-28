@@ -19,20 +19,22 @@ export default registerAs('app', () => ({
   // JWT
   jwt: {
     secret: process.env.JWT_SECRET,
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
-    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d',
+    expiresIn: process.env.JWT_EXPIRES_IN || '24h',
+    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '365d',
   },
   
   // Security
   security: {
     bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS, 10) || 12,
     cors: {
+      // TODO: templates also use CORS_ORIGIN / ALLOWED_ORIGINS at process.env level (see main.ts)
       origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
       credentials: true,
       maxAge: 86400, // 24 hours
     },
+    // TODO: .env.example uses THROTTLE_TTL / THROTTLE_LIMIT; code reads RATE_LIMIT_* (keep both in prod env until unified)
     rateLimit: {
       ttl: parseInt(process.env.RATE_LIMIT_TTL, 10) || 60,
       limit: parseInt(process.env.RATE_LIMIT_LIMIT, 10) || 100,
@@ -63,6 +65,7 @@ export default registerAs('app', () => ({
     apiKey: process.env.SMS_API_KEY,
     lineNumber: process.env.SMS_LINE_NUMBER,
     isEnabled: process.env.SMS_ENABLED === 'true',
+    // TODO: .env.example uses SMS_BEFORE_APPOINTMENT; code reads SMS_SEND_BEFORE / SMS_SEND_AFTER
     sendBeforeAppointment: parseInt(process.env.SMS_SEND_BEFORE, 10) || 60,
     sendAfterAppointment: parseInt(process.env.SMS_SEND_AFTER, 10) || 0,
   },
@@ -76,6 +79,7 @@ export default registerAs('app', () => ({
       'image/gif',
       'image/webp'
     ],
+    // TODO: .env.example uses UPLOAD_DEST; code reads UPLOAD_DIR
     uploadDir: process.env.UPLOAD_DIR || './uploads',
   },
   

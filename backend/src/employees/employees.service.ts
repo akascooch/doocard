@@ -180,6 +180,23 @@ export class EmployeesService {
     }));
   }
 
+  /** Active service staff eligible for tip recipient selection (excludes hairstylists). */
+  async findActiveServiceStaff() {
+    const employees = await this.prisma.employee.findMany({
+      where: {
+        isActive: true,
+        user: { role: 'SERVICE' },
+      },
+      include: { user: true },
+      orderBy: { id: 'asc' },
+    });
+    return employees.map((e) => ({
+      id: e.id,
+      name: e.user?.name ?? `پرسنل #${e.id}`,
+      role: e.user?.role ?? 'SERVICE',
+    }));
+  }
+
   async findOne(id: number) {
     const employee = await this.prisma.employee.findUnique({
       where: { id },

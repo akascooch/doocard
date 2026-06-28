@@ -15,6 +15,11 @@ export enum SettlePaymentMethod {
   DEBT = 'DEBT',
 }
 
+export enum TipRecipientType {
+  INDIVIDUAL = 'INDIVIDUAL',
+  TEAM = 'TEAM',
+}
+
 export class SettleAppointmentDto {
   @IsNumber()
   @Type(() => Number)
@@ -27,6 +32,15 @@ export class SettleAppointmentDto {
   @Min(0, { message: 'مبلغ انعام باید بزرگتر یا مساوی صفر باشد' })
   @IsOptional()
   tipAmount?: number; // RIAL - optional tip
+
+  @IsEnum(TipRecipientType, { message: 'نوع گیرنده انعام نامعتبر است' })
+  @IsOptional()
+  tipRecipientType?: TipRecipientType;
+
+  @IsNumber()
+  @Type(() => Number)
+  @IsOptional()
+  tipRecipientEmployeeId?: number;
 
   @IsEnum(SettlePaymentMethod, { message: 'روش پرداخت نامعتبر است' })
   @IsNotEmpty()

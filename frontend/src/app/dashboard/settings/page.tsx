@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
@@ -8,9 +8,15 @@ import { useToast } from "@/components/ui/use-toast"
 import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
-import axios from "../../../lib/axios"
+import api, { API_BASE_URL } from "../../../lib/axios"
+import { isAxiosError } from "axios"
 import { PasswordInput } from "@/components/ui/password-input"
 import { clearFinancialAccess } from "@/lib/financial-reports-access"
+import SyncStatusPanel from "@/components/offline/SyncStatusPanel"
+import { hasPendingOutboxItems } from "@/lib/offline/outbox"
+
+/** Configured axios client (auth interceptors, baseURL). */
+const axios = api
 
 function SettingsSection({
   title,
@@ -36,13 +42,105 @@ function SettingsSection({
   )
 }
 
+const BACKUP_DOWNLOAD_TIMEOUT_MS = 300_000
+const BACKUP_RESTORE_TIMEOUT_MS = 120_000
+
+function logAxiosBackupDiagnostics(error: unknown): void {
+  if (!isAxiosError(error)) {
+    console.error('[backup] non-axios error:', error)
+    return
+  }
+  console.error('[backup] axios error details:', {
+    code: error.code,
+    message: error.message,
+    status: error.response?.status,
+    responseURL: (error.request as XMLHttpRequest | undefined)?.responseURL,
+    dataType:
+      error.response?.data instanceof Blob
+        ? `Blob(${error.response.data.size})`
+        : typeof error.response?.data,
+  })
+}
+
+async function parseAxiosBlobError(error: unknown): Promise<any> {
+  if (!isAxiosError(error)) {
+    return error
+  }
+  const data = error.response?.data
+  if (!(data instanceof Blob)) {
+    return {
+      ...error,
+      statusCode: error.response?.status,
+      friendlyMessage:
+        (data as any)?.message_fa || (data as any)?.message || error.message,
+      correlationId: (data as any)?.correlationId,
+      response: error.response,
+    }
+  }
+  try {
+    const text = await data.text()
+    const parsed = JSON.parse(text)
+    return {
+      ...error,
+      friendlyMessage: parsed.message_fa || parsed.message || error.message,
+      statusCode: error.response?.status,
+      correlationId: parsed.correlationId,
+      response: {
+        ...error.response,
+        data: parsed,
+      },
+    }
+  } catch {
+    return error
+  }
+}
+
+function isSessionExpiredError(error: any): boolean {
+  return error?.statusCode === 401 || error?.response?.status === 401
+}
+
+function backupOperationErrorMessage(error: any, fallback: string): string {
+  if (isSessionExpiredError(error)) {
+    return 'لطفاً مجدداً وارد سیستم شوید (نشست منقضی شده)'
+  }
+  const status = error?.statusCode ?? error?.response?.status
+  if (status === 500) {
+    const correlationId =
+      error?.correlationId ??
+      error?.response?.data?.correlationId
+    if (correlationId) {
+      const base =
+        error?.friendlyMessage ||
+        error?.response?.data?.message_fa ||
+        error?.response?.data?.message ||
+        fallback
+      return `${base} (شناسه خطا: ${correlationId})`
+    }
+  }
+  return (
+    error?.friendlyMessage ||
+    error?.response?.data?.message_fa ||
+    error?.response?.data?.message ||
+    fallback
+  )
+}
+
 export default function SettingsPage() {
   const { toast } = useToast()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
   const [salonName, setSalonName] = useState("")
   const [notificationsEnabled, setNotificationsEnabled] = useState(true)
-  const [autoBackupEnabled, setAutoBackupEnabled] = useState(true)
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(false)
+  const [autoBackupEnabled, setAutoBackupEnabled] = useState(false)
+  const [backupIntervalDays, setBackupIntervalDays] = useState(7)
+  const [backupPath, setBackupPath] = useState("")
+  const [lastBackupDate, setLastBackupDate] = useState<string | null>(null)
+  const [backupSaving, setBackupSaving] = useState(false)
+  const [backupConfigLoading, setBackupConfigLoading] = useState(true)
+  const [backupConfigError, setBackupConfigError] = useState<string | null>(null)
+  const [backupRunning, setBackupRunning] = useState(false)
+  const [restoreRunning, setRestoreRunning] = useState(false)
   const [theme, setTheme] = useState("dark")
   const [isLoading, setIsLoading] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
@@ -69,6 +167,24 @@ export default function SettingsPage() {
       }
     }
     loadFinancialStatus()
+    const loadBackupConfig = async () => {
+      setBackupConfigLoading(true)
+      setBackupConfigError(null)
+      try {
+        const res = await axios.get('/settings/config')
+        setAutoBackupEnabled(!!res.data?.autoBackupEnabled)
+        setBackupIntervalDays(res.data?.backupIntervalDays ?? 7)
+        setBackupPath(res.data?.backupPath ?? '')
+        setLastBackupDate(res.data?.lastBackupDate ?? null)
+      } catch (error: any) {
+        setBackupConfigError(
+          error?.friendlyMessage || error?.response?.data?.message || 'بارگذاری تنظیمات پشتیبان ناموفق بود',
+        )
+      } finally {
+        setBackupConfigLoading(false)
+      }
+    }
+    loadBackupConfig()
   }, [mounted])
 
   useEffect(() => {
@@ -86,16 +202,50 @@ export default function SettingsPage() {
 
 
 
-  const handleSaveSettings = () => {
+  const saveBackupConfig = async (overrides?: {
+    autoBackupEnabled?: boolean
+    backupIntervalDays?: number
+    backupPath?: string
+  }) => {
+    setBackupSaving(true)
+    try {
+      const res = await axios.patch('/settings/config', {
+        autoBackupEnabled: overrides?.autoBackupEnabled ?? autoBackupEnabled,
+        backupIntervalDays: overrides?.backupIntervalDays ?? backupIntervalDays,
+        backupPath: (overrides?.backupPath ?? backupPath) || null,
+      })
+      setAutoBackupEnabled(!!res.data?.autoBackupEnabled)
+      setBackupIntervalDays(res.data?.backupIntervalDays ?? 7)
+      setBackupPath(res.data?.backupPath ?? '')
+      setLastBackupDate(res.data?.lastBackupDate ?? null)
+      toast({
+        title: "تنظیمات پشتیبان ذخیره شد",
+        description: "تغییرات پشتیبان‌گیری خودکار اعمال شد",
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "خطا در ذخیره تنظیمات پشتیبان",
+        description: error?.response?.data?.message || error?.friendlyMessage || "لطفا دوباره تلاش کنید",
+      })
+    } finally {
+      setBackupSaving(false)
+    }
+  }
+
+  const handleAutoBackupToggle = async (enabled: boolean) => {
+    setAutoBackupEnabled(enabled)
+    await saveBackupConfig({ autoBackupEnabled: enabled })
+  }
+
+  const handleSaveSettings = async () => {
     setIsLoading(true)
     try {
-      // Save settings to localStorage
       const win = globalThis as any;
       if (win.window) {
         win.window.localStorage.setItem('salonName', salonName)
       }
       
-      // Show success toast
       toast({
         title: "تنظیمات ذخیره شد",
         description: "تغییرات با موفقیت اعمال شد",
@@ -151,35 +301,61 @@ export default function SettingsPage() {
   };
 
   const handleCreateBackup = async () => {
-    setIsLoading(true);
+    setBackupRunning(true);
+    const backupPath = '/settings/backup/run';
+    const apiOrigin = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+    console.log('[backup] stage request:', {
+      postUrl: `${API_BASE_URL}${backupPath}`,
+      apiOrigin,
+    });
+
     try {
-      const response = await axios.post('/settings/backup', {}, {
-        responseType: 'blob'
-      });
-      
-      // Create download link
-      const url = (globalThis as any).window?.URL.createObjectURL(new Blob([response.data]));
+      const response = await api.post(
+        backupPath,
+        {},
+        { timeout: BACKUP_DOWNLOAD_TIMEOUT_MS },
+      );
+
+      const downloadId = response.data?.downloadId as string | undefined;
+      const fileName =
+        (response.data?.fileName as string | undefined) ||
+        `doocard-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+
+      if (!downloadId) {
+        throw new Error('شناسه دانلود از سرور دریافت نشد');
+      }
+
+      const directDownloadUrl = `${apiOrigin}/api/settings/backup/download-direct/${encodeURIComponent(downloadId)}`;
+      console.log('[backup] triggering browser download:', directDownloadUrl);
+
       const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `backup-${new Date().toISOString().split('T')[0]}.json`);
+      link.href = directDownloadUrl;
+      link.setAttribute('download', fileName);
+      link.rel = 'noopener';
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.URL.revokeObjectURL(url);
-      
+
       toast({
         title: "پشتیبان ایجاد شد",
-        description: "فایل پشتیبان با موفقیت دانلود شد",
+        description: "دانلود فایل پشتیبان در مرورگر آغاز شد",
       });
-    } catch (error: any) {
-      console.error('Error creating backup:', error);
+    } catch (error: unknown) {
+      logAxiosBackupDiagnostics(error);
+      const parsedError = await parseAxiosBlobError(error);
+      console.error('[backup] parsed error:', {
+        message: parsedError?.friendlyMessage || parsedError?.message,
+        status: parsedError?.statusCode ?? parsedError?.response?.status,
+        correlationId: parsedError?.correlationId,
+      });
       toast({
         variant: "destructive",
         title: "خطا در ایجاد پشتیبان",
-        description: error.response?.data?.message || "مشکلی در ایجاد پشتیبان پیش آمده است",
+        description: backupOperationErrorMessage(parsedError, "مشکلی در ایجاد پشتیبان پیش آمده است"),
       });
     } finally {
-      setIsLoading(false);
+      setBackupRunning(false);
     }
   };
 
@@ -187,41 +363,48 @@ export default function SettingsPage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    const pendingOffline = await hasPendingOutboxItems();
+    if (pendingOffline) {
+      toast({
+        variant: "destructive",
+        title: "بازیابی مسدود شد",
+        description: "قبل از بازیابی بکاپ، ابتدا اطلاعات آفلاین را همگام‌سازی کنید.",
+      });
+      event.target.value = '';
+      return;
+    }
+
     if (!confirm('⚠️ آیا مطمئن هستید که می‌خواهید از این پشتیبان بازیابی کنید؟\n\nتمام داده‌های فعلی پاک خواهند شد و با داده‌های پشتیبان جایگزین می‌شوند!')) {
       event.target.value = '';
       return;
     }
 
-    setIsLoading(true);
+    setRestoreRunning(true);
     try {
       const formData = new FormData();
       formData.append('backupFile', file);
-      
-      const response = await axios.post('/settings/restore', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+
+      await axios.post('/settings/backup/restore', formData, {
+        timeout: BACKUP_RESTORE_TIMEOUT_MS,
       });
-      
+
       toast({
         title: "بازیابی موفق",
         description: "داده‌ها با موفقیت از پشتیبان بازیابی شدند",
       });
 
-      // Refresh page to show restored data
       setTimeout(() => {
         window.location.reload();
       }, 2000);
-
     } catch (error: any) {
       console.error('Error restoring backup:', error);
       toast({
         variant: "destructive",
         title: "خطا در بازیابی",
-        description: error.response?.data?.message || "مشکلی در بازیابی از پشتیبان پیش آمده است",
+        description: backupOperationErrorMessage(error, "مشکلی در بازیابی از پشتیبان پیش آمده است"),
       });
     } finally {
-      setIsLoading(false);
+      setRestoreRunning(false);
       event.target.value = '';
     }
   };
@@ -358,8 +541,8 @@ export default function SettingsPage() {
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={autoBackupEnabled}
-                  onChange={(e) => setAutoBackupEnabled(e.target.checked)}
+                  checked={emailNotificationsEnabled}
+                  onChange={(e) => setEmailNotificationsEnabled(e.target.checked)}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-primary-foreground after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-primary-foreground after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
@@ -368,46 +551,101 @@ export default function SettingsPage() {
           </div>
         </SettingsSection>
 
+        {/* همگام‌سازی آفلاین */}
+        <SettingsSection title="همگام‌سازی آفلاین" icon="Cloud">
+          <SyncStatusPanel />
+        </SettingsSection>
+
         {/* تنظیمات پشتیبان‌گیری */}
         <SettingsSection title="پشتیبان‌گیری و بازیابی" icon="Database">
           <div className="space-y-4">
+            {backupConfigLoading && (
+              <p className="text-sm text-muted-foreground">در حال بارگذاری تنظیمات پشتیبان...</p>
+            )}
+            {backupConfigError && (
+              <p className="text-sm text-destructive">{backupConfigError}</p>
+            )}
+
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-medium">پشتیبان‌گیری خودکار</h3>
                 <p className="text-sm text-muted-foreground">
-                  پشتیبان‌گیری روزانه از اطلاعات
+                  پشتیبان‌گیری دوره‌ای در پوشه محلی سرور
                 </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
                   checked={autoBackupEnabled}
-                  onChange={(e) => setAutoBackupEnabled(e.target.checked)}
+                  onChange={(e) => handleAutoBackupToggle(e.target.checked)}
+                  disabled={backupSaving || backupConfigLoading}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-primary-foreground after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-primary-foreground after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
               </label>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">فاصله پشتیبان‌گیری (روز)</label>
+              <input
+                type="number"
+                min={1}
+                max={365}
+                value={backupIntervalDays}
+                onChange={(e) => setBackupIntervalDays(Number(e.target.value) || 7)}
+                className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">مسیر ذخیره پشتیبان (محلی)</label>
+              <input
+                type="text"
+                value={backupPath}
+                onChange={(e) => setBackupPath(e.target.value)}
+                placeholder="مثال: C:\Users\a.hosseini\Desktop\apk\backups"
+                dir="ltr"
+                className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-all text-left"
+              />
+              <p className="mt-1 text-sm text-muted-foreground">
+                مسیر روی همان ماشینی که بک‌اند اجرا می‌شود ذخیره می‌شود
+              </p>
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => saveBackupConfig()}
+              disabled={backupSaving || backupConfigLoading}
+            >
+              {backupSaving ? 'در حال ذخیره...' : 'ذخیره تنظیمات پشتیبان'}
+            </Button>
+
+            {lastBackupDate && (
+              <p className="text-sm text-muted-foreground">
+                آخرین پشتیبان: {new Date(lastBackupDate).toLocaleString('fa-IR')}
+              </p>
+            )}
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Button 
                 variant="outline" 
                 className="w-full"
                 onClick={handleCreateBackup}
-                disabled={isLoading}
+                disabled={backupRunning || restoreRunning || backupConfigLoading}
               >
                 <Icon name="Download" size={16} className="ml-2" />
-                {isLoading ? 'در حال ایجاد...' : 'ایجاد پشتیبان'}
+                {backupRunning ? 'در حال دانلود...' : 'ایجاد پشتیبان'}
               </Button>
               
               <Button 
                 variant="outline" 
                 className="w-full"
                 onClick={() => document.getElementById('restoreFile')?.click()}
-                disabled={isLoading}
+                disabled={backupRunning || restoreRunning || backupConfigLoading}
               >
               <Icon name="Upload" size={16} className="ml-2" />
-                بازیابی از پشتیبان
+                {restoreRunning ? 'در حال پردازش داده (لطفاً ~۳۰ ثانیه صبر کنید)...' : 'بازیابی از پشتیبان'}
             </Button>
             </div>
             
@@ -424,7 +662,7 @@ export default function SettingsPage() {
               <div className="text-sm text-primary/80 space-y-1">
                 <p>• پشتیبان شامل تمام داده‌های سیستم است</p>
                 <p>• فرمت فایل: JSON</p>
-                <p>• حداکثر سایز: 50 مگابایت</p>
+                <p>• حداکثر سایز: 300 مگابایت</p>
                 <p>• شامل: کاربران، مشتریان، نوبت‌ها، مالی و...</p>
               </div>
             </div>

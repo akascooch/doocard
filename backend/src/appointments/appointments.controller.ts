@@ -12,6 +12,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
 import { 
@@ -81,6 +82,19 @@ export class AppointmentsController {
   @Roles('CUSTOMER')
   getCustomerHistory(@Req() req: any) {
     return this.service.getCustomerHistory(req.user);
+  }
+
+  /**
+   * Daily tip stats from settled appointments (for accounting daily-tips UI).
+   */
+  @Get('tip-daily-stats')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Roles('ADMIN', 'ACCOUNTANT')
+  getDailyTipStats(@Query('date') date: string) {
+    if (!date) {
+      throw new BadRequestException('date query param is required (YYYY-MM-DD)');
+    }
+    return this.service.getDailyTipStats(date);
   }
 
   /**

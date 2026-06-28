@@ -6,7 +6,7 @@
  *   npx ts-node -r tsconfig-paths/register scripts/import-migration/run-import.ts --commit
  *   npx ts-node -r tsconfig-paths/register scripts/import-migration/run-import.ts --commit --create-missing
  *   npx ts-node -r tsconfig-paths/register scripts/import-migration/run-import.ts --dry-run --pays-only
- *   npx ts-node -r tsconfig-paths/register scripts/import-migration/run-import.ts --commit --appointments-only --dedup=import-all
+ *   npx ts-node -r tsconfig-paths/register scripts/import-migration/run-import.ts --dry-run --appointments-only --create-missing
  *
  * Rollback:
  *   npx ts-node -r tsconfig-paths/register scripts/import-migration/rollback.ts --batch-id=<id> --dry-run
@@ -22,14 +22,20 @@ import {
   NOTES_KEY_PREFIX,
   ParsedAppointmentRow,
   ParsedExpenseRow,
+  SkippedSingletonDay,
   SOURCE_TYPE_APPT,
   SOURCE_TYPE_PAYS,
   buildReferenceIndexes,
   computeAppointmentDedupKey,
+  computeConservativeAppointmentDedupKey,
   computeExpenseDedupKey,
   ensureCalendarDate,
   externalRefAppointment,
   externalRefExpense,
+  filterDifferentialAppointmentDays,
+  filterSingletonAppointmentDays,
+  getAppointmentCountsByJalaliDates,
+  ensureGenericImportCustomer,
   hashImportPassword,
   normalizeIranianPhone,
   parseAmountRial,
@@ -37,6 +43,8 @@ import {
   parseExpenseRows,
   parseJalaliDateAppointments,
   parseJalaliDateExpenses,
+  parseRawAppointmentWorkbookFromPath,
+  isRawServicesExportWorkbook,
   resolveCalendarFromIndexes,
   resolveCategoryFromIndexes,
   resolveCustomerFromIndexes,
@@ -57,6 +65,7 @@ interface CliOptions {
   createMissing: boolean;
   paysOnly: boolean;
   appointmentsOnly: boolean;
+  rawServicesFormat: boolean;
   dedup: DedupMode;
   batchId: string;
   paysPath: string;
@@ -103,6 +112,15 @@ interface DryRunReport {
     missingCalendarDates: string[];
     amountTotalRial: string;
     failures: RowFailure[];
+    rawServicesExport?: {
+      headerRowIndex: number;
+      rawParsedRows: number;
+      parseFailureCount: number;
+      parseFailures: RowFailure[];
+      skippedMatchedDays: SkippedSingletonDay[];
+      skippedMatchedRowCount: number;
+      eligibleAfterDifferentialFilter: number;
+    };
   };
   importResult?: ImportResult;
 }
@@ -122,6 +140,15 @@ function parseCli(): CliOptions {
   const dedup = (dedupArg?.split('=')[1] as DedupMode) || 'skip-exact';
   const batchArg = args.find((a) => a.startsWith('--batch-id='));
   const batchId = batchArg?.split('=')[1] || `excel-migration-${Date.now()}`;
+  const apptPath = process.env.APPT_XLSX_PATH || DEFAULT_APPT_PATH;
+  let rawServicesFormat = false;
+  try {
+    if (fs.existsSync(apptPath)) {
+      rawServicesFormat = isRawServicesExportWorkbook(fs.readFileSync(apptPath));
+    }
+  } catch {
+    rawServicesFormat = false;
+  }
 
   return {
     dryRun: dryRun && !commit,
@@ -129,12 +156,36 @@ function parseCli(): CliOptions {
     createMissing: args.includes('--create-missing'),
     paysOnly: args.includes('--pays-only'),
     appointmentsOnly: args.includes('--appointments-only'),
-    dedup: dedup === 'import-all' ? 'import-all' : 'skip-exact',
+    rawServicesFormat,
+    dedup: rawServicesFormat ? 'skip-exact' : dedup === 'import-all' ? 'import-all' : 'skip-exact',
     batchId,
     paysPath: process.env.PAYS_XLSX_PATH || DEFAULT_PAYS_PATH,
-    apptPath: process.env.APPT_XLSX_PATH || DEFAULT_APPT_PATH,
+    apptPath,
     createIncomeTx: !args.includes('--skip-income-tx'),
   };
+}
+
+function appointmentDedupKey(row: ParsedAppointmentRow, opts: CliOptions, occurrenceIndex = 0): string {
+  if (opts.rawServicesFormat) {
+    return computeConservativeAppointmentDedupKey(row, occurrenceIndex);
+  }
+  return computeAppointmentDedupKey(row, occurrenceIndex);
+}
+
+function appointmentBaseKey(row: ParsedAppointmentRow, opts: CliOptions): string {
+  if (opts.rawServicesFormat) {
+    return computeConservativeAppointmentDedupKey(row, 0);
+  }
+  return sha1(
+    [
+      row.jalaliDateKey,
+      row.customerPhone,
+      row.employeePhone,
+      row.serviceNameCanonical,
+      row.totalPriceRial.toString(),
+      row.employeeShareRial.toString(),
+    ].join('|'),
+  );
 }
 
 function countDuplicates<T>(items: T[], keyFn: (item: T, index: number) => string): {
@@ -158,6 +209,7 @@ async function validateAndReport(
   opts: CliOptions,
   expenseRows: ParsedExpenseRow[],
   appointmentRows: ParsedAppointmentRow[],
+  rawMeta?: DryRunReport['appointments']['rawServicesExport'],
 ): Promise<DryRunReport> {
   const indexes = await buildReferenceIndexes(prisma);
   const blockers: string[] = [];
@@ -272,8 +324,13 @@ async function validateAndReport(
     return computeExpenseDedupKey(r, occurrence);
   });
   const apptDup = countDuplicates(appointmentRows, (r, i) =>
-    computeAppointmentDedupKey(r, opts.dedup === 'import-all' ? i : 0),
+    appointmentDedupKey(r, opts, opts.dedup === 'import-all' ? i : 0),
   );
+
+  const apptFailureRows = [
+    ...(rawMeta?.parseFailures ?? []),
+    ...apptFailures.slice(0, 200 - (rawMeta?.parseFailures.length ?? 0)),
+  ];
 
   return {
     batchId: opts.batchId,
@@ -306,7 +363,8 @@ async function validateAndReport(
       unresolvedCustomers: [...unresolvedCustomers],
       missingCalendarDates: [...missingCalendarDates].slice(0, 50),
       amountTotalRial: apptAmount.toString(),
-      failures: apptFailures.slice(0, 200),
+      failures: apptFailureRows,
+      rawServicesExport: rawMeta,
     },
   };
 }
@@ -580,23 +638,14 @@ async function runImport(
     await prisma.$transaction(async (tx) => {
       for (const row of batch) {
         try {
-          const baseKey = sha1(
-            [
-              row.jalaliDateKey,
-              row.customerPhone,
-              row.employeePhone,
-              row.serviceNameCanonical,
-              row.totalPriceRial.toString(),
-              row.employeeShareRial.toString(),
-            ].join('|'),
-          );
+          const baseKey = appointmentBaseKey(row, opts);
           const occurrence = apptKeyOccurrence.get(baseKey) || 0;
           apptKeyOccurrence.set(baseKey, occurrence + 1);
 
           const dedupKey =
             opts.dedup === 'import-all'
-              ? computeAppointmentDedupKey(row, occurrence)
-              : computeAppointmentDedupKey(row, 0);
+              ? appointmentDedupKey(row, opts, occurrence)
+              : appointmentDedupKey(row, opts, 0);
 
           if (
             opts.dedup === 'skip-exact' &&
@@ -755,6 +804,7 @@ async function main() {
   console.log('mode:', opts.dryRun ? 'DRY-RUN' : 'COMMIT');
   console.log('dedup:', opts.dedup);
   console.log('createMissing:', opts.createMissing);
+  console.log('rawServicesFormat:', opts.rawServicesFormat);
   console.log('paysPath:', opts.paysPath);
   console.log('apptPath:', opts.apptPath);
 
@@ -765,6 +815,7 @@ async function main() {
   try {
     let expenseRows: ParsedExpenseRow[] = [];
     let appointmentRows: ParsedAppointmentRow[] = [];
+    let rawMeta: DryRunReport['appointments']['rawServicesExport'];
 
     if (!opts.appointmentsOnly) {
       console.log('\nReading Pays.xlsx...');
@@ -772,12 +823,42 @@ async function main() {
       console.log(`  parsed ${expenseRows.length} expense rows`);
     }
     if (!opts.paysOnly) {
-      console.log('Reading 1402-1405.xlsx...');
-      appointmentRows = parseAppointmentRows(opts.apptPath);
-      console.log(`  parsed ${appointmentRows.length} appointment rows`);
+      if (opts.rawServicesFormat) {
+        console.log('Reading raw services export workbook...');
+        const parsed = parseRawAppointmentWorkbookFromPath(opts.apptPath);
+        await ensureGenericImportCustomer(prisma);
+        const uniqueDates = [...new Set(parsed.rows.map((r) => r.jalaliDateKey))];
+        const dbCountByDate = await getAppointmentCountsByJalaliDates(prisma, uniqueDates);
+        const filtered = filterDifferentialAppointmentDays(parsed.rows, dbCountByDate);
+        appointmentRows = filtered.eligible;
+        rawMeta = {
+          headerRowIndex: parsed.headerRowIndex,
+          rawParsedRows: parsed.rows.length,
+          parseFailureCount: parsed.failures.length,
+          parseFailures: parsed.failures.map((f) => ({
+            file: path.basename(opts.apptPath),
+            rowNumber: f.rowNumber,
+            reason: `parse:${f.reason}`,
+            data: f.jalaliDateRaw ? { jalaliDateRaw: f.jalaliDateRaw } : undefined,
+          })),
+          skippedMatchedDays: filtered.skippedMatchedDays,
+          skippedMatchedRowCount: filtered.skippedRowCount,
+          eligibleAfterDifferentialFilter: filtered.eligible.length,
+        };
+        console.log(`  parsed ${parsed.rows.length} rows (header row index ${parsed.headerRowIndex})`);
+        console.log(`  parse failures: ${parsed.failures.length}`);
+        console.log(
+          `  skipped ${filtered.skippedRowCount} rows on ${filtered.skippedMatchedDays.length} matched-count day(s)`,
+        );
+        console.log(`  eligible after differential filter: ${filtered.eligible.length}`);
+      } else {
+        console.log('Reading LASTDATTA.xlsx...');
+        appointmentRows = parseAppointmentRows(opts.apptPath);
+        console.log(`  parsed ${appointmentRows.length} appointment rows`);
+      }
     }
 
-    const report = await validateAndReport(prisma, opts, expenseRows, appointmentRows);
+    const report = await validateAndReport(prisma, opts, expenseRows, appointmentRows, rawMeta);
 
     if (opts.commit) {
       if (!report.prerequisites.ok && !opts.createMissing) {
@@ -795,7 +876,9 @@ async function main() {
         data: {
           userId: adminId,
           entity: 'EXCEL_MIGRATION',
-          filename: `${path.basename(opts.paysPath)} + ${path.basename(opts.apptPath)}`,
+          filename: opts.rawServicesFormat
+            ? path.basename(opts.apptPath)
+            : `${path.basename(opts.paysPath)} + ${path.basename(opts.apptPath)}`,
           batchId: opts.batchId,
           totalRows: expenseRows.length + appointmentRows.length,
           status: 'RUNNING',

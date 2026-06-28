@@ -15,7 +15,15 @@ export interface SalaryBreakdown {
   totalSalary: number;
   employeeShare: number;
   salonShare: number;
+  totalAppointments: number;
+  deductionPerAppointmentAmount: number;
+  totalDeduction: number;
+  payoutNetAfterDeduction: number;
 }
+
+const BARBER_APPOINTMENT_DEDUCTION_TOMAN = 200000;
+const TOMAN_TO_RIAL = 10;
+const BARBER_APPOINTMENT_DEDUCTION_RIAL = BARBER_APPOINTMENT_DEDUCTION_TOMAN * TOMAN_TO_RIAL;
 
 @Injectable()
 export class SalaryService {
@@ -77,6 +85,9 @@ export class SalaryService {
     }
 
     const totalSalary = employee.baseSalary + serviceCommission + tipShare;
+    const totalAppointments = appointments.length;
+    const totalDeduction = totalAppointments * BARBER_APPOINTMENT_DEDUCTION_RIAL;
+    const payoutNetAfterDeduction = totalSalary - totalDeduction;
 
     return {
       baseSalary: employee.baseSalary,
@@ -84,7 +95,11 @@ export class SalaryService {
       tipShare,
       totalSalary,
       employeeShare: totalSalary,
-      salonShare: serviceRevenue - serviceCommission
+      salonShare: serviceRevenue - serviceCommission,
+      totalAppointments,
+      deductionPerAppointmentAmount: BARBER_APPOINTMENT_DEDUCTION_RIAL,
+      totalDeduction,
+      payoutNetAfterDeduction,
     };
   }
 
@@ -164,6 +179,7 @@ export class SalaryService {
           paymentMethod: 'CASH',
           sourceType: 'SALARY',
           sourceId: salaryId,
+          employeeId: salary.employeeId,
           description: `پرداخت حقوق ${salary.employee.user.name}`,
           occurredAt: new Date()
         }

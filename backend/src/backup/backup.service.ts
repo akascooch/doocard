@@ -1,296 +1,574 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../prisma/prisma.service';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import * as fs from 'fs';
 import * as path from 'path';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { PrismaService } from '../prisma/prisma.service';
+import {
+  BACKUP_DELETE_ORDER,
+  BACKUP_INSERT_ORDER,
+  BACKUP_SKIP_RESTORE_INSERT,
+  BACKUP_SKIP_RESTORE_DELETE,
+  BACKUP_VERSION,
+  BackupModelKey,
+  BackupPayload,
+  MASK_PLACEHOLDER,
+  RestoreResult,
+} from './backup.types';
+import {
+  assertRestoreEnvironmentAllowed,
+  formatPreRestoreSnapshotFileName,
+  getExpectedRowCounts,
+  isReplicationRolePermissionError,
+  orderRowsForInsert,
+  RESTORE_REPLICATION_ROLE_ERROR,
+  validateBackupPayloadForRestore,
+} from './backup-restore.lib';
 
-const execAsync = promisify(exec);
+const BIGINT_FIELDS = new Set([
+  'amount',
+  'tipAmount',
+  'barberPayoutGrossAmount',
+  'settlementDeductionAmount',
+  'barberPayoutNetAmount',
+  'deductionPerAppointmentAmount',
+  'balance',
+  'grossAppointmentTotalRial',
+  'grossEmployeeShareRial',
+  'deductionPerAppointmentRial',
+  'totalAppointmentDeductionRial',
+  'priorWithdrawalsTotalRial',
+  'netPayableRial',
+  'appointmentAmountRial',
+  'employeeShareRial',
+  'appointmentDeductionRial',
+  'amountRial',
+]);
 
 @Injectable()
 export class BackupService {
   private readonly logger = new Logger(BackupService.name);
-  private readonly backupDir: string;
-  private readonly maxBackups: number;
+  private readonly defaultBackupDir: string;
 
-  constructor(
-    private prisma: PrismaService,
-    private config: ConfigService,
-  ) {
-    this.backupDir = this.config.get('backup.localPath') || './backups';
-    this.maxBackups = this.config.get('backup.retention') || 30;
-    
-    // Create backup directory if it doesn't exist
-    if (!fs.existsSync(this.backupDir)) {
-      fs.mkdirSync(this.backupDir, { recursive: true });
-    }
+  constructor(private readonly prisma: PrismaService) {
+    this.defaultBackupDir = path.normalize(
+      process.env.BACKUP_DEFAULT_PATH || path.join(process.cwd(), 'backups'),
+    );
   }
 
-  /**
-   * Create a complete backup of the system
-   */
-  async createBackup(): Promise<string> {
-    try {
-      this.logger.log('Starting system backup...');
-      
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const backupFileName = `mova-backup-${timestamp}.json`;
-      const backupPath = path.join(this.backupDir, backupFileName);
-      
-      // Get all data from database
-      const backupData = await this.getAllData();
-      
-      // Write backup to file
-      fs.writeFileSync(backupPath, JSON.stringify(backupData, null, 2));
-      
-      // Compress backup file
-      await this.compressBackup(backupPath);
-      
-      // Clean old backups
-      await this.cleanOldBackups();
-      
-      this.logger.log(`Backup completed: ${backupFileName}`);
-      return backupFileName;
-      
-    } catch (error) {
-      this.logger.error('Backup failed:', error);
-      throw new Error(`Backup failed: ${error.message}`);
-    }
+  // ---------------------------------------------------------------------------
+  // System settings
+  // ---------------------------------------------------------------------------
+
+  async getSystemSettings() {
+    return this.prisma.systemSettings.upsert({
+      where: { id: 1 },
+      create: { id: 1 },
+      update: {},
+    });
   }
 
-  /**
-   * Restore system from backup
-   */
-  async restoreBackup(backupFileName: string): Promise<void> {
-    try {
-      this.logger.log(`Starting system restore from: ${backupFileName}`);
-      
-      const backupPath = path.join(this.backupDir, backupFileName);
-      
-      if (!fs.existsSync(backupPath)) {
-        throw new Error('Backup file not found');
+  async updateSystemSettings(data: {
+    autoBackupEnabled?: boolean;
+    backupIntervalDays?: number;
+    backupPath?: string | null;
+  }) {
+    if (data.backupIntervalDays !== undefined) {
+      if (data.backupIntervalDays < 1 || data.backupIntervalDays > 365) {
+        throw new BadRequestException('فاصله پشتیبان‌گیری باید بین ۱ تا ۳۶۵ روز باشد');
       }
-      
-      // Read and parse backup file
-      const backupData = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
-      
-      // Validate backup data
-      this.validateBackupData(backupData);
-      
-      // Restore data to database
-      await this.restoreData(backupData);
-      
-      this.logger.log('System restore completed successfully');
-      
-    } catch (error) {
-      this.logger.error('Restore failed:', error);
-      throw new Error(`Restore failed: ${error.message}`);
     }
+
+    if (data.backupPath !== undefined && data.backupPath !== null && data.backupPath.trim()) {
+      this.resolveBackupDirectory(data.backupPath);
+    }
+
+    return this.prisma.systemSettings.upsert({
+      where: { id: 1 },
+      create: {
+        id: 1,
+        autoBackupEnabled: data.autoBackupEnabled ?? false,
+        backupIntervalDays: data.backupIntervalDays ?? 7,
+        backupPath: data.backupPath ?? null,
+      },
+      update: {
+        ...(data.autoBackupEnabled !== undefined && {
+          autoBackupEnabled: data.autoBackupEnabled,
+        }),
+        ...(data.backupIntervalDays !== undefined && {
+          backupIntervalDays: data.backupIntervalDays,
+        }),
+        ...(data.backupPath !== undefined && { backupPath: data.backupPath }),
+      },
+    });
   }
 
-  /**
-   * Get list of available backups
-   */
-  async getBackups(): Promise<Array<{ name: string; size: number; createdAt: Date }>> {
+  // ---------------------------------------------------------------------------
+  // Backup creation
+  // ---------------------------------------------------------------------------
+
+  async exportManualBackup(): Promise<{ buffer: Buffer; fileName: string }> {
     try {
-      const files = fs.readdirSync(this.backupDir);
-      const backups = [];
-      
-      for (const file of files) {
-        if (file.endsWith('.json') || file.endsWith('.json.gz')) {
-          const filePath = path.join(this.backupDir, file);
-          const stats = fs.statSync(filePath);
-          
-          backups.push({
-            name: file,
-            size: stats.size,
-            createdAt: stats.birthtime,
-          });
-        }
-      }
-      
-      return backups.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-      
+      return await this.buildBackupBuffer();
     } catch (error) {
-      this.logger.error('Failed to get backups:', error);
-      throw new Error(`Failed to get backups: ${error.message}`);
+      this.logger.error('exportManualBackup failed', error?.stack || error);
+      throw new InternalServerErrorException(
+        `خطا در ایجاد پشتیبان: ${error?.message || 'نامشخص'}`,
+      );
     }
   }
 
-  /**
-   * Delete a specific backup
-   */
-  async deleteBackup(backupFileName: string): Promise<void> {
+  async createBackup(): Promise<{ filePath: string; fileName: string }> {
     try {
-      const backupPath = path.join(this.backupDir, backupFileName);
-      
-      if (fs.existsSync(backupPath)) {
-        fs.unlinkSync(backupPath);
-        this.logger.log(`Backup deleted: ${backupFileName}`);
-      } else {
-        throw new Error('Backup file not found');
-      }
-      
+      const settings = await this.getSystemSettings();
+      const backupDir = this.resolveBackupDirectory(settings.backupPath);
+      const { buffer, fileName } = await this.buildBackupBuffer();
+      const filePath = path.join(backupDir, fileName);
+
+      fs.writeFileSync(filePath, buffer);
+      this.logger.log(`Backup written to ${filePath}`);
+
+      await this.prisma.systemSettings.update({
+        where: { id: 1 },
+        data: { lastBackupDate: new Date() },
+      });
+
+      return { filePath, fileName };
     } catch (error) {
-      this.logger.error('Failed to delete backup:', error);
-      throw new Error(`Failed to delete backup: ${error.message}`);
+      this.logger.error('createBackup failed', error?.stack || error);
+      throw new InternalServerErrorException(
+        `خطا در ایجاد پشتیبان: ${error?.message || 'نامشخص'}`,
+      );
     }
   }
 
-  /**
-   * Scheduled backup (daily at 2 AM)
-   */
-  @Cron(CronExpression.EVERY_DAY_AT_2AM)
-  async scheduledBackup() {
-    try {
-      if (this.config.get('backup.enabled') === 'true') {
-        await this.createBackup();
-        this.logger.log('Scheduled backup completed');
-      }
-    } catch (error) {
-      this.logger.error('Scheduled backup failed:', error);
-    }
+  private async buildBackupBuffer(): Promise<{ buffer: Buffer; fileName: string }> {
+    const payload = await this.exportAllData();
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileName = `doocard-backup-${stamp}.json`;
+    const buffer = Buffer.from(JSON.stringify(payload, this.jsonReplacer, 2), 'utf8');
+    return { buffer, fileName };
   }
 
-  /**
-   * Get all data from database for backup
-   */
-  private async getAllData() {
-    const backupData: any = {
-      version: '1.0.0',
-      timestamp: new Date().toISOString(),
-      tables: {}
+  async getBackupInfo() {
+    const settings = await this.getSystemSettings();
+    const backupDir = this.resolveBackupDirectory(settings.backupPath);
+    const files = this.listBackupFiles(backupDir);
+
+    return {
+      autoBackupEnabled: settings.autoBackupEnabled,
+      backupIntervalDays: settings.backupIntervalDays,
+      backupPath: settings.backupPath || backupDir,
+      lastBackupDate: settings.lastBackupDate,
+      backupCount: files.length,
+      backups: files.slice(0, 20),
     };
+  }
 
-    // Get all table names
-    const tables = [
-      'users', 'customers', 'barbers', 'services', 'appointments',
-      'appointment_services', 'transactions', 'financial_entries',
-      'financial_categories', 'bank_accounts', 'salaries',
-      'tip_transactions', 'barber_withdrawal_requests', 'permissions',
-      'sms_logs', 'sms_settings', 'sms_templates', 'settings'
+  // ---------------------------------------------------------------------------
+  // Restore
+  // ---------------------------------------------------------------------------
+
+  async restoreFromUploadedJson(raw: string | Buffer): Promise<RestoreResult> {
+    assertRestoreEnvironmentAllowed();
+
+    if (!raw || (Buffer.isBuffer(raw) && raw.length === 0)) {
+      throw new BadRequestException('فایل پشتیبان خالی است');
+    }
+
+    try {
+      const text = typeof raw === 'string' ? raw : raw.toString('utf8');
+      if (!text.trim()) {
+        throw new BadRequestException('فایل پشتیبان خالی است');
+      }
+      const parsed = JSON.parse(text, this.jsonReviver) as BackupPayload;
+      return await this.restoreBackupPayload(parsed);
+    } catch (error) {
+      if (error instanceof BadRequestException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      if (error instanceof SyntaxError) {
+        throw new BadRequestException('فایل پشتیبان JSON نامعتبر است');
+      }
+      this.logger.error('restoreFromUploadedJson failed', error?.stack || error);
+      throw error;
+    }
+  }
+
+  async restoreFromFile(filePath: string): Promise<RestoreResult> {
+    assertRestoreEnvironmentAllowed();
+    try {
+      const normalized = path.normalize(filePath);
+      if (!fs.existsSync(normalized)) {
+        throw new BadRequestException('فایل پشتیبان یافت نشد');
+      }
+      const content = fs.readFileSync(normalized, 'utf8');
+      return await this.restoreFromUploadedJson(content);
+    } catch (error) {
+      this.logger.error(`restoreFromFile failed: ${filePath}`, error?.stack || error);
+      throw error;
+    }
+  }
+
+  private async createPreRestoreSnapshot(): Promise<string> {
+    const snapshotDir = path.join(this.defaultBackupDir, 'pre-restore');
+    fs.mkdirSync(snapshotDir, { recursive: true });
+
+    const { buffer } = await this.buildBackupBuffer();
+    const fileName = formatPreRestoreSnapshotFileName();
+    const filePath = path.join(snapshotDir, fileName);
+
+    fs.writeFileSync(filePath, buffer);
+    this.logger.log(`Pre-restore snapshot written (${buffer.length} bytes)`);
+    return filePath;
+  }
+
+  private async restoreBackupPayload(backup: BackupPayload): Promise<RestoreResult> {
+    validateBackupPayloadForRestore(backup);
+
+    const systemSettingsBefore = await this.prisma.systemSettings.findUnique({
+      where: { id: 1 },
+    });
+
+    let snapshotPath: string;
+    try {
+      snapshotPath = await this.createPreRestoreSnapshot();
+    } catch (error) {
+      this.logger.error('Pre-restore snapshot failed', error?.stack || error);
+      throw new InternalServerErrorException(
+        'ایجاد نسخه پشتیبان قبل از بازیابی ناموفق بود — بازیابی متوقف شد',
+      );
+    }
+
+    const stats: Record<string, number> = {};
+    const restoredModels: BackupModelKey[] = [];
+    const skippedModels: BackupModelKey[] = [
+      ...BACKUP_SKIP_RESTORE_INSERT,
     ];
+    const warnings: string[] = [];
 
-    for (const table of tables) {
-      try {
-        const data = await this.prisma.$queryRawUnsafe(`SELECT * FROM "${table}"`);
-        backupData.tables[table] = data;
-      } catch (error) {
-        this.logger.warn(`Failed to backup table ${table}:`, error);
-        backupData.tables[table] = [];
-      }
-    }
-
-    return backupData;
-  }
-
-  /**
-   * Restore data to database
-   */
-  private async restoreData(backupData: any) {
-    // Disable foreign key checks temporarily
-    await this.prisma.$executeRaw`SET session_replication_role = replica`;
-    
     try {
-      // Clear existing data
-      for (const table of Object.keys(backupData.tables)) {
-        await this.prisma.$executeRawUnsafe(`TRUNCATE TABLE "${table}" CASCADE`);
-      }
-      
-      // Restore data
-      for (const [table, data] of Object.entries(backupData.tables)) {
-        if (Array.isArray(data) && data.length > 0) {
-          // Use Prisma's createMany for better performance
-          const modelName = this.getModelName(table);
-          if (modelName) {
-            await this.prisma[modelName].createMany({
-              data: data as any[],
-              skipDuplicates: true,
-            });
+      await this.prisma.$transaction(
+        async (tx) => {
+          let replicaEnabled = false;
+          try {
+            await tx.$executeRaw`SET session_replication_role = replica`;
+            replicaEnabled = true;
+          } catch (error) {
+            if (isReplicationRolePermissionError(error)) {
+              throw new InternalServerErrorException(RESTORE_REPLICATION_ROLE_ERROR);
+            }
+            throw error;
           }
-        }
+
+          try {
+            for (const modelKey of BACKUP_DELETE_ORDER) {
+              if (BACKUP_SKIP_RESTORE_DELETE.includes(modelKey)) {
+                this.logger.log(`Skipping delete for ${modelKey} (session stability)`);
+                continue;
+              }
+              const delegate = (tx as any)[modelKey] as {
+                deleteMany: () => Promise<{ count: number }>;
+              };
+              if (delegate?.deleteMany) {
+                const result = await delegate.deleteMany();
+                this.logger.log(`Deleted ${modelKey}: ${result.count} rows`);
+              }
+            }
+
+            for (const modelKey of BACKUP_INSERT_ORDER) {
+              if (BACKUP_SKIP_RESTORE_INSERT.includes(modelKey)) {
+                this.logger.log(`Skipping insert for ${modelKey} (session/ephemeral)`);
+                stats[modelKey] = 0;
+                continue;
+              }
+
+              const rows = backup.data[modelKey];
+              if (!Array.isArray(rows) || rows.length === 0) {
+                stats[modelKey] = 0;
+                continue;
+              }
+
+              const prepared = orderRowsForInsert(
+                modelKey,
+                rows.map((row) => this.prepareRowForInsert(row, modelKey)),
+              );
+
+              const delegate = (tx as any)[modelKey] as {
+                createMany?: (args: {
+                  data: Record<string, unknown>[];
+                  skipDuplicates?: boolean;
+                }) => Promise<{ count: number }>;
+              };
+
+              if (!delegate?.createMany) {
+                this.logger.warn(`No createMany for model ${modelKey}`);
+                stats[modelKey] = 0;
+                continue;
+              }
+
+              const batchSize = modelKey === 'calendarDate' ? 500 : 200;
+              let inserted = 0;
+              for (let i = 0; i < prepared.length; i += batchSize) {
+                const batch = prepared.slice(i, i + batchSize);
+                const result = await delegate.createMany({
+                  data: batch,
+                  skipDuplicates: false,
+                });
+                inserted += result.count;
+              }
+              stats[modelKey] = inserted;
+              restoredModels.push(modelKey);
+              this.logger.log(`Inserted ${modelKey}: ${inserted}/${rows.length} rows`);
+            }
+          } finally {
+            if (replicaEnabled) {
+              await tx.$executeRaw`SET session_replication_role = DEFAULT`;
+            }
+          }
+        },
+        { maxWait: 120000, timeout: 600000 },
+      );
+    } catch (error) {
+      this.logger.error('restoreBackupPayload transaction failed', error?.stack || error);
+      if (error instanceof InternalServerErrorException || error instanceof BadRequestException) {
+        throw error;
       }
-      
-    } finally {
-      // Re-enable foreign key checks
-      await this.prisma.$executeRaw`SET session_replication_role = DEFAULT`;
+      throw new InternalServerErrorException(
+        `خطا در بازیابی پشتیبان: ${error?.message || 'نامشخص'}`,
+      );
     }
-  }
 
-  /**
-   * Validate backup data structure
-   */
-  private validateBackupData(backupData: any) {
-    if (!backupData.version || !backupData.timestamp || !backupData.tables) {
-      throw new Error('Invalid backup data format');
-    }
-    
-    if (typeof backupData.tables !== 'object') {
-      throw new Error('Invalid tables data in backup');
-    }
-  }
+    const rowCounts: RestoreResult['rowCounts'] = {};
+    const expectedCounts = getExpectedRowCounts(backup);
 
-  /**
-   * Get Prisma model name from table name
-   */
-  private getModelName(tableName: string): string | null {
-    const modelMap: { [key: string]: string } = {
-      'users': 'user',
-      'customers': 'customer',
-      'barbers': 'barber',
-      'services': 'service',
-      'appointments': 'appointment',
-      'appointment_services': 'appointmentService',
-      'transactions': 'transaction',
-      'financial_entries': 'financialEntry',
-      'financial_categories': 'financialCategory',
-      'bank_accounts': 'bankAccount',
-      'salaries': 'salary',
-      'tip_transactions': 'tipTransaction',
-      'barber_withdrawal_requests': 'barberWithdrawalRequest',
-      'permissions': 'permission',
-      'sms_logs': 'smsLog',
-      'sms_settings': 'smsSettings',
-      'sms_templates': 'smsTemplate',
-      'settings': 'setting'
+    for (const modelKey of BACKUP_INSERT_ORDER) {
+      if (BACKUP_SKIP_RESTORE_INSERT.includes(modelKey)) {
+        continue;
+      }
+      const delegate = (this.prisma as any)[modelKey] as {
+        count?: () => Promise<number>;
+      };
+      const actual = delegate?.count ? await delegate.count() : 0;
+      const expected = expectedCounts[modelKey] ?? 0;
+      rowCounts[modelKey] = { expected, actual };
+      if (expected > 0 && actual !== expected) {
+        warnings.push(
+          `Row count mismatch for ${modelKey}: expected ${expected}, actual ${actual}`,
+        );
+      }
+    }
+
+    const systemSettingsAfter = await this.prisma.systemSettings.findUnique({
+      where: { id: 1 },
+    });
+    if (JSON.stringify(systemSettingsBefore) !== JSON.stringify(systemSettingsAfter)) {
+      warnings.push('systemSettings changed during restore (unexpected)');
+    } else {
+      this.logger.log('systemSettings unchanged (verified)');
+    }
+
+    if (warnings.length > 0) {
+      this.logger.warn(`Restore completed with warnings: ${warnings.join('; ')}`);
+    } else {
+      this.logger.log('Restore completed successfully — post-flight verification passed');
+    }
+
+    return {
+      success: true,
+      snapshotPath,
+      restoredModels,
+      skippedModels,
+      rowCounts,
+      warnings,
+      stats,
     };
-    
-    return modelMap[tableName] || null;
   }
 
-  /**
-   * Compress backup file
-   */
-  private async compressBackup(filePath: string): Promise<void> {
-    try {
-      await execAsync(`gzip -f "${filePath}"`);
-      this.logger.log(`Backup compressed: ${filePath}.gz`);
-    } catch (error) {
-      this.logger.warn('Failed to compress backup:', error);
-    }
-  }
+  // ---------------------------------------------------------------------------
+  // Scheduled backup
+  // ---------------------------------------------------------------------------
 
-  /**
-   * Clean old backups based on retention policy
-   */
-  private async cleanOldBackups(): Promise<void> {
+  @Cron(CronExpression.EVERY_DAY_AT_2AM)
+  async handleScheduledBackup(): Promise<void> {
     try {
-      const backups = await this.getBackups();
-      
-      if (backups.length > this.maxBackups) {
-        const backupsToDelete = backups.slice(this.maxBackups);
-        
-        for (const backup of backupsToDelete) {
-          await this.deleteBackup(backup.name);
-        }
-        
-        this.logger.log(`Cleaned ${backupsToDelete.length} old backups`);
+      const settings = await this.getSystemSettings();
+      if (!settings.autoBackupEnabled) {
+        return;
       }
-      
+
+      const intervalMs = settings.backupIntervalDays * 24 * 60 * 60 * 1000;
+      const lastRun = settings.lastBackupDate?.getTime() ?? 0;
+      const now = Date.now();
+
+      if (now - lastRun < intervalMs) {
+        this.logger.debug(
+          `Skipping scheduled backup — next due in ${Math.ceil((intervalMs - (now - lastRun)) / 86400000)} day(s)`,
+        );
+        return;
+      }
+
+      this.logger.log('Running scheduled auto-backup...');
+      const result = await this.createBackup();
+      this.logger.log(`Scheduled backup completed: ${result.fileName}`);
     } catch (error) {
-      this.logger.error('Failed to clean old backups:', error);
+      this.logger.error('Scheduled backup failed', error?.stack || error);
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Export helpers
+  // ---------------------------------------------------------------------------
+
+  private async exportAllData(): Promise<BackupPayload> {
+    const data: Record<string, unknown[]> = {};
+    const stats: Record<string, number> = {};
+
+    for (const modelKey of BACKUP_INSERT_ORDER) {
+      try {
+        const delegate = (this.prisma as any)[modelKey] as {
+          findMany: () => Promise<unknown[]>;
+        };
+        if (!delegate?.findMany) {
+          this.logger.warn(`Skipping unknown model: ${modelKey}`);
+          continue;
+        }
+        const rows = await delegate.findMany();
+        const masked = rows.map((row) => this.maskSensitiveRow(row, modelKey));
+        data[modelKey] = masked;
+        stats[modelKey] = masked.length;
+      } catch (error) {
+        this.logger.error(`Failed to export ${modelKey}`, error?.stack || error);
+        throw error;
+      }
+    }
+
+    return {
+      metadata: {
+        version: BACKUP_VERSION,
+        timestamp: new Date().toISOString(),
+        database: 'doocard',
+        modelCount: BACKUP_INSERT_ORDER.length,
+        stats,
+        maskedFields: [
+          'smsSettings.apiKey',
+          'financialReportsAccess.passwordHash',
+          'refreshToken.token',
+          'pushSubscription.p256dh',
+          'pushSubscription.auth',
+        ],
+      },
+      data,
+    };
+  }
+
+  private maskSensitiveRow(row: unknown, modelKey: BackupModelKey): Record<string, unknown> {
+    const record = { ...(row as Record<string, unknown>) };
+
+    if (modelKey === 'user' && record.password) {
+      // bcrypt hashes are kept for post-restore login
+    }
+    if (modelKey === 'smsSettings' && record.apiKey) {
+      record.apiKey = MASK_PLACEHOLDER;
+    }
+    if (modelKey === 'financialReportsAccess' && record.passwordHash) {
+      record.passwordHash = MASK_PLACEHOLDER;
+    }
+    if (modelKey === 'refreshToken' && record.token) {
+      record.token = MASK_PLACEHOLDER;
+    }
+    if (modelKey === 'pushSubscription') {
+      if (record.p256dh) record.p256dh = MASK_PLACEHOLDER;
+      if (record.auth) record.auth = MASK_PLACEHOLDER;
+    }
+
+    return record;
+  }
+
+  private prepareRowForInsert(row: unknown, modelKey: BackupModelKey): Record<string, unknown> {
+    const record = { ...(row as Record<string, unknown>) };
+
+    for (const key of Object.keys(record)) {
+      if (record[key] === MASK_PLACEHOLDER) {
+        delete record[key];
+      }
+      if (BIGINT_FIELDS.has(key) && typeof record[key] === 'string' && /^\d+$/.test(record[key] as string)) {
+        record[key] = BigInt(record[key] as string);
+      }
+    }
+
+    if (modelKey === 'user' && !record.password) {
+      throw new BadRequestException('رکورد کاربر بدون رمز عبور در پشتیبان یافت شد');
+    }
+
+    return record;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Path utilities
+  // ---------------------------------------------------------------------------
+
+  resolveBackupDirectory(customPath?: string | null): string {
+    const raw = (customPath?.trim() || this.defaultBackupDir).replace(/^["']|["']$/g, '');
+    const normalized = path.normalize(raw);
+
+    if (normalized.includes('..')) {
+      throw new BadRequestException('مسیر پشتیبان‌گیری نامعتبر است');
+    }
+
+    const blockedWin = /^[a-zA-Z]:\\(windows|program files|program files \(x86\)|system32)(\\|$)/i;
+    const blockedUnix = /^\/(etc|usr|bin|sbin|var|sys|proc)(\/|$)/i;
+    if (blockedWin.test(normalized) || blockedUnix.test(normalized.replace(/\\/g, '/'))) {
+      throw new BadRequestException('مسیر پشتیبان‌گیری مجاز نیست');
+    }
+
+    try {
+      fs.mkdirSync(normalized, { recursive: true });
+      fs.accessSync(normalized, fs.constants.W_OK);
+    } catch (error) {
+      this.logger.error(`Cannot use backup directory: ${normalized}`, error?.stack || error);
+      throw new BadRequestException(
+        `امکان نوشتن در مسیر پشتیبان وجود ندارد: ${normalized}`,
+      );
+    }
+
+    return normalized;
+  }
+
+  private listBackupFiles(backupDir: string) {
+    try {
+      return fs
+        .readdirSync(backupDir)
+        .filter((f) => f.endsWith('.json'))
+        .map((name) => {
+          const fullPath = path.join(backupDir, name);
+          const stat = fs.statSync(fullPath);
+          return {
+            name,
+            size: stat.size,
+            createdAt: stat.birthtime,
+          };
+        })
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    } catch (error) {
+      this.logger.warn(`Could not list backups in ${backupDir}`, error?.message);
+      return [];
+    }
+  }
+
+  private jsonReplacer(_key: string, value: unknown): unknown {
+    if (typeof value === 'bigint') {
+      return value.toString();
+    }
+    return value;
+  }
+
+  private jsonReviver(_key: string, value: unknown): unknown {
+    return value;
   }
 }

@@ -1,0 +1,114 @@
+{
+  "batchId": "excel-migration-1782285773189",
+  "generatedAt": "2026-06-24T07:22:54.240Z",
+  "mode": "dry-run",
+  "options": {
+    "dryRun": true,
+    "commit": false,
+    "createMissing": true,
+    "paysOnly": false,
+    "appointmentsOnly": true,
+    "khordad": true,
+    "dedup": "skip-exact",
+    "batchId": "excel-migration-1782285773189",
+    "paysPath": "C:/Users/a.hosseini/Desktop/apk/files/Pays.xlsx",
+    "apptPath": "C:/Users/a.hosseini/Desktop/apk/files/خرداد.xlsx",
+    "createIncomeTx": true
+  },
+  "prerequisites": {
+    "adminUserId": 1,
+    "defaultBankAccountId": 1,
+    "calendarDates1402_1405": 1427,
+    "ok": true,
+    "blockers": []
+  },
+  "pays": {
+    "totalRows": 0,
+    "validRows": 0,
+    "invalidRows": 0,
+    "duplicateRows": 0,
+    "unmappedCategories": [],
+    "amountTotalRial": "0",
+    "failures": []
+  },
+  "appointments": {
+    "totalRows": 560,
+    "validRows": 560,
+    "invalidRows": 0,
+    "duplicateRows": 0,
+    "unmappedServices": [],
+    "unresolvedEmployees": [],
+    "unresolvedCustomers": [],
+    "missingCalendarDates": [],
+    "amountTotalRial": "16141000000",
+    "failures": [
+      {
+        "file": "خرداد.xlsx",
+        "rowNumber": 155,
+        "reason": "parse:empty_employee",
+        "data": {
+          "jalaliDateRaw": "1405/03/09"
+        }
+      },
+      {
+        "file": "خرداد.xlsx",
+        "rowNumber": 256,
+        "reason": "parse:empty_employee",
+        "data": {
+          "jalaliDateRaw": "1405/03/14"
+        }
+      },
+      {
+        "file": "خرداد.xlsx",
+        "rowNumber": 566,
+        "reason": "parse:invalid_date,invalid_price,customer_identity,empty_service,empty_employee",
+        "data": {
+          "jalaliDateRaw": "1"
+        }
+      }
+    ],
+    "khordad": {
+      "headerRowIndex": 1,
+      "rawParsedRows": 561,
+      "parseFailureCount": 3,
+      "parseFailures": [
+        {
+          "file": "خرداد.xlsx",
+          "rowNumber": 155,
+          "reason": "parse:empty_employee",
+          "data": {
+            "jalaliDateRaw": "1405/03/09"
+          }
+        },
+        {
+          "file": "خرداد.xlsx",
+          "rowNumber": 256,
+          "reason": "parse:empty_employee",
+          "data": {
+            "jalaliDateRaw": "1405/03/14"
+          }
+        },
+        {
+          "file": "خرداد.xlsx",
+          "rowNumber": 566,
+          "reason": "parse:invalid_date,invalid_price,customer_identity,empty_service,empty_employee",
+          "data": {
+            "jalaliDateRaw": "1"
+          }
+        }
+      ],
+      "skippedSingletonDays": [
+        {
+          "jalaliDateKey": "1405-03-01",
+          "jalaliDateRaw": "1405/03/01",
+          "rowCount": 1,
+          "rowNumbers": [
+            3
+          ]
+        }
+      ],
+      "skippedSingletonRowCount": 1,
+      "eligibleAfterSingletonFilter": 560
+    }
+  }
+}

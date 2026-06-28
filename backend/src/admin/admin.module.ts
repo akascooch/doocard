@@ -10,5 +10,6 @@ import { EmployeeSalaryService } from './employee-salary.service';
   imports: [PrismaModule, SettingsModule],
   controllers: [AdminFinancialController, EmployeeSalaryController],
   providers: [AdminFinancialService, EmployeeSalaryService],
+  exports: [EmployeeSalaryService],
 })
 export class AdminModule {}

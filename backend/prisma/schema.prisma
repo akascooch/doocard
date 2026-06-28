@@ -65,23 +65,28 @@ model PushSubscription {
 }
 
 model Employee {
-  id               Int               @id @default(autoincrement())
-  userId           Int               @unique
-  specialty        String?
-  baseSalary       Float             @default(0)
-  commissionRate   Float             @default(0)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  isActive         Boolean           @default(true)
-  isDefault        Boolean           @default(false)
-  appointments     Appointment[]
-  blockedTimes     BlockedTime[]
-  customers        Customer[]
-  employeeServices EmployeeService[]
-  user             User              @relation(fields: [userId], references: [id])
-  salaries         Salary[]
-  tips             Tip[]
-  workSchedules    WorkSchedule[]
+  id                         Int                           @id @default(autoincrement())
+  userId                     Int                           @unique
+  specialty                  String?
+  baseSalary                 Float                         @default(0)
+  commissionRate             Float                         @default(0)
+  lastCommissionSettlementAt DateTime?
+  createdAt                  DateTime                      @default(now())
+  updatedAt                  DateTime                      @updatedAt
+  isActive                   Boolean                       @default(true)
+  isDefault                  Boolean                       @default(false)
+  appointments               Appointment[]
+  blockedTimes               BlockedTime[]
+  customers                  Customer[]
+  employeeServices           EmployeeService[]
+  user                       User                          @relation(fields: [userId], references: [id])
+  salaries                   Salary[]
+  tips                       Tip[]
+  workSchedules              WorkSchedule[]
+  transactions               Transaction[]
+  commissionSettlements      EmployeeCommissionSettlement[]
+  tipRecipientAppointments   Appointment[]                @relation("AppointmentTipRecipient")
+  appointmentTipAllocations  AppointmentTipAllocation[]
 
   @@map("employees")
 }
@@ -152,6 +157,10 @@ model Appointment {
   serviceId           Int?
   accountId           Int?
   amount              BigInt?
+  barberPayoutGrossAmount BigInt?
+  settlementDeductionAmount BigInt?
+  barberPayoutNetAmount BigInt?
+  deductionPerAppointmentAmount BigInt?
   deletedAt           DateTime?
   durationMin         Int
   notes               String?
@@ -161,8 +170,17 @@ model Appointment {
   scheduledAt         DateTime
   services            Json
   tipAmount           BigInt?
+  financiallyLockedAt DateTime?
   calendarDateId      Int?
+  clientOpId          String?              @unique
   appointmentServices AppointmentService[]
+  commissionSettlementAppointments EmployeeCommissionSettlementAppointment[]
+  tipRecipientType    TipRecipientType?
+  tipRecipientEmployeeId Int?
+  tipStaffShareRial   BigInt?
+  tipSalonShareRial   BigInt?
+  tipAllocations      AppointmentTipAllocation[]
+  tipRecipientEmployee Employee?           @relation("AppointmentTipRecipient", fields: [tipRecipientEmployeeId], references: [id])
   calendarDate        CalendarDate?        @relation(fields: [calendarDateId], references: [id])
   customer            Customer             @relation(fields: [customerId], references: [id])
   employee            Employee?            @relation(fields: [employeeId], references: [id])
@@ -177,6 +195,7 @@ model Appointment {
   @@index([status])
   @@index([deletedAt])
   @@index([calendarDateId])
+  @@index([financiallyLockedAt])
   @@map("appointments")
 }
 
@@ -216,6 +235,7 @@ model Transaction {
   relatedId            Int?
   accountId            Int?
   categoryId           Int?
+  employeeId           Int?
   createdBy            Int?
   currency             String               @default("IRR")
   deletedAt            DateTime?
@@ -228,10 +248,13 @@ model Transaction {
   destinationAccountId Int?
   account              BankAccount?         @relation("TransactionAccount", fields: [accountId], references: [id])
   category             TransactionCategory? @relation(fields: [categoryId], references: [id])
+  employee             Employee?            @relation(fields: [employeeId], references: [id])
   createdByUser        User?                @relation("TransactionCreator", fields: [createdBy], references: [id])
   destinationAccount   BankAccount?         @relation("TransactionDestination", fields: [destinationAccountId], references: [id])
   appointment          Appointment?         @relation(fields: [relatedId], references: [id])
   chequeLeaves         ChequeLeaf[]
+  commissionSettlementLinks EmployeeCommissionSettlementTransaction[]
+  finalCommissionSettlement EmployeeCommissionSettlement? @relation("SettlementFinalTransaction")
 
   @@index([sourceType, sourceId])
   @@index([type, occurredAt])
@@ -239,24 +262,88 @@ model Transaction {
   @@index([destinationAccountId])
   @@index([categoryId])
   @@index([deletedAt])
+  @@index([employeeId, occurredAt])
+  @@index([employeeId, type, deletedAt])
   @@map("transactions")
 }
 
 model TransactionCategory {
-  id           Int                   @id @default(autoincrement())
-  name         String
-  type         TransactionType
-  description  String?
-  parentId     Int?
-  isActive     Boolean               @default(true)
-  createdAt    DateTime              @default(now())
-  updatedAt    DateTime              @updatedAt
-  deletedAt    DateTime?
-  parent       TransactionCategory?  @relation("CategoryParent", fields: [parentId], references: [id])
-  children     TransactionCategory[] @relation("CategoryParent")
-  transactions Transaction[]
+  id               Int                   @id @default(autoincrement())
+  name             String
+  code             String?               @unique
+  requiresEmployee Boolean               @default(false)
+  type             TransactionType
+  description      String?
+  parentId         Int?
+  isActive         Boolean               @default(true)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  deletedAt        DateTime?
+  parent           TransactionCategory?  @relation("CategoryParent", fields: [parentId], references: [id])
+  children         TransactionCategory[] @relation("CategoryParent")
+  transactions     Transaction[]
 
   @@map("transaction_categories")
+}
+
+model EmployeeCommissionSettlement {
+  id                            Int                                    @id @default(autoincrement())
+  employeeId                    Int
+  periodStartAt                 DateTime
+  periodEndAt                   DateTime
+  periodStartJalali             String?
+  periodEndJalali               String?
+  commissionPercentage          Float
+  appointmentCount              Int
+  grossAppointmentTotalRial     BigInt
+  grossEmployeeShareRial        BigInt
+  deductionPerAppointmentRial   BigInt
+  totalAppointmentDeductionRial BigInt
+  priorWithdrawalsTotalRial     BigInt
+  netPayableRial                BigInt
+  settlementTransactionId       Int?                                   @unique
+  settledAt                     DateTime                               @default(now())
+  createdByUserId               Int?
+  status                        EmployeeCommissionSettlementStatus     @default(ACTIVE)
+  reversedAt                    DateTime?
+  reversedByUserId              Int?
+  notes                         String?
+  createdAt                     DateTime                               @default(now())
+  updatedAt                     DateTime                               @updatedAt
+  employee                      Employee                               @relation(fields: [employeeId], references: [id])
+  settlementTransaction         Transaction?                           @relation("SettlementFinalTransaction", fields: [settlementTransactionId], references: [id])
+  appointments                  EmployeeCommissionSettlementAppointment[]
+  priorTransactions             EmployeeCommissionSettlementTransaction[]
+  paidTipAllocations            AppointmentTipAllocation[]
+
+  @@index([employeeId, status, settledAt])
+  @@map("employee_commission_settlements")
+}
+
+model EmployeeCommissionSettlementAppointment {
+  settlementId             Int
+  appointmentId            Int
+  appointmentAmountRial    BigInt
+  employeeShareRial        BigInt
+  appointmentDeductionRial BigInt
+  settlement               EmployeeCommissionSettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  appointment              Appointment                  @relation(fields: [appointmentId], references: [id])
+
+  @@id([settlementId, appointmentId])
+  @@unique([appointmentId])
+  @@map("employee_commission_settlement_appointments")
+}
+
+model EmployeeCommissionSettlementTransaction {
+  settlementId  Int
+  transactionId Int
+  amountRial    BigInt
+  role          EmployeeCommissionSettlementTransactionRole
+  settlement    EmployeeCommissionSettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  transaction   Transaction                @relation(fields: [transactionId], references: [id])
+
+  @@id([settlementId, transactionId])
+  @@map("employee_commission_settlement_transactions")
 }
 
 model BankAccount {
@@ -347,6 +434,23 @@ model Tip {
   employee      Employee    @relation(fields: [employeeId], references: [id])
 
   @@map("tips")
+}
+
+model AppointmentTipAllocation {
+  id                 Int                         @id @default(autoincrement())
+  appointmentId      Int
+  employeeId         Int
+  amountRial         BigInt
+  paidInSettlementId Int?
+  createdAt          DateTime                    @default(now())
+  appointment        Appointment                 @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  employee           Employee                    @relation(fields: [employeeId], references: [id])
+  paidInSettlement   EmployeeCommissionSettlement? @relation(fields: [paidInSettlementId], references: [id])
+
+  @@index([appointmentId])
+  @@index([employeeId])
+  @@index([paidInSettlementId])
+  @@map("appointment_tip_allocations")
 }
 
 model Salary {
@@ -566,8 +670,14 @@ enum UserRole {
   ADMIN
   MANAGER
   EMPLOYEE
+  SERVICE
   CUSTOMER
   ACCOUNTANT
+}
+
+enum TipRecipientType {
+  INDIVIDUAL
+  TEAM
 }
 
 enum AppointmentStatus {
@@ -639,6 +749,16 @@ enum ImportStatus {
   CANCELLED
 }
 
+enum EmployeeCommissionSettlementStatus {
+  ACTIVE
+  REVERSED
+}
+
+enum EmployeeCommissionSettlementTransactionRole {
+  PRIOR_WITHDRAWAL
+  FINAL_SETTLEMENT
+}
+
 model FinancialReportsAccess {
   id              Int      @id @default(1)
   passwordHash    String?
@@ -649,4 +769,16 @@ model FinancialReportsAccess {
   updatedBy       User?    @relation("FinancialReportsAccessUpdatedBy", fields: [updatedByUserId], references: [id])
 
   @@map("financial_reports_access")
+}
+
+model SystemSettings {
+  id                 Int       @id @default(1)
+  autoBackupEnabled  Boolean   @default(false)
+  backupIntervalDays Int       @default(7)
+  backupPath         String?
+  lastBackupDate     DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@map("system_settings")
 }

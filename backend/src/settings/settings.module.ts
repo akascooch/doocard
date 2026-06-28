@@ -6,10 +6,12 @@ import { SettingsService } from './settings.service';
 import { FinancialReportsAccessService } from './financial-reports-access.service';
 import { FinancialReportsAccessGuard } from '../common/guards/financial-reports-access.guard';
 import { PrismaModule } from '../prisma/prisma.module';
+import { BackupModule } from '../backup/backup.module';
 
 @Module({
   imports: [
     PrismaModule,
+    BackupModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => {

@@ -234,12 +234,14 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
               "inline-flex items-center px-3 py-1.5 rounded-full text-xs font-extrabold shadow-lg",
               userRole === 'ADMIN' && "bg-gradient-to-r from-purple-400 to-pink-400",
               userRole === 'EMPLOYEE' && "bg-gradient-to-r from-blue-400 to-cyan-400",
+              userRole === 'SERVICE' && "bg-gradient-to-r from-teal-400 to-emerald-400",
               userRole === 'CUSTOMER' && "bg-gradient-to-r from-green-400 to-teal-400"
             )}
             style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
           >
             {userRole === 'ADMIN' && 'مدیر سیستم'}
             {userRole === 'EMPLOYEE' && 'کارمند'}
+            {userRole === 'SERVICE' && 'پرسنل خدمات'}
             {userRole === 'CUSTOMER' && 'مشتری'}
           </div>
         </div>

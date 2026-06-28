@@ -16,6 +16,7 @@ import {
 import { api } from '@/lib/axios';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
+import { queueCustomerQuick, shouldUseOfflineQueue } from '@/lib/offline/sync-worker';
 
 interface Customer {
   id: number;
@@ -30,6 +31,7 @@ interface Customer {
 interface CustomerTypeaheadProps {
   selectedCustomerId: number | null;
   onChange: (customerId: number | null, customer?: Customer) => void;
+  onOfflineCustomerQueued?: (outboxId: string, displayLabel: string) => void;
   label?: string;
   required?: boolean;
   error?: string;
@@ -39,6 +41,7 @@ interface CustomerTypeaheadProps {
 export default function CustomerTypeahead({
   selectedCustomerId,
   onChange,
+  onOfflineCustomerQueued,
   label = 'مشتری *',
   required = true,
   error,
@@ -105,6 +108,24 @@ export default function CustomerTypeahead({
     }
 
     try {
+      const useOffline = await shouldUseOfflineQueue();
+      if (useOffline) {
+        const item = await queueCustomerQuick({
+          name: newCustomerForm.name.trim(),
+          phone: newCustomerForm.phone.trim(),
+        });
+        const label = `${newCustomerForm.name.trim()} (${newCustomerForm.phone.trim()})`;
+        onOfflineCustomerQueued?.(item.id, label);
+        toast({
+          title: 'مشتری آفلاین',
+          description:
+            'مشتری به صورت آفلاین ثبت شد و پس از اتصال به سرور همگام‌سازی می‌شود.',
+        });
+        setIsQuickAddOpen(false);
+        setNewCustomerForm({ name: '', phone: '', email: '' });
+        return;
+      }
+
       const userResponse = await api.post('/users', {
         name: newCustomerForm.name,
         phone: newCustomerForm.phone,

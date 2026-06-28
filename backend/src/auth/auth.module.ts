@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UsersModule } from '../users/users.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { DEFAULT_JWT_EXPIRES_IN } from './auth-token.config';
 
 @Module({
   imports: [
@@ -22,7 +23,7 @@ import { PrismaModule } from '../prisma/prisma.module';
         }
         return {
           secret,
-          signOptions: { expiresIn: configService.get('JWT_EXPIRES_IN', '1d') },
+          signOptions: { expiresIn: configService.get('JWT_EXPIRES_IN', DEFAULT_JWT_EXPIRES_IN) },
         };
       },
       inject: [ConfigService],

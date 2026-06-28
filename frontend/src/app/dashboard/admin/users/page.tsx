@@ -48,13 +48,19 @@ import {
 import { useToast } from '@/components/ui/use-toast'
 import axios from '@/lib/axios'
 import { formatToJalali } from '@/lib/date'
+import {
+  ADMIN_USER_ROLE_OPTIONS,
+  type AdminAssignableRole,
+  getUserRoleLabel,
+  isAdminAssignableRole,
+} from '@/lib/user-roles'
 
 interface User {
   id: number
   name: string
   phone: string
   email?: string
-  role: 'ADMIN' | 'EMPLOYEE' | 'CUSTOMER'
+  role: AdminAssignableRole | 'ACCOUNTANT' | 'MANAGER'
   createdAt: string
   lastLogin?: string
   isActive: boolean
@@ -88,7 +94,7 @@ export default function AdminUsersPage() {
     phone: '',
     email: '',
     password: '',
-    role: 'CUSTOMER' as 'ADMIN' | 'EMPLOYEE' | 'CUSTOMER',
+    role: 'CUSTOMER' as AdminAssignableRole,
     specialty: '',
     baseSalary: 0,
     commissionRate: 0
@@ -226,7 +232,7 @@ export default function AdminUsersPage() {
       phone: '',
       email: '',
       password: '',
-      role: 'CUSTOMER',
+    role: 'CUSTOMER' as AdminAssignableRole,
       specialty: '',
       baseSalary: 0,
       commissionRate: 0
@@ -241,7 +247,9 @@ export default function AdminUsersPage() {
       phone: user.phone,
       email: user.email || '',
       password: '',
-      role: user.role,
+      role: (ADMIN_USER_ROLE_OPTIONS.some((r) => r.value === user.role)
+        ? user.role
+        : 'CUSTOMER') as AdminAssignableRole,
       specialty: user.specialty || '',
       baseSalary: user.baseSalary || 0,
       commissionRate: user.commissionRate || 0
@@ -267,11 +275,13 @@ export default function AdminUsersPage() {
       case 'ADMIN':
         return <Badge className="bg-red-100 text-red-800 border-red-200"><Crown className="h-3 w-3 ml-1" />مدیر</Badge>
       case 'EMPLOYEE':
-        return <Badge className="bg-blue-100 text-blue-800 border-blue-200"><UserCog className="h-3 w-3 ml-1" />کارمند</Badge>
+        return <Badge className="bg-blue-100 text-blue-800 border-blue-200"><UserCog className="h-3 w-3 ml-1" />آرایشگر</Badge>
+      case 'SERVICE':
+        return <Badge className="bg-teal-100 text-teal-800 border-teal-200"><UserCog className="h-3 w-3 ml-1" />پرسنل خدمات</Badge>
       case 'CUSTOMER':
         return <Badge className="bg-green-100 text-green-800 border-green-200"><UserCheck className="h-3 w-3 ml-1" />مشتری</Badge>
       default:
-        return <Badge variant="outline">{role}</Badge>
+        return <Badge variant="outline">{getUserRoleLabel(role)}</Badge>
     }
   }
 
@@ -281,6 +291,8 @@ export default function AdminUsersPage() {
         return <Crown className="h-4 w-4 text-red-600" />
       case 'EMPLOYEE':
         return <UserCog className="h-4 w-4 text-blue-600" />
+      case 'SERVICE':
+        return <UserCog className="h-4 w-4 text-teal-600" />
       case 'CUSTOMER':
         return <UserCheck className="h-4 w-4 text-green-600" />
       default:
@@ -336,7 +348,7 @@ export default function AdminUsersPage() {
             <UserCog className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{users.filter(u => u.role === 'EMPLOYEE').length}</div>
+            <div className="text-2xl font-bold">{users.filter(u => u.role === 'EMPLOYEE' || u.role === 'SERVICE').length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -376,7 +388,8 @@ export default function AdminUsersPage() {
                 <SelectContent>
                   <SelectItem value="all">همه کاربران</SelectItem>
                   <SelectItem value="CUSTOMER">مشتریان</SelectItem>
-                  <SelectItem value="EMPLOYEE">کارکنان</SelectItem>
+                  <SelectItem value="EMPLOYEE">آرایشگران</SelectItem>
+                  <SelectItem value="SERVICE">پرسنل خدمات</SelectItem>
                   <SelectItem value="ADMIN">مدیران</SelectItem>
                 </SelectContent>
               </Select>
@@ -560,14 +573,23 @@ export default function AdminUsersPage() {
             </div>
             <div className="grid gap-2">
               <label htmlFor="edit-role">نقش کاربر</label>
-              <Select defaultValue={formData.role} onValueChange={(value: any) => setFormData({...formData, role: value})}>
+              <Select
+                value={formData.role}
+                onValueChange={(value: string) => {
+                  if (isAdminAssignableRole(value)) {
+                    setFormData({ ...formData, role: value })
+                  }
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="CUSTOMER">مشتری</SelectItem>
-                  <SelectItem value="EMPLOYEE">کارمند</SelectItem>
-                  <SelectItem value="ADMIN">مدیر</SelectItem>
+                  {ADMIN_USER_ROLE_OPTIONS.map((role) => (
+                    <SelectItem key={role.value} value={role.value}>
+                      {role.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

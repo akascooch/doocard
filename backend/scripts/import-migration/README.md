@@ -34,6 +34,9 @@ npx ts-node scripts/import-migration/run-import.ts --commit --create-missing --b
 npx ts-node scripts/import-migration/run-import.ts --dry-run --pays-only
 npx ts-node scripts/import-migration/run-import.ts --commit --appointments-only --create-missing
 
+# Raw services export workbooks are auto-detected (metadata row + تاریخ/کارمند headers).
+# Prefer the admin UI at /dashboard/admin/import for manual upload + preview + confirm.
+
 # Dedup: import all rows (adds minute offset for duplicate keys)
 npx ts-node scripts/import-migration/run-import.ts --commit --create-missing --dedup=import-all
 
@@ -54,6 +57,20 @@ DATABASE_URL=postgresql://...
 PAYS_XLSX_PATH=C:/path/to/Pays.xlsx
 APPT_XLSX_PATH=C:/path/to/1402-1405.xlsx
 ```
+
+### Admin UI (recommended)
+
+`/dashboard/admin/import` → **نوبت‌ها** tab:
+
+1. Select raw Excel file in the browser
+2. Preview grouped by date (singleton days, duplicates, parse warnings)
+3. Explicitly confirm before commit
+
+### Raw services export rules
+
+- Auto-detected by header signature (تاریخ + کارمند + نام/فاکتور)
+- **Singleton-day exclusion:** days with exactly one appointment row are skipped
+- Conservative dedup before insert; duplicates shown in preview
 
 ## Pre-flight
 

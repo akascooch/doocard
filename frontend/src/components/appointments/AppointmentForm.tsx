@@ -17,6 +17,17 @@ import { api } from '@/lib/axios';
 import { useToast } from '@/components/ui/use-toast';
 import { getCurrentJalaliDate, persianToEnglishDigits } from '@/lib/date';
 import { Loader2 } from 'lucide-react';
+import {
+  shouldUseOfflineQueue,
+  queueAppointmentCreate,
+} from '@/lib/offline/sync-worker';
+import {
+  cacheFromResponse,
+  getReferenceCache,
+  hasMinimumReferenceCache,
+  REFERENCE_KEYS,
+} from '@/lib/offline/reference-cache';
+import type { CustomerRef } from '@/lib/offline/types';
 
 interface Service {
   id: number;
@@ -48,7 +59,9 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [slotRefreshKey, setSlotRefreshKey] = useState(0); // Key to force refresh SlotPicker
+  const [slotRefreshKey, setSlotRefreshKey] = useState(0);
+  const [offlineCustomerOutboxId, setOfflineCustomerOutboxId] = useState<string | null>(null);
+  const [offlineCustomerLabel, setOfflineCustomerLabel] = useState<string | null>(null);
 
   useEffect(() => {
     loadServices();
@@ -59,14 +72,20 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
       setLoadingServices(true);
       const response = await api.get('/services');
       console.log('📋 Loaded services:', response.data);
-      setServices(response.data);
+      const data = await cacheFromResponse(REFERENCE_KEYS.services, response.data);
+      setServices(data);
     } catch (error) {
       console.error('Error loading services:', error);
-      toast({
-        title: 'خطا',
-        description: 'بارگذاری سرویس‌ها با خطا مواجه شد',
-        variant: 'destructive',
-      });
+      const cached = await getReferenceCache<Service[]>(REFERENCE_KEYS.services);
+      if (cached?.data?.length) {
+        setServices(cached.data);
+      } else {
+        toast({
+          title: 'خطا',
+          description: 'بارگذاری سرویس‌ها با خطا مواجه شد',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setLoadingServices(false);
     }
@@ -83,7 +102,7 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
       newErrors.employeeId = 'انتخاب آرایشگر الزامی است';
     }
 
-    if (role !== 'CUSTOMER' && !formData.customerId) {
+    if (role !== 'CUSTOMER' && !formData.customerId && !offlineCustomerOutboxId) {
       newErrors.customerId = 'انتخاب مشتری الزامی است';
     }
 
@@ -114,30 +133,94 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
     try {
       setLoading(true);
 
-      // Build services payload
       const selectedServices = services.filter(s => formData.serviceIds.includes(s.id));
       const servicesPayload = selectedServices.map(s => ({
         serviceId: s.id,
-        priceAtBooking: s.price, // Already in RIAL (no conversion)
+        priceAtBooking: s.price,
         durationMin: s.durationMinutes,
       }));
 
-      // Extract time in HH:mm format from the time picker
       const timeDate = new Date(formData.time!);
       const hours = timeDate.getHours().toString().padStart(2, '0');
       const minutes = timeDate.getMinutes().toString().padStart(2, '0');
       const timeStr = `${hours}:${minutes}`;
 
-      // Convert Persian digits to English and format from YYYY/MM/DD to YYYY-MM-DD
       const jalaliDateFormatted = persianToEnglishDigits(formData.date).replace(/\//g, '-');
 
-      // Send Jalali date + time directly (new calendar system)
+      const useOffline = await shouldUseOfflineQueue();
+
+      if (useOffline) {
+        const hasCache = await hasMinimumReferenceCache();
+        if (!hasCache || services.length === 0) {
+          toast({
+            title: 'خطا',
+            description:
+              'برای ثبت آفلاین نوبت، ابتدا باید اطلاعات پایه در حالت آنلاین بارگذاری شده باشد.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        let customerRef: CustomerRef;
+        let dependsOn: string[] | undefined;
+
+        if (role === 'CUSTOMER' && customerId) {
+          customerRef = { kind: 'server', customerId };
+        } else if (formData.customerId) {
+          customerRef = { kind: 'server', customerId: formData.customerId };
+        } else if (offlineCustomerOutboxId) {
+          customerRef = { kind: 'outbox', outboxId: offlineCustomerOutboxId };
+          dependsOn = [offlineCustomerOutboxId];
+        } else {
+          toast({
+            title: 'خطا',
+            description: 'مشتری برای ثبت آفلاین نوبت مشخص نیست',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        const clientOpId = crypto.randomUUID();
+        await queueAppointmentCreate(
+          {
+            clientOpId,
+            customerRef,
+            employeeId: formData.employeeId!,
+            services: servicesPayload,
+            jalaliDate: jalaliDateFormatted,
+            time: timeStr,
+            notes: formData.notes || undefined,
+          },
+          dependsOn,
+        );
+
+        toast({
+          title: 'نوبت آفلاین',
+          description:
+            'نوبت به صورت آفلاین ثبت شد و پس از اتصال به سرور همگام‌سازی می‌شود.',
+        });
+
+        setFormData({
+          serviceIds: [],
+          employeeId: null,
+          customerId: role === 'CUSTOMER' ? (customerId || null) : null,
+          date: getCurrentJalaliDate(),
+          time: null,
+          notes: '',
+        });
+        setOfflineCustomerOutboxId(null);
+        setOfflineCustomerLabel(null);
+
+        if (onSuccess) onSuccess();
+        return;
+      }
+
       const payload = {
         services: servicesPayload,
         employeeId: formData.employeeId,
         customerId: role === 'CUSTOMER' ? customerId : formData.customerId,
-        jalaliDate: jalaliDateFormatted, // "YYYY-MM-DD" format (e.g., "1404-08-06")
-        time: timeStr, // "HH:mm" format (e.g., "14:30")
+        jalaliDate: jalaliDateFormatted,
+        time: timeStr,
         notes: formData.notes || undefined,
       };
 
@@ -257,11 +340,29 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
           {role !== 'CUSTOMER' && (
             <CustomerTypeahead
               selectedCustomerId={formData.customerId}
-              onChange={(id) => setFormData({ ...formData, customerId: id })}
+              onChange={(id) => {
+                setFormData({ ...formData, customerId: id });
+                if (id) {
+                  setOfflineCustomerOutboxId(null);
+                  setOfflineCustomerLabel(null);
+                }
+              }}
+              onOfflineCustomerQueued={(outboxId, label) => {
+                setOfflineCustomerOutboxId(outboxId);
+                setOfflineCustomerLabel(label);
+                setFormData({ ...formData, customerId: null });
+              }}
               label="مشتری *"
               required
               error={errors.customerId}
             />
+          )}
+
+          {offlineCustomerLabel && (
+            <div className="text-sm text-amber-700 bg-amber-50 dark:bg-amber-900/20 rounded-lg p-2">
+              مشتری آفلاین: {offlineCustomerLabel}{' '}
+              <span className="text-xs">(در انتظار همگام‌سازی)</span>
+            </div>
           )}
 
           {/* Date Picker */}
