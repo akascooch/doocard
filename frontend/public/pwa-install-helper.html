@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔧 راهنمای نصب PWA - Doocard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    body {
+      background: linear-gradient(135deg, #1C2529 0%, #2a3f47 100%);
+      color: #fff;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      padding: 30px;
+      background: rgba(161, 209, 177, 0.1);
+      border-radius: 20px;
+      margin-bottom: 30px;
+    }
+    h1 {
+      color: #A1D1B1;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    .section {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 15px;
+      padding: 25px;
+      margin-bottom: 20px;
+      backdrop-filter: blur(10px);
+    }
+    .section h2 {
+      color: #A1D1B1;
+      margin-bottom: 15px;
+      font-size: 20px;
+    }
+    .check-item {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 15px;
+      margin-bottom: 10px;
+      border-radius: 10px;
+      border-right: 4px solid #666;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .check-item.pass {
+      border-right-color: #51cf66;
+    }
+    .check-item.fail {
+      border-right-color: #ff6b6b;
+    }
+    .check-item.warn {
+      border-right-color: #ffd93d;
+    }
+    .status-badge {
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    .status-badge.pass {
+      background: #51cf66;
+      color: #000;
+    }
+    .status-badge.fail {
+      background: #ff6b6b;
+      color: #fff;
+    }
+    .status-badge.warn {
+      background: #ffd93d;
+      color: #000;
+    }
+    button {
+      width: 100%;
+      padding: 15px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 10px;
+      background: #A1D1B1;
+      color: #1C2529;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    button:hover {
+      background: #8bc19d;
+      transform: translateY(-2px);
+    }
+    button:disabled {
+      background: #555;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .install-button {
+      background: linear-gradient(135deg, #A1D1B1 0%, #8bc19d 100%);
+      padding: 20px;
+      font-size: 18px;
+      box-shadow: 0 4px 12px rgba(161, 209, 177, 0.4);
+    }
+    .error-box {
+      background: rgba(255, 107, 107, 0.2);
+      border: 2px solid #ff6b6b;
+      border-radius: 10px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+    .success-box {
+      background: rgba(81, 207, 102, 0.2);
+      border: 2px solid #51cf66;
+      border-radius: 10px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+    .info-box {
+      background: rgba(255, 217, 61, 0.2);
+      border: 2px solid #ffd93d;
+      border-radius: 10px;
+      padding: 15px;
+      margin: 15px 0;
+    }
+    code {
+      background: rgba(0, 0, 0, 0.5);
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      color: #ffd93d;
+    }
+    .step-number {
+      display: inline-block;
+      background: #A1D1B1;
+      color: #1C2529;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 28px;
+      font-weight: bold;
+      margin-left: 10px;
+      font-size: 14px;
+    }
+    pre {
+      background: rgba(0, 0, 0, 0.5);
+      padding: 15px;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-size: 12px;
+      color: #ffd93d;
+      margin: 10px 0;
+    }
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #A1D1B1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔧 راهنمای نصب PWA</h1>
+      <p>تشخیص خودکار مشکلات نصب اپلیکیشن</p>
+    </div>
+
+    <!-- Browser Info -->
+    <div class="section">
+      <h2>📱 اطلاعات دستگاه</h2>
+      <div id="device-info" class="loading">در حال تشخیص...</div>
+    </div>
+
+    <!-- Installability Checks -->
+    <div class="section">
+      <h2>✅ بررسی شرایط نصب</h2>
+      <div id="checks-container" class="loading">در حال بررسی...</div>
+    </div>
+
+    <!-- Install Button -->
+    <div class="section" id="install-section" style="display: none;">
+      <h2>📥 نصب اپلیکیشن</h2>
+      <button id="install-btn" class="install-button">
+        📲 نصب Doocard روی صفحه اصلی
+      </button>
+      <div class="info-box" style="margin-top: 15px;">
+        <strong>⚠️ نکته مهم:</strong><br>
+        بعد از نصب، حتماً از آیکون صفحه اصلی باز کنید (نه از browser)
+      </div>
+    </div>
+
+    <!-- Manual Install Instructions -->
+    <div class="section" id="manual-instructions">
+      <h2>📖 راهنمای دستی نصب</h2>
+      <div id="instructions-content"></div>
+    </div>
+
+    <!-- Diagnostic Info -->
+    <div class="section">
+      <h2>🔍 اطلاعات تشخیصی (برای پشتیبانی)</h2>
+      <button onclick="copyDiagnostics()">📋 کپی اطلاعات</button>
+      <pre id="diagnostics"></pre>
+    </div>
+  </div>
+
+  <script>
+    let deferredPrompt = null;
+    const diagnosticData = {};
+
+    // Detect device and browser
+    function detectDevice() {
+      const ua = navigator.userAgent;
+      const isAndroid = /Android/.test(ua);
+      const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+      const isChrome = /Chrome/.test(ua) && !/Edge|Edg/.test(ua);
+      const isSafari = /Safari/.test(ua) && !/Chrome/.test(ua);
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                          window.navigator.standalone === true;
+
+      const device = {
+        platform: isAndroid ? 'Android' : isIOS ? 'iOS' : 'Desktop/Other',
+        browser: isChrome ? 'Chrome' : isSafari ? 'Safari' : 'Other',
+        isStandalone: isStandalone,
+        userAgent: ua,
+        screenWidth: window.screen.width,
+        screenHeight: window.screen.height
+      };
+
+      diagnosticData.device = device;
+
+      const html = `
+        <div class="check-item">
+          <span><strong>پلتفرم:</strong> ${device.platform}</span>
+          <span class="status-badge ${device.platform !== 'Desktop/Other' ? 'pass' : 'warn'}">
+            ${device.platform}
+          </span>
+        </div>
+        <div class="check-item">
+          <span><strong>مرورگر:</strong> ${device.browser}</span>
+          <span class="status-badge ${device.browser === 'Chrome' || device.browser === 'Safari' ? 'pass' : 'fail'}">
+            ${device.browser}
+          </span>
+        </div>
+        <div class="check-item">
+          <span><strong>وضعیت نصب:</strong> ${device.isStandalone ? 'نصب شده ✅' : 'نصب نشده ⚠️'}</span>
+          <span class="status-badge ${device.isStandalone ? 'pass' : 'warn'}">
+            ${device.isStandalone ? 'Installed' : 'Not Installed'}
+          </span>
+        </div>
+      `;
+
+      document.getElementById('device-info').innerHTML = html;
+      return device;
+    }
+
+    // Check PWA installability criteria
+    async function checkInstallability() {
+      const checks = [];
+      const device = detectDevice();
+
+      // 1. HTTPS
+      const isHTTPS = window.location.protocol === 'https:';
+      checks.push({
+        name: 'HTTPS',
+        pass: isHTTPS,
+        message: isHTTPS ? 'سایت از HTTPS استفاده می‌کند' : 'سایت باید HTTPS باشد'
+      });
+      diagnosticData.https = isHTTPS;
+
+      // 2. Service Worker
+      let swRegistered = false;
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.getRegistration();
+          swRegistered = !!registration;
+          checks.push({
+            name: 'Service Worker',
+            pass: swRegistered,
+            message: swRegistered ? 
+              `ثبت شده (Scope: ${registration.scope})` : 
+              'ثبت نشده - در حال ثبت...'
+          });
+          diagnosticData.serviceWorker = swRegistered ? registration.scope : 'Not registered';
+          
+          if (!swRegistered) {
+            // Try to register
+            try {
+              const reg = await navigator.serviceWorker.register('/sw.js');
+              checks[checks.length - 1].pass = true;
+              checks[checks.length - 1].message = 'ثبت شد ✅';
+              swRegistered = true;
+            } catch (e) {
+              checks[checks.length - 1].message = 'خطا در ثبت: ' + e.message;
+            }
+          }
+        } catch (e) {
+          checks.push({
+            name: 'Service Worker',
+            pass: false,
+            message: 'خطا: ' + e.message
+          });
+          diagnosticData.serviceWorker = 'Error: ' + e.message;
+        }
+      } else {
+        checks.push({
+          name: 'Service Worker',
+          pass: false,
+          message: 'مرورگر پشتیبانی نمی‌کند'
+        });
+        diagnosticData.serviceWorker = 'Not supported';
+      }
+
+      // 3. Manifest
+      let manifestValid = false;
+      try {
+        const manifestLink = document.querySelector('link[rel="manifest"]');
+        if (manifestLink) {
+          const response = await fetch(manifestLink.href);
+          const manifest = await response.json();
+          manifestValid = manifest && manifest.name && manifest.icons && manifest.icons.length > 0;
+          checks.push({
+            name: 'Manifest',
+            pass: manifestValid,
+            message: manifestValid ? 
+              `موجود (${manifest.name})` : 
+              'Manifest معتبر نیست'
+          });
+          diagnosticData.manifest = manifestValid ? manifest.name : 'Invalid';
+        } else {
+          checks.push({
+            name: 'Manifest',
+            pass: false,
+            message: 'فایل manifest.json یافت نشد'
+          });
+          diagnosticData.manifest = 'Not found';
+        }
+      } catch (e) {
+        checks.push({
+          name: 'Manifest',
+          pass: false,
+          message: 'خطا: ' + e.message
+        });
+        diagnosticData.manifest = 'Error: ' + e.message;
+      }
+
+      // 4. Icons
+      const iconsExist = await checkIcons();
+      checks.push({
+        name: 'آیکون‌ها',
+        pass: iconsExist,
+        message: iconsExist ? 'آیکون‌ها موجود هستند' : 'آیکون‌ها یافت نشدند'
+      });
+
+      // 5. Already Installed
+      if (device.isStandalone) {
+        checks.push({
+          name: 'نصب شده',
+          pass: true,
+          message: 'اپلیکیشن قبلاً نصب شده است ✅'
+        });
+      }
+
+      // 6. Browser Support
+      const browserSupported = (device.platform === 'Android' && device.browser === 'Chrome') ||
+                              (device.platform === 'iOS' && device.browser === 'Safari');
+      checks.push({
+        name: 'پشتیبانی مرورگر',
+        pass: browserSupported,
+        message: browserSupported ? 
+          'مرورگر شما PWA را پشتیبانی می‌کند' : 
+          `برای ${device.platform} باید از ${device.platform === 'iOS' ? 'Safari' : 'Chrome'} استفاده کنید`
+      });
+
+      diagnosticData.checks = checks;
+      renderChecks(checks);
+      return checks;
+    }
+
+    async function checkIcons() {
+      try {
+        const response = await fetch('/logo/applogo-192.png', { method: 'HEAD' });
+        return response.ok;
+      } catch {
+        return false;
+      }
+    }
+
+    function renderChecks(checks) {
+      const html = checks.map(check => `
+        <div class="check-item ${check.pass ? 'pass' : 'fail'}">
+          <span><strong>${check.name}:</strong> ${check.message}</span>
+          <span class="status-badge ${check.pass ? 'pass' : 'fail'}">
+            ${check.pass ? '✓' : '✗'}
+          </span>
+        </div>
+      `).join('');
+
+      document.getElementById('checks-container').innerHTML = html;
+
+      // Check if all critical checks pass
+      const criticalChecks = checks.filter(c => 
+        c.name === 'HTTPS' || c.name === 'Service Worker' || c.name === 'Manifest'
+      );
+      const allCriticalPass = criticalChecks.every(c => c.pass);
+
+      if (allCriticalPass && !detectDevice().isStandalone) {
+        // Show install button
+        document.getElementById('install-section').style.display = 'block';
+      }
+
+      // Show manual instructions
+      showManualInstructions();
+    }
+
+    function showManualInstructions() {
+      const device = detectDevice();
+      let html = '';
+
+      if (device.isStandalone) {
+        html = `
+          <div class="success-box">
+            <h3 style="color: #51cf66; margin-bottom: 10px;">✅ اپلیکیشن نصب شده است!</h3>
+            <p>حالا می‌توانید به dashboard بروید و نوتیفیکیشن‌ها را فعال کنید:</p>
+            <button onclick="location.href='/dashboard'" style="margin-top: 10px;">
+              📊 رفتن به Dashboard
+            </button>
+          </div>
+        `;
+      } else if (device.platform === 'Android' && device.browser !== 'Chrome') {
+        html = `
+          <div class="error-box">
+            <h3 style="color: #ff6b6b; margin-bottom: 10px;">⚠️ مرورگر نامناسب</h3>
+            <p>برای نصب PWA روی Android، باید از <strong>Google Chrome</strong> استفاده کنید.</p>
+            <ol style="margin-top: 10px; padding-right: 20px;">
+              <li>Chrome را باز کنید</li>
+              <li>این لینک را کپی کنید: <code>https://www.doocardbarbershop.com</code></li>
+              <li>در Chrome Paste کنید و بازکنید</li>
+            </ol>
+          </div>
+        `;
+      } else if (device.platform === 'iOS' && device.browser !== 'Safari') {
+        html = `
+          <div class="error-box">
+            <h3 style="color: #ff6b6b; margin-bottom: 10px;">⚠️ مرورگر نامناسب</h3>
+            <p>برای نصب PWA روی iOS، باید از <strong>Safari</strong> استفاده کنید.</p>
+            <ol style="margin-top: 10px; padding-right: 20px;">
+              <li>Safari را باز کنید</li>
+              <li>این لینک را کپی کنید: <code>https://www.doocardbarbershop.com</code></li>
+              <li>در Safari Paste کنید و باز کنید</li>
+            </ol>
+          </div>
+        `;
+      } else if (device.platform === 'Android') {
+        html = `
+          <div class="info-box">
+            <h3 style="color: #ffd93d; margin-bottom: 10px;">📱 راهنمای نصب Android</h3>
+            <ol style="padding-right: 20px; line-height: 1.8;">
+              <li><span class="step-number">1</span>روی آیکون منو <code>⋮</code> (سه نقطه) در گوشه بالا کلیک کنید</li>
+              <li><span class="step-number">2</span>گزینه <code>"Add to Home screen"</code> یا <code>"Install app"</code> را انتخاب کنید</li>
+              <li><span class="step-number">3</span>در پنجره باز شده، <code>"Add"</code> را بزنید</li>
+              <li><span class="step-number">4</span>آیکون Doocard در صفحه اصلی ایجاد می‌شود</li>
+              <li><span class="step-number">5</span>از آیکون صفحه اصلی باز کنید (نه از Chrome!)</li>
+            </ol>
+          </div>
+        `;
+      } else if (device.platform === 'iOS') {
+        html = `
+          <div class="info-box">
+            <h3 style="color: #ffd93d; margin-bottom: 10px;">🍎 راهنمای نصب iOS</h3>
+            <ol style="padding-right: 20px; line-height: 1.8;">
+              <li><span class="step-number">1</span>روی آیکون Share <code>⎋</code> در پایین صفحه کلیک کنید</li>
+              <li><span class="step-number">2</span>پایین scroll کنید و <code>"Add to Home Screen"</code> را پیدا کنید</li>
+              <li><span class="step-number">3</span>روی <code>"Add"</code> کلیک کنید</li>
+              <li><span class="step-number">4</span>آیکون Doocard در Home Screen ایجاد می‌شود</li>
+              <li><span class="step-number">5</span>از آیکون Home Screen باز کنید (نه از Safari!)</li>
+            </ol>
+          </div>
+        `;
+      }
+
+      document.getElementById('instructions-content').innerHTML = html;
+    }
+
+    // Listen for beforeinstallprompt event
+    window.addEventListener('beforeinstallprompt', (e) => {
+      console.log('beforeinstallprompt fired');
+      e.preventDefault();
+      deferredPrompt = e;
+      document.getElementById('install-section').style.display = 'block';
+      diagnosticData.beforeInstallPrompt = 'Fired';
+    });
+
+    // Install button click
+    document.getElementById('install-btn').addEventListener('click', async () => {
+      if (!deferredPrompt) {
+        alert('لطفاً از منوی Chrome (⋮) گزینه "Add to Home screen" را انتخاب کنید');
+        return;
+      }
+
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`User response: ${outcome}`);
+      diagnosticData.installOutcome = outcome;
+
+      if (outcome === 'accepted') {
+        alert('🎉 اپلیکیشن با موفقیت نصب شد!\n\nحالا از آیکون صفحه اصلی باز کنید.');
+      } else {
+        alert('⚠️ نصب لغو شد.\n\nبرای نصب دستی، از منوی Chrome استفاده کنید.');
+      }
+
+      deferredPrompt = null;
+      updateDiagnostics();
+    });
+
+    // App installed
+    window.addEventListener('appinstalled', (e) => {
+      console.log('App installed');
+      alert('✅ اپلیکیشن با موفقیت نصب شد!\n\nحالا از آیکون صفحه اصلی باز کنید.');
+      diagnosticData.appInstalled = true;
+      updateDiagnostics();
+      setTimeout(() => location.reload(), 1000);
+    });
+
+    function updateDiagnostics() {
+      document.getElementById('diagnostics').textContent = JSON.stringify(diagnosticData, null, 2);
+    }
+
+    function copyDiagnostics() {
+      const text = JSON.stringify(diagnosticData, null, 2);
+      navigator.clipboard.writeText(text).then(() => {
+        alert('✅ اطلاعات کپی شد!');
+      });
+    }
+
+    // Initialize
+    window.addEventListener('load', async () => {
+      detectDevice();
+      await checkInstallability();
+      updateDiagnostics();
+    });
+  </script>
+</body>
+</html>
+

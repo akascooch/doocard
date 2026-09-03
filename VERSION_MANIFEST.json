@@ -1,0 +1,60 @@
+{
+    "project":  "Doocard",
+    "version":  "v.2.0.4",
+    "createdAt":  "2026-07-26T13:50:35+03:30",
+    "packageType":  "source-based-offline",
+    "verificationMode":  "exact-per-file-sha256-inventory",
+    "sourceTarballPath":  "/tmp/doocard-v204-source.tgz",
+    "sourceTarballSha256":  "8c2eb03d9259c1b703c0bfe552a29eb84b5d2145d30a045e2f6d08701944bf49",
+    "sourcePaths":  {
+                        "backend":  "/var/www/doocard/backend",
+                        "frontend":  "/var/www/doocard/frontend",
+                        "root":  "/var/www/doocard"
+                    },
+    "destinationPath":  "C:\\scooch\\Versions\\v.2.0.4",
+    "nodeVersion":  "v20.11.1",
+    "npmVersion":  "10.2.4",
+    "databaseIncluded":  false,
+    "secretsIncluded":  false,
+    "devAllScriptStatus":  {
+                               "existsOnProductionSource":  false,
+                               "rootPackageScripts":  null,
+                               "backendEquivalent":  "start:dev",
+                               "frontendEquivalent":  "dev",
+                               "orchestratorInvented":  false
+                           },
+    "fileCounts":  {
+                       "files":  734,
+                       "directories":  282,
+                       "inventoryEntries":  1016
+                   },
+    "totalBytes":  32707950,
+    "comparisonResult":  {
+                             "missing":  0,
+                             "extra":  0,
+                             "typeMismatch":  0,
+                             "sizeMismatch":  0,
+                             "hashMismatch":  0,
+                             "exactMatch":  true
+                         },
+    "forbiddenContentCheck":  {
+                                  "realEnvFiles":  "absent",
+                                  "node_modules":  "absent",
+                                  "dist":  "absent",
+                                  "nextBuild":  "absent",
+                                  "dumpsDbBackups":  "absent",
+                                  "status":  "clean"
+                              },
+    "verification":  {
+                         "tarballShaVerified":  true,
+                         "destinationMatchedTarballExactly":  true,
+                         "overwritePerformed":  false,
+                         "deletePerformed":  false,
+                         "docsCreatedAfterVerification":  true
+                     },
+    "notes":  [
+                  "Destination verified against approved production-derived tarball without re-extraction into destination.",
+                  "Documentation files added only after exact match succeeded.",
+                  "npm run dev:all does not exist on production source and was not added."
+              ]
+}

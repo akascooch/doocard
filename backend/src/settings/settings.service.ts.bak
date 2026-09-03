@@ -1,0 +1,737 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import * as bcrypt from 'bcrypt';
+import * as fs from 'fs';
+import * as path from 'path';
+
+@Injectable()
+export class SettingsService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async getLogo() {
+    try {
+      const logoSetting = await this.prisma.setting.findUnique({
+        where: { key: 'logo_path' }
+      });
+
+      if (logoSetting && logoSetting.value) {
+        return { 
+          path: logoSetting.value,
+          exists: fs.existsSync(path.join(process.cwd(), 'uploads', 'logos', path.basename(logoSetting.value)))
+        };
+      }
+
+      // Return default logo
+      return { 
+        path: '/uploads/logos/default-logo.png',
+        exists: true,
+        isDefault: true
+      };
+    } catch (error) {
+      console.error('Error getting logo:', error);
+      return { 
+        path: '/uploads/logos/default-logo.png',
+        exists: true,
+        isDefault: true
+      };
+    }
+  }
+
+  async uploadLogo(file: Express.Multer.File) {
+    try {
+      // Create uploads directory if it doesn't exist
+      const uploadsDir = path.join(process.cwd(), 'uploads', 'logos');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      // Generate unique filename
+      const timestamp = Date.now();
+      const fileExtension = path.extname(file.originalname);
+      const filename = `logo-${timestamp}${fileExtension}`;
+      const filePath = path.join(uploadsDir, filename);
+
+      // Save file
+      fs.writeFileSync(filePath, file.buffer);
+
+      // Update database setting
+      const logoPath = `/uploads/logos/${filename}`;
+      
+      await this.prisma.setting.upsert({
+        where: { key: 'logo_path' },
+        update: { value: logoPath },
+        create: { key: 'logo_path', value: logoPath }
+      });
+
+      // Update other logo-related settings
+      await this.prisma.setting.upsert({
+        where: { key: 'logo_filename' },
+        update: { value: filename },
+        create: { key: 'logo_filename', value: filename }
+      });
+
+      await this.prisma.setting.upsert({
+        where: { key: 'logo_uploaded_at' },
+        update: { value: new Date().toISOString() },
+        create: { key: 'logo_uploaded_at', value: new Date().toISOString() }
+      });
+
+      return {
+        success: true,
+        filename: filename,
+        path: logoPath,
+        message: 'لوگو با موفقیت آپلود شد'
+      };
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      throw new Error('خطا در آپلود لوگو');
+    }
+  }
+
+  async deleteLogo() {
+    try {
+      const logoSetting = await this.prisma.setting.findUnique({
+        where: { key: 'logo_path' }
+      });
+
+      if (logoSetting && logoSetting.value) {
+        // Delete file
+        const filePath = path.join(process.cwd(), logoSetting.value);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+
+        // Delete from database
+        await this.prisma.setting.deleteMany({
+          where: {
+            key: { in: ['logo_path', 'logo_filename', 'logo_uploaded_at'] }
+          }
+        });
+
+        return {
+          success: true,
+          message: 'لوگو با موفقیت حذف شد'
+        };
+      }
+
+      return {
+        success: false,
+        message: 'لوگویی برای حذف یافت نشد'
+      };
+    } catch (error) {
+      console.error('Error deleting logo:', error);
+      throw new Error('خطا در حذف لوگو');
+    }
+  }
+
+  async getLogoInfo() {
+    try {
+      const logoPath = await this.prisma.setting.findUnique({
+        where: { key: 'logo_path' }
+      });
+
+      const logoFilename = await this.prisma.setting.findUnique({
+        where: { key: 'logo_filename' }
+      });
+
+      const logoUploadedAt = await this.prisma.setting.findUnique({
+        where: { key: 'logo_uploaded_at' }
+      });
+
+      if (logoPath && logoPath.value) {
+        const filePath = path.join(process.cwd(), logoPath.value);
+        const stats = fs.existsSync(filePath) ? fs.statSync(filePath) : null;
+
+        return {
+          path: logoPath.value,
+          filename: logoFilename?.value || '',
+          uploadedAt: logoUploadedAt?.value || '',
+          size: stats ? stats.size : 0,
+          exists: !!stats
+        };
+      }
+
+      return {
+        path: '/uploads/logos/default-logo.png',
+        filename: 'default-logo.png',
+        uploadedAt: '',
+        size: 0,
+        exists: true,
+        isDefault: true
+      };
+    } catch (error) {
+      console.error('Error getting logo info:', error);
+      return {
+        path: '/uploads/logos/default-logo.png',
+        filename: 'default-logo.png',
+        uploadedAt: '',
+        size: 0,
+        exists: true,
+        isDefault: true
+      };
+    }
+  }
+
+  async resetDatabase() {
+    try {
+      console.log('🔄 شروع ریست کامل سیستم...');
+      
+      // 1. پاک کردن تمام داده‌ها (به ترتیب صحیح برای جلوگیری از خطای foreign key)
+      console.log('🗑️ پاک کردن تمام داده‌ها...');
+      
+      // Delete in correct order to avoid foreign key constraint violations
+      try {
+        await this.prisma.tipTransaction.deleteMany();
+        console.log('✅ Tip transactions deleted');
+      } catch (e) {
+        console.log('⚠️ No tip transactions to delete or error:', e.message);
+      }
+      
+      try {
+        await this.prisma.transaction.deleteMany();
+        console.log('✅ Transactions deleted');
+      } catch (e) {
+        console.log('⚠️ No transactions to delete or error:', e.message);
+      }
+      
+      try {
+        await this.prisma.appointmentService.deleteMany();
+        console.log('✅ Appointment services deleted');
+      } catch (e) {
+        console.log('⚠️ No appointment services to delete or error:', e.message);
+      }
+      
+      try {
+        await this.prisma.appointment.deleteMany();
+        console.log('✅ Appointments deleted');
+      } catch (e) {
+        console.log('⚠️ No appointments to delete or error:', e.message);
+      }
+      
+      try {
+        await this.prisma.bankAccount.deleteMany();
+        console.log('✅ Bank accounts deleted');
+      } catch (e) {
+        console.log('⚠️ No bank accounts to delete or error:', e.message);
+      }
+      
+      // TODO: Accounting functionality temporarily disabled
+      // try {
+      //   await this.prisma.financialEntry.deleteMany();
+      //   console.log('✅ Financial entries deleted');
+      // } catch (e) {
+      //   console.log('⚠️ No financial entries to delete or error:', e.message);
+      // }
+      
+      try {
+        await this.prisma.barberWithdrawalRequest.deleteMany();
+        console.log('✅ Barber withdrawal requests deleted');
+      } catch (e) {
+        console.log('⚠️ No barber withdrawal requests to delete or error:', e.message);
+      }
+      
+      try {
+        await this.prisma.salary.deleteMany();
+        console.log('✅ Salaries deleted');
+      } catch (e) {
+        console.log('⚠️ No salaries to delete or error:', e.message);
+      }
+      
+      try {
+        await this.prisma.barber.deleteMany();
+        console.log('✅ Barbers deleted');
+      } catch (e) {
+        console.log('⚠️ No barbers to delete or error:', e.message);
+      }
+      
+      try {
+        await this.prisma.customer.deleteMany();
+        console.log('✅ Customers deleted');
+      } catch (e) {
+        console.log('⚠️ No customers to delete or error:', e.message);
+      }
+      
+      try {
+        await this.prisma.service.deleteMany();
+        console.log('✅ Services deleted');
+      } catch (e) {
+        console.log('⚠️ No services to delete or error:', e.message);
+      }
+      
+      // Delete many-to-many relationship table
+      try {
+        await this.prisma.$executeRaw`DELETE FROM "_BarberToService"`;
+        console.log('✅ Barber-Service relationships deleted');
+      } catch (e) {
+        console.log('⚠️ No barber-service relationships to delete or error:', e.message);
+      }
+      
+      // TODO: Accounting functionality temporarily disabled
+      // try {
+      //   await this.prisma.financialCategory.deleteMany();
+      //   console.log('✅ Financial categories deleted');
+      // } catch (e) {
+      //   console.log('⚠️ No financial categories to delete or error:', e.message);
+      // }
+      
+      try {
+        await this.prisma.profile.deleteMany();
+        console.log('✅ Profiles deleted');
+      } catch (e) {
+        console.log('⚠️ No profiles to delete or error:', e.message);
+      }
+      
+      try {
+        await this.prisma.smsLog.deleteMany();
+        console.log('✅ SMS logs deleted');
+      } catch (e) {
+        console.log('⚠️ No SMS logs to delete or error:', e.message);
+      }
+      
+      try {
+        await this.prisma.smsTemplate.deleteMany();
+        console.log('✅ SMS templates deleted');
+      } catch (e) {
+        console.log('⚠️ No SMS templates to delete or error:', e.message);
+      }
+      
+      try {
+        await this.prisma.smsSettings.deleteMany();
+        console.log('✅ SMS settings deleted');
+      } catch (e) {
+        console.log('⚠️ No SMS settings to delete or error:', e.message);
+      }
+      
+      try {
+        await this.prisma.setting.deleteMany();
+        console.log('✅ Settings deleted');
+      } catch (e) {
+        console.log('⚠️ No settings to delete or error:', e.message);
+      }
+      
+      try {
+        await this.prisma.permission.deleteMany();
+        console.log('✅ Permissions deleted');
+      } catch (e) {
+        console.log('⚠️ No permissions to delete or error:', e.message);
+      }
+      
+      try {
+        await this.prisma.user.deleteMany();
+        console.log('✅ Users deleted');
+      } catch (e) {
+        console.log('⚠️ No users to delete or error:', e.message);
+      }
+      
+      console.log('✅ تمام داده‌ها پاک شدند');
+      
+      // 2. ایجاد کاربر ادمین
+      console.log('👤 ایجاد کاربر ادمین...');
+      
+      const password = '123456';
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const admin = await this.prisma.user.create({
+        data: {
+          email: 'admin@example.com',
+          password: hashedPassword,
+          firstName: 'مدیر',
+          lastName: 'سیستم',
+          phoneNumber: '09120000000',
+          role: 'ADMIN',
+          updatedAt: new Date(),
+        },
+      });
+
+      console.log('✅ کاربر ادمین ایجاد شد');
+      
+      // 3. ایجاد تنظیمات اولیه SMS
+      console.log('📱 ایجاد تنظیمات اولیه SMS...');
+      
+      await this.prisma.smsSettings.create({
+        data: {
+          apiKey: '',
+          lineNumber: '',
+          isEnabled: false,
+          sendBeforeAppointment: 60,
+          sendAfterAppointment: 0,
+          defaultMessage: '',
+          updatedAt: new Date(),
+        },
+      });
+
+      console.log('✅ تنظیمات SMS ایجاد شد');
+      
+      // 4. ایجاد دسته‌بندی‌های مالی اولیه
+      console.log('💰 ایجاد دسته‌بندی‌های مالی اولیه...');
+      
+      // TODO: Accounting functionality temporarily disabled
+      // await this.prisma.financialCategory.createMany({
+      //   data: [
+      //     {
+      //       name: 'درآمد خدمات',
+      //       type: 'INCOME',
+      //       description: 'درآمد حاصل از ارائه خدمات آرایشگری',
+      //       updatedAt: new Date(),
+      //     },
+      //     {
+      //       name: 'فروش محصولات',
+      //       type: 'INCOME',
+      //       description: 'درآمد حاصل از فروش محصولات آرایشی',
+      //       updatedAt: new Date(),
+      //     },
+      //     {
+      //       name: 'حقوق و دستمزد',
+      //       type: 'EXPENSE',
+      //       description: 'پرداخت حقوق به کارکنان',
+      //       updatedAt: new Date(),
+      //     },
+      //     {
+      //       name: 'اجاره',
+      //       type: 'EXPENSE',
+      //       description: 'هزینه اجاره ماهانه',
+      //       updatedAt: new Date(),
+      //     },
+      //     {
+      //       name: 'قبوض',
+      //       type: 'EXPENSE',
+      //       description: 'هزینه آب، برق، گاز و تلفن',
+      //       updatedAt: new Date(),
+      //     },
+      //     {
+      //       name: 'خرید لوازم مصرفی',
+      //       type: 'EXPENSE',
+      //       description: 'خرید مواد و لوازم مصرفی آرایشگاه',
+      //       updatedAt: new Date(),
+      //     },
+      //   ],
+      // });
+
+      // console.log('✅ دسته‌بندی‌های مالی ایجاد شدند');
+      
+      return {
+        success: true,
+        message: 'ریست کامل با موفقیت انجام شد',
+        adminUser: {
+          email: admin.email,
+          password: password,
+        },
+      };
+      
+    } catch (error) {
+      console.error('❌ خطا در ریست کامل:', error);
+      throw error;
+    }
+  }
+
+  async createBackup() {
+    try {
+      console.log('🔄 شروع ایجاد پشتیبان کامل...');
+      
+      const backupData = {
+        timestamp: new Date().toISOString(),
+        version: '1.0.0',
+        database: 'MOVA',
+        tables: {}
+      };
+
+      // Backup Users
+      console.log('📋 پشتیبان‌گیری از کاربران...');
+      backupData.tables['users'] = await this.prisma.user.findMany({
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          phoneNumber: true,
+          role: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
+        }
+      });
+
+      // Backup Customers
+      console.log('📋 پشتیبان‌گیری از مشتریان...');
+      backupData.tables['customers'] = await this.prisma.customer.findMany();
+
+      // Backup Barbers
+      console.log('📋 پشتیبان‌گیری از آرایشگران...');
+      backupData.tables['barbers'] = await this.prisma.barber.findMany();
+
+      // Backup Services
+      console.log('📋 پشتیبان‌گیری از خدمات...');
+      backupData.tables['services'] = await this.prisma.service.findMany();
+
+      // Backup Appointments
+      console.log('📋 پشتیبان‌گیری از نوبت‌ها...');
+      backupData.tables['appointments'] = await this.prisma.appointment.findMany();
+
+      // Backup Financial Categories
+      console.log('📋 پشتیبان‌گیری از دسته‌بندی‌های مالی...');
+      // TODO: Accounting functionality temporarily disabled
+      // backupData.tables['financialCategories'] = await this.prisma.financialCategory.findMany();
+
+      // Backup Financial Entries
+      console.log('📋 پشتیبان‌گیری از ورودی‌های مالی...');
+      // TODO: Accounting functionality temporarily disabled
+      // backupData.tables['financialEntries'] = await this.prisma.financialEntry.findMany();
+
+      // Backup Bank Accounts
+      console.log('📋 پشتیبان‌گیری از حساب‌های بانکی...');
+      backupData.tables['bankAccounts'] = await this.prisma.bankAccount.findMany();
+
+      // Backup Transactions
+      console.log('📋 پشتیبان‌گیری از تراکنش‌ها...');
+      backupData.tables['transactions'] = await this.prisma.transaction.findMany();
+
+      // Backup SMS Settings
+      console.log('📋 پشتیبان‌گیری از تنظیمات SMS...');
+      backupData.tables['smsSettings'] = await this.prisma.smsSettings.findMany();
+
+      // Backup Permissions
+      console.log('📋 پشتیبان‌گیری از دسترسی‌ها...');
+      backupData.tables['permissions'] = await this.prisma.permission.findMany();
+
+      // Backup Barber-Service Relationships
+      console.log('📋 پشتیبان‌گیری از روابط آرایشگر-خدمات...');
+      backupData.tables['barberServices'] = await this.prisma.$queryRaw`
+        SELECT * FROM "_BarberToService"
+      `;
+
+      console.log('✅ پشتیبان کامل ایجاد شد');
+      
+      return backupData;
+    } catch (error) {
+      console.error('❌ خطا در ایجاد پشتیبان:', error);
+      throw new Error('خطا در ایجاد پشتیبان');
+    }
+  }
+
+  async restoreBackup(backupData: any) {
+    try {
+      console.log('🔄 شروع بازیابی از پشتیبان...');
+      
+      // Validate backup data
+      if (!backupData.tables || !backupData.timestamp) {
+        throw new Error('فایل پشتیبان نامعتبر است');
+      }
+
+      // Start transaction
+      await this.prisma.$transaction(async (prisma) => {
+        // Clear existing data first
+        console.log('🗑️ پاک کردن داده‌های موجود...');
+        await this.clearAllData(prisma);
+
+        // Restore Users
+        if (backupData.tables.users) {
+          console.log('📋 بازیابی کاربران...');
+          for (const user of backupData.tables.users) {
+            // Hash password if it exists, otherwise use default
+            const password = user.password || '123456';
+            const hashedPassword = await bcrypt.hash(password, 10);
+            
+            await prisma.user.create({
+              data: {
+                ...user,
+                password: hashedPassword,
+              }
+            });
+          }
+        }
+
+        // Restore Customers
+        if (backupData.tables.customers) {
+          console.log('📋 بازیابی مشتریان...');
+          await prisma.customer.createMany({
+            data: backupData.tables.customers
+          });
+        }
+
+        // Restore Barbers
+        if (backupData.tables.barbers) {
+          console.log('📋 بازیابی آرایشگران...');
+          await prisma.barber.createMany({
+            data: backupData.tables.barbers
+          });
+        }
+
+        // Restore Services
+        if (backupData.tables.services) {
+          console.log('📋 بازیابی خدمات...');
+          await prisma.service.createMany({
+            data: backupData.tables.services
+          });
+        }
+
+        // Restore Financial Categories
+        if (backupData.tables.financialCategories) {
+          console.log('📋 بازیابی دسته‌بندی‌های مالی...');
+          // TODO: Accounting functionality temporarily disabled
+          // await prisma.financialCategory.createMany({
+            // data: backupData.tables.financialCategories
+          // });
+        }
+
+        // Restore Bank Accounts (BEFORE financial entries to avoid FK constraint)
+        if (backupData.tables.bankAccounts && backupData.tables.bankAccounts.length > 0) {
+          console.log('📋 بازیابی حساب‌های بانکی...');
+          console.log(`📊 تعداد حساب‌های بانکی: ${backupData.tables.bankAccounts.length}`);
+          await prisma.bankAccount.createMany({
+            data: backupData.tables.bankAccounts
+          });
+        }
+
+        // Restore Financial Entries (AFTER bank accounts)
+        if (backupData.tables.financialEntries && backupData.tables.financialEntries.length > 0) {
+          console.log('📋 بازیابی ورودی‌های مالی...');
+          console.log(`📊 تعداد ورودی‌های مالی: ${backupData.tables.financialEntries.length}`);
+          
+          // بررسی و فیلتر کردن ورودی‌هایی که bankAccountId معتبر دارند
+          const validEntries = backupData.tables.financialEntries.filter(entry => {
+            if (entry.bankAccountId) {
+              const bankAccountExists = backupData.tables.bankAccounts?.some(
+                bank => bank.id === entry.bankAccountId
+              );
+              if (!bankAccountExists) {
+                console.log(`⚠️ ورودی مالی با ID ${entry.id} حذف شد - bankAccountId نامعتبر: ${entry.bankAccountId}`);
+                return false;
+              }
+            }
+            return true;
+          });
+          
+          if (validEntries.length > 0) {
+            // TODO: Accounting functionality temporarily disabled
+            // await prisma.financialEntry.createMany({
+              // data: validEntries
+            // });
+            console.log(`✅ ${validEntries.length} ورودی مالی با موفقیت بازیابی شد`);
+          } else {
+            console.log('⚠️ هیچ ورودی مالی معتبری برای بازیابی یافت نشد');
+          }
+        }
+
+        // Restore Appointments (BEFORE transactions)
+        if (backupData.tables.appointments && backupData.tables.appointments.length > 0) {
+          console.log('📋 بازیابی نوبت‌ها...');
+          console.log(`📊 تعداد نوبت‌ها: ${backupData.tables.appointments.length}`);
+          await prisma.appointment.createMany({
+            data: backupData.tables.appointments
+          });
+        }
+
+        // Restore Transactions (AFTER appointments)
+        if (backupData.tables.transactions && backupData.tables.transactions.length > 0) {
+          console.log('📋 بازیابی تراکنش‌ها...');
+          console.log(`📊 تعداد تراکنش‌ها: ${backupData.tables.transactions.length}`);
+          await prisma.transaction.createMany({
+            data: backupData.tables.transactions
+          });
+        }
+
+        // Restore SMS Settings
+        if (backupData.tables.smsSettings) {
+          console.log('📋 بازیابی تنظیمات SMS...');
+          await prisma.smsSettings.createMany({
+            data: backupData.tables.smsSettings
+          });
+        }
+
+        // Restore Permissions
+        if (backupData.tables.permissions) {
+          console.log('📋 بازیابی دسترسی‌ها...');
+          await prisma.permission.createMany({
+            data: backupData.tables.permissions
+          });
+        }
+
+        // Restore Barber-Service Relationships
+        if (backupData.tables.barberServices) {
+          console.log('📋 بازیابی روابط آرایشگر-خدمات...');
+          for (const relation of backupData.tables.barberServices) {
+            await prisma.$executeRaw`
+              INSERT INTO "_BarberToService" ("A", "B") VALUES (${relation.A}, ${relation.B})
+            `;
+          }
+        }
+      });
+
+      console.log('✅ بازیابی از پشتیبان با موفقیت انجام شد');
+      
+      return {
+        success: true,
+        message: 'بازیابی از پشتیبان با موفقیت انجام شد',
+        timestamp: backupData.timestamp,
+        recordsRestored: Object.keys(backupData.tables).length
+      };
+    } catch (error) {
+      console.error('❌ خطا در بازیابی از پشتیبان:', error);
+      throw new Error('خطا در بازیابی از پشتیبان');
+    }
+  }
+
+  private async clearAllData(prisma: any) {
+    // Clear data in correct order to avoid foreign key constraint violations
+    await prisma.tipTransaction.deleteMany();
+    await prisma.transaction.deleteMany();
+    await prisma.appointmentService.deleteMany();
+    await prisma.appointment.deleteMany();
+    await prisma.bankAccount.deleteMany();
+    // TODO: Accounting functionality temporarily disabled
+    // await prisma.financialEntry.deleteMany();
+    await prisma.barberWithdrawalRequest.deleteMany();
+    await prisma.salary.deleteMany();
+    await prisma.barber.deleteMany();
+    await prisma.customer.deleteMany();
+    await prisma.service.deleteMany();
+    // TODO: Accounting functionality temporarily disabled
+    // await prisma.financialCategory.deleteMany();
+    await prisma.profile.deleteMany();
+    await prisma.smsLog.deleteMany();
+    await prisma.smsTemplate.deleteMany();
+    await prisma.smsSettings.deleteMany();
+    await prisma.setting.deleteMany();
+    await prisma.permission.deleteMany();
+    await prisma.user.deleteMany();
+    
+    // Clear many-to-many relationships
+    await prisma.$executeRaw`DELETE FROM "_BarberToService"`;
+  }
+
+  async getBackupInfo() {
+    try {
+      const counts = {
+        users: await this.prisma.user.count(),
+        customers: await this.prisma.customer.count(),
+        barbers: await this.prisma.barber.count(),
+        services: await this.prisma.service.count(),
+        appointments: await this.prisma.appointment.count(),
+        // TODO: Accounting functionality temporarily disabled
+        // financialEntries: await this.prisma.financialEntry.count(),
+        transactions: await this.prisma.transaction.count(),
+      };
+
+      return {
+        totalRecords: Object.values(counts).reduce((a, b) => a + b, 0),
+        tableCounts: counts,
+        lastBackup: null, // TODO: Implement backup history
+        databaseSize: await this.getDatabaseSize(),
+      };
+    } catch (error) {
+      console.error('❌ خطا در دریافت اطلاعات پشتیبان:', error);
+      throw new Error('خطا در دریافت اطلاعات پشتیبان');
+    }
+  }
+
+  private async getDatabaseSize() {
+    try {
+      const result = await this.prisma.$queryRaw`
+        SELECT pg_size_pretty(pg_database_size(current_database())) as size
+      `;
+      return result[0]?.size || 'Unknown';
+    } catch (error) {
+      return 'Unknown';
+    }
+  }
+}

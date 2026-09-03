@@ -1,0 +1,446 @@
+"use client"
+
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Calendar, Phone, MapPin, Mail, Scissors, Sparkles, Users, Star, Heart, Brush, Crown, Smile, X } from 'lucide-react'
+import Link from 'next/link'
+import { initializeRouterStateCleanup } from '@/lib/clearRouterState'
+import { initializeCacheClearing } from '@/lib/clearBrowserCache'
+import { AppLogo } from '@/components/common/AppLogo'
+import Footer from '@/components/Footer'
+
+interface HomepageDetails {
+  about?: string
+  products?: string
+  contact?: string
+}
+
+export default function HomePage() {
+  const [homepageDetails, setHomepageDetails] = useState<HomepageDetails>({})
+  const [loading, setLoading] = useState(true)
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false)
+
+  useEffect(() => {
+    initializeCacheClearing()
+    initializeRouterStateCleanup()
+    fetchHomepageDetails()
+  }, [])
+
+  const fetchHomepageDetails = async () => {
+    try {
+      const response = await fetch('/api/homepage')
+      if (response.ok) {
+        const data = await response.json()
+        setHomepageDetails(data)
+      }
+    } catch (error) {
+      console.error('Error fetching homepage details:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Removed loading screen - show content immediately
+  // if (loading) {
+  //   return (
+  //     <div className="min-h-screen bg-background flex items-center justify-center">
+  //       <div className="text-center">
+  //         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+  //         <p className="text-muted-foreground">در حال بارگذاری...</p>
+  //       </div>
+  //     </div>
+  //   )
+  // }
+
+  const services = [
+    {
+      title: "اصلاح مو",
+      description: "اصلاح تخصصی مو با توجه به فرم صورت و استایل شخصی شما",
+      icon: <Scissors className="h-6 w-6 text-primary" />
+    },
+    {
+      title: "اصلاح ریش",
+      description: "اصلاح، فرم‌دهی و مدل ریش با دقت و ابزار حرفه‌ای",
+      icon: <Star className="h-6 w-6 text-primary" />
+    },
+    {
+      title: "خدمات تخصصی ناخن",
+      description: "ترمیم، کاشت و طراحی تخصصی ناخن با مواد باکیفیت",
+      icon: <Sparkles className="h-6 w-6 text-primary" />
+    },
+    {
+      title: "خدمات داماد",
+      description: "پکیج کامل آرایش، پوست و مو مخصوص روز عروسی",
+      icon: <Crown className="h-6 w-6 text-primary" />
+    },
+    {
+      title: "احیا مو",
+      description: "کراتین، بوتاکس و تراپی مو برای بازگرداندن درخشندگی طبیعی",
+      icon: <Heart className="h-6 w-6 text-primary" />
+    },
+    {
+      title: "رنگ مو",
+      description: "انواع رنگ، لایت، بالیاژ و ترکیب‌های اختصاصی با برندهای معتبر",
+      icon: <Brush className="h-6 w-6 text-primary" />
+    },
+    {
+      title: "استایل مو",
+      description: "مدل‌دهی و طراحی نهایی مو برای هر موقعیت خاص",
+      icon: <Users className="h-6 w-6 text-primary" />
+    },
+    {
+      title: "مراقبت و پاکسازی تخصصی پوست صورت",
+      description: "پاکسازی عمقی پوست، آبرسانی و فیشیال تخصصی",
+      icon: <Smile className="h-6 w-6 text-primary" />
+    },
+  ]
+
+  return (
+    <div className="min-h-screen w-screen max-w-full overflow-x-hidden">
+      {/* Header */}
+      <header className="bg-transparent border-b border-border w-full">
+        <div className="w-full max-w-full px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4 sm:py-6 max-w-7xl mx-auto">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0">
+                <AppLogo size="sm" animated={false} />
+              </div>
+              <h1 className="text-base sm:text-lg md:text-xl font-bold text-foreground truncate"> دوکارد </h1>
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+              <Link href="/login"><Button variant="outline" size="sm" className="text-xs sm:text-sm">ورود</Button></Link>
+              <Link href="/register"><Button size="sm" className="text-xs sm:text-sm">ثبت نام</Button></Link>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <section className="py-8 sm:py-12 md:py-20 text-center w-full">
+        <div className="w-full max-w-full px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 md:mb-6">
+              آرایشگاه مردانه <span className="text-white">دوکارد</span>
+            </h2>
+            <p className="text-sm sm:text-base md:text-xl text-white mb-4 sm:mb-6 md:mb-8 max-w-3xl mx-auto">
+              {homepageDetails.about || "مرکز تخصصی خدمات آرایشی با تیم حرفه‌ای و تجهیزات مدرن"}
+            </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/register">
+              <Button size="lg" className="text-lg px-8 py-3">
+                <Calendar className="ml-2 h-5 w-5" />
+                رزرو نوبت
+              </Button>
+            </Link>
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="text-lg px-8 py-3"
+              onClick={() => setIsContactModalOpen(true)}
+            >
+              <Phone className="ml-2 h-5 w-5" />
+              تماس با ما
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Services Section */}
+      <section className="py-8 sm:py-12 md:py-16 w-full">
+        <div className="w-full max-w-full px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-6 sm:mb-8 md:mb-12">
+              <h3 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-3 md:mb-4">خدمات ما</h3>
+              <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-2xl mx-auto px-4">
+                {homepageDetails.products || "مجموعه‌ای کامل از خدمات تخصصی زیبایی و مراقبتی"}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+              {services.map((service, index) => (
+                <Card key={index} className="border-border hover:shadow-lg transition-all">
+                  <CardHeader className="p-3 sm:p-4 md:p-6">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-2 sm:mb-3 md:mb-4 flex-shrink-0">
+                      {service.icon}
+                    </div>
+                    <CardTitle className="text-sm sm:text-base md:text-lg">{service.title}</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">{service.description}</CardDescription>
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* About Our Experience Section */}
+      <section className="py-8 sm:py-12 md:py-20 relative w-full overflow-hidden">
+        {/* Background decorative elements - hidden on mobile */}
+        <div className="absolute inset-0 opacity-5 hidden md:block">
+          <div className="absolute top-10 right-10 w-64 h-64 bg-primary rounded-full blur-3xl"></div>
+          <div className="absolute bottom-10 left-10 w-64 h-64 bg-secondary rounded-full blur-3xl"></div>
+        </div>
+
+        <div className="w-full max-w-full px-4 sm:px-6 lg:px-8">
+          <div className="max-w-6xl mx-auto relative z-10">
+            {/* Section Header */}
+            <div className="text-center mb-6 sm:mb-8 md:mb-12">
+              <div className="inline-flex items-center justify-center mb-4 sm:mb-6">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-full blur-md animate-pulse"></div>
+                  <div className="relative w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center shadow-2xl">
+                    <Scissors className="h-6 w-6 sm:h-8 sm:h-8 md:h-10 md:w-10 text-primary-foreground" />
+                  </div>
+                </div>
+              </div>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary mb-2 sm:mb-3 px-4">
+                بیش از ۴ دهه تجربه، یک برند معتبر
+              </h2>
+              <div className="w-16 sm:w-20 md:w-24 h-1 bg-gradient-to-r from-primary to-secondary mx-auto rounded-full"></div>
+            </div>
+
+            {/* Main Content Card */}
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-2xl sm:rounded-3xl blur-xl"></div>
+              <div className="relative bg-card/50 border border-border rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-10 lg:p-12 shadow-2xl backdrop-blur-sm">
+                {/* Text Content */}
+                <div className="space-y-4 sm:space-y-6 text-foreground leading-relaxed text-center">
+                  <p className="text-sm sm:text-base md:text-xl lg:text-2xl font-medium leading-loose">
+                    سالن آرایشگاه مردانه ما، با بیش از{' '}
+                    <span className="inline-block relative">
+                      <span className="relative z-10 font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary text-lg sm:text-xl md:text-2xl lg:text-3xl">
+                        ۴۰ سال تجربه
+                      </span>
+                      <span className="absolute bottom-0 left-0 right-0 h-2 sm:h-3 bg-primary/20 -z-0"></span>
+                    </span>
+                    {' '}در ارائه‌ی خدمات تخصصی اصلاح و پیرایش، همواره بر پایه‌ی اعتماد، کیفیت و رضایت مشتریان بنا شده است.
+                  </p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 my-6 sm:my-8">
+                    <div className="bg-card/50 border border-border rounded-xl sm:rounded-2xl p-4 sm:p-6 hover:border-primary/50 transition-all duration-300">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                        <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 text-primary-foreground" />
+                      </div>
+                      <p className="text-xs sm:text-sm md:text-base leading-loose">
+                        ما باور داریم که هر مراجعه، فرصتی‌ست برای ایجاد تجربه‌ای متفاوت؛ ترکیبی از سبک کلاسیک و مدرن با استفاده از بهترین مواد و جدیدترین تکنیک‌ها.
+                      </p>
+                    </div>
+                    
+                    <div className="bg-card/50 border border-border rounded-xl sm:rounded-2xl p-4 sm:p-6 hover:border-primary/50 transition-all duration-300">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                        <Crown className="h-5 w-5 sm:h-6 sm:w-6 text-primary-foreground" />
+                      </div>
+                      <p className="text-xs sm:text-sm md:text-base leading-loose">
+                        هدف ما، حفظ اصالت هنر پیرایش و ارائه‌ی تجربه‌ای خاص و راحت برای آقایان است.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              
+                {/* Stats Section */}
+                <div className="mt-12 pt-10 border-t border-border">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <div className="text-center group hover:scale-110 transition-transform duration-300">
+                    <div className="relative inline-block mb-3">
+                      <div className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-2xl blur-md group-hover:blur-lg transition-all"></div>
+                      <div className="relative bg-card rounded-2xl px-6 py-4 border border-border">
+                        <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">
+                          +۴۰
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-sm font-medium text-foreground uppercase tracking-wider">سال تجربه</div>
+                    <div className="text-xs text-muted-foreground mt-1">از سال ۱۳۶۳</div>
+                  </div>
+                  
+                  <div className="text-center group hover:scale-110 transition-transform duration-300">
+                    <div className="relative inline-block mb-3">
+                      <div className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-2xl blur-md group-hover:blur-lg transition-all"></div>
+                      <div className="relative bg-card rounded-2xl px-6 py-4 border border-border">
+                        <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">
+                          +۱۰۰۰
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-sm font-medium text-foreground uppercase tracking-wider">مشتری راضی</div>
+                    <div className="text-xs text-muted-foreground mt-1">اعتماد شما، افتخار ما</div>
+                  </div>
+                  
+                  <div className="text-center group hover:scale-110 transition-transform duration-300">
+                    <div className="relative inline-block mb-3">
+                      <div className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-2xl blur-md group-hover:blur-lg transition-all"></div>
+                      <div className="relative bg-card rounded-2xl px-6 py-4 border border-border">
+                        <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">
+                          ۸
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-sm font-medium text-foreground uppercase tracking-wider">خدمت تخصصی</div>
+                    <div className="text-xs text-muted-foreground mt-1">کیفیت برتر</div>
+                  </div>
+                </div>
+                </div>
+
+                {/* Features */}
+                <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center gap-3 bg-primary/10 border border-primary/20 rounded-xl p-4 hover:bg-primary/20 transition-colors">
+                  <div className="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Star className="h-5 w-5 text-primary-foreground" />
+                  </div>
+                  <div className="text-sm text-foreground">
+                    <div className="font-bold">کیفیت برتر</div>
+                    <div className="text-xs text-muted-foreground">استفاده از بهترین محصولات</div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3 bg-primary/10 border border-primary/20 rounded-xl p-4 hover:bg-primary/20 transition-colors">
+                  <div className="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Users className="h-5 w-5 text-primary-foreground" />
+                  </div>
+                  <div className="text-sm text-foreground">
+                    <div className="font-bold">آرایشگران مجرب</div>
+                    <div className="text-xs text-muted-foreground">تیم حرفه‌ای و متخصص</div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3 bg-primary/10 border border-primary/20 rounded-xl p-4 hover:bg-primary/20 transition-colors">
+                  <div className="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Heart className="h-5 w-5 text-primary-foreground" />
+                  </div>
+                  <div className="text-sm text-foreground">
+                    <div className="font-bold">رضایت ۱۰۰٪</div>
+                    <div className="text-xs text-muted-foreground">تجربه‌ای به یادماندنی</div>
+                  </div>
+                </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Contact Section */}
+      <section className="py-8 sm:py-12 md:py-16 bg-gray-100 text-center w-full">
+        <div className="w-full max-w-full px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-3 sm:mb-4 px-2">تماس با ما</h3>
+            <p className="text-sm sm:text-base text-gray-700 mb-6 sm:mb-8 max-w-2xl mx-auto px-4">
+              {homepageDetails.contact || "آماده پاسخگویی به سوالات و رزرو نوبت‌های شما هستیم"}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 md:gap-8 mb-6 sm:mb-8 text-gray-700">
+              <div className="px-2">
+                <Phone className="mx-auto mb-2 h-5 w-5 sm:h-6 sm:w-6 text-gray-700" />
+                <p className="text-xs sm:text-sm md:text-base font-medium">021-26353460</p>
+              </div>
+              <div className="px-2">
+                <MapPin className="mx-auto mb-2 h-5 w-5 sm:h-6 sm:w-6 text-gray-700" />
+                <p className="text-xs sm:text-sm md:text-base font-medium break-words leading-relaxed">تهران، خیابان فرشته، مجتمع سام سنتر ، طبقه پنجم ، واحد 103 ، آرایشگاه مردانه دوکارد</p>
+              </div>
+              <div className="px-2">
+                <Mail className="mx-auto mb-2 h-5 w-5 sm:h-6 sm:w-6 text-gray-700" />
+                <p className="text-xs sm:text-sm md:text-base font-medium break-all">milad.doocard@gmail.com</p>
+              </div>
+            </div>
+            <Link href="/register">
+              <Button size="sm" className="sm:size-lg text-sm sm:text-base md:text-lg px-6 sm:px-8 py-2 sm:py-3">
+                <Calendar className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
+                رزرو نوبت آنلاین
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <footer className="bg-card border-t border-border py-6 sm:py-8 text-center w-full">
+        <div className="w-full max-w-full px-4">
+          <div className="flex items-center justify-center mb-2 sm:mb-3 gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0">
+              <AppLogo size="sm" animated={false} />
+            </div>
+            <h4 className="text-base sm:text-lg md:text-xl font-bold text-foreground">آرایشگاه مردانه دوکارد</h4>
+          </div>
+          <p className="text-sm sm:text-base text-foreground">  آرایشگاه مردانه دوکارد  </p>
+          <p className="text-muted-foreground text-xs sm:text-sm mt-1 px-4">
+            تمامی حقوق متعلق به تیم برنامه‌نویسی موا و آرایشگاه مردانه دوکارد میباشد.
+          </p>
+        </div>
+      </footer>
+
+      <Footer />
+
+      {/* Contact Us Modal */}
+      {isContactModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm"
+            onClick={() => setIsContactModalOpen(false)}
+          />
+          
+          {/* Modal */}
+          <div className="relative bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md mx-4 animate-in fade-in-0 zoom-in-95 duration-300">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-border">
+              <h3 className="text-xl font-bold text-foreground">تماس با ما</h3>
+              <button
+                onClick={() => setIsContactModalOpen(false)}
+                className="p-2 rounded-lg hover:bg-muted transition-colors"
+              >
+                <X className="w-5 h-5 text-foreground" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Phone */}
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+                  <Phone className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h4 className="text-foreground font-semibold">تلفن</h4>
+                  <p className="text-foreground text-lg font-mono">021-26353460</p>
+                </div>
+              </div>
+
+              {/* Address */}
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+                  <MapPin className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h4 className="text-foreground font-semibold">آدرس</h4>
+                  <p className="text-foreground leading-relaxed">
+                    تهران، خیابان فرشته، مجتمع سام سنتر
+                  </p>
+                </div>
+              </div>
+
+              {/* Email */}
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+                  <Mail className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h4 className="text-foreground font-semibold">ایمیل</h4>
+                  <p className="text-foreground font-mono">milad.doocard@gmail.com</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-border">
+              <Button
+                onClick={() => setIsContactModalOpen(false)}
+                className="w-full"
+              >
+                بستن
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

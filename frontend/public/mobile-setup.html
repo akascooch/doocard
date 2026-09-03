@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📱 راهنمای نصب موبایل - Doocard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .device-section {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 30px;
+      margin-bottom: 20px;
+      backdrop-filter: blur(10px);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #ffd93d;
+      font-size: 28px;
+    }
+    h2 {
+      color: #ffd93d;
+      margin-bottom: 20px;
+      font-size: 22px;
+      text-align: center;
+    }
+    .step {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 20px;
+      margin-bottom: 15px;
+      border-radius: 10px;
+      border-right: 4px solid #ffd93d;
+    }
+    .step-number {
+      display: inline-block;
+      background: #ffd93d;
+      color: #000;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 30px;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+    .warning {
+      background: rgba(255, 107, 107, 0.2);
+      border: 2px solid #ff6b6b;
+      border-radius: 10px;
+      padding: 15px;
+      margin: 15px 0;
+    }
+    .success {
+      background: rgba(81, 207, 102, 0.2);
+      border: 2px solid #51cf66;
+      border-radius: 10px;
+      padding: 15px;
+      margin: 15px 0;
+    }
+    .icon {
+      font-size: 24px;
+      margin-left: 10px;
+    }
+    button {
+      width: 100%;
+      padding: 15px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 10px;
+      background: #ffd93d;
+      color: #000;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(255, 217, 61, 0.4);
+    }
+    .device-info {
+      text-align: center;
+      padding: 15px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+    code {
+      background: rgba(0, 0, 0, 0.5);
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      color: #ffd93d;
+    }
+    .screenshot {
+      background: rgba(0, 0, 0, 0.5);
+      padding: 10px;
+      border-radius: 10px;
+      margin: 10px 0;
+      text-align: center;
+      font-size: 14px;
+      color: #ccc;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📱 راهنمای نصب Doocard روی موبایل</h1>
+
+    <div class="device-info" id="device-info">
+      <strong>دستگاه شما:</strong> <span id="device-name">در حال تشخیص...</span>
+    </div>
+
+    <!-- Android Section -->
+    <div class="device-section" id="android-section" style="display: none;">
+      <h2>🤖 Android - Chrome</h2>
+
+      <div class="warning">
+        <strong>⚠️ مهم:</strong> برای دریافت نوتیفیکیشن، باید اپلیکیشن را نصب کنید (Add to Home Screen)
+      </div>
+
+      <div class="step">
+        <span class="step-number">1</span>
+        <strong>باز کردن منو:</strong><br>
+        روی آیکون سه نقطه <code>⋮</code> در گوشه بالای Chrome کلیک کنید
+      </div>
+
+      <div class="step">
+        <span class="step-number">2</span>
+        <strong>نصب اپلیکیشن:</strong><br>
+        گزینه <code>"Add to Home screen"</code> یا <code>"Install app"</code> را انتخاب کنید
+        <div class="screenshot">📸 یک آیکون دانلود (↓) هم کنار آدرس نمایش داده می‌شود</div>
+      </div>
+
+      <div class="step">
+        <span class="step-number">3</span>
+        <strong>تأیید نصب:</strong><br>
+        در پنجره باز شده، روی <code>"Add"</code> یا <code>"Install"</code> کلیک کنید
+      </div>
+
+      <div class="step">
+        <span class="step-number">4</span>
+        <strong>باز کردن اپلیکیشن:</strong><br>
+        از صفحه اصلی گوشی، آیکون Doocard را پیدا کنید و باز کنید<br>
+        <span style="color: #ff6b6b;">⚠️ باید از آیکون صفحه اصلی باز شود، نه از Chrome!</span>
+      </div>
+
+      <div class="step">
+        <span class="step-number">5</span>
+        <strong>فعال کردن نوتیفیکیشن:</strong><br>
+        - Login کنید<br>
+        - روی "فعال‌سازی اعلان‌ها" کلیک کنید<br>
+        - در پنجره باز شده، <code>"Allow"</code> را بزنید
+      </div>
+
+      <div class="step">
+        <span class="step-number">6</span>
+        <strong>تنظیمات Android:</strong><br>
+        Settings → Apps → Doocard → Notifications<br>
+        ✅ مطمئن شوید همه Notifications فعال است
+      </div>
+
+      <div class="success">
+        <strong>✅ تست:</strong><br>
+        اپلیکیشن را کاملاً ببندید (از Recent Apps حذف کنید)<br>
+        از دستگاه دیگر یک نوبت بزنید<br>
+        نوتیفیکیشن در Notification Tray ظاهر می‌شود 🎉
+      </div>
+
+      <button onclick="testAndroidNotification()">🧪 تست نوتیفیکیشن Android</button>
+    </div>
+
+    <!-- iOS Section -->
+    <div class="device-section" id="ios-section" style="display: none;">
+      <h2>🍎 iOS - Safari</h2>
+
+      <div class="warning">
+        <strong>⚠️ بسیار مهم:</strong><br>
+        - فقط Safari پشتیبانی می‌کند (نه Chrome!)<br>
+        - باید از طریق Home Screen باز شود<br>
+        - نوتیفیکیشن‌ها محدودیت بیشتری دارند
+      </div>
+
+      <div class="step">
+        <span class="step-number">1</span>
+        <strong>باز کردن در Safari:</strong><br>
+        اگر در Chrome هستید، لینک را کپی کنید و در Safari باز کنید:<br>
+        <code>https://www.doocardbarbershop.com</code>
+      </div>
+
+      <div class="step">
+        <span class="step-number">2</span>
+        <strong>باز کردن منوی Share:</strong><br>
+        روی آیکون Share <code>⎋</code> (مربعی با فلش بالا) در پایین صفحه کلیک کنید
+      </div>
+
+      <div class="step">
+        <span class="step-number">3</span>
+        <strong>اضافه کردن به Home Screen:</strong><br>
+        در منوی باز شده، پایین بروید و <code>"Add to Home Screen"</code> را پیدا کنید<br>
+        <div class="screenshot">📸 آیکون یک مربع با علامت + داخلش</div>
+      </div>
+
+      <div class="step">
+        <span class="step-number">4</span>
+        <strong>نام‌گذاری و نصب:</strong><br>
+        نام پیشنهادی: <code>Doocard</code><br>
+        روی <code>"Add"</code> کلیک کنید
+      </div>
+
+      <div class="step">
+        <span class="step-number">5</span>
+        <strong>باز کردن از Home Screen:</strong><br>
+        آیکون Doocard را از صفحه اصلی iPhone باز کنید<br>
+        <span style="color: #ff6b6b;">⚠️ نه از Safari! باید از آیکون صفحه اصلی باز شود</span>
+      </div>
+
+      <div class="step">
+        <span class="step-number">6</span>
+        <strong>فعال کردن نوتیفیکیشن:</strong><br>
+        - Login کنید<br>
+        - روی "فعال‌سازی اعلان‌ها" کلیک کنید<br>
+        - در Alert باز شده، <code>"Allow"</code> را بزنید
+      </div>
+
+      <div class="step">
+        <span class="step-number">7</span>
+        <strong>تنظیمات iOS:</strong><br>
+        Settings → Notifications → Doocard<br>
+        ✅ Allow Notifications: On<br>
+        ✅ Sounds: On<br>
+        ✅ Badges: On<br>
+        ✅ Lock Screen: On<br>
+        ✅ Notification Center: On<br>
+        ✅ Banners: Persistent یا Temporary
+      </div>
+
+      <div class="warning">
+        <strong>⚠️ محدودیت‌های iOS:</strong><br>
+        - نوتیفیکیشن‌های Background ممکن است با تأخیر برسند<br>
+        - در حالت Low Power Mode ممکن است نرسند<br>
+        - iOS 16.4+ نیاز است برای پشتیبانی کامل
+      </div>
+
+      <div class="success">
+        <strong>✅ تست:</strong><br>
+        اپلیکیشن را ببندید (یا گوشی را Lock کنید)<br>
+        از دستگاه دیگر یک نوبت بزنید<br>
+        نوتیفیکیشن باید ظاهر شود (ممکن است 5-10 ثانیه طول بکشد)
+      </div>
+
+      <button onclick="testIOSNotification()">🧪 تست نوتیفیکیشن iOS</button>
+    </div>
+
+    <!-- Desktop/Unknown Section -->
+    <div class="device-section" id="desktop-section" style="display: none;">
+      <h2>💻 Desktop Browser</h2>
+      
+      <div class="warning">
+        <strong>⚠️ توجه:</strong><br>
+        این صفحه برای موبایل طراحی شده است.<br>
+        برای دستگاه‌های Desktop، به صفحه تشخیص بروید:
+      </div>
+
+      <button onclick="location.href='/diagnostic-notification.html'">
+        🔧 صفحه تشخیص Desktop
+      </button>
+    </div>
+
+    <!-- Quick Test Section -->
+    <div class="device-section">
+      <h2>🧪 تست سریع</h2>
+      
+      <div id="test-status" style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; margin: 15px 0;">
+        <strong>وضعیت:</strong> <span id="status-text">آماده تست</span>
+      </div>
+
+      <button onclick="checkSetup()">🔍 بررسی وضعیت نصب</button>
+      <button onclick="requestNotificationPermission()">🔔 درخواست مجوز</button>
+      <button onclick="testNotification()">📨 ارسال نوتیفیکیشن تستی</button>
+    </div>
+
+    <div class="device-section">
+      <h2>❓ سوالات متداول</h2>
+      
+      <details style="margin-bottom: 10px;">
+        <summary style="cursor: pointer; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 5px;">
+          چرا باید از Home Screen باز کنم؟
+        </summary>
+        <div style="padding: 10px; background: rgba(0,0,0,0.2); margin-top: 5px; border-radius: 5px;">
+          فقط اپلیکیشن‌های نصب شده (PWA) می‌توانند در Background نوتیفیکیشن دریافت کنند.
+          اگر از browser باز کنید، فقط وقتی که app باز است نوتیفیکیشن می‌آید.
+        </div>
+      </details>
+
+      <details style="margin-bottom: 10px;">
+        <summary style="cursor: pointer; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 5px;">
+          چرا در iOS کار نمی‌کند؟
+        </summary>
+        <div style="padding: 10px; background: rgba(0,0,0,0.2); margin-top: 5px; border-radius: 5px;">
+          iOS 16.4+ نیاز دارد و باید حتماً از Safari استفاده کنید (نه Chrome).
+          همچنین Low Power Mode نوتیفیکیشن‌ها را محدود می‌کند.
+        </div>
+      </details>
+
+      <details style="margin-bottom: 10px;">
+        <summary style="cursor: pointer; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 5px;">
+          چطور اپلیکیشن را حذف کنم؟
+        </summary>
+        <div style="padding: 10px; background: rgba(0,0,0,0.2); margin-top: 5px; border-radius: 5px;">
+          <strong>Android:</strong> آیکون را نگه دارید → Uninstall<br>
+          <strong>iOS:</strong> آیکون را نگه دارید → Remove App → Delete
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <script>
+    function detectDevice() {
+      const ua = navigator.userAgent;
+      const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+      const isAndroid = /Android/.test(ua);
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                          window.navigator.standalone === true;
+
+      let deviceName = 'Desktop/Unknown';
+      let showSection = 'desktop-section';
+
+      if (isIOS) {
+        deviceName = 'iOS (iPhone/iPad)';
+        showSection = 'ios-section';
+        if (isStandalone) {
+          deviceName += ' - نصب شده ✅';
+        } else {
+          deviceName += ' - نیاز به نصب ⚠️';
+        }
+      } else if (isAndroid) {
+        deviceName = 'Android';
+        showSection = 'android-section';
+        if (isStandalone) {
+          deviceName += ' - نصب شده ✅';
+        } else {
+          deviceName += ' - نیاز به نصب ⚠️';
+        }
+      }
+
+      document.getElementById('device-name').textContent = deviceName;
+      document.getElementById(showSection).style.display = 'block';
+    }
+
+    async function checkSetup() {
+      const status = document.getElementById('status-text');
+      let checks = [];
+
+      // Check if installed
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                          window.navigator.standalone === true;
+      checks.push(isStandalone ? '✅ نصب شده' : '❌ نصب نشده');
+
+      // Check permission
+      if ('Notification' in window) {
+        const permission = Notification.permission;
+        checks.push(permission === 'granted' ? '✅ مجوز داده شده' : 
+                   permission === 'denied' ? '❌ مجوز رد شده' : '⚠️ مجوز درخواست نشده');
+      } else {
+        checks.push('❌ Notification پشتیبانی نمی‌شود');
+      }
+
+      // Check service worker
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration();
+        checks.push(registration ? '✅ Service Worker ثبت شده' : '❌ Service Worker ثبت نشده');
+      } else {
+        checks.push('❌ Service Worker پشتیبانی نمی‌شود');
+      }
+
+      status.innerHTML = checks.join('<br>');
+    }
+
+    async function requestNotificationPermission() {
+      if (!('Notification' in window)) {
+        alert('مرورگر شما از نوتیفیکیشن پشتیبانی نمی‌کند!');
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+      alert(permission === 'granted' ? '✅ مجوز با موفقیت داده شد!' : 
+            permission === 'denied' ? '❌ مجوز رد شد. از تنظیمات دستگاه فعال کنید.' :
+            '⚠️ مجوز نامشخص');
+      
+      checkSetup();
+    }
+
+    function testNotification() {
+      if (Notification.permission !== 'granted') {
+        alert('ابتدا باید مجوز نوتیفیکیشن را بدهید!');
+        requestNotificationPermission();
+        return;
+      }
+
+      const notification = new Notification('🎉 تست موفق - Doocard', {
+        body: 'اگر این را می‌بینید، نوتیفیکیشن کار می‌کند!\n\nحالا اپلیکیشن را ببندید و از دستگاه دیگر نوبت بزنید.',
+        icon: '/logo/logo-192.png',
+        badge: '/logo/logo-192.png',
+        tag: 'mobile-test-' + Date.now(),
+        requireInteraction: true,
+        vibrate: [200, 100, 200, 100, 200],
+        dir: 'rtl',
+        lang: 'fa'
+      });
+
+      notification.onclick = () => {
+        alert('✅ عالی! نوتیفیکیشن کلیک شد!');
+        notification.close();
+      };
+    }
+
+    function testAndroidNotification() {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+      if (!isStandalone) {
+        alert('⚠️ توجه!\n\nابتدا باید اپلیکیشن را نصب کنید (Add to Home Screen)\nو سپس از آیکون صفحه اصلی باز کنید.');
+        return;
+      }
+      testNotification();
+    }
+
+    function testIOSNotification() {
+      const isStandalone = window.navigator.standalone === true;
+      if (!isStandalone) {
+        alert('⚠️ توجه!\n\nابتدا باید اپلیکیشن را به Home Screen اضافه کنید\nو سپس از آیکون صفحه اصلی (نه Safari) باز کنید.');
+        return;
+      }
+      testNotification();
+    }
+
+    // Auto-detect on load
+    window.addEventListener('load', () => {
+      detectDevice();
+      checkSetup();
+    });
+  </script>
+</body>
+</html>
+

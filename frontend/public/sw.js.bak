@@ -1,0 +1,326 @@
+// Doocard Service Worker - Production Grade Push Notifications
+// Supports: Android Chrome/Firefox, iOS 16.4+ PWA, Desktop browsers
+// Version: 2.0.0
+
+const CACHE_NAME = 'doocard-v2.0.0';
+const STATIC_CACHE_NAME = 'doocard-static-v2.0.0';
+
+// Files to cache for offline support
+const STATIC_FILES = [
+  '/',
+  '/login',
+  '/register',
+  '/offline',
+  '/favicon.ico',
+  '/manifest.json',
+  '/logo/logo-192.png',
+  '/logo/logo-512.png',
+];
+
+// ==================== INSTALL EVENT ====================
+self.addEventListener('install', (event) => {
+  console.log('🔧 [SW] Installing version 2.0.0...');
+  
+  event.waitUntil(
+    Promise.all([
+      // Clear old caches
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            if (cacheName !== CACHE_NAME && cacheName !== STATIC_CACHE_NAME) {
+              console.log('🗑️ [SW] Deleting old cache:', cacheName);
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      }),
+      // Cache essential files
+      caches.open(STATIC_CACHE_NAME).then((cache) => {
+        console.log('📦 [SW] Caching essential files...');
+        return cache.addAll(STATIC_FILES.map(url => new Request(url, { cache: 'reload' })));
+      }),
+    ]).then(() => {
+      console.log('✅ [SW] Installation complete');
+      return self.skipWaiting();
+    })
+  );
+});
+
+// ==================== ACTIVATE EVENT ====================
+self.addEventListener('activate', (event) => {
+  console.log('⚡ [SW] Activating...');
+  
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME && cacheName !== STATIC_CACHE_NAME) {
+            console.log('🗑️ [SW] Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    }).then(() => {
+      console.log('✅ [SW] Activated successfully');
+      return self.clients.claim();
+    })
+  );
+});
+
+// ==================== FETCH EVENT ====================
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+  
+  // Skip non-GET requests
+  if (request.method !== 'GET') return;
+  
+  // Skip external requests
+  if (url.origin !== location.origin) return;
+  
+  // Strategy 1: HTML pages - Network first (always fresh)
+  if (request.headers.get('accept')?.includes('text/html')) {
+    event.respondWith(
+      fetch(request, { cache: 'no-store' })
+        .catch(() => caches.match('/offline') || new Response('Offline', { status: 503 }))
+    );
+    return;
+  }
+  
+  // Strategy 2: API calls - Network only (no cache)
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(fetch(request, { cache: 'no-store' }));
+    return;
+  }
+  
+  // Strategy 3: Static assets - Cache first with background update
+  event.respondWith(
+    caches.match(request).then((cachedResponse) => {
+      const fetchPromise = fetch(request).then((networkResponse) => {
+        if (networkResponse.ok) {
+          const responseClone = networkResponse.clone();
+          caches.open(STATIC_CACHE_NAME).then((cache) => {
+            cache.put(request, responseClone);
+          });
+        }
+        return networkResponse;
+      }).catch(() => cachedResponse);
+      
+      return cachedResponse || fetchPromise;
+    })
+  );
+});
+
+// ==================== PUSH EVENT - CRITICAL ====================
+self.addEventListener('push', event => {
+  console.log('📨 [SW] Push notification received');
+  
+  let payload = {
+    title: 'Doocard',
+    body: 'یک اعلان جدید دریافت شد',
+    icon: '/logo/logo-192.png',
+    badge: '/logo/logo-192.png',
+    data: { url: '/' }
+  };
+  
+  try {
+    if (event.data) {
+      const parsed = event.data.json();
+      payload = { ...payload, ...parsed };
+      console.log('📦 [SW] Payload:', payload);
+    }
+  } catch(e) {
+    console.error('❌ [SW] Error parsing push data:', e);
+    if (event.data) {
+      payload.body = event.data.text();
+    }
+  }
+  
+  // CRITICAL: Create unique tag for each notification
+  const uniqueTag = `doocard-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  
+  const notificationOptions = {
+    body: payload.body || 'یک اعلان جدید دریافت شد',
+    icon: payload.icon || '/logo/logo-192.png',
+    badge: payload.badge || '/logo/logo-192.png',
+    image: payload.image || undefined,
+    data: payload.data || { url: '/' },
+    tag: payload.tag || uniqueTag,
+    
+    // CRITICAL: Settings for maximum visibility
+    requireInteraction: true,  // Don't auto-dismiss
+    renotify: true,             // Vibrate/alert even if tag exists
+    silent: false,              // Make sound
+    
+    // Vibration pattern (200ms on, 100ms off, repeat)
+    vibrate: [200, 100, 200, 100, 200, 100, 400],
+    
+    // Visual settings
+    dir: 'rtl',                 // Right-to-left for Persian
+    lang: 'fa',                 // Persian language
+    timestamp: Date.now(),
+    
+    // Actions (optional - works on Android/Desktop)
+    actions: payload.actions || [
+      { action: 'open', title: 'مشاهده', icon: '/logo/logo-192.png' },
+      { action: 'close', title: 'بستن', icon: '/logo/logo-192.png' },
+    ],
+  };
+  
+  console.log('📢 [SW] Showing notification with options:', {
+    title: payload.title,
+    tag: notificationOptions.tag,
+    requireInteraction: notificationOptions.requireInteraction,
+  });
+  
+  // ALWAYS show notification - works even when app is closed/backgrounded
+  event.waitUntil(
+    self.registration.showNotification(payload.title || 'Doocard', notificationOptions)
+      .then(() => {
+        console.log('✅ [SW] Notification displayed successfully');
+        
+        // Log current clients for debugging
+        return self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      })
+      .then(clientList => {
+        const focusedClient = clientList.find(c => c.focused);
+        console.log(`📊 [SW] Clients: ${clientList.length}, Focused: ${focusedClient ? 'Yes' : 'No'}`);
+        
+        // Even if app is focused, show notification (better UX)
+        console.log('💡 [SW] Notification shown regardless of app state');
+      })
+      .catch(err => {
+        console.error('❌ [SW] Error showing notification:', err);
+        // Try to show a basic notification as fallback
+        return self.registration.showNotification('Doocard', {
+          body: 'شما یک اعلان جدید دارید',
+          icon: '/logo/logo-192.png',
+          tag: uniqueTag,
+        });
+      })
+  );
+});
+
+// ==================== NOTIFICATION CLICK EVENT ====================
+self.addEventListener('notificationclick', event => {
+  console.log('🖱️ [SW] Notification clicked:', event.action);
+  
+  event.notification.close();
+  
+  // Handle actions
+  if (event.action === 'close') {
+    console.log('🚫 [SW] Notification dismissed');
+    return;
+  }
+  
+  const urlToOpen = (event.notification.data && event.notification.data.url) || '/dashboard';
+  const fullUrl = new URL(urlToOpen, self.location.origin).href;
+  
+  console.log('🔗 [SW] Opening URL:', fullUrl);
+  
+  // Try to focus existing window or open new one
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      // Check if there's already a window open
+      for (const client of clientList) {
+        if (client.url === fullUrl && 'focus' in client) {
+          console.log('✅ [SW] Focusing existing window');
+          return client.focus();
+        }
+      }
+      
+      // No matching window, try to focus any Doocard window and navigate
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client && 'navigate' in client) {
+          console.log('✅ [SW] Navigating existing window');
+          client.focus();
+          return client.navigate(fullUrl);
+        }
+      }
+      
+      // No windows open, open new one
+      if (clients.openWindow) {
+        console.log('🆕 [SW] Opening new window');
+        return clients.openWindow(fullUrl);
+      }
+    }).catch(err => {
+      console.error('❌ [SW] Error handling notification click:', err);
+    })
+  );
+});
+
+// ==================== NOTIFICATION CLOSE EVENT ====================
+self.addEventListener('notificationclose', event => {
+  console.log('🚫 [SW] Notification closed:', event.notification.tag);
+  
+  // Optional: Send analytics to backend
+  const data = event.notification.data;
+  if (data && data.trackClose) {
+    event.waitUntil(
+      fetch('/api/notifications/track-close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationId: data.id }),
+      }).catch(err => {
+        console.log('⚠️ [SW] Could not track notification close (non-critical)');
+      })
+    );
+  }
+});
+
+// ==================== MESSAGE EVENT ====================
+self.addEventListener('message', (event) => {
+  console.log('💬 [SW] Message received:', event.data);
+  
+  if (event.data && event.data.type === 'CLEAR_CACHE') {
+    console.log('🗑️ [SW] Clearing all caches...');
+    event.waitUntil(
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => caches.delete(cacheName))
+        );
+      }).then(() => {
+        console.log('✅ [SW] All caches cleared');
+        event.ports[0].postMessage({ success: true });
+      }).catch((error) => {
+        console.error('❌ [SW] Error clearing caches:', error);
+        event.ports[0].postMessage({ success: false, error: error.message });
+      })
+    );
+  } else if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('⏭️ [SW] Skipping waiting...');
+    self.skipWaiting();
+  }
+});
+
+// ==================== PUSH SUBSCRIPTION CHANGE EVENT ====================
+self.addEventListener('pushsubscriptionchange', event => {
+  console.log('🔄 [SW] Push subscription changed');
+  
+  event.waitUntil(
+    // Re-subscribe with new subscription
+    self.registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: event.oldSubscription.options.applicationServerKey,
+    }).then(newSubscription => {
+      console.log('✅ [SW] Re-subscribed successfully');
+      
+      // Send new subscription to backend
+      return fetch('/api/push-notifications/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: newSubscription.endpoint,
+          keys: {
+            p256dh: btoa(String.fromCharCode(...new Uint8Array(newSubscription.getKey('p256dh')))),
+            auth: btoa(String.fromCharCode(...new Uint8Array(newSubscription.getKey('auth')))),
+          },
+        }),
+      });
+    }).catch(err => {
+      console.error('❌ [SW] Error re-subscribing:', err);
+    })
+  );
+});
+
+console.log('✅ [SW] Service Worker script loaded - Ready for push notifications');

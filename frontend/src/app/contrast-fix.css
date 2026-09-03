@@ -1,0 +1,96 @@
+/* ========================================== */
+/* CONTRAST FIX - تضمین خوانایی در همه جا */
+/* ========================================== */
+
+/* Force proper contrast for all buttons */
+button[class*="bg-primary"]:not([class*="bg-primary/"]) {
+  color: white !important;
+}
+
+button[class*="bg-secondary"]:not([class*="bg-secondary/"]) {
+  color: white !important;
+}
+
+/* Force proper contrast for badges */
+[class*="badge"][class*="bg-primary"]:not([class*="bg-primary/"]) {
+  color: white !important;
+}
+
+/* Ensure filter buttons are readable */
+.bg-primary.text-primary-foreground {
+  color: white !important;
+}
+
+/* Ensure stat card text is readable */
+.text-primary {
+  color: hsl(var(--primary)) !important;
+}
+
+/* Override any conflicting classes */
+[class*="bg-brand-grey-"],
+[class*="bg-gray-6"],
+[class*="bg-gray-7"] {
+  color: white !important;
+}
+
+[class*="bg-brand-green-"] {
+  color: white !important;
+}
+
+/* Ensure muted text is visible */
+.text-muted-foreground {
+  color: hsl(var(--muted-foreground)) !important;
+  opacity: 1 !important;
+}
+
+/* Ensure foreground text is visible */
+.text-foreground {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Badge overrides - ensure visibility */
+.badge-default,
+[class*="badge"][class*="default"] {
+  background-color: hsl(var(--primary)) !important;
+  color: white !important;
+}
+
+/* Icon visibility in colored backgrounds */
+[class*="bg-primary"] svg,
+[class*="bg-secondary"] svg,
+[class*="bg-brand-grey"] svg,
+[class*="bg-brand-green"] svg {
+  color: currentColor !important;
+}
+
+/* Ensure white text is truly white in colored backgrounds */
+[class*="bg-brand-grey"] .text-white,
+[class*="bg-brand-green"] .text-white,
+[class*="bg-gray-6"] .text-white,
+[class*="bg-gray-7"] .text-white,
+[class*="bg-primary"][class*="text-primary-foreground"] {
+  color: #ffffff !important;
+}
+
+/* Dark mode specific fixes */
+.dark [class*="text-primary"]:not([class*="bg-"]) {
+  color: hsl(var(--primary)) !important;
+}
+
+.dark [class*="text-muted-foreground"] {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Ensure cards over background image are readable */
+.bg-white\/90,
+.bg-card\/80,
+[class*="backdrop-blur"] {
+  color: hsl(var(--card-foreground)) !important;
+}
+
+/* Fix any low-opacity text that became invisible */
+[class*="text-"][class*="/"] {
+  /* If opacity makes it invisible, remove opacity */
+  filter: contrast(1.2);
+}
+

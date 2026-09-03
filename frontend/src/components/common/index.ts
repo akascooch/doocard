@@ -1,0 +1,2 @@
+export { AppLogo } from './AppLogo'
+
