@@ -94,6 +94,7 @@ model Employee {
   salaryRequests             EmployeeSalaryRequest[]
   manualTipRecipientSources  TipSource[]                  @relation("TipSourceIndividualRecipient")
   manualTipAllocations       ManualTipAllocation[]
+  chequeLeaves               ChequeLeaf[]
 
   @@map("employees")
 }
@@ -410,6 +411,9 @@ model ChequeLeaf {
   category      ChequeLeafCategory @default(NORMAL)
   amount        BigInt?
   payee         String?
+  /// Structured payee kind; null keeps legacy free-text cheques unchanged.
+  payeeKind     ChequePayeeKind?
+  employeeId    Int?
   dueDate       DateTime?
   issuedAt      DateTime?
   clearedAt     DateTime?
@@ -420,10 +424,13 @@ model ChequeLeaf {
   deletedAt     DateTime?
   chequebook    Chequebook         @relation(fields: [chequebookId], references: [id])
   transaction   Transaction?       @relation(fields: [transactionId], references: [id])
+  employee      Employee?          @relation(fields: [employeeId], references: [id])
 
   @@unique([chequebookId, leafNumber])
   @@index([chequebookId, status])
   @@index([category])
+  @@index([payeeKind])
+  @@index([employeeId])
   @@index([deletedAt])
   @@index([dueDate, status])
   @@map("cheque_leaves")
@@ -851,6 +858,14 @@ enum ChequeLeafCategory {
   GUARANTEE
 }
 
+enum ChequePayeeKind {
+  STAFF_SALARY
+  SUPPLIER
+  RENT
+  UTILITIES
+  OTHER
+}
+
 enum CategoryType {
   INCOME
   EXPENSE
@@ -888,6 +903,7 @@ enum NotificationType {
   PAYMENT_RECEIVED
   GENERAL
   TIP_RECEIVED
+  ACCOUNT_RECONCILE_REMINDER
 }
 
 enum ImportStatus {
