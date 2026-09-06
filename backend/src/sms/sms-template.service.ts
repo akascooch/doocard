@@ -44,6 +44,19 @@ export class SmsTemplateService implements OnModuleInit {
             updatedAt: new Date(),
           },
         });
+      } else if (
+        seed.name === SMS_TEMPLATE_KEYS.CHEQUE_DUE_REMINDER &&
+        !existing.content.includes('{bankName}')
+      ) {
+        await this.prisma.smsTemplate.update({
+          where: { id: existing.id },
+          data: {
+            content: seed.content,
+            description: seed.description,
+            variables: seed.variables,
+            updatedAt: new Date(),
+          },
+        });
       } else if (!existing.description) {
         // Backfill description only — never touches content or triggers send.
         await this.prisma.smsTemplate.update({

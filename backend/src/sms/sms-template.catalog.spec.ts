@@ -44,4 +44,21 @@ describe('SMS catalog — settlement + tip', () => {
       expect.arrayContaining(['amount', 'customerName', 'barberName', 'source']),
     );
   });
+
+  it('disables tip.received SMS by default', () => {
+    const rule = DEFAULT_SMS_POLICY.find(
+      (r) => r.eventKey === SMS_EVENT_KEYS.TIP_RECEIVED,
+    );
+    expect(rule?.smsEnabled).toBe(false);
+  });
+
+  it('registers cheque due template with bank variables', () => {
+    const tpl = DEFAULT_SMS_TEMPLATES.find(
+      (t) => t.name === SMS_TEMPLATE_KEYS.CHEQUE_DUE_REMINDER,
+    );
+    expect(tpl?.variables).toEqual(
+      expect.arrayContaining(['bankName', 'accountNumber', 'dueDate']),
+    );
+    expect(tpl?.content).toContain('{bankName}');
+  });
 });

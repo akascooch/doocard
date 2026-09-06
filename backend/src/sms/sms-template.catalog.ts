@@ -14,6 +14,7 @@ export const SMS_TEMPLATE_KEYS = {
   APPOINTMENT_SETTLED_BARBER: 'appointment_settled_barber',
   CHEQUE_DUE_REMINDER: 'cheque_due_reminder',
   TIP_RECEIVED: 'tip_received',
+  ACCOUNT_RECONCILE_REMINDER: 'account_reconcile_reminder',
   SMS_TEST: 'sms_test',
   SMS_CUSTOM: 'sms_custom',
   /** Manual admin notification SMS (aligns with notifications.controller sendSms) */
@@ -109,10 +110,18 @@ export const DEFAULT_SMS_TEMPLATES: SmsTemplateSeed[] = [
   {
     name: SMS_TEMPLATE_KEYS.CHEQUE_DUE_REMINDER,
     label: 'یادآور سررسید چک',
-    description: 'یادآور T-2 / T-1 / همان‌روز برای سررسید چک‌های صادرشده.',
+    description: 'یادآور T-3 تا همان‌روز برای سررسید چک‌های صادرشده، با نام و شماره حساب.',
     content:
-      'دوکارد — یادآور چک ({offsetLabel})\nبرگه #{leafNumber}\nگیرنده: {payee}\nمبلغ: {amount}\nسررسید: {dueDate}',
-    variables: ['offsetLabel', 'leafNumber', 'payee', 'amount', 'dueDate'],
+      'دوکارد — چک {offsetLabel}\n#{leafNumber} {payee}\n{amount}\n{dueDate}\n{bankName} {accountNumber}',
+    variables: [
+      'offsetLabel',
+      'leafNumber',
+      'payee',
+      'amount',
+      'dueDate',
+      'bankName',
+      'accountNumber',
+    ],
   },
   {
     name: SMS_TEMPLATE_KEYS.TIP_RECEIVED,
@@ -121,6 +130,13 @@ export const DEFAULT_SMS_TEMPLATES: SmsTemplateSeed[] = [
     content:
       'دوکارد — انعام جدید\nمبلغ: {amount}\nمشتری: {customerName}\nآرایشگر: {barberName}\nمنبع: {source}',
     variables: ['amount', 'customerName', 'barberName', 'source'],
+  },
+  {
+    name: SMS_TEMPLATE_KEYS.ACCOUNT_RECONCILE_REMINDER,
+    label: 'یادآور بررسی حساب روزانه',
+    description: 'ارسال در ۱۳:۰۰ و ۲۰:۰۰ به وقت تهران برای پرسنل فعال.',
+    content: 'سلام {name}، لطفاً حساب امروز خود را بررسی و تسویه کنید — دوکارد',
+    variables: ['name'],
   },
   {
     name: SMS_TEMPLATE_KEYS.SMS_TEST,
