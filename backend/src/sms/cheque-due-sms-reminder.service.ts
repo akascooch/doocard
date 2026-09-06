@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { ChequeLeafStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -38,10 +39,20 @@ export class ChequeDueSmsReminderService {
   private readonly logger = new Logger(ChequeDueSmsReminderService.name);
 
   constructor(
+    private readonly config: ConfigService,
     private readonly prisma: PrismaService,
     private readonly smsOutbound: SmsOutboundService,
     private readonly smsTemplates: SmsTemplateService,
   ) {}
+
+  /**
+   * Independent kill-switch for cheque due SMS only.
+   * Enabled solely when the env value is exactly "true".
+   * Undefined, empty, "false", and any other value stay off.
+   */
+  isChequeDueSmsEnabled(): boolean {
+    return this.config.get<string>('CHEQUE_DUE_SMS_ENABLED') === 'true';
+  }
 
   /** Asia/Tehran calendar day bounds in UTC for a given local date. */
   static dayBoundsTehran(ymd: string): { start: Date; end: Date } {
@@ -187,6 +198,13 @@ export class ChequeDueSmsReminderService {
     dryRun: boolean;
     items: Array<Pick<ChequeDueReminderPlanItem, 'dedupeKey' | 'phone' | 'leafId' | 'offsetDays'>>;
   }> {
+    if (!this.isChequeDueSmsEnabled()) {
+      this.logger.log(
+        'Cheque due SMS skipped (CHEQUE_DUE_SMS_ENABLED is not true)',
+      );
+      return { planned: 0, sent: 0, skipped: 0, dryRun: true, items: [] };
+    }
+
     const dryRun = options?.dryRun === true;
     const plan = await this.buildPlan({ now: options?.now, dryRun });
     let sent = 0;
@@ -228,7 +246,7 @@ export class ChequeDueSmsReminderService {
   @Cron('0 8 * * *', { timeZone: 'Asia/Tehran' })
   async scheduledReminders() {
     try {
-      await this.runReminders({ dryRun: false });
+      await this.runReminders();
     } catch (err: any) {
       this.logger.error(
         `Cheque due reminder cron failed: ${err?.message || 'unknown'}`,

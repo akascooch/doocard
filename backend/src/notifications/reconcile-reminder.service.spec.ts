@@ -119,4 +119,28 @@ describe('ReconcileReminderService', () => {
     );
     expect(result.skipped).toBe(1);
   });
+
+  it('does not send SMS or create notifications when RECONCILE_REMINDER_ENABLED=false', async () => {
+    config.get.mockImplementation((key: string, fallback?: string) => {
+      if (key === 'RECONCILE_REMINDER_ENABLED') return 'false';
+      if (key === 'RECONCILE_REMINDER_DRY_RUN') return 'false';
+      return fallback;
+    });
+    service = new ReconcileReminderService(
+      config as any,
+      prisma as any,
+      notifications as any,
+      gateway as any,
+      smsOutbound as any,
+      smsTemplates as any,
+    );
+    const result = await service.runSlot('13', {
+      now: new Date('2026-09-06T13:00:00+03:30'),
+    });
+    expect(result.planned).toBe(0);
+    expect(result.smsSent).toBe(0);
+    expect(prisma.employee.findMany).not.toHaveBeenCalled();
+    expect(notifications.create).not.toHaveBeenCalled();
+    expect(smsOutbound.sendIfAllowed).not.toHaveBeenCalled();
+  });
 });
