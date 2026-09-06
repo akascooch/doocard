@@ -23,10 +23,12 @@ import {
 } from '@/components/ui/table';
 import PersianDatePicker from '@/components/ui/PersianDatePicker';
 import { useToast } from '@/components/ui/use-toast';
-import { Calculator, CreditCard, DollarSign, CalendarDays } from 'lucide-react';
+import { Calculator, CreditCard, DollarSign, CalendarDays, Bell } from 'lucide-react';
 import axios from '@/lib/axios';
 import { formatTomansFromRial } from '@/lib/money';
-import { getCurrentJalaliDate } from '@/lib/date';
+import { formatToJalali, getCurrentJalaliDate } from '@/lib/date';
+import usePushNotifications from '@/hooks/usePushNotifications';
+import { getCurrentUser } from '@/lib/auth';
 import {
   SalaryBreakdown,
   SalaryBreakdownPanel,
@@ -96,12 +98,27 @@ const REQUEST_TYPE_LABELS: Record<string, string> = {
   COMMISSION_SETTLEMENT: 'تسویه کمیسیون',
 };
 
+const CHEQUE_PAYROLL_SOURCE = 'CHEQUE_LEAF_PAYROLL';
+
+interface WithdrawalRow {
+  id: number;
+  occurredAt: string;
+  amountRial: string;
+  description: string | null;
+  categoryName: string | null;
+  sourceType: string | null;
+}
+
 export default function EmployeeSalaryRequestPage() {
   const { toast } = useToast();
+  const user = getCurrentUser();
+  const { isSubscribed, isSupported, subscribe, isLoading: pushLoading } = usePushNotifications();
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [requests, setRequests] = useState<SalaryRequestRow[]>([]);
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRow[]>([]);
+  const [withdrawalsTotalRial, setWithdrawalsTotalRial] = useState('0');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -120,9 +137,23 @@ export default function EmployeeSalaryRequestPage() {
     }
   }, []);
 
+  const loadWithdrawals = useCallback(async () => {
+    try {
+      const res = await axios.get('/employees/me/withdrawals', {
+        params: { page: 1, limit: 50 },
+      });
+      setWithdrawals(res.data?.data || []);
+      setWithdrawalsTotalRial(res.data?.totalAmountRial || '0');
+    } catch {
+      setWithdrawals([]);
+      setWithdrawalsTotalRial('0');
+    }
+  }, []);
+
   useEffect(() => {
     loadRequests();
-  }, [loadRequests]);
+    loadWithdrawals();
+  }, [loadRequests, loadWithdrawals]);
 
   const handlePreview = useCallback(async () => {
     if (!fromDate || !toDate) {
@@ -168,6 +199,7 @@ export default function EmployeeSalaryRequestPage() {
       });
       toast({ title: 'موفق', description: 'درخواست با اسنپ‌شات ثبت شد' });
       await loadRequests();
+      await loadWithdrawals();
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string | string[] } } })?.response?.data
@@ -217,9 +249,31 @@ export default function EmployeeSalaryRequestPage() {
       <div>
         <h1 className="text-3xl font-bold">درخواست حقوق</h1>
         <p className="text-muted-foreground mt-1">
-          پیش‌نمایش موجودی با جزئیات محاسبه، ثبت درخواست، و مشاهده تاریخچه (مبالغ به تومان)
+          پیش‌نمایش موجودی با جزئیات محاسبه، ثبت درخواست، و مشاهده تاریخچه برداشت‌ها (مبالغ به تومان)
         </p>
       </div>
+
+      {(user?.role === 'SERVICE' || user?.role === 'EMPLOYEE') &&
+        isSupported &&
+        !isSubscribed && (
+          <Card className="border-main-orange/40 bg-orange-50/50 dark:bg-orange-950/20">
+            <CardContent className="pt-6 flex flex-col sm:flex-row sm:items-center gap-3">
+              <Bell className="h-5 w-5 text-main-orange shrink-0" />
+              <p className="text-sm flex-1">
+                برای دریافت آنی اعلان انعام و یادآور حساب، اعلان‌های مرورگر را فعال کنید. پیامک ارسال
+                نمی‌شود.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => void subscribe()}
+                disabled={pushLoading}
+              >
+                {pushLoading ? 'در حال فعال‌سازی...' : 'فعال‌سازی اعلان'}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
       <Card>
         <CardHeader>
@@ -448,6 +502,56 @@ export default function EmployeeSalaryRequestPage() {
           )}
         </>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>تاریخچه برداشت‌ها</CardTitle>
+          <CardDescription>
+            برداشت‌های ثبت‌شده توسط مدیریت از حقوق شما، شامل واریز حقوق با چک. جمع:{' '}
+            <span className="tabular-nums">{formatTomansFromRial(withdrawalsTotalRial)}</span>
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {withdrawals.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">برداشتی ثبت نشده است</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-right">تاریخ</TableHead>
+                  <TableHead className="text-right">شرح</TableHead>
+                  <TableHead className="text-right">منبع</TableHead>
+                  <TableHead className="text-right">مبلغ</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {withdrawals.map((w) => (
+                  <TableRow key={w.id}>
+                    <TableCell>{formatToJalali(w.occurredAt)}</TableCell>
+                    <TableCell>
+                      {w.description || w.categoryName || 'برداشت'}
+                    </TableCell>
+                    <TableCell>
+                      {w.sourceType === CHEQUE_PAYROLL_SOURCE ? (
+                        <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100">
+                          واریز حقوق / مساعده
+                        </Badge>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">
+                          {w.categoryName || w.sourceType || 'برداشت'}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="tabular-nums">
+                      {formatTomansFromRial(w.amountRial)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

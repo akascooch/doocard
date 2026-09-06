@@ -1,21 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatTomansFromRial } from '@/lib/money';
 import api from '../../lib/axios';
-import { getCurrentUser } from '../../lib/auth';
-import { CurrencyDollarIcon, ChartBarIcon, UserIcon, CalendarIcon, BanknotesIcon, ArrowUpIcon } from '@heroicons/react/24/outline';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { getCurrentJalaliDate } from '@/lib/date';
+import { CurrencyDollarIcon, ChartBarIcon, UserIcon, BanknotesIcon, ArrowUpIcon } from '@heroicons/react/24/outline';
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
 
@@ -60,40 +52,37 @@ export function BarberOverview() {
   });
   const [salesChart, setSalesChart] = useState<SalesChartData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [withdrawalAmount, setWithdrawalAmount] = useState('');
-  const [withdrawalDescription, setWithdrawalDescription] = useState('');
-  const [withdrawalLoading, setWithdrawalLoading] = useState(false);
-  const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false);
   const { toast } = useToast();
-  const user = getCurrentUser();
+  const router = useRouter();
+
+  const loadStaffFinance = async () => {
+    // Root cause: /accounting/barbers/me/balance, /barber-sales-chart, and /barbers/me
+    // were never ported after payroll moved to Employee + Transaction. Do not restore
+    // those dead handlers — staff finance now lives on /employees/me/*.
+    const today = getCurrentJalaliDate('YYYY/MM/DD');
+    const [jy, jm] = today.split('/');
+    const from = `${jy}/${jm}/01`;
+    const [summaryRes, withdrawalsRes] = await Promise.all([
+      api.get('/employees/me/salary-summary', { params: { from, to: today } }),
+      api.get('/employees/me/withdrawals', { params: { page: 1, limit: 20 } }),
+    ]);
+    const preview = summaryRes.data?.preview;
+    setStats({
+      totalIncome: Number(preview?.totalRevenue ?? 0),
+      totalTips: Number(preview?.totalTipIncome ?? 0),
+      totalWithdrawn: Number(withdrawalsRes.data?.totalAmountRial ?? 0),
+      totalSalaries: 0,
+      currentBalance: Number(preview?.netPayable ?? 0),
+      availableIncome: Number(preview?.withdrawable ?? preview?.netPayable ?? 0),
+    });
+    setSalesChart([]);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [balanceRes, salesChartRes] = await Promise.all([
-          api.get('/accounting/barbers/me/balance'),
-          api.get('/accounting/barber-sales-chart?months=6'),
-        ]);
-        
-        console.log('📊 Barber balance received:', balanceRes.data);
-        
-        // تبدیل داده‌های جدید به فرمت قدیمی برای سازگاری
-        const balanceData = balanceRes.data;
-        setStats({
-          totalIncome: balanceData.totalServiceIncome,
-          totalTips: balanceData.totalTips,
-          totalWithdrawn: balanceData.totalWithdrawals,
-          totalSalaries: 0, // این فیلد دیگر استفاده نمی‌شود
-          currentBalance: balanceData.currentBalance,
-          availableIncome: balanceData.availableForWithdrawal,
-          salaryPercentage: 60, // پیش‌فرض
-          todayTips: balanceData.todayTips,
-          recentTipTransactions: balanceData.recentTipTransactions,
-          tipBreakdown: balanceData.tipBreakdown,
-        });
-        
-        setSalesChart(salesChartRes.data || []);
+        await loadStaffFinance();
       } catch (error) {
         console.error('Error fetching barber accounting data:', error);
         toast({
@@ -108,103 +97,14 @@ export function BarberOverview() {
     fetchData();
   }, [toast]);
 
-  const handleWithdrawalRequest = async () => {
-    if (!withdrawalAmount || parseFloat(withdrawalAmount) <= 0) {
-      toast({
-        title: "خطا",
-        description: "لطفا مبلغ معتبر وارد کنید",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // حذف محدودیت مبلغ - آرایشگر می‌تواند هر مقداری درخواست کند
-    if (stats.availableIncome && parseFloat(withdrawalAmount) > stats.availableIncome) {
-      toast({
-        title: "هشدار",
-        description: "مبلغ درخواستی بیشتر از درآمد قابل برداشت شماست. ممکن است درخواست شما رد شود.",
-        variant: "destructive",
-      });
-      // ادامه می‌دهیم - اجازه می‌دهیم درخواست ارسال شود
-    }
-
-    try {
-      setWithdrawalLoading(true);
-      console.log('🔍 Getting barber info...');
-      const barber = await api.get('/barbers/me');
-      console.log('🔍 Barber info received:', barber.data);
-      
-      if (!barber.data || !barber.data.id) {
-        throw new Error('اطلاعات آرایشگر یافت نشد');
-      }
-      
-      console.log('🔍 Sending withdrawal request...');
-      console.log('🔍 Request details:', {
-        url: `/accounting/barbers/${barber.data.id}/withdrawals`,
-        data: {
-          amount: parseFloat(withdrawalAmount),
-          description: withdrawalDescription || 'درخواست برداشت حقوق',
-        }
-      });
-      
-      const response = await api.post(`/accounting/barbers/${barber.data.id}/withdrawals`, {
-        amount: parseFloat(withdrawalAmount),
-        description: withdrawalDescription || 'درخواست برداشت حقوق',
-      });
-      console.log('✅ Withdrawal response:', response.data);
-
-      toast({
-        title: "درخواست ارسال شد",
-        description: "درخواست برداشت شما با موفقیت ثبت شد",
-      });
-
-      setWithdrawalDialogOpen(false);
-      setWithdrawalAmount('');
-      setWithdrawalDescription('');
-      
-      // Refresh stats
-      const statsRes = await api.get('/accounting/stats');
-      setStats(statsRes.data);
-    } catch (error: any) {
-      console.error('❌ Error requesting withdrawal:', error);
-      console.error('❌ Error response:', error.response?.data);
-      console.error('❌ Error status:', error.response?.status);
-      
-      const errorMessage = error.response?.data?.message || error.message || "خطا در ارسال درخواست برداشت";
-      
-      toast({
-        title: "خطا",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setWithdrawalLoading(false);
-    }
+  const handleWithdrawalRequest = () => {
+    router.push('/dashboard/employee/salary-request');
   };
 
   const refreshData = async () => {
     try {
       setLoading(true);
-      const [balanceRes, salesChartRes] = await Promise.all([
-        api.get('/accounting/barbers/me/balance'),
-        api.get('/accounting/barber-sales-chart?months=6'),
-      ]);
-      
-      const balanceData = balanceRes.data;
-      setStats({
-        totalIncome: balanceData.totalServiceIncome,
-        totalTips: balanceData.totalTips,
-        totalWithdrawn: balanceData.totalWithdrawals,
-        totalSalaries: 0,
-        currentBalance: balanceData.currentBalance,
-        availableIncome: balanceData.availableForWithdrawal,
-        salaryPercentage: 60,
-        todayTips: balanceData.todayTips,
-        recentTipTransactions: balanceData.recentTipTransactions,
-        tipBreakdown: balanceData.tipBreakdown,
-      });
-      
-      setSalesChart(salesChartRes.data || []);
+      await loadStaffFinance();
     } catch (error) {
       console.error('Error refreshing data:', error);
     } finally {
@@ -313,7 +213,7 @@ export function BarberOverview() {
               </p>
             </div>
             <Button 
-              onClick={() => setWithdrawalDialogOpen(true)}
+              onClick={handleWithdrawalRequest}
               className="bg-green-600 hover:bg-green-700"
             >
               <BanknotesIcon className="h-4 w-4 ml-2" />
@@ -430,49 +330,6 @@ export function BarberOverview() {
           </CardContent>
         </Card>
       )}
-
-      {/* Withdrawal Dialog */}
-      <Dialog open={withdrawalDialogOpen} onOpenChange={setWithdrawalDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>درخواست برداشت از موجودی</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="amount">مبلغ (تومان)</Label>
-              <Input
-                id="amount"
-                type="number"
-                value={withdrawalAmount}
-                onChange={(e) => setWithdrawalAmount(e.target.value)}
-                placeholder="مبلغ مورد نظر را وارد کنید"
-              />
-            </div>
-            <div>
-              <Label htmlFor="description">توضیحات (اختیاری)</Label>
-              <Input
-                id="description"
-                value={withdrawalDescription}
-                onChange={(e) => setWithdrawalDescription(e.target.value)}
-                placeholder="توضیحات درخواست"
-              />
-            </div>
-            <div className="text-sm text-muted-foreground">
-              موجودی قابل برداشت: {formatTomansFromRial(stats.availableIncome ?? 0)}
-            </div>
-            <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
-              💡 شما می‌توانید هر مقداری درخواست کنید. درخواست‌های بیشتر از موجودی قابل برداشت نیاز به تایید ادمین دارند.
-            </div>
-            <Button 
-              onClick={handleWithdrawalRequest} 
-              disabled={withdrawalLoading || !withdrawalAmount}
-              className="w-full"
-            >
-              {withdrawalLoading ? 'در حال ارسال...' : 'ثبت درخواست'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 } 

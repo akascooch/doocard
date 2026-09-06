@@ -12,8 +12,12 @@ import { UpdateChequebookDto } from './dto/update-chequebook.dto';
 import { CreateChequeLeafDto } from './dto/create-cheque-leaf.dto';
 import { UpdateChequeLeafDto } from './dto/update-cheque-leaf.dto';
 import { QueryChequeLeavesDto } from './dto/query-cheque-leaves.dto';
-import { TransactionType, ChequeLeafStatus, ChequeLeafCategory, PaymentMethod } from '@prisma/client';
-import { EMPLOYEE_EXPENSE_CATEGORY_CODES } from '../common/constants/employee-commission.constants';
+import { Prisma, TransactionType, ChequeLeafStatus, ChequeLeafCategory, PaymentMethod, ChequePayeeKind } from '@prisma/client';
+import {
+  EMPLOYEE_EXPENSE_CATEGORY_CODES,
+  CHEQUE_LEAF_PAYROLL_SOURCE_TYPE,
+  EMPLOYEE_WITHDRAWAL_CATEGORY_CODE,
+} from '../common/constants/employee-commission.constants';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { PushNotificationsService } from '../push-notifications/push-notifications.service';
@@ -969,18 +973,55 @@ export class AccountingService {
   }
 
   /**
-   * Soft-delete auto-created clearance transaction and reopen leaf as ISSUED.
-   * Idempotent if already unlinked / transaction already deleted.
+   * Reopen a CLEARED leaf as ISSUED.
+   * Staff payroll: refund bank if attached, keep the payroll txn (cheque is still issued).
+   * Ordinary clearance: soft-delete the auto ledger row and unlink.
    */
   async reverseChequeClearedAccounting(leafId: number) {
     const leaf = await this.prisma.chequeLeaf.findFirst({
       where: { id: leafId, deletedAt: null },
+      include: { transaction: true },
     });
     if (!leaf) {
       throw new NotFoundException('Cheque leaf not found');
     }
     if (leaf.status !== ChequeLeafStatus.CLEARED) {
       throw new BadRequestException('فقط چک وصول‌شده قابل برگشت حسابداری است');
+    }
+
+    const linked = leaf.transaction;
+    const isPayroll = this.isChequePayrollTransaction(linked);
+
+    if (isPayroll && linked) {
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const payroll = await tx.transaction.findFirst({
+          where: { id: linked.id },
+        });
+        if (payroll && !payroll.deletedAt && payroll.accountId) {
+          await tx.bankAccount.update({
+            where: { id: payroll.accountId },
+            data: { balance: { increment: payroll.amount } },
+          });
+          await tx.transaction.update({
+            where: { id: payroll.id },
+            data: { accountId: null },
+          });
+        }
+
+        return tx.chequeLeaf.update({
+          where: { id: leafId },
+          data: {
+            status: ChequeLeafStatus.ISSUED,
+            clearedAt: null,
+          },
+          include: this.chequeLeafResponseInclude(),
+        });
+      });
+
+      return {
+        ...this.serializeChequeLeaf(updated),
+        transaction: this.serializeLinkedTransaction(updated.transaction),
+      };
     }
 
     if (leaf.transactionId) {
@@ -1001,20 +1042,239 @@ export class AccountingService {
         clearedAt: null,
         transactionId: null,
       },
-      include: {
-        chequebook: {
-          select: { id: true, serialNumber: true, bankAccount: { select: { id: true, name: true } } },
-        },
-        transaction: true,
-      },
+      include: this.chequeLeafResponseInclude(),
     });
 
-    return this.serializeChequeLeaf(updated);
+    return {
+      ...this.serializeChequeLeaf(updated),
+      transaction: this.serializeLinkedTransaction(updated.transaction),
+    };
   }
 
   /** ExternalRef used for cleared-cheque ledger rows (idempotency). */
   static chequeClearedExternalRef(leafId: number): string {
     return `cheque-leaf-cleared:${leafId}`;
+  }
+
+  /** ExternalRef used for staff-salary cheque payroll rows (idempotency). */
+  static chequePayrollExternalRef(leafId: number): string {
+    return `cheque-leaf-payroll:${leafId}`;
+  }
+
+  private chequeLeafResponseInclude() {
+    return {
+      chequebook: {
+        select: {
+          id: true,
+          serialNumber: true,
+          bankAccount: { select: { id: true, name: true } },
+        },
+      },
+      transaction: {
+        select: {
+          id: true,
+          type: true,
+          amount: true,
+          occurredAt: true,
+          description: true,
+          sourceType: true,
+          accountId: true,
+        },
+      },
+      employee: {
+        select: { id: true, user: { select: { name: true } } },
+      },
+    } as const;
+  }
+
+  private serializeLinkedTransaction(transaction: { amount: bigint } | null) {
+    if (!transaction) return null;
+    return { ...transaction, amount: Number(transaction.amount) };
+  }
+
+  private isChequePayrollTransaction(txn: { sourceType?: string | null } | null | undefined) {
+    return txn?.sourceType === CHEQUE_LEAF_PAYROLL_SOURCE_TYPE;
+  }
+
+  private assertStaffChequeRules(params: {
+    payeeKind: ChequePayeeKind | null;
+    employeeId: number | null;
+    category: ChequeLeafCategory;
+    amount: bigint | null;
+    status: ChequeLeafStatus;
+  }) {
+    if (params.payeeKind === ChequePayeeKind.STAFF_SALARY) {
+      if (params.category === ChequeLeafCategory.GUARANTEE) {
+        throw new BadRequestException('چک ضمانت نمی‌تواند به‌عنوان حقوق پرسنل ثبت شود');
+      }
+      if (!params.employeeId) {
+        throw new BadRequestException('برای واریز حقوق پرسنل انتخاب کارمند الزامی است');
+      }
+      const needsAmount =
+        params.status === ChequeLeafStatus.ISSUED ||
+        params.status === ChequeLeafStatus.CLEARED;
+      if (needsAmount && (params.amount == null || params.amount <= 0n)) {
+        throw new BadRequestException('برای چک حقوق باید مبلغ معتبر ثبت شده باشد');
+      }
+    }
+  }
+
+  private async resolveEmployeeWithdrawalCategory(tx: Prisma.TransactionClient) {
+    const category = await tx.transactionCategory.findFirst({
+      where: {
+        code: EMPLOYEE_WITHDRAWAL_CATEGORY_CODE,
+        deletedAt: null,
+        isActive: true,
+      },
+    });
+    if (!category) {
+      throw new BadRequestException(
+        'دسته برداشت حقوق (EMPLOYEE_WITHDRAWAL) یافت نشد',
+      );
+    }
+    return category;
+  }
+
+  private async findChequePayrollTransaction(
+    tx: Prisma.TransactionClient,
+    leafId: number,
+  ) {
+    const bySource = await tx.transaction.findFirst({
+      where: {
+        deletedAt: null,
+        sourceType: CHEQUE_LEAF_PAYROLL_SOURCE_TYPE,
+        sourceId: leafId,
+      },
+    });
+    if (bySource) return bySource;
+
+    return tx.transaction.findFirst({
+      where: {
+        deletedAt: null,
+        meta: {
+          path: ['externalRef'],
+          equals: AccountingService.chequePayrollExternalRef(leafId),
+        },
+      },
+    });
+  }
+
+  private async ensureChequePayrollTransaction(
+    tx: Prisma.TransactionClient,
+    leaf: {
+      id: number;
+      leafNumber: number;
+      chequebookId: number;
+      amount: bigint;
+      employeeId: number;
+    },
+    userId?: number,
+  ): Promise<number> {
+    const existing = await this.findChequePayrollTransaction(tx, leaf.id);
+    const category = await this.resolveEmployeeWithdrawalCategory(tx);
+    const employee = await tx.employee.findUnique({
+      where: { id: leaf.employeeId },
+      include: { user: { select: { name: true } } },
+    });
+    if (!employee) {
+      throw new NotFoundException('Employee not found');
+    }
+
+    const description = `چک حقوق برگه شماره ${leaf.leafNumber} - دسته‌چک ${leaf.chequebookId}`;
+    const meta = {
+      externalRef: AccountingService.chequePayrollExternalRef(leaf.id),
+      chequeLeafId: leaf.id,
+      autoFromChequePayroll: true,
+    };
+
+    if (existing) {
+      await tx.transaction.update({
+        where: { id: existing.id },
+        data: {
+          amount: leaf.amount,
+          employeeId: leaf.employeeId,
+          categoryId: category.id,
+          description,
+          paymentMethod: PaymentMethod.CHEQUE,
+          meta,
+        },
+      });
+      return existing.id;
+    }
+
+    const created = await tx.transaction.create({
+      data: {
+        type: TransactionType.EXPENSE,
+        amount: leaf.amount,
+        currency: 'IRR',
+        description,
+        categoryId: category.id,
+        employeeId: leaf.employeeId,
+        accountId: null,
+        sourceType: CHEQUE_LEAF_PAYROLL_SOURCE_TYPE,
+        sourceId: leaf.id,
+        paymentMethod: PaymentMethod.CHEQUE,
+        occurredAt: new Date(),
+        createdBy: userId ?? null,
+        meta,
+      },
+    });
+    return created.id;
+  }
+
+  private async attachBankToChequePayroll(
+    tx: Prisma.TransactionClient,
+    payrollTxn: { id: number; amount: bigint; accountId: number | null },
+    bankAccountId: number,
+  ) {
+    if (payrollTxn.accountId === bankAccountId) {
+      return;
+    }
+    if (payrollTxn.accountId != null && payrollTxn.accountId !== bankAccountId) {
+      throw new BadRequestException('تراکنش حقوق این چک قبلاً به حساب دیگری وصل شده است');
+    }
+
+    await tx.bankAccount.update({
+      where: { id: bankAccountId },
+      data: { balance: { decrement: payrollTxn.amount } },
+    });
+    await tx.transaction.update({
+      where: { id: payrollTxn.id },
+      data: { accountId: bankAccountId },
+    });
+  }
+
+  private async voidChequePayrollTransaction(
+    tx: Prisma.TransactionClient,
+    leafId: number,
+    linkedTxn?: {
+      id: number;
+      sourceType?: string | null;
+      accountId?: number | null;
+      amount?: bigint;
+      deletedAt?: Date | null;
+    } | null,
+  ) {
+    const payroll =
+      linkedTxn && this.isChequePayrollTransaction(linkedTxn)
+        ? await tx.transaction.findFirst({ where: { id: linkedTxn.id } })
+        : await this.findChequePayrollTransaction(tx, leafId);
+
+    if (!payroll || payroll.deletedAt) {
+      return;
+    }
+
+    if (payroll.accountId) {
+      await tx.bankAccount.update({
+        where: { id: payroll.accountId },
+        data: { balance: { increment: payroll.amount } },
+      });
+    }
+
+    await tx.transaction.update({
+      where: { id: payroll.id },
+      data: { deletedAt: new Date() },
+    });
   }
 
   private buildChequeClearedDescription(leaf: {
@@ -1160,8 +1420,11 @@ export class AccountingService {
     });
   }
 
-  async findAllChequebooks(bankAccountId?: number) {
-    const where: any = { deletedAt: null };
+  async findAllChequebooks(bankAccountId?: number, archived = false) {
+    const where: Prisma.ChequebookWhereInput = {
+      deletedAt: null,
+      isActive: !archived,
+    };
     if (bankAccountId) where.bankAccountId = bankAccountId;
 
     const chequebooks = await this.prisma.chequebook.findMany({
@@ -1211,6 +1474,44 @@ export class AccountingService {
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
       },
+      include: {
+        bankAccount: { select: { id: true, name: true, provider: true } },
+        _count: { select: { leaves: true } },
+      },
+    });
+  }
+
+  async archiveChequebook(id: number) {
+    await this.findOneChequebook(id);
+    const pendingLeaves = await this.prisma.chequeLeaf.count({
+      where: {
+        chequebookId: id,
+        deletedAt: null,
+        status: { in: [ChequeLeafStatus.BLANK, ChequeLeafStatus.ISSUED] },
+      },
+    });
+    const updated = await this.prisma.chequebook.update({
+      where: { id },
+      data: { isActive: false },
+      include: {
+        bankAccount: { select: { id: true, name: true, provider: true } },
+        _count: { select: { leaves: true } },
+      },
+    });
+    return {
+      ...updated,
+      warning:
+        pendingLeaves > 0
+          ? 'این دسته‌چک برگه‌های باز دارد و با وجود آن آرشیو شد.'
+          : undefined,
+    };
+  }
+
+  async restoreChequebook(id: number) {
+    await this.findOneChequebook(id);
+    return this.prisma.chequebook.update({
+      where: { id },
+      data: { isActive: true },
       include: {
         bankAccount: { select: { id: true, name: true, provider: true } },
         _count: { select: { leaves: true } },
@@ -1279,7 +1580,10 @@ export class AccountingService {
             },
           },
           transaction: {
-            select: { id: true, type: true, amount: true, occurredAt: true },
+            select: { id: true, type: true, amount: true, occurredAt: true, sourceType: true, accountId: true },
+          },
+          employee: {
+            select: { id: true, user: { select: { name: true } } },
           },
         },
         orderBy: [{ chequebookId: 'asc' }, { leafNumber: 'asc' }],
@@ -1324,32 +1628,85 @@ export class AccountingService {
       await this.validateChequeLeafTransaction(dto.transactionId);
     }
 
-    const created = await this.prisma.chequeLeaf.create({
-      data: {
-        chequebookId: dto.chequebookId,
-        leafNumber: dto.leafNumber,
-        category: dto.category ?? ChequeLeafCategory.NORMAL,
-        amount: dto.amount != null ? BigInt(dto.amount) : null,
-        payee: dto.payee,
-        dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
-        issuedAt: dto.issuedAt ? new Date(dto.issuedAt) : null,
-        description: dto.description,
-        transactionId: dto.transactionId,
-        status: dto.issuedAt || dto.amount ? ChequeLeafStatus.ISSUED : ChequeLeafStatus.BLANK,
-      },
-      include: {
-        chequebook: {
-          select: { id: true, serialNumber: true, bankAccount: { select: { id: true, name: true } } },
+    const category = dto.category ?? ChequeLeafCategory.NORMAL;
+    const payeeKind = dto.payeeKind ?? null;
+    const employeeId =
+      payeeKind === ChequePayeeKind.STAFF_SALARY ? dto.employeeId ?? null : null;
+    const amount = dto.amount != null ? BigInt(dto.amount) : null;
+    const status =
+      dto.issuedAt || dto.amount ? ChequeLeafStatus.ISSUED : ChequeLeafStatus.BLANK;
+
+    this.assertStaffChequeRules({
+      payeeKind,
+      employeeId,
+      category,
+      amount,
+      status,
+    });
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      let payee = dto.payee ?? null;
+      if (payeeKind === ChequePayeeKind.STAFF_SALARY && employeeId && !payee) {
+        const employee = await tx.employee.findUnique({
+          where: { id: employeeId },
+          include: { user: { select: { name: true } } },
+        });
+        payee = employee?.user?.name?.trim() || payee;
+      }
+
+      const leaf = await tx.chequeLeaf.create({
+        data: {
+          chequebookId: dto.chequebookId,
+          leafNumber: dto.leafNumber,
+          category,
+          amount,
+          payee,
+          payeeKind,
+          employeeId,
+          dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+          issuedAt: dto.issuedAt ? new Date(dto.issuedAt) : null,
+          description: dto.description,
+          transactionId: dto.transactionId,
+          status,
         },
-        transaction: { select: { id: true, type: true, amount: true } },
-      },
+      });
+
+      const isStaffPayroll =
+        payeeKind === ChequePayeeKind.STAFF_SALARY &&
+        employeeId != null &&
+        category !== ChequeLeafCategory.GUARANTEE &&
+        status === ChequeLeafStatus.ISSUED &&
+        amount != null &&
+        amount > 0n;
+
+      if (isStaffPayroll) {
+        const payrollId = await this.ensureChequePayrollTransaction(
+          tx,
+          {
+            id: leaf.id,
+            leafNumber: leaf.leafNumber,
+            chequebookId: leaf.chequebookId,
+            amount,
+            employeeId,
+          },
+          undefined,
+        );
+        return tx.chequeLeaf.update({
+          where: { id: leaf.id },
+          data: { transactionId: payrollId, payee },
+          include: this.chequeLeafResponseInclude(),
+        });
+      }
+
+      return tx.chequeLeaf.findFirstOrThrow({
+        where: { id: leaf.id },
+        include: this.chequeLeafResponseInclude(),
+      });
     });
 
     return {
       ...this.serializeChequeLeaf(created),
-      transaction: created.transaction
-        ? { ...created.transaction, amount: Number(created.transaction.amount) }
-        : null,
+      transaction: this.serializeLinkedTransaction(created.transaction),
     };
   }
 
@@ -1382,42 +1739,62 @@ export class AccountingService {
     }
 
     const nextStatus = dto.status ?? existing.status;
+    const nextCategory = dto.category ?? existing.category;
+    const nextPayeeKind =
+      dto.payeeKind !== undefined ? dto.payeeKind : existing.payeeKind;
+    let nextEmployeeId =
+      dto.employeeId !== undefined ? dto.employeeId : existing.employeeId;
+    if (nextPayeeKind !== ChequePayeeKind.STAFF_SALARY) {
+      nextEmployeeId = null;
+    }
+    const nextAmount =
+      dto.amount !== undefined
+        ? dto.amount != null
+          ? BigInt(dto.amount)
+          : null
+        : existing.amount;
+
+    this.assertStaffChequeRules({
+      payeeKind: nextPayeeKind,
+      employeeId: nextEmployeeId,
+      category: nextCategory,
+      amount: nextAmount,
+      status: nextStatus,
+    });
+
     const becomingCleared =
       nextStatus === ChequeLeafStatus.CLEARED &&
       existing.status !== ChequeLeafStatus.CLEARED;
+    const becomingVoided =
+      (nextStatus === ChequeLeafStatus.BOUNCED ||
+        nextStatus === ChequeLeafStatus.CANCELLED) &&
+      existing.status !== nextStatus;
+    const isStaffPayroll =
+      nextPayeeKind === ChequePayeeKind.STAFF_SALARY &&
+      nextEmployeeId != null &&
+      nextCategory !== ChequeLeafCategory.GUARANTEE;
+    const wasStaffPayroll = this.isChequePayrollTransaction(existing.transaction);
 
-    const updateData: any = {
-      ...(dto.amount !== undefined && { amount: dto.amount != null ? BigInt(dto.amount) : null }),
-      ...(dto.payee !== undefined && { payee: dto.payee }),
-      ...(dto.dueDate !== undefined && { dueDate: dto.dueDate ? new Date(dto.dueDate) : null }),
-      ...(dto.description !== undefined && { description: dto.description }),
-      ...(dto.category !== undefined && { category: dto.category }),
-      ...(dto.transactionId !== undefined && { transactionId: dto.transactionId }),
-      ...(dto.status !== undefined && { status: dto.status }),
-    };
-
-    if (nextStatus === ChequeLeafStatus.ISSUED && !existing.issuedAt && !dto.issuedAt) {
-      updateData.issuedAt = new Date();
-    } else if (dto.issuedAt !== undefined) {
-      updateData.issuedAt = dto.issuedAt ? new Date(dto.issuedAt) : null;
+    if (becomingCleared && (nextAmount == null || nextAmount <= 0n)) {
+      throw new BadRequestException('برای وصول چک باید مبلغ معتبر ثبت شده باشد');
     }
 
-    if (nextStatus === ChequeLeafStatus.CLEARED) {
-      updateData.clearedAt = dto.clearedAt ? new Date(dto.clearedAt) : new Date();
-    } else if (dto.clearedAt !== undefined) {
-      updateData.clearedAt = dto.clearedAt ? new Date(dto.clearedAt) : null;
-    }
-
-    if (becomingCleared && dto.transactionId == null && existing.transactionId == null) {
-      const amountForClear =
-        updateData.amount !== undefined ? updateData.amount : existing.amount;
-      const txnId = await this.ensureClearedChequeLedgerTransaction(
+    // Ordinary (non-staff) clearance keeps the existing ledger helper.
+    let ordinaryClearanceTxnId: number | undefined;
+    if (
+      becomingCleared &&
+      !isStaffPayroll &&
+      !wasStaffPayroll &&
+      dto.transactionId == null &&
+      existing.transactionId == null
+    ) {
+      ordinaryClearanceTxnId = await this.ensureClearedChequeLedgerTransaction(
         {
           id: existing.id,
           leafNumber: existing.leafNumber,
-          amount: amountForClear,
+          amount: nextAmount,
           payee: dto.payee !== undefined ? dto.payee : existing.payee,
-          category: dto.category ?? existing.category,
+          category: nextCategory,
           transactionId: null,
           chequebook: {
             id: existing.chequebook.id,
@@ -1427,25 +1804,131 @@ export class AccountingService {
         },
         userId,
       );
-      updateData.transactionId = txnId;
     }
 
-    const updated = await this.prisma.chequeLeaf.update({
-      where: { id },
-      data: updateData,
-      include: {
-        chequebook: {
-          select: { id: true, serialNumber: true, bankAccount: { select: { id: true, name: true } } },
-        },
-        transaction: { select: { id: true, type: true, amount: true, occurredAt: true, description: true } },
-      },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const updateData: Prisma.ChequeLeafUncheckedUpdateInput = {
+        ...(dto.amount !== undefined && { amount: nextAmount }),
+        ...(dto.payee !== undefined && { payee: dto.payee }),
+        ...(dto.dueDate !== undefined && { dueDate: dto.dueDate ? new Date(dto.dueDate) : null }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.category !== undefined && { category: dto.category }),
+        ...(dto.status !== undefined && { status: dto.status }),
+        payeeKind: nextPayeeKind,
+        employeeId: nextEmployeeId,
+      };
+
+      if (nextStatus === ChequeLeafStatus.ISSUED && !existing.issuedAt && !dto.issuedAt) {
+        updateData.issuedAt = new Date();
+      } else if (dto.issuedAt !== undefined) {
+        updateData.issuedAt = dto.issuedAt ? new Date(dto.issuedAt) : null;
+      }
+
+      if (nextStatus === ChequeLeafStatus.CLEARED) {
+        updateData.clearedAt = dto.clearedAt ? new Date(dto.clearedAt) : new Date();
+      } else if (dto.clearedAt !== undefined) {
+        updateData.clearedAt = dto.clearedAt ? new Date(dto.clearedAt) : null;
+      }
+
+      if (dto.transactionId !== undefined) {
+        updateData.transactionId = dto.transactionId;
+      }
+
+      if (becomingVoided) {
+        await this.voidChequePayrollTransaction(tx, existing.id, existing.transaction);
+        if (wasStaffPayroll || existing.transactionId) {
+          const linkedIsPayroll = wasStaffPayroll;
+          if (linkedIsPayroll) {
+            updateData.transactionId = null;
+          }
+        }
+      }
+
+      const leavingStaffPayroll =
+        !isStaffPayroll &&
+        wasStaffPayroll &&
+        (nextStatus === ChequeLeafStatus.ISSUED || nextStatus === ChequeLeafStatus.BLANK);
+      if (leavingStaffPayroll && !becomingVoided) {
+        await this.voidChequePayrollTransaction(tx, existing.id, existing.transaction);
+        updateData.transactionId = null;
+      }
+
+      if (
+        isStaffPayroll &&
+        nextAmount != null &&
+        nextAmount > 0n &&
+        nextEmployeeId != null &&
+        (nextStatus === ChequeLeafStatus.ISSUED || nextStatus === ChequeLeafStatus.CLEARED)
+      ) {
+        let payee = dto.payee !== undefined ? dto.payee : existing.payee;
+        if (!payee) {
+          const employee = await tx.employee.findUnique({
+            where: { id: nextEmployeeId },
+            include: { user: { select: { name: true } } },
+          });
+          payee = employee?.user?.name?.trim() || payee;
+          if (payee) {
+            updateData.payee = payee;
+          }
+        }
+
+        const payrollId = await this.ensureChequePayrollTransaction(
+          tx,
+          {
+            id: existing.id,
+            leafNumber: existing.leafNumber,
+            chequebookId: existing.chequebookId,
+            amount: nextAmount,
+            employeeId: nextEmployeeId,
+          },
+          userId,
+        );
+        updateData.transactionId = payrollId;
+
+        if (becomingCleared) {
+          const payroll = await tx.transaction.findFirst({
+            where: { id: payrollId, deletedAt: null },
+          });
+          if (!payroll) {
+            throw new NotFoundException('تراکنش حقوق چک یافت نشد');
+          }
+          await this.attachBankToChequePayroll(
+            tx,
+            payroll,
+            existing.chequebook.bankAccountId,
+          );
+        }
+      } else if (ordinaryClearanceTxnId != null) {
+        updateData.transactionId = ordinaryClearanceTxnId;
+      } else if (
+        becomingCleared &&
+        wasStaffPayroll &&
+        existing.transactionId &&
+        existing.chequebook?.bankAccountId
+      ) {
+        const payroll = await tx.transaction.findFirst({
+          where: { id: existing.transactionId, deletedAt: null },
+        });
+        if (payroll) {
+          await this.attachBankToChequePayroll(
+            tx,
+            payroll,
+            existing.chequebook.bankAccountId,
+          );
+          updateData.transactionId = payroll.id;
+        }
+      }
+
+      return tx.chequeLeaf.update({
+        where: { id },
+        data: updateData,
+        include: this.chequeLeafResponseInclude(),
+      });
     });
 
     return {
       ...this.serializeChequeLeaf(updated),
-      transaction: updated.transaction
-        ? { ...updated.transaction, amount: Number(updated.transaction.amount) }
-        : null,
+      transaction: this.serializeLinkedTransaction(updated.transaction),
     };
   }
 

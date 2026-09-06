@@ -1,6 +1,6 @@
-import { IsDateString, IsEnum, IsInt, IsOptional, IsString, Min, MaxLength } from 'class-validator';
+import { IsDateString, IsEnum, IsInt, IsOptional, IsString, Min, MaxLength, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ChequeLeafCategory, ChequeLeafStatus } from '@prisma/client';
+import { ChequeLeafCategory, ChequeLeafStatus, ChequePayeeKind } from '@prisma/client';
 
 export class UpdateChequeLeafDto {
   @IsOptional()
@@ -21,6 +21,17 @@ export class UpdateChequeLeafDto {
   @IsString()
   @MaxLength(200)
   payee?: string;
+
+  @IsOptional()
+  @IsEnum(ChequePayeeKind)
+  payeeKind?: ChequePayeeKind | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v != null)
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  employeeId?: number | null;
 
   @IsOptional()
   @IsDateString()

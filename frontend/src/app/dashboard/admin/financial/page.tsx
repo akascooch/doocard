@@ -35,13 +35,13 @@ import {
 interface YearlyReportMonth {
   month: string
   expense: { total: string; categories: Array<{ name: string; total: string }> }
-  revenue: { total: string; employees: Array<{ name: string; count: number }> }
+  revenue: { total: string; employees: Array<{ name: string; count: number; amount: string }> }
 }
 
 interface YearlyReport {
   year: number
   months: YearlyReportMonth[]
-  employeeRanking: Array<{ name: string; count: number }>
+  employeeRanking: Array<{ name: string; count: number; amount: string }>
 }
 
 const DEFAULT_YEAR = 1404
@@ -170,7 +170,11 @@ export default function AdminFinancialPage() {
       employees: m.revenue.employees,
     })) ?? []
 
-  const rankingData = yearlyReport?.employeeRanking ?? []
+  const rankingData =
+    yearlyReport?.employeeRanking.map((r) => ({
+      ...r,
+      amountValue: Number(r.amount),
+    })) ?? []
 
   return (
     <div className="space-y-6">
@@ -329,6 +333,7 @@ export default function AdminFinancialPage() {
                                 {row.employees.map((e, i) => (
                                   <li key={i}>
                                     {e.name}: {e.count} نوبت
+                                    {e.amount != null ? ` — ${formatTomansFromRial(e.amount)}` : ''}
                                   </li>
                                 ))}
                               </ul>
@@ -385,6 +390,60 @@ export default function AdminFinancialPage() {
                         <Cell key={i} fill={`hsl(var(--primary))`} />
                       ))}
                     </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-80 flex items-center justify-center text-foreground/80">
+                  داده‌ای برای این سال وجود ندارد
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Chart 4 — Yearly Employee Sales Amount */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-green-600" />
+                مبلغ فروش کل کارمندان (سال {year})
+              </CardTitle>
+              <CardDescription>مرتب‌سازی همان رتبه‌بندی تعداد نوبت؛ نمایش به تومان</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {rankingData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart
+                    layout="vertical"
+                    data={rankingData}
+                    margin={{ top: 8, right: 24, left: 80, bottom: 8 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis
+                      type="number"
+                      tick={{ fontSize: 12 }}
+                      tickFormatter={(v) => {
+                        const toman = Number(v) / 10
+                        if (toman >= 1e6) return `${(toman / 1e6).toFixed(0)}M`
+                        if (toman >= 1e3) return `${(toman / 1e3).toFixed(0)}K`
+                        return String(Math.round(toman))
+                      }}
+                    />
+                    <YAxis type="category" dataKey="name" width={72} tick={{ fontSize: 11 }} />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null
+                        const p = payload[0].payload as { name: string; count: number; amount: string }
+                        return (
+                          <div className="rounded-lg border bg-background p-3 shadow-md">
+                            <p className="font-medium">{p.name}</p>
+                            <p className="text-sm text-foreground/80">
+                              مبلغ فروش (تومان): {formatTomansFromRial(p.amount)}
+                            </p>
+                          </div>
+                        )
+                      }}
+                    />
+                    <Bar dataKey="amountValue" name="مبلغ فروش (تومان)" radius={[0, 4, 4, 0]} fill="hsl(var(--chart-2))" />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (

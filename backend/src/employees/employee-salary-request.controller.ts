@@ -66,10 +66,26 @@ export class EmployeeSalaryRequestController {
 
   @Get('salary-requests')
   @Roles('EMPLOYEE', 'SERVICE')
-  async listMine(@Req() req: { user?: { id?: number } }) {
-    const userId = req.user?.id;
+  async listMine(@Req() req: { user?: { id?: number; sub?: number } }) {
+    const userId = req.user?.id ?? req.user?.sub;
     if (!userId) throw new ForbiddenException('User not authenticated');
     return this.salaryRequestService.listMine(userId);
+  }
+
+  @Get('withdrawals')
+  @Roles('EMPLOYEE', 'SERVICE')
+  async listWithdrawals(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Req() req?: { user?: { id?: number; sub?: number } },
+  ) {
+    const userId = req?.user?.id ?? req?.user?.sub;
+    if (!userId) throw new ForbiddenException('User not authenticated');
+    return this.salaryRequestService.listMyWithdrawals(
+      userId,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+    );
   }
 
   @Post('salary-requests')

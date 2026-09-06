@@ -29,16 +29,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Edit, Trash2, BookOpen, FileText } from 'lucide-react'
+import { Plus, Edit, Trash2, BookOpen, FileText, Archive, ArchiveRestore } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { api } from '@/lib/axios'
 import MoneyInput from '@/components/ui/MoneyInput'
 import PersianDatePicker from '@/components/ui/PersianDatePicker'
 import { formatRials } from '@/lib/money'
 import { formatToJalali, jalaliToISO, getCurrentJalaliDate } from '@/lib/date'
+import {
+  type EmployeeListItem,
+  getEmployeeDisplayName,
+  normalizeEmployeeList,
+} from '@/lib/employee'
 
 type ChequeLeafStatus = 'BLANK' | 'ISSUED' | 'CLEARED' | 'BOUNCED' | 'CANCELLED'
 type ChequeLeafCategory = 'NORMAL' | 'GUARANTEE'
+type ChequePayeeKind = 'STAFF_SALARY' | 'SUPPLIER' | 'RENT' | 'UTILITIES' | 'OTHER'
 
 interface BankAccountOption {
   id: number
@@ -68,6 +85,9 @@ interface ChequeLeaf {
   category?: ChequeLeafCategory
   amount: number | null
   payee: string | null
+  payeeKind?: ChequePayeeKind | null
+  employeeId?: number | null
+  employee?: { id: number; user?: { name?: string | null } | null } | null
   dueDate: string | null
   issuedAt: string | null
   clearedAt: string | null
@@ -91,6 +111,14 @@ const STATUS_LABELS: Record<ChequeLeafStatus, string> = {
 const CATEGORY_LABELS: Record<ChequeLeafCategory, string> = {
   NORMAL: 'عادی',
   GUARANTEE: 'ضمانت',
+}
+
+const PAYEE_KIND_LABELS: Record<ChequePayeeKind, string> = {
+  STAFF_SALARY: 'واریز حقوق / مساعده پرسنل',
+  SUPPLIER: 'تأمین‌کننده / خرید متریال',
+  RENT: 'اجاره و شارژ سالن',
+  UTILITIES: 'قبوض و خدمات عمومی',
+  OTHER: 'سایر / متفرقه',
 }
 
 const STATUS_BADGE_CLASS: Record<ChequeLeafStatus, string> = {
@@ -118,9 +146,14 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
   const [loadingLeaves, setLoadingLeaves] = useState(false)
   const [selectedBookId, setSelectedBookId] = useState<number | null>(null)
   const [leafStatusFilter, setLeafStatusFilter] = useState<string>('ALL')
+  const [showArchived, setShowArchived] = useState(false)
+  const [archiveTarget, setArchiveTarget] = useState<Chequebook | null>(null)
+  const [restoreTarget, setRestoreTarget] = useState<Chequebook | null>(null)
   const [isBookDialogOpen, setIsBookDialogOpen] = useState(false)
   const [isLeafDialogOpen, setIsLeafDialogOpen] = useState(false)
   const [editingLeaf, setEditingLeaf] = useState<ChequeLeaf | null>(null)
+  const [employees, setEmployees] = useState<EmployeeListItem[]>([])
+  const [employeeQuery, setEmployeeQuery] = useState('')
 
   const [bookForm, setBookForm] = useState({
     bankAccountId: 0,
@@ -139,12 +172,16 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
     description: '',
     status: 'ISSUED' as ChequeLeafStatus,
     category: 'NORMAL' as ChequeLeafCategory,
+    payeeKind: '' as ChequePayeeKind | '',
+    employeeId: 0,
   })
 
   const fetchChequebooks = useCallback(async () => {
     try {
       setLoadingBooks(true)
-      const response = await api.get('/accounting/chequebooks')
+      const response = await api.get('/accounting/chequebooks', {
+        params: { archived: showArchived ? 'true' : 'false' },
+      })
       setChequebooks(response.data || [])
     } catch (error) {
       console.error('Error fetching chequebooks:', error)
@@ -152,7 +189,7 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
     } finally {
       setLoadingBooks(false)
     }
-  }, [toast])
+  }, [toast, showArchived])
 
   const fetchLeaves = useCallback(async (chequebookId: number, status?: string) => {
     try {
@@ -172,9 +209,20 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
     }
   }, [toast])
 
+  const fetchEmployees = useCallback(async () => {
+    try {
+      const response = await api.get('/employees')
+      const list = normalizeEmployeeList(response.data).filter((e) => e.isActive !== false)
+      setEmployees(list)
+    } catch (error) {
+      console.error('Error fetching employees:', error)
+    }
+  }, [])
+
   useEffect(() => {
     fetchChequebooks()
-  }, [fetchChequebooks])
+    fetchEmployees()
+  }, [fetchChequebooks, fetchEmployees])
 
   useEffect(() => {
     if (selectedBookId) {
@@ -204,7 +252,10 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
       description: '',
       status: 'ISSUED',
       category: 'NORMAL',
+      payeeKind: '',
+      employeeId: 0,
     })
+    setEmployeeQuery('')
   }
 
   const handleCreateChequebook = async () => {
@@ -258,6 +309,40 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
     }
   }
 
+  const handleArchiveChequebook = async (book: Chequebook) => {
+    try {
+      const res = await api.patch(`/accounting/chequebooks/${book.id}/archive`)
+      toast({
+        title: 'آرشیو شد',
+        description: res.data?.warning || 'دسته‌چک به آرشیو منتقل شد',
+      })
+      if (selectedBookId === book.id) setSelectedBookId(null)
+      setArchiveTarget(null)
+      fetchChequebooks()
+    } catch (error: any) {
+      toast({
+        title: 'خطا',
+        description: error.response?.data?.message || 'خطا در آرشیو دسته‌چک',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleRestoreChequebook = async (book: Chequebook) => {
+    try {
+      await api.patch(`/accounting/chequebooks/${book.id}/restore`)
+      toast({ title: 'بازگردانی شد', description: 'دسته‌چک دوباره در فهرست فعال قرار گرفت' })
+      setRestoreTarget(null)
+      fetchChequebooks()
+    } catch (error: any) {
+      toast({
+        title: 'خطا',
+        description: error.response?.data?.message || 'خطا در بازگردانی دسته‌چک',
+        variant: 'destructive',
+      })
+    }
+  }
+
   const openEditLeaf = (leaf: ChequeLeaf) => {
     setEditingLeaf(leaf)
     setLeafForm({
@@ -268,22 +353,54 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
       description: leaf.description || '',
       status: leaf.status === 'BLANK' ? 'ISSUED' : leaf.status,
       category: leaf.category === 'GUARANTEE' ? 'GUARANTEE' : 'NORMAL',
+      payeeKind: leaf.payeeKind || '',
+      employeeId: leaf.employeeId || 0,
     })
+    setEmployeeQuery('')
     setIsLeafDialogOpen(true)
   }
 
   const handleUpdateLeaf = async () => {
     if (!editingLeaf) return
 
+    if (leafForm.category === 'GUARANTEE' && leafForm.payeeKind === 'STAFF_SALARY') {
+      toast({
+        title: 'خطا',
+        description: 'چک ضمانت نمی‌تواند به‌عنوان حقوق پرسنل ثبت شود',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (leafForm.payeeKind === 'STAFF_SALARY' && !leafForm.employeeId) {
+      toast({
+        title: 'خطا',
+        description: 'برای واریز حقوق پرسنل، کارمند را انتخاب کنید',
+        variant: 'destructive',
+      })
+      return
+    }
+
     try {
+      const selectedEmployee = employees.find((e) => e.id === leafForm.employeeId)
+      const staffName = selectedEmployee ? getEmployeeDisplayName(selectedEmployee) : ''
       const payload: Record<string, unknown> = {
         amount: leafForm.amount > 0 ? leafForm.amount : undefined,
-        payee: leafForm.payee || undefined,
+        payee:
+          leafForm.payeeKind === 'STAFF_SALARY'
+            ? staffName || leafForm.payee || undefined
+            : leafForm.payee || undefined,
         description: leafForm.description || undefined,
         status: leafForm.status,
         category: leafForm.category,
         dueDate: leafForm.dueDate ? jalaliToISO(leafForm.dueDate) : undefined,
         issuedAt: leafForm.issuedAt ? jalaliToISO(leafForm.issuedAt) : undefined,
+      }
+
+      if (leafForm.payeeKind) {
+        payload.payeeKind = leafForm.payeeKind
+        payload.employeeId =
+          leafForm.payeeKind === 'STAFF_SALARY' ? leafForm.employeeId : null
       }
 
       await api.patch(`/accounting/cheque-leaves/${editingLeaf.id}`, payload)
@@ -316,6 +433,13 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
   }
 
   const selectedBook = chequebooks.find((b) => b.id === selectedBookId)
+  const employeeQueryNormalized = employeeQuery.trim().toLowerCase()
+  const filteredEmployees = employees.filter((emp) => {
+    if (!employeeQueryNormalized) return true
+    const name = getEmployeeDisplayName(emp).toLowerCase()
+    const phone = (emp.phone || '').toLowerCase()
+    return name.includes(employeeQueryNormalized) || phone.includes(employeeQueryNormalized)
+  })
 
   return (
     <div className="space-y-4">
@@ -326,7 +450,20 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
               <BookOpen className="h-5 w-5 text-main-orange" />
               دسته‌های چک
             </CardTitle>
-            <Dialog open={isBookDialogOpen} onOpenChange={setIsBookDialogOpen}>
+            <div className="flex flex-wrap items-center gap-2">
+              <Tabs
+                value={showArchived ? 'archived' : 'active'}
+                onValueChange={(v) => {
+                  setShowArchived(v === 'archived')
+                  setSelectedBookId(null)
+                }}
+              >
+                <TabsList>
+                  <TabsTrigger value="active">فعال</TabsTrigger>
+                  <TabsTrigger value="archived">آرشیو</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <Dialog open={isBookDialogOpen} onOpenChange={setIsBookDialogOpen}>
               <DialogTrigger asChild>
                 <Button
                   className="bg-main-orange hover:bg-main-orange/90"
@@ -415,6 +552,7 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
                 </div>
               </DialogContent>
             </Dialog>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -425,7 +563,7 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
           ) : chequebooks.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground">
               <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>هنوز دسته چکی ثبت نشده است</p>
+              <p>{showArchived ? 'دسته‌چک آرشیو‌شده‌ای وجود ندارد' : 'هنوز دسته چکی ثبت نشده است'}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -470,6 +608,31 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
                       >
                         مشاهده برگه‌ها
                       </Button>
+                      {showArchived ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setRestoreTarget(book)
+                          }}
+                        >
+                          <ArchiveRestore className="h-4 w-4 ml-1" />
+                          بازگردانی
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setArchiveTarget(book)
+                          }}
+                        >
+                          <Archive className="h-4 w-4 ml-1" />
+                          آرشیو
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -546,7 +709,11 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
                         {CATEGORY_LABELS[leaf.category === 'GUARANTEE' ? 'GUARANTEE' : 'NORMAL']}
                       </TableCell>
                       <TableCell>{leaf.amount ? formatRials(leaf.amount) : '—'}</TableCell>
-                      <TableCell>{leaf.payee || '—'}</TableCell>
+                      <TableCell>
+                        {leaf.payeeKind
+                          ? `${PAYEE_KIND_LABELS[leaf.payeeKind]}${leaf.payee ? ` — ${leaf.payee}` : ''}`
+                          : (leaf.payee || '—')}
+                      </TableCell>
                       <TableCell>{leaf.dueDate ? formatToJalali(leaf.dueDate) : '—'}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
@@ -615,12 +782,21 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
               <Label>نوع چک</Label>
               <Select
                 value={leafForm.category}
-                onValueChange={(val) =>
+                onValueChange={(val) => {
+                  const category = val as ChequeLeafCategory
                   setLeafForm((prev) => ({
                     ...prev,
-                    category: val as ChequeLeafCategory,
+                    category,
+                    payeeKind:
+                      category === 'GUARANTEE' && prev.payeeKind === 'STAFF_SALARY'
+                        ? ''
+                        : prev.payeeKind,
+                    employeeId:
+                      category === 'GUARANTEE' && prev.payeeKind === 'STAFF_SALARY'
+                        ? 0
+                        : prev.employeeId,
                   }))
-                }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -641,12 +817,89 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
               placeholder="مثال: 50000000"
             />
             <div>
-              <Label>در وجه</Label>
-              <Input
-                value={leafForm.payee}
-                onChange={(e) => setLeafForm({ ...leafForm, payee: e.target.value })}
-              />
+              <Label>نوع در وجه / ذینفع</Label>
+              <Select
+                value={leafForm.payeeKind || undefined}
+                onValueChange={(val) => {
+                  const payeeKind = val as ChequePayeeKind
+                  const selected = employees.find((e) => e.id === leafForm.employeeId)
+                  setLeafForm((prev) => ({
+                    ...prev,
+                    payeeKind,
+                    employeeId: payeeKind === 'STAFF_SALARY' ? prev.employeeId : 0,
+                    payee:
+                      payeeKind === 'STAFF_SALARY' && selected
+                        ? getEmployeeDisplayName(selected)
+                        : prev.payee,
+                  }))
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="انتخاب نوع ذینفع (اختیاری برای چک‌های قدیمی)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(PAYEE_KIND_LABELS) as ChequePayeeKind[])
+                    .filter(
+                      (kind) =>
+                        !(kind === 'STAFF_SALARY' && leafForm.category === 'GUARANTEE'),
+                    )
+                    .map((kind) => (
+                    <SelectItem key={kind} value={kind}>
+                      {PAYEE_KIND_LABELS[kind]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {leafForm.category === 'GUARANTEE' && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  چک ضمانت نمی‌تواند به‌عنوان حقوق پرسنل ثبت شود
+                </p>
+              )}
             </div>
+            {leafForm.payeeKind === 'STAFF_SALARY' ? (
+              <div className="space-y-2">
+                <Label>کارمند *</Label>
+                <Input
+                  value={employeeQuery}
+                  onChange={(e) => setEmployeeQuery(e.target.value)}
+                  placeholder="جستجوی نام یا شماره تماس"
+                />
+                <Select
+                  value={leafForm.employeeId ? String(leafForm.employeeId) : undefined}
+                  onValueChange={(val) => {
+                    const employeeId = parseInt(val, 10)
+                    const selected = employees.find((e) => e.id === employeeId)
+                    setLeafForm((prev) => ({
+                      ...prev,
+                      employeeId,
+                      payee: selected ? getEmployeeDisplayName(selected) : prev.payee,
+                    }))
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="انتخاب کارمند" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredEmployees.map((emp) => (
+                      <SelectItem key={emp.id} value={String(emp.id)}>
+                        {getEmployeeDisplayName(emp)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  این چک به‌صورت خودکار از حقوق پرسنل کسر می‌شود.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <Label>در وجه</Label>
+                <Input
+                  value={leafForm.payee}
+                  onChange={(e) => setLeafForm({ ...leafForm, payee: e.target.value })}
+                />
+              </div>
+            )}
             <PersianDatePicker
               value={leafForm.issuedAt}
               onChange={(date) => setLeafForm({ ...leafForm, issuedAt: date })}
@@ -676,6 +929,44 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!archiveTarget} onOpenChange={(open) => !open && setArchiveTarget(null)}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>آرشیو دسته‌چک</AlertDialogTitle>
+            <AlertDialogDescription>
+              آیا از آرشیو این دسته‌چک مطمئن هستید؟ دسته‌چک‌های آرشیو‌شده در فهرست فعال نمایش داده نمی‌شوند. اگر برگه باز داشته باشد، آرشیو انجام می‌شود و یک هشدار نمایش داده خواهد شد.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>انصراف</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => archiveTarget && handleArchiveChequebook(archiveTarget)}
+            >
+              آرشیو
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!restoreTarget} onOpenChange={(open) => !open && setRestoreTarget(null)}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>بازگردانی دسته‌چک</AlertDialogTitle>
+            <AlertDialogDescription>
+              این دسته‌چک دوباره در فهرست فعال نمایش داده می‌شود.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>انصراف</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => restoreTarget && handleRestoreChequebook(restoreTarget)}
+            >
+              بازگردانی
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

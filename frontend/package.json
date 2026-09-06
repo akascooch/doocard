@@ -1,6 +1,6 @@
 {
   "name": "doocard-frontend",
-  "version": "1.2.4",
+  "version": "2.0.5",
   "private": true,
   "engines": {
     "node": "20.11.1",

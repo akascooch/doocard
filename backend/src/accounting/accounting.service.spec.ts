@@ -31,6 +31,7 @@ describe('AccountingService', () => {
     transaction: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
@@ -65,6 +66,7 @@ describe('AccountingService', () => {
     },
     bankAccount: {
       findFirst: jest.fn(),
+      update: jest.fn(),
     },
     chequebook: {
       findFirst: jest.fn(),
@@ -76,11 +78,15 @@ describe('AccountingService', () => {
     chequeLeaf: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
+      findFirstOrThrow: jest.fn(),
       create: jest.fn(),
       createMany: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
       count: jest.fn(),
+    },
+    transactionCategory: {
+      findFirst: jest.fn(),
     },
     $transaction: jest.fn((callback) => callback(mockPrismaService)),
   };

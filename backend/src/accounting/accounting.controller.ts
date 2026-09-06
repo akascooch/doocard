@@ -10,6 +10,7 @@ import {
   Query,
   ParseIntPipe,
   Req,
+  ForbiddenException,
 } from '@nestjs/common';
 import { AccountingService } from './accounting.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
@@ -56,9 +57,13 @@ export class AccountingController {
   }
 
   @Get('transactions')
-  @Roles('ADMIN', 'ACCOUNTANT', 'EMPLOYEE')
+  @Roles('ADMIN', 'ACCOUNTANT')
   async findAllTransactions(@Query() query: QueryTransactionsDto, @Req() req?: any) {
     try {
+      const role = req?.user?.role;
+      if (role === 'EMPLOYEE' || role === 'SERVICE') {
+        throw new ForbiddenException('دسترسی به دفتر کل حسابداری برای پرسنل مجاز نیست');
+      }
       console.log('🔍 [AccountingController] GET /transactions -', `userId=${req?.user?.sub ?? req?.user?.id} role=${req?.user?.role}`);
       console.log('🔍 [AccountingController] Query params:', query);
       
@@ -231,9 +236,12 @@ export class AccountingController {
 
   @Get('chequebooks')
   @Roles('ADMIN', 'ACCOUNTANT', 'EMPLOYEE')
-  findAllChequebooks(@Query('bankAccountId') bankAccountId?: string) {
+  findAllChequebooks(
+    @Query('bankAccountId') bankAccountId?: string,
+    @Query('archived') archived?: string,
+  ) {
     const parsed = bankAccountId ? parseInt(bankAccountId, 10) : undefined;
-    return this.accountingService.findAllChequebooks(parsed);
+    return this.accountingService.findAllChequebooks(parsed, archived === 'true');
   }
 
   @Get('chequebooks/:id')
@@ -249,6 +257,18 @@ export class AccountingController {
     @Body() dto: UpdateChequebookDto
   ) {
     return this.accountingService.updateChequebook(id, dto);
+  }
+
+  @Patch('chequebooks/:id/archive')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  archiveChequebook(@Param('id', ParseIntPipe) id: number) {
+    return this.accountingService.archiveChequebook(id);
+  }
+
+  @Patch('chequebooks/:id/restore')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  restoreChequebook(@Param('id', ParseIntPipe) id: number) {
+    return this.accountingService.restoreChequebook(id);
   }
 
   @Delete('chequebooks/:id')

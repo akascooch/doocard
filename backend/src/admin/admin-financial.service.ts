@@ -17,7 +17,7 @@ export interface YearlyReportMonth {
   };
   revenue: {
     total: string;
-    employees: Array<{ name: string; count: number }>;
+    employees: Array<{ name: string; count: number; amount: string }>;
   };
   settlementDeduction: {
     total: string;
@@ -27,7 +27,7 @@ export interface YearlyReportMonth {
 export interface YearlyReportDto {
   year: number;
   months: YearlyReportMonth[];
-  employeeRanking: Array<{ name: string; count: number }>;
+  employeeRanking: Array<{ name: string; count: number; amount: string }>;
 }
 
 @Injectable()
@@ -134,7 +134,7 @@ export class AdminFinancialService {
   private async getMonthlyRevenueByEmployee(
     start: Date,
     end: Date,
-  ): Promise<Array<{ name: string; count: number }>> {
+  ): Promise<Array<{ name: string; count: number; amount: string }>> {
     const groups = await this.prisma.appointment.groupBy({
       by: ['employeeId'],
       where: {
@@ -144,6 +144,7 @@ export class AdminFinancialService {
         employeeId: { not: null },
       },
       _count: { id: true },
+      _sum: { amount: true },
     });
 
     if (groups.length === 0) return [];
@@ -161,6 +162,7 @@ export class AdminFinancialService {
       .map((g) => ({
         name: byId.get(g.employeeId!) ?? 'نامشخص',
         count: g._count.id,
+        amount: String(g._sum.amount ?? 0),
       }))
       .sort((a, b) => b.count - a.count);
   }
@@ -181,7 +183,7 @@ export class AdminFinancialService {
   private async getYearlyEmployeeRanking(
     yearStart: Date,
     yearEnd: Date,
-  ): Promise<Array<{ name: string; count: number }>> {
+  ): Promise<Array<{ name: string; count: number; amount: string }>> {
     const groups = await this.prisma.appointment.groupBy({
       by: ['employeeId'],
       where: {
@@ -191,6 +193,7 @@ export class AdminFinancialService {
         employeeId: { not: null },
       },
       _count: { id: true },
+      _sum: { amount: true },
     });
 
     if (groups.length === 0) return [];
@@ -208,6 +211,7 @@ export class AdminFinancialService {
       .map((g) => ({
         name: byId.get(g.employeeId!) ?? 'نامشخص',
         count: g._count.id,
+        amount: String(g._sum.amount ?? 0),
       }))
       .sort((a, b) => b.count - a.count);
   }

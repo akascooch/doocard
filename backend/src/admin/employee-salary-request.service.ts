@@ -508,4 +508,50 @@ export class EmployeeSalaryRequestService {
     if (!req) throw new NotFoundException('درخواست یافت نشد');
     return req;
   }
+
+  async listMyWithdrawals(userId: number, page = 1, limit = 20) {
+    const employee = await this.resolveEmployeeForUser(userId);
+    const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+    const safeLimit = Math.min(100, Math.max(1, Number.isFinite(limit) ? Math.floor(limit) : 20));
+    const skip = (safePage - 1) * safeLimit;
+
+    const where: Prisma.TransactionWhereInput = {
+      deletedAt: null,
+      type: TransactionType.EXPENSE,
+      employeeId: employee.id,
+    };
+
+    const [rows, total, sumAgg] = await Promise.all([
+      this.prisma.transaction.findMany({
+        where,
+        include: { category: { select: { name: true, code: true } } },
+        orderBy: { occurredAt: 'desc' },
+        skip,
+        take: safeLimit,
+      }),
+      this.prisma.transaction.count({ where }),
+      this.prisma.transaction.aggregate({
+        where,
+        _sum: { amount: true },
+      }),
+    ]);
+
+    return {
+      data: rows.map((tx) => ({
+        id: tx.id,
+        occurredAt: tx.occurredAt.toISOString(),
+        amountRial: tx.amount.toString(),
+        description: tx.description,
+        categoryName: tx.category?.name ?? null,
+        categoryCode: tx.category?.code ?? null,
+        sourceType: tx.sourceType,
+        sourceId: tx.sourceId,
+      })),
+      total,
+      page: safePage,
+      limit: safeLimit,
+      pages: Math.ceil(total / safeLimit) || 0,
+      totalAmountRial: (sumAgg._sum.amount ?? 0n).toString(),
+    };
+  }
 }
