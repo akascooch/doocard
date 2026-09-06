@@ -3,10 +3,7 @@ import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
-import { SmsOutboundService } from '../sms/sms-outbound.service';
-import { SmsTemplateService } from '../sms/sms-template.service';
-import { SMS_TEMPLATE_KEYS } from '../sms/sms-template.catalog';
-import { SMS_EVENT_KEYS } from '../sms/sms-event-keys';
+import { PushNotificationsService } from '../push-notifications/push-notifications.service';
 
 export type TipAlertAllocation = {
   employeeId: number;
@@ -23,8 +20,7 @@ export type TipAlertParams = {
 };
 
 /**
- * Post-commit tip alerts (in-app + SMS) for SERVICE recipients.
- * Soft-fail; never throws into business flows.
+ * Post-commit tip alerts (in-app + Socket.IO + push). SMS is intentionally not sent.
  */
 @Injectable()
 export class TipAlertService {
@@ -34,8 +30,7 @@ export class TipAlertService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly notificationsGateway: NotificationsGateway,
-    private readonly smsOutbound: SmsOutboundService,
-    private readonly smsTemplates: SmsTemplateService,
+    private readonly pushNotifications: PushNotificationsService,
   ) {}
 
   async notifyTipRecipients(params: TipAlertParams): Promise<void> {
@@ -57,7 +52,7 @@ export class TipAlertService {
       for (const row of params.allocations) {
         const emp = byId.get(row.employeeId);
         if (!emp?.userId && !emp?.user?.id) continue;
-        const userId = emp.user?.id ?? (emp as any).userId;
+        const userId = emp.user?.id ?? emp.userId;
         const amountToman = Math.floor(Number(row.amountRial) / 10);
         const amountLabel = amountToman.toLocaleString('fa-IR');
         const dedupeBase = `tip.alert:${params.sourceKey}:emp:${row.employeeId}`;
@@ -78,37 +73,16 @@ export class TipAlertService {
               relatedEntity: dedupeBase,
             });
             this.notificationsGateway.sendToUser(userId, notification);
+            await this.pushNotifications.sendToUser(userId, {
+              title,
+              body: inAppMessage,
+              icon: '/logo/logo-512.png',
+              data: { url: '/dashboard/employee/salary-request', relatedEntity: dedupeBase },
+            });
           }
         } catch (err: any) {
           this.logger.warn(
-            `Tip in-app notify failed emp=${row.employeeId}: ${err?.message || 'unknown'}`,
-          );
-        }
-
-        const phone = emp.user?.phone;
-        if (!phone) continue;
-
-        try {
-          const smsBody = await this.smsTemplates.renderByKey(
-            SMS_TEMPLATE_KEYS.TIP_RECEIVED,
-            {
-              amount: amountLabel,
-              customerName,
-              barberName,
-              source: params.sourceLabel,
-            },
-          );
-
-          await this.smsOutbound.sendIfAllowed({
-            eventKey: SMS_EVENT_KEYS.TIP_RECEIVED,
-            phone,
-            message: smsBody,
-            dedupeKey: `${dedupeBase}:sms`,
-            templateKey: SMS_TEMPLATE_KEYS.TIP_RECEIVED,
-          });
-        } catch (err: any) {
-          this.logger.warn(
-            `Tip SMS notify failed emp=${row.employeeId}: ${err?.message || 'unknown'}`,
+            `Tip in-app/push notify failed emp=${row.employeeId}: ${err?.message || 'unknown'}`,
           );
         }
       }

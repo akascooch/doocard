@@ -1,7 +1,5 @@
 import { NotificationType } from '@prisma/client';
 import { TipAlertService } from './tip-alert.service';
-import { SMS_EVENT_KEYS } from './sms-event-keys';
-import { SMS_TEMPLATE_KEYS } from './sms-template.catalog';
 
 describe('TipAlertService', () => {
   const prisma = {
@@ -10,21 +8,18 @@ describe('TipAlertService', () => {
   };
   const notifications = { create: jest.fn() };
   const gateway = { sendToUser: jest.fn() };
-  const smsOutbound = { sendIfAllowed: jest.fn() };
-  const smsTemplates = {
-    renderByKey: jest.fn().mockResolvedValue('tip-sms'),
-  };
+  const push = { sendToUser: jest.fn() };
 
   let service: TipAlertService;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    push.sendToUser.mockResolvedValue({ sent: 1, failed: 0 });
     service = new TipAlertService(
       prisma as any,
       notifications as any,
       gateway as any,
-      smsOutbound as any,
-      smsTemplates as any,
+      push as any,
     );
   });
 
@@ -33,7 +28,7 @@ describe('TipAlertService', () => {
     expect(Object.values(NotificationType)).toContain('TIP_RECEIVED');
   });
 
-  it('sends in-app + SMS after successful path with amount/customer/barber/source', async () => {
+  it('sends in-app + socket + push and never SMS', async () => {
     prisma.employee.findMany.mockResolvedValue([
       {
         id: 7,
@@ -49,7 +44,6 @@ describe('TipAlertService', () => {
       userIdTarget: 70,
     };
     notifications.create.mockResolvedValue(created);
-    smsOutbound.sendIfAllowed.mockResolvedValue({ success: true, skipped: false });
 
     await service.notifyTipRecipients({
       sourceKey: 'appointment:99',
@@ -68,63 +62,16 @@ describe('TipAlertService', () => {
       }),
     );
     expect(gateway.sendToUser).toHaveBeenCalledWith(70, created);
-    expect(smsTemplates.renderByKey).toHaveBeenCalledWith(
-      SMS_TEMPLATE_KEYS.TIP_RECEIVED,
+    expect(push.sendToUser).toHaveBeenCalledWith(
+      70,
       expect.objectContaining({
-        customerName: 'مشتری تست',
-        barberName: 'آرایشگر تست',
-        source: 'تسویه نوبت #99',
-        amount: (5000).toLocaleString('fa-IR'),
-      }),
-    );
-    expect(smsOutbound.sendIfAllowed).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventKey: SMS_EVENT_KEYS.TIP_RECEIVED,
-        phone: '09120000000',
-        dedupeKey: 'tip.alert:appointment:99:emp:7:sms',
-        templateKey: SMS_TEMPLATE_KEYS.TIP_RECEIVED,
+        title: 'انعام جدید',
+        data: expect.objectContaining({ relatedEntity: 'tip.alert:appointment:99:emp:7' }),
       }),
     );
   });
 
-  it('still sends SMS when in-app notification create fails (soft-fail)', async () => {
-    prisma.employee.findMany.mockResolvedValue([
-      {
-        id: 7,
-        userId: 70,
-        user: { id: 70, name: 'Ali', phone: '09120000000' },
-      },
-    ]);
-    prisma.notification.findFirst.mockResolvedValue(null);
-    notifications.create.mockRejectedValue(
-      new Error('Invalid value for argument `type`. Expected NotificationType.'),
-    );
-    smsOutbound.sendIfAllowed.mockResolvedValue({ success: true, skipped: false });
-
-    await expect(
-      service.notifyTipRecipients({
-        sourceKey: 'appointment:100',
-        sourceLabel: 'تسویه نوبت #100',
-        customerName: 'مشتری',
-        barberName: 'آرایشگر',
-        allocations: [{ employeeId: 7, amountRial: 25000 }],
-      }),
-    ).resolves.toBeUndefined();
-
-    expect(notifications.create).toHaveBeenCalledWith(
-      expect.objectContaining({ type: NotificationType.TIP_RECEIVED }),
-    );
-    expect(gateway.sendToUser).not.toHaveBeenCalled();
-    expect(smsOutbound.sendIfAllowed).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventKey: SMS_EVENT_KEYS.TIP_RECEIVED,
-        phone: '09120000000',
-        dedupeKey: 'tip.alert:appointment:100:emp:7:sms',
-      }),
-    );
-  });
-
-  it('skips duplicate in-app notification when relatedEntity exists', async () => {
+  it('skips duplicate in-app and push when relatedEntity exists', async () => {
     prisma.employee.findMany.mockResolvedValue([
       {
         id: 7,
@@ -133,7 +80,6 @@ describe('TipAlertService', () => {
       },
     ]);
     prisma.notification.findFirst.mockResolvedValue({ id: 9 });
-    smsOutbound.sendIfAllowed.mockResolvedValue({ success: true, skipped: true });
 
     await service.notifyTipRecipients({
       sourceKey: 'manual-tip:3',
@@ -143,10 +89,10 @@ describe('TipAlertService', () => {
 
     expect(notifications.create).not.toHaveBeenCalled();
     expect(gateway.sendToUser).not.toHaveBeenCalled();
-    expect(smsOutbound.sendIfAllowed).toHaveBeenCalled();
+    expect(push.sendToUser).not.toHaveBeenCalled();
   });
 
-  it('sends independent in-app + SMS for each TEAM SERVICE allocation', async () => {
+  it('sends independent in-app + push for each TEAM SERVICE allocation', async () => {
     prisma.employee.findMany.mockResolvedValue([
       { id: 7, userId: 70, user: { id: 70, name: 'A', phone: '09120000007' } },
       { id: 8, userId: 80, user: { id: 80, name: 'B', phone: '09120000008' } },
@@ -156,7 +102,6 @@ describe('TipAlertService', () => {
       id: dto.userIdTarget,
       ...dto,
     }));
-    smsOutbound.sendIfAllowed.mockResolvedValue({ success: true });
 
     await service.notifyTipRecipients({
       sourceKey: 'appointment:12',
@@ -168,28 +113,16 @@ describe('TipAlertService', () => {
     });
 
     expect(notifications.create).toHaveBeenCalledTimes(2);
-    expect(smsOutbound.sendIfAllowed).toHaveBeenCalledTimes(2);
-    expect(smsOutbound.sendIfAllowed).toHaveBeenCalledWith(
-      expect.objectContaining({
-        dedupeKey: 'tip.alert:appointment:12:emp:7:sms',
-        phone: '09120000007',
-      }),
-    );
-    expect(smsOutbound.sendIfAllowed).toHaveBeenCalledWith(
-      expect.objectContaining({
-        dedupeKey: 'tip.alert:appointment:12:emp:8:sms',
-        phone: '09120000008',
-      }),
-    );
+    expect(push.sendToUser).toHaveBeenCalledTimes(2);
   });
 
-  it('does not throw when SMS template render fails (non-blocking)', async () => {
+  it('does not throw when push fails (non-blocking)', async () => {
     prisma.employee.findMany.mockResolvedValue([
       { id: 7, userId: 70, user: { id: 70, name: 'A', phone: '09120000007' } },
     ]);
     prisma.notification.findFirst.mockResolvedValue(null);
     notifications.create.mockResolvedValue({ id: 1, userIdTarget: 70 });
-    smsTemplates.renderByKey.mockRejectedValue(new Error('provider/template down'));
+    push.sendToUser.mockRejectedValue(new Error('vapid missing'));
 
     await expect(
       service.notifyTipRecipients({
@@ -200,6 +133,5 @@ describe('TipAlertService', () => {
     ).resolves.toBeUndefined();
 
     expect(notifications.create).toHaveBeenCalled();
-    expect(smsOutbound.sendIfAllowed).not.toHaveBeenCalled();
   });
 });

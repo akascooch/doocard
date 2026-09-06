@@ -19,6 +19,7 @@ export class CreateNotificationDto {
     'PAYMENT_RECEIVED',
     'GENERAL',
     'TIP_RECEIVED',
+    'ACCOUNT_RECONCILE_REMINDER',
   ])
   type: string;
 

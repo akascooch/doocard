@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { NotificationsService } from './notifications.service';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsGateway } from './notifications.gateway';
+import { ReconcileReminderService } from './reconcile-reminder.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { SmsSendModule } from '../sms/sms-send.module';
 
@@ -21,7 +22,7 @@ import { SmsSendModule } from '../sms/sms-send.module';
     }),
   ],
   controllers: [NotificationsController],
-  providers: [NotificationsService, NotificationsGateway],
+  providers: [NotificationsService, NotificationsGateway, ReconcileReminderService],
   exports: [NotificationsService, NotificationsGateway],
 })
 export class NotificationsModule {}

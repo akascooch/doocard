@@ -8,11 +8,24 @@ import {
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { Injectable } from '@nestjs/common';
+import { resolveCorsOriginsFromEnv } from '../common/utils/cors-origins';
+
+function socketCorsOrigin(
+  origin: string | undefined,
+  callback: (err: Error | null, allow?: boolean) => void,
+) {
+  const allowed = resolveCorsOriginsFromEnv(process.env);
+  if (!origin) {
+    callback(null, true);
+    return;
+  }
+  callback(null, allowed.includes(origin));
+}
 
 @Injectable()
 @WebSocketGateway({
   cors: {
-    origin: ['http://localhost:3000', 'http://localhost:3001'],
+    origin: socketCorsOrigin,
     credentials: true,
   },
   namespace: '/notifications',

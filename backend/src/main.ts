@@ -8,37 +8,8 @@ import { json, urlencoded } from 'express';
 import cookieParser from 'cookie-parser';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from '@nestjs/common';
-
-function parseOriginList(value?: string): string[] {
-  if (!value?.trim()) return [];
-  return value
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-}
-
-function resolveCorsOrigins(configService: ConfigService): string[] {
-  const origins = new Set<string>();
-
-  for (const origin of parseOriginList(configService.get<string>('ALLOWED_ORIGINS'))) {
-    origins.add(origin);
-  }
-  for (const origin of parseOriginList(configService.get<string>('CORS_ORIGIN'))) {
-    origins.add(origin);
-  }
-
-  const frontendUrl = configService.get<string>('FRONTEND_URL')?.trim();
-  if (frontendUrl) {
-    origins.add(frontendUrl);
-  }
-
-  if (origins.size === 0) {
-    origins.add('http://localhost:3000');
-    origins.add('http://localhost:3001');
-  }
-
-  return [...origins];
-}
+import { resolveCorsOrigins } from './common/utils/cors-origins';
+import { CorsIoAdapter } from './common/adapters/cors-io.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -62,6 +33,7 @@ async function bootstrap() {
   }));
   
   const corsOrigins = resolveCorsOrigins(configService);
+  app.useWebSocketAdapter(new CorsIoAdapter(app, corsOrigins));
 
   // CORS — driven by ALLOWED_ORIGINS, CORS_ORIGIN, FRONTEND_URL
   const corsOptions = {

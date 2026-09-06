@@ -34,6 +34,9 @@ export class SmsNotificationPolicyService implements OnModuleInit {
         },
         update: {
           label: rule.label,
+          ...(rule.eventKey === SMS_EVENT_KEYS.TIP_RECEIVED
+            ? { smsEnabled: false }
+            : {}),
         },
       });
     }

@@ -51,6 +51,10 @@ describe('SmsNotificationPolicyService', () => {
     await expect(policy.isSmsAllowed(SMS_EVENT_KEYS.NOTIFICATION_CREATED)).resolves.toBe(false);
   });
 
+  it('denies tip.received by default (in-app/push only)', async () => {
+    await expect(policy.isSmsAllowed(SMS_EVENT_KEYS.TIP_RECEIVED)).resolves.toBe(false);
+  });
+
   it('denies unknown keys', async () => {
     await expect(policy.isSmsAllowed('unknown.event')).resolves.toBe(false);
   });
