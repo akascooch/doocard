@@ -70,7 +70,7 @@ const nextConfig = {
       ? "'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com"
       : "'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com";
     const imgSrc = isDevelopment
-      ? "'self' data: blob: http://doocardbarbershop.com https://doocardbarbershop.com http://45.159.115.148 https://maps.gstatic.com https://maps.googleapis.com"
+      ? "'self' data: blob: http://localhost:3001 http://127.0.0.1:3001 http://doocardbarbershop.com https://doocardbarbershop.com http://45.159.115.148 https://maps.gstatic.com https://maps.googleapis.com"
       : "'self' data: blob: http://doocardbarbershop.com https://doocardbarbershop.com http://45.159.115.148 https://maps.gstatic.com https://maps.googleapis.com";
     
     return [
@@ -178,6 +178,10 @@ const nextConfig = {
       {
         source: '/api/:path*',
         destination: `${backendUrl}/api/:path*`,
+      },
+      {
+        source: '/uploads/:path*',
+        destination: `${backendUrl}/uploads/:path*`,
       },
     ]
   },

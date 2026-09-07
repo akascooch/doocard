@@ -79,6 +79,12 @@ model Employee {
   isDefault                  Boolean                       @default(false)
   /// When true, payroll uses SPECIAL_COMMISSION_POLICY (tax-first then split).
   isSpecialCommission        Boolean                       @default(false)
+  /// Public landing showcase (CMS). Payroll fields above are unrelated.
+  avatarUrl                  String?
+  bio                        String?
+  displayTitle               String?
+  showOnLanding              Boolean                       @default(false)
+  landingSortOrder           Int                           @default(0)
   appointments               Appointment[]
   blockedTimes               BlockedTime[]
   customers                  Customer[]
@@ -673,17 +679,37 @@ model SmsNotificationRule {
 }
 
 model HomepageDetails {
-  id           Int      @id @default(autoincrement())
-  about        String?
-  team         String?
-  products     String?
-  trainings    String?
-  testimonials String?
-  contact      String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  about         String?
+  team          String?
+  products      String?
+  trainings     String?
+  testimonials  String?
+  contact       String?
+  heroTitle     String?
+  heroSubtitle  String?
+  phone         String?
+  address       String?
+  instagramUrl  String?
+  workingHours  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@map("homepage_details")
+}
+
+model LandingSlide {
+  id        Int      @id @default(autoincrement())
+  imageUrl  String
+  title     String?
+  subtitle  String?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@map("landing_slides")
 }
 
 model DayClosing {

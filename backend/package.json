@@ -1,6 +1,6 @@
 {
   "name": "doocard-backend",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "description": "Backend for Doocard Beauty Salon Management System",
   "main": "dist/main.js",
   "prisma": {

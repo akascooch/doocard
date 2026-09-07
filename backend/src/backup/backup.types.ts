@@ -49,6 +49,7 @@ export const BACKUP_DELETE_ORDER = [
   'smsTemplate',
   'smsSettings',
   'homepageDetails',
+  'landingSlide',
   'financialReportsAccess',
   'user',
 ] as const;
@@ -64,6 +65,7 @@ export const BACKUP_INSERT_ORDER = [
   'smsSettings',
   'smsTemplate',
   'homepageDetails',
+  'landingSlide',
   'financialReportsAccess',
   'employee',
   'customer',

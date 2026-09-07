@@ -30,8 +30,9 @@ interface Service {
 
 interface Employee {
   id: number
-  specialty: string
-  user: {
+  name?: string
+  specialty?: string
+  user?: {
     id: number
     name: string
   }
@@ -66,6 +67,10 @@ export default function BookAppointmentPage() {
   useEffect(() => {
     fetchServices()
     fetchEmployees()
+    const preset = new URLSearchParams(window.location.search).get('employeeId')
+    if (preset) {
+      setFormData((prev) => ({ ...prev, employeeId: preset }))
+    }
   }, [])
 
   useEffect(() => {
@@ -88,7 +93,7 @@ export default function BookAppointmentPage() {
 
   const fetchEmployees = async () => {
     try {
-      const response = await fetch('/api/employees/public')
+      const response = await fetch('/api/employees/public/active')
       if (response.ok) {
         const data = await response.json()
         setEmployees(data)
@@ -290,14 +295,18 @@ export default function BookAppointmentPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="employee">کارمند مورد نظر *</Label>
-                  <Select onValueChange={(value) => handleInputChange('employeeId', value)}>
+                  <Select
+                    value={formData.employeeId || undefined}
+                    onValueChange={(value) => handleInputChange('employeeId', value)}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="کارمند مورد نظر را انتخاب کنید" />
                     </SelectTrigger>
                     <SelectContent>
                       {employees.map((employee) => (
                         <SelectItem key={employee.id} value={employee.id.toString()}>
-                          {employee?.user?.name ?? 'آرایشگر نامشخص'} - {employee?.specialty ?? ''}
+                          {employee?.user?.name || employee?.name || 'آرایشگر نامشخص'}
+                          {employee?.specialty ? ` - ${employee.specialty}` : ''}
                         </SelectItem>
                       ))}
                     </SelectContent>
