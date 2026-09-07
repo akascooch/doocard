@@ -148,6 +148,15 @@ describe('calculateEmployeeSalaryPreview', () => {
     // 5_000_000 * 40% = 2_000_000; tax 800_000 → netShare 1_200_000
     expect(result.appointments[1].taxApplied).toBe('800000');
     expect(result.appointments[1].netShare).toBe('1200000');
+
+    const withdrawalWhere = prisma.transaction.findMany.mock.calls[0][0].where;
+    expect(withdrawalWhere.occurredAt).toEqual(
+      expect.objectContaining({
+        gt: expect.any(Date),
+        lte: expect.any(Date),
+      }),
+    );
+    expect(withdrawalWhere.occurredAt).not.toHaveProperty('gte');
   });
 
   it('SPECIAL: amount > 200k → ((amount − 200k) × 50%)', async () => {

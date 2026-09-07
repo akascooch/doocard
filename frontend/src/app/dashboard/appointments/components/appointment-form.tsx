@@ -100,7 +100,7 @@ export function AppointmentForm({ onSuccess }: { onSuccess: () => void }) {
       try {
         const [customersRes, servicesRes, barbersRes] = await Promise.all([
           api.get("/customers"),
-          api.get("/services"),
+          api.get("/services", { params: { sort: "usage" } }),
           api.get("/barbers"),
         ])
         setCustomers(customersRes.data)

@@ -18,6 +18,7 @@ import {
   CANONICAL_EMPLOYEE_WITHDRAWAL_CATEGORY_ID,
   SALARY_REQUEST_SOURCE_TYPE,
 } from '../common/constants/employee-commission.constants';
+import { jalaliRangeToTehranClosed } from '../common/utils/tehran-business-day';
 import {
   calculateEmployeeSalaryPreview,
   EmployeeSalaryPreviewResult,
@@ -509,17 +510,39 @@ export class EmployeeSalaryRequestService {
     return req;
   }
 
-  async listMyWithdrawals(userId: number, page = 1, limit = 20) {
+  async listMyWithdrawals(
+    userId: number,
+    page = 1,
+    limit = 20,
+    fromJalali?: string,
+    toJalali?: string,
+  ) {
     const employee = await this.resolveEmployeeForUser(userId);
     const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
     const safeLimit = Math.min(100, Math.max(1, Number.isFinite(limit) ? Math.floor(limit) : 20));
     const skip = (safePage - 1) * safeLimit;
+
+    const hasFrom = fromJalali != null && fromJalali.trim() !== '';
+    const hasTo = toJalali != null && toJalali.trim() !== '';
+    if (hasFrom !== hasTo) {
+      throw new BadRequestException('from and to (Jalali dates) must be provided together');
+    }
 
     const where: Prisma.TransactionWhereInput = {
       deletedAt: null,
       type: TransactionType.EXPENSE,
       employeeId: employee.id,
     };
+
+    if (hasFrom && hasTo) {
+      const range = jalaliRangeToTehranClosed(fromJalali!.trim(), toJalali!.trim());
+      if (!range) {
+        throw new BadRequestException(
+          'Invalid Jalali date range. Use YYYY/MM/DD and from <= to',
+        );
+      }
+      where.occurredAt = { gte: range.start, lte: range.endInclusive };
+    }
 
     const [rows, total, sumAgg] = await Promise.all([
       this.prisma.transaction.findMany({

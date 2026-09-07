@@ -16,6 +16,7 @@ import { PermissionGuard } from '../common/guards/permission.guard';
 import { EmployeeSalaryService } from '../admin/employee-salary.service';
 import { EmployeeSalaryRequestService } from '../admin/employee-salary-request.service';
 import { EmployeeSalaryPreviewQueryDto } from './dto/employee-salary-preview-query.dto';
+import { ListMyWithdrawalsQueryDto } from './dto/list-my-withdrawals-query.dto';
 import { CreateMySalaryRequestDto } from './dto/create-my-salary-request.dto';
 import { buildSalaryBreakdownFromPreview } from '../common/dto/salary-breakdown.dto';
 
@@ -75,16 +76,17 @@ export class EmployeeSalaryRequestController {
   @Get('withdrawals')
   @Roles('EMPLOYEE', 'SERVICE')
   async listWithdrawals(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
+    @Query() query: ListMyWithdrawalsQueryDto,
     @Req() req?: { user?: { id?: number; sub?: number } },
   ) {
     const userId = req?.user?.id ?? req?.user?.sub;
     if (!userId) throw new ForbiddenException('User not authenticated');
     return this.salaryRequestService.listMyWithdrawals(
       userId,
-      page ? parseInt(page, 10) : 1,
-      limit ? parseInt(limit, 10) : 20,
+      query.page ?? 1,
+      query.limit ?? 20,
+      query.from,
+      query.to,
     );
   }
 

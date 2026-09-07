@@ -25,7 +25,7 @@ import PersianDatePicker from '@/components/ui/PersianDatePicker'
 import { useToast } from '@/components/ui/use-toast'
 import axios from '@/lib/axios'
 import { formatTomansFromRial } from '@/lib/money'
-import { formatToJalali } from '@/lib/date'
+import { formatToJalali, getTehranCurrentJalaliMonthRange } from '@/lib/date'
 import {
   ServiceTipLine,
   ServiceTipLinesTable,
@@ -113,8 +113,8 @@ export default function EmployeeSalaryPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [accounts, setAccounts] = useState<BankAccount[]>([])
   const [employeeId, setEmployeeId] = useState<string>('')
-  const [fromDate, setFromDate] = useState<string>('')
-  const [toDate, setToDate] = useState<string>('')
+  const [fromDate, setFromDate] = useState(() => getTehranCurrentJalaliMonthRange().from)
+  const [toDate, setToDate] = useState(() => getTehranCurrentJalaliMonthRange().to)
   const [percentage, setPercentage] = useState<string>('40')
   const [bankAccountId, setBankAccountId] = useState<string>('')
   const [periodStartConfirmed, setPeriodStartConfirmed] = useState(false)
@@ -544,6 +544,7 @@ export default function EmployeeSalaryPage() {
               />
             </div>
           </div>
+          <div className="flex flex-wrap gap-2">
           <Button
             onClick={handlePreview}
             disabled={loading || employeesLoading}
@@ -551,6 +552,19 @@ export default function EmployeeSalaryPage() {
           >
             {loading ? 'در حال بارگذاری...' : 'پیش‌نمایش'}
           </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={loading || employeesLoading}
+              onClick={() => {
+                const { from, to } = getTehranCurrentJalaliMonthRange()
+                setFromDate(from)
+                setToDate(to)
+              }}
+            >
+              ماه جاری
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

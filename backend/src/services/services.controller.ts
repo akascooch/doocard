@@ -7,7 +7,8 @@ import {
   Body,
   Param,
   UseGuards,
-  ParseIntPipe
+  ParseIntPipe,
+  Query,
 } from '@nestjs/common';
 import { ServicesService } from './services.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -45,8 +46,8 @@ export class ServicesController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  findAll() {
-    return this.servicesService.findAll();
+  findAll(@Query('sort') sort?: string) {
+    return this.servicesService.findAll(sort === 'usage' ? 'usage' : undefined);
   }
 
   @Get(':id')

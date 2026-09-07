@@ -5,14 +5,14 @@ import {
 } from './sms-template.catalog';
 
 describe('SMS catalog — settlement + tip', () => {
-  it('registers appointment.settled policy as enabled by default', () => {
+  it('registers appointment.settled policy as disabled by default', () => {
     const rule = DEFAULT_SMS_POLICY.find(
       (r) => r.eventKey === SMS_EVENT_KEYS.APPOINTMENT_SETTLED,
     );
     expect(rule).toEqual(
       expect.objectContaining({
         eventKey: 'appointment.settled',
-        smsEnabled: true,
+        smsEnabled: false,
       }),
     );
   });

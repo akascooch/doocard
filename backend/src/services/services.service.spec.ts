@@ -1,11 +1,9 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException } from '@nestjs/common';
 import { ServicesService } from './services.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 describe('ServicesService', () => {
   let service: ServicesService;
-  let prismaService: PrismaService;
 
   const mockService = {
     id: 1,
@@ -27,22 +25,12 @@ describe('ServicesService', () => {
     },
     appointmentService: {
       findMany: jest.fn(),
+      groupBy: jest.fn(),
     },
   };
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ServicesService,
-        {
-          provide: PrismaService,
-          useValue: mockPrismaService,
-        },
-      ],
-    }).compile();
-
-    service = module.get<ServicesService>(ServicesService);
-    prismaService = module.get<PrismaService>(PrismaService);
+  beforeEach(() => {
+    service = new ServicesService(mockPrismaService as unknown as PrismaService);
   });
 
   afterEach(() => {
@@ -56,6 +44,7 @@ describe('ServicesService', () => {
         category: 'Hair',
         durationMinutes: 30,
         price: 50.0,
+        description: undefined as string | undefined,
       };
 
       mockPrismaService.service.create.mockResolvedValue(mockService);
@@ -88,6 +77,27 @@ describe('ServicesService', () => {
           createdAt: 'desc',
         },
       });
+    });
+
+    it('sorts by appointment_services usage when sort=usage', async () => {
+      mockPrismaService.service.findMany.mockResolvedValue([
+        { ...mockService, id: 1, name: 'A' },
+        { ...mockService, id: 2, name: 'B' },
+      ]);
+      mockPrismaService.appointmentService.groupBy.mockResolvedValue([
+        { serviceId: 2, _count: { _all: 10 } },
+        { serviceId: 1, _count: { _all: 1 } },
+      ]);
+
+      const result = await service.findAll('usage');
+
+      expect(result.map((s: { id: number }) => s.id)).toEqual([2, 1]);
+      expect(mockPrismaService.appointmentService.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          by: ['serviceId'],
+          where: { appointment: { deletedAt: null } },
+        }),
+      );
     });
   });
 

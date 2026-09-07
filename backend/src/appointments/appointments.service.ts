@@ -2375,8 +2375,8 @@ export class AppointmentsService {
   }
 
   /**
-   * Post-commit in-app + SMS for settlement. Soft-fail; never throws into checkout.
-   * Barber SMS/in-app uses snapshot gross/net (not payroll 40%/special split).
+   * Post-commit in-app + Web Push for settlement. Soft-fail; never throws into checkout.
+   * Barber copy uses snapshot gross/net (not payroll 40%/special split). SMS is not sent.
    */
   private async notifyAppointmentSettled(appointment: any, amount: number, _tipAmount: number) {
     try {
@@ -2384,32 +2384,40 @@ export class AppointmentsService {
       const grossLabel = formatFaAmount(grossToman);
       const netLabel = formatFaAmount(netToman);
       const customerName = appointment.customer?.user?.name || 'مشتری';
-      const barberName = appointment.employee?.user?.name || 'آرایشگر';
-      const formattedDate = new Date(appointment.paidAt || Date.now()).toLocaleDateString(
-        'fa-IR',
-        {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          timeZone: 'Asia/Tehran',
-        },
-      );
 
       if (appointment.customer?.userId) {
+        const customerTitle = 'نوبت تسویه شد';
+        const customerMessage = `نوبت شما با مبلغ ${grossLabel} تومان تسویه شد. سپاس از انتخاب شما! 🌟`;
         const notification = await this.notificationsService.create({
-          title: 'نوبت تسویه شد',
-          message: `نوبت شما با مبلغ ${grossLabel} تومان تسویه شد. سپاس از انتخاب شما! 🌟`,
+          title: customerTitle,
+          message: customerMessage,
           type: NotificationType.APPOINTMENT_SETTLED,
           userIdTarget: appointment.customer.userId,
           relatedEntity: `appointment:${appointment.id}`,
         });
         this.notificationsGateway.sendToUser(appointment.customer.userId, notification);
+        try {
+          await this.pushNotificationsService.sendToUser(appointment.customer.userId, {
+            title: customerTitle,
+            body: customerMessage,
+            icon: '/logo/logo-512.png',
+            data: {
+              url: '/dashboard/appointments',
+              appointmentId: appointment.id,
+            },
+          });
+        } catch (pushError: any) {
+          console.error(
+            '⚠️ Failed to send settlement push to customer:',
+            pushError?.message || pushError,
+          );
+        }
       }
 
       const barberUserId = appointment.employee?.userId;
       const employeeId = appointment.employeeId;
       if (barberUserId && employeeId) {
-        const { relatedEntity, dedupeKey } = settlementBarberNotifyKeys(
+        const { relatedEntity } = settlementBarberNotifyKeys(
           appointment.id,
           employeeId,
         );
@@ -2417,38 +2425,36 @@ export class AppointmentsService {
           where: { relatedEntity, userIdTarget: barberUserId },
         });
         if (!existing) {
+          const barberTitle = 'تسویه نوبت انجام شد';
+          const barberMessage = `تسویه نوبت شماره ${appointment.id} برای مشتری ${customerName} با مبلغ خالص ${netLabel} تومان ثبت گردید.`;
           const notification = await this.notificationsService.create({
-            title: 'تسویه نوبت انجام شد',
-            message: `تسویه نوبت شماره ${appointment.id} برای مشتری ${customerName} با مبلغ خالص ${netLabel} تومان ثبت گردید.`,
+            title: barberTitle,
+            message: barberMessage,
             type: NotificationType.APPOINTMENT_SETTLED,
             userIdTarget: barberUserId,
             relatedEntity,
           });
           this.notificationsGateway.sendToUser(barberUserId, notification);
+          try {
+            await this.pushNotificationsService.sendToUser(barberUserId, {
+              title: barberTitle,
+              body: barberMessage,
+              icon: '/logo/logo-512.png',
+              data: {
+                url: '/dashboard/employee/salary-request',
+                relatedEntity,
+              },
+            });
+          } catch (pushError: any) {
+            console.error(
+              '⚠️ Failed to send settlement push to barber:',
+              pushError?.message || pushError,
+            );
+          }
         }
 
-        const barberPhone = appointment.employee?.user?.phone;
-        if (barberPhone) {
-          const smsBody = await this.smsTemplates.renderByKey(
-            SMS_TEMPLATE_KEYS.APPOINTMENT_SETTLED_BARBER,
-            {
-              barberName,
-              customerName,
-              grossAmount: grossLabel,
-              netAmount: netLabel,
-              appointmentId: String(appointment.id),
-              date: formattedDate,
-            },
-          );
-          await this.smsOutbound.sendIfAllowed({
-            eventKey: SMS_EVENT_KEYS.APPOINTMENT_SETTLED,
-            phone: barberPhone,
-            message: smsBody,
-            dedupeKey,
-            appointmentId: appointment.id,
-            templateKey: SMS_TEMPLATE_KEYS.APPOINTMENT_SETTLED_BARBER,
-          });
-        }
+        // [REQ-1] settlement SMS intentionally disabled — in-app & Web Push only.
+        // Admin can re-enable in future via sms_notification_rules (not by resurrecting this call).
       }
     } catch (error) {
       console.error('❌ Error sending appointment settled notification:', error);

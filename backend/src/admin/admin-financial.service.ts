@@ -17,6 +17,7 @@ export interface YearlyReportMonth {
   };
   revenue: {
     total: string;
+    appointmentCount: number;
     employees: Array<{ name: string; count: number; amount: string }>;
   };
   settlementDeduction: {
@@ -39,11 +40,12 @@ export class AdminFinancialService {
     const months: YearlyReportMonth[] = [];
 
     for (const { monthName, start, end } of ranges) {
-      const [expenseTotal, expenseByCategory, revenueTotal, revenueByEmployee, settlementDeductionTotal] =
+      const [expenseTotal, expenseByCategory, revenueTotal, revenueCount, revenueByEmployee, settlementDeductionTotal] =
         await Promise.all([
           this.getMonthlyExpenseTotal(start, end),
           this.getMonthlyExpenseByCategory(start, end),
           this.getMonthlyRevenueTotal(start, end),
+          this.getMonthlyRevenueAppointmentCount(start, end),
           this.getMonthlyRevenueByEmployee(start, end),
           this.getMonthlySettlementDeductionTotal(start, end),
         ]);
@@ -56,6 +58,7 @@ export class AdminFinancialService {
         },
         revenue: {
           total: String(revenueTotal),
+          appointmentCount: revenueCount,
           employees: revenueByEmployee,
         },
         settlementDeduction: {
@@ -129,6 +132,17 @@ export class AdminFinancialService {
       },
     });
     return agg._sum.amount ?? BigInt(0);
+  }
+
+  /** Same filter as getMonthlyRevenueTotal — settled sales volume, not createdAt. */
+  private async getMonthlyRevenueAppointmentCount(start: Date, end: Date): Promise<number> {
+    return this.prisma.appointment.count({
+      where: {
+        status: { in: SETTLED_STATUSES },
+        deletedAt: null,
+        paidAt: { not: null, gte: start, lte: end },
+      },
+    });
   }
 
   private async getMonthlyRevenueByEmployee(

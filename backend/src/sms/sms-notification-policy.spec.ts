@@ -43,8 +43,18 @@ describe('SmsNotificationPolicyService', () => {
     await expect(policy.isSmsAllowed(SMS_EVENT_KEYS.APPOINTMENT_CREATED)).resolves.toBe(true);
   });
 
-  it('allows default appointment.settled for barber SMS', async () => {
-    await expect(policy.isSmsAllowed(SMS_EVENT_KEYS.APPOINTMENT_SETTLED)).resolves.toBe(true);
+  it('denies default appointment.settled (in-app/push only)', async () => {
+    await expect(policy.isSmsAllowed(SMS_EVENT_KEYS.APPOINTMENT_SETTLED)).resolves.toBe(false);
+  });
+
+  it('forces appointment.settled SMS off on ensureDefaults even if previously enabled', async () => {
+    rules.set(SMS_EVENT_KEYS.APPOINTMENT_SETTLED, {
+      eventKey: SMS_EVENT_KEYS.APPOINTMENT_SETTLED,
+      smsEnabled: true,
+      label: 'تسویه نوبت — آرایشگر',
+    });
+    await policy.ensureDefaults();
+    await expect(policy.isSmsAllowed(SMS_EVENT_KEYS.APPOINTMENT_SETTLED)).resolves.toBe(false);
   });
 
   it('denies notification.created by default', async () => {

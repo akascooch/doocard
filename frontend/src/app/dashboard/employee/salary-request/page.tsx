@@ -26,7 +26,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Calculator, CreditCard, DollarSign, CalendarDays, Bell } from 'lucide-react';
 import axios from '@/lib/axios';
 import { formatTomansFromRial } from '@/lib/money';
-import { formatToJalali, getCurrentJalaliDate } from '@/lib/date';
+import { formatToJalali, getTehranCurrentJalaliMonthRange } from '@/lib/date';
 import usePushNotifications from '@/hooks/usePushNotifications';
 import { getCurrentUser } from '@/lib/auth';
 import {
@@ -113,8 +113,8 @@ export default function EmployeeSalaryRequestPage() {
   const { toast } = useToast();
   const user = getCurrentUser();
   const { isSubscribed, isSupported, subscribe, isLoading: pushLoading } = usePushNotifications();
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [fromDate, setFromDate] = useState(() => getTehranCurrentJalaliMonthRange().from);
+  const [toDate, setToDate] = useState(() => getTehranCurrentJalaliMonthRange().to);
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [requests, setRequests] = useState<SalaryRequestRow[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRow[]>([]);
@@ -137,10 +137,10 @@ export default function EmployeeSalaryRequestPage() {
     }
   }, []);
 
-  const loadWithdrawals = useCallback(async () => {
+  const loadWithdrawals = useCallback(async (from = fromDate, to = toDate) => {
     try {
       const res = await axios.get('/employees/me/withdrawals', {
-        params: { page: 1, limit: 50 },
+        params: { page: 1, limit: 50, from, to },
       });
       setWithdrawals(res.data?.data || []);
       setWithdrawalsTotalRial(res.data?.totalAmountRial || '0');
@@ -148,12 +148,17 @@ export default function EmployeeSalaryRequestPage() {
       setWithdrawals([]);
       setWithdrawalsTotalRial('0');
     }
-  }, []);
+  }, [fromDate, toDate]);
 
   useEffect(() => {
     loadRequests();
-    loadWithdrawals();
-  }, [loadRequests, loadWithdrawals]);
+  }, [loadRequests]);
+
+  useEffect(() => {
+    void loadWithdrawals(fromDate, toDate);
+    // Initial current-month history only; later refetches are preview / ماه جاری / submit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handlePreview = useCallback(async () => {
     if (!fromDate || !toDate) {
@@ -174,6 +179,7 @@ export default function EmployeeSalaryRequestPage() {
       });
       setPreview(res.data);
       setAmount(res.data.netPayable || '0');
+      await loadWithdrawals(fromDate, toDate);
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string | string[] } } })?.response?.data
@@ -183,7 +189,7 @@ export default function EmployeeSalaryRequestPage() {
     } finally {
       setLoading(false);
     }
-  }, [fromDate, toDate, toast]);
+  }, [fromDate, toDate, toast, loadWithdrawals]);
 
   const handleSubmitRequest = async () => {
     if (!preview || !toDate) return;
@@ -215,10 +221,10 @@ export default function EmployeeSalaryRequestPage() {
   };
 
   const setCurrentMonthRange = () => {
-    const today = getCurrentJalaliDate('YYYY/MM/DD');
-    const [jy, jm] = today.split('/');
-    setFromDate(`${jy}/${jm}/01`);
-    setToDate(today);
+    const { from, to } = getTehranCurrentJalaliMonthRange();
+    setFromDate(from);
+    setToDate(to);
+    void loadWithdrawals(from, to);
   };
 
   const liveBreakdown: SalaryBreakdown | null =

@@ -19,11 +19,34 @@ export class ServicesService {
     });
   }
 
-  findAll() {
-    return this.prisma.service.findMany({
-      orderBy: {
-        createdAt: 'desc',
-      },
+  findAll(sort?: 'usage') {
+    if (sort !== 'usage') {
+      return this.prisma.service.findMany({
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+    }
+
+    return this.findAllByUsage();
+  }
+
+  /** Most-used first. Counts appointment_services whose appointment is not soft-deleted. */
+  private async findAllByUsage() {
+    const [services, groups] = await Promise.all([
+      this.prisma.service.findMany(),
+      this.prisma.appointmentService.groupBy({
+        by: ['serviceId'],
+        where: { appointment: { deletedAt: null } },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const countByServiceId = new Map(groups.map((g) => [g.serviceId, g._count._all]));
+    return [...services].sort((a, b) => {
+      const diff = (countByServiceId.get(b.id) ?? 0) - (countByServiceId.get(a.id) ?? 0);
+      if (diff !== 0) return diff;
+      return a.name.localeCompare(b.name, 'fa');
     });
   }
 

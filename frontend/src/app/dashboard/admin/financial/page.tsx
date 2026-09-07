@@ -17,6 +17,9 @@ import { useToast } from '@/components/ui/use-toast'
 import {
   Bar,
   BarChart,
+  ComposedChart,
+  Line,
+  Legend,
   ResponsiveContainer,
   XAxis,
   YAxis,
@@ -35,7 +38,7 @@ import {
 interface YearlyReportMonth {
   month: string
   expense: { total: string; categories: Array<{ name: string; total: string }> }
-  revenue: { total: string; employees: Array<{ name: string; count: number; amount: string }> }
+  revenue: { total: string; appointmentCount?: number; employees: Array<{ name: string; count: number; amount: string }> }
 }
 
 interface YearlyReport {
@@ -167,6 +170,7 @@ export default function AdminFinancialPage() {
     yearlyReport?.months.map((m) => ({
       month: m.month,
       total: Number(m.revenue.total),
+      appointmentCount: m.revenue.appointmentCount ?? 0,
       employees: m.revenue.employees,
     })) ?? []
 
@@ -298,24 +302,33 @@ export default function AdminFinancialPage() {
                 <TrendingUp className="h-5 w-5 text-green-600" />
                 درآمد ماهانه از نوبت‌ها (سال {year})
               </CardTitle>
-              <CardDescription>فروردین → اسفند، با تفکیک کارمند (در tooltip)</CardDescription>
+              <CardDescription>
+                مبلغ فروش تسویه‌شده (تومان) و حجم نوبت — همان فیلتر paidAt / تسویه‌شده
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {revenueChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={320}>
-                  <BarChart
+                  <ComposedChart
                     data={revenueChartData}
                     margin={{ top: 16, right: 24, left: 16, bottom: 16 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                     <YAxis
+                      yAxisId="amount"
                       tickFormatter={(v) => {
                         const toman = Number(v) / 10
                         if (toman >= 1e6) return `${(toman / 1e6).toFixed(0)}M`
                         if (toman >= 1e3) return `${(toman / 1e3).toFixed(0)}K`
                         return String(Math.round(toman))
                       }}
+                      tick={{ fontSize: 12 }}
+                    />
+                    <YAxis
+                      yAxisId="count"
+                      orientation="right"
+                      allowDecimals={false}
                       tick={{ fontSize: 12 }}
                     />
                     <Tooltip
@@ -326,7 +339,10 @@ export default function AdminFinancialPage() {
                           <div className="rounded-lg border bg-background p-3 shadow-md">
                             <p className="font-medium mb-2">{row.month}</p>
                             <p className="text-sm text-foreground/80 mb-1">
-                              کل: {formatTomansFromRial(row.total)}
+                              مبلغ فروش: {formatTomansFromRial(row.total)}
+                            </p>
+                            <p className="text-sm text-foreground/80 mb-1">
+                              حجم نوبت: {row.appointmentCount}
                             </p>
                             {row.employees?.length > 0 && (
                               <ul className="text-xs space-y-1 mt-1">
@@ -342,8 +358,24 @@ export default function AdminFinancialPage() {
                         )
                       }}
                     />
-                    <Bar dataKey="total" name="درآمد (تومان)" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
+                    <Legend />
+                    <Bar
+                      yAxisId="amount"
+                      dataKey="total"
+                      name="مبلغ فروش"
+                      fill="hsl(var(--chart-2))"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Line
+                      yAxisId="count"
+                      type="monotone"
+                      dataKey="appointmentCount"
+                      name="حجم نوبت"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
+                  </ComposedChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="h-80 flex items-center justify-center text-foreground/80">

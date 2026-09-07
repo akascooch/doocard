@@ -27,6 +27,11 @@ function looksLikeIranMobile(raw: string): boolean {
 
 interface Customer {
   id: number;
+  preferredEmployeeId?: number | null;
+  preferredEmployee?: {
+    id: number;
+    user?: { id: number; name: string | null } | null;
+  } | null;
   user?: {
     id: number;
     name: string;
@@ -45,6 +50,8 @@ interface CustomerTypeaheadProps {
   prefillPhone?: string;
   /** When creating from appointment booking, attach this barber as preferred. */
   preferredEmployeeId?: number | null;
+  /** EMPLOYEE/SERVICE appointment search: only customers with preferredEmployeeId = me. */
+  scopeMine?: boolean;
 }
 
 export default function CustomerTypeahead({
@@ -56,6 +63,7 @@ export default function CustomerTypeahead({
   error,
   prefillPhone = '',
   preferredEmployeeId = null,
+  scopeMine = false,
 }: CustomerTypeaheadProps) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -82,13 +90,16 @@ export default function CustomerTypeahead({
     }, 250);
 
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, scopeMine]);
 
   const searchCustomers = async (query: string) => {
     try {
       setLoading(true);
       const response = await api.get(`/customers`, {
-        params: { search: query },
+        params: {
+          search: query,
+          ...(scopeMine ? { mine: '1' } : {}),
+        },
       });
       console.log('🔍 Customer search results:', response.data);
       setCustomers(Array.isArray(response.data) ? response.data : []);
@@ -284,6 +295,8 @@ export default function CustomerTypeahead({
                       <div className="text-right flex-1">
                         <div className="font-medium">{customer?.user?.name ?? 'نام نامشخص'}</div>
                         <div className="text-sm text-muted-foreground">
+                          {customer.preferredEmployee?.user?.name?.trim() || 'تیم سالن'}
+                          {' — '}
                           {customer?.user?.phone ?? '—'}
                           {customer?.user?.email && ` • ${customer?.user?.email}`}
                         </div>
@@ -330,7 +343,11 @@ export default function CustomerTypeahead({
         {selectedCustomer && (
           <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-lg p-2">
             <span className="text-sm text-muted-foreground">
-              مشتری: {selectedCustomer?.user?.name ?? 'نام نامشخص'} - {selectedCustomer?.user?.phone ?? '—'}
+              مشتری: {selectedCustomer?.user?.name ?? 'نام نامشخص'}
+              {' — '}
+              {selectedCustomer.preferredEmployee?.user?.name?.trim() || 'تیم سالن'}
+              {' - '}
+              {selectedCustomer?.user?.phone ?? '—'}
             </span>
             <Button
               type="button"

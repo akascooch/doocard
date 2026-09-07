@@ -8,7 +8,7 @@ export const SMS_EVENT_KEYS = {
   APPOINTMENT_CREATED: 'appointment.created',
   APPOINTMENT_CONFIRMED: 'appointment.confirmed',
   APPOINTMENT_CANCELLED: 'appointment.cancelled',
-  /** Barber settlement SMS after appointment checkout (post-commit) */
+  /** Barber settlement after checkout — in-app + Web Push only (SMS off by default + force-off on boot) */
   APPOINTMENT_SETTLED: 'appointment.settled',
   /** Cheque due-date reminders (T-3 / T-2 / T-1 / T-0) */
   CHEQUE_DUE_REMINDER: 'cheque.dueReminder',
@@ -66,7 +66,7 @@ export const DEFAULT_SMS_POLICY: SmsPolicyDefault[] = [
   {
     eventKey: SMS_EVENT_KEYS.APPOINTMENT_SETTLED,
     label: 'تسویه نوبت — آرایشگر',
-    smsEnabled: true,
+    smsEnabled: false,
   },
   {
     eventKey: SMS_EVENT_KEYS.CHEQUE_DUE_REMINDER,

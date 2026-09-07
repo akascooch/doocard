@@ -70,7 +70,7 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
   const loadServices = async () => {
     try {
       setLoadingServices(true);
-      const response = await api.get('/services');
+      const response = await api.get('/services', { params: { sort: 'usage' } });
       console.log('📋 Loaded services:', response.data);
       const data = await cacheFromResponse(REFERENCE_KEYS.services, response.data);
       setServices(data);
@@ -341,6 +341,7 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
             <CustomerTypeahead
               selectedCustomerId={formData.customerId}
               preferredEmployeeId={formData.employeeId}
+              scopeMine={role === 'EMPLOYEE'}
               onChange={(id) => {
                 setFormData({ ...formData, customerId: id });
                 if (id) {

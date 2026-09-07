@@ -389,6 +389,13 @@ export const getTehranTodayJalali = (format: string = 'YYYY/MM/DD'): string => {
   return `${y}/${m}/${d}`;
 };
 
+/** Jalali first-of-month → today (Asia/Tehran). For salary withdrawal filters. */
+export const getTehranCurrentJalaliMonthRange = (): { from: string; to: string } => {
+  const today = getTehranTodayJalali('YYYY/MM/DD');
+  const [jy, jm] = today.split('/');
+  return { from: `${jy}/${jm}/01`, to: today };
+};
+
 /** Add calendar days to a Gregorian YYYY-MM-DD in Asia/Tehran. */
 export const addDaysGregorianTehran = (
   gregorianDate: string,
@@ -564,6 +571,7 @@ export default {
   isJalaliDateBefore,
   getTehranTodayGregorian,
   getTehranTodayJalali,
+  getTehranCurrentJalaliMonthRange,
   addDaysGregorianTehran,
   getTehranWeekdayIndex,
   tehranIsoFromGregorianDate,
