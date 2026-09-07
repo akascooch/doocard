@@ -13,13 +13,19 @@ const NAV = [
   { href: "#contact", label: "تماس" },
 ]
 
+const tap =
+  "touch-manipulation pointer-events-auto [-webkit-tap-highlight-color:transparent] select-none"
+
 export function LandingHeader({ bookHref }: { bookHref: string }) {
   const [open, setOpen] = useState(false)
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-black/70 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:h-20 sm:px-6 lg:px-8">
-        <Link href="#home" className="flex min-w-0 items-center gap-3">
+    <header
+      className="fixed inset-x-0 top-0 z-[100] border-b border-white/10 bg-black/80 backdrop-blur-xl"
+      style={{ paddingTop: "max(1rem, env(safe-area-inset-top, 0px))" }}
+    >
+      <div className="mx-auto flex min-h-11 max-w-7xl items-center justify-between gap-2 px-3 sm:min-h-16 sm:gap-3 sm:px-6 lg:px-8">
+        <Link href="#home" className={`${tap} flex min-h-11 min-w-0 items-center gap-2 sm:gap-3`}>
           <div className="relative h-9 w-9 shrink-0 overflow-hidden sm:h-11 sm:w-11">
             <AppLogo size="sm" animated={false} />
           </div>
@@ -35,35 +41,35 @@ export function LandingHeader({ bookHref }: { bookHref: string }) {
 
         <nav className="hidden items-center gap-7 text-sm text-zinc-300 lg:flex">
           {NAV.map((item) => (
-            <a key={item.href} href={item.href} className="transition-colors hover:text-white">
+            <a key={item.href} href={item.href} className={`${tap} transition-colors hover:text-white`}>
               {item.label}
             </a>
           ))}
         </nav>
 
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+        <div className="relative z-[101] flex shrink-0 items-center gap-1.5 sm:gap-2">
           <Link
             href="/login"
-            className="rounded-md border border-white/20 px-2 py-2 text-[11px] text-white hover:bg-white/10 sm:px-4 sm:text-sm"
+            className={`${tap} inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-white/20 px-3 text-xs text-white hover:bg-white/10 sm:px-4 sm:text-sm`}
           >
             ورود
           </Link>
           <Link
             href="/register"
-            className="rounded-md border border-white/20 px-2 py-2 text-[11px] text-white hover:bg-white/10 sm:px-4 sm:text-sm"
+            className={`${tap} inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-white/20 px-3 text-xs text-white hover:bg-white/10 sm:px-4 sm:text-sm`}
           >
             ثبت‌نام
           </Link>
           <Link
             href={bookHref}
-            className="rounded-md bg-white px-2 py-2 text-[11px] font-semibold text-black hover:bg-zinc-200 sm:px-4 sm:text-sm"
+            className={`${tap} inline-flex min-h-11 min-w-11 items-center justify-center rounded-md bg-white px-3 text-xs font-semibold text-black hover:bg-zinc-200 sm:px-4 sm:text-sm`}
           >
             <span className="sm:hidden">رزرو</span>
             <span className="hidden sm:inline">رزرو آنلاین</span>
           </Link>
           <button
             type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-white/20 text-white lg:hidden"
+            className={`${tap} inline-flex h-11 w-11 items-center justify-center rounded-md border border-white/20 text-white lg:hidden`}
             aria-label={open ? "بستن منو" : "باز کردن منو"}
             aria-expanded={open}
             onClick={() => setOpen((v) => !v)}
@@ -74,16 +80,19 @@ export function LandingHeader({ bookHref }: { bookHref: string }) {
       </div>
 
       <div
-        className={`overflow-hidden border-t border-white/10 bg-black transition-[max-height,opacity] duration-300 lg:hidden ${
-          open ? "max-h-[80vh] opacity-100" : "max-h-0 opacity-0"
+        className={`border-t border-white/10 bg-black transition-[max-height,opacity] duration-300 lg:hidden ${
+          open
+            ? "pointer-events-auto max-h-[min(80vh,32rem)] overflow-y-auto opacity-100"
+            : "pointer-events-none max-h-0 overflow-hidden opacity-0"
         }`}
+        style={{ paddingBottom: open ? "max(1rem, env(safe-area-inset-bottom, 0px))" : 0 }}
       >
         <nav className="flex flex-col gap-1 px-4 py-4 text-sm">
           {NAV.map((item) => (
             <a
               key={item.href}
               href={item.href}
-              className="rounded-md px-3 py-3 text-zinc-200 hover:bg-white/5"
+              className={`${tap} min-h-11 rounded-md px-3 py-3 text-zinc-200 hover:bg-white/5`}
               onClick={() => setOpen(false)}
             >
               {item.label}
@@ -91,21 +100,21 @@ export function LandingHeader({ bookHref }: { bookHref: string }) {
           ))}
           <Link
             href="/login"
-            className="rounded-md px-3 py-3 text-zinc-200 hover:bg-white/5"
+            className={`${tap} flex min-h-11 items-center rounded-md px-3 py-3 text-zinc-200 hover:bg-white/5`}
             onClick={() => setOpen(false)}
           >
             ورود
           </Link>
           <Link
             href="/register"
-            className="rounded-md px-3 py-3 text-zinc-200 hover:bg-white/5"
+            className={`${tap} flex min-h-11 items-center rounded-md px-3 py-3 text-zinc-200 hover:bg-white/5`}
             onClick={() => setOpen(false)}
           >
             ثبت‌نام
           </Link>
           <Link
             href={bookHref}
-            className="rounded-md bg-white px-3 py-3 text-center font-semibold text-black"
+            className={`${tap} flex min-h-11 items-center justify-center rounded-md bg-white px-3 py-3 text-center font-semibold text-black`}
             onClick={() => setOpen(false)}
           >
             رزرو آنلاین نوبت

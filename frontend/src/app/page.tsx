@@ -8,6 +8,7 @@ import { initializeRouterStateCleanup } from "@/lib/clearRouterState"
 import { initializeCacheClearing } from "@/lib/clearBrowserCache"
 import { LandingHeader } from "@/components/landing/LandingHeader"
 import { LandingCarousel } from "@/components/landing/LandingCarousel"
+import { LandingMap } from "@/components/landing/LandingMap"
 import {
   instagramHref,
   landingBookHref,
@@ -21,14 +22,7 @@ interface Service {
   id: number
   name: string
   description?: string
-  price?: number
   durationMinutes?: number
-}
-
-function formatPriceToToman(price?: number) {
-  if (!price || Number.isNaN(price)) return "قیمت نامشخص"
-  const toman = Math.round(price / 10)
-  return `${new Intl.NumberFormat("fa-IR").format(toman)} تومان`
 }
 
 function formatDuration(minutes?: number) {
@@ -111,7 +105,7 @@ export default function HomePage() {
     <div className="min-h-screen scroll-smooth bg-black text-white">
       <LandingHeader bookHref={bookHref} />
 
-      <main className="pt-16 sm:pt-20">
+      <main className="pt-[calc(4.75rem+env(safe-area-inset-top,0px))] sm:pt-[calc(6rem+env(safe-area-inset-top,0px))]">
         <section id="home" className="relative min-h-[88vh] overflow-hidden">
           {heroImage ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -166,7 +160,7 @@ export default function HomePage() {
             <p className="mb-3 text-center text-xs tracking-[0.35em] text-zinc-500">خدمات</p>
             <h2 className="mb-4 text-center text-3xl font-semibold sm:text-4xl">خدمات تخصصی دوکارد</h2>
             <p className="mx-auto mb-12 max-w-2xl text-center text-sm text-zinc-400">
-              هر خدمت با دقت، زمان مشخص و قیمت شفاف ارائه می‌شود.
+              هر خدمت با دقت و زمان مشخص ارائه می‌شود.
             </p>
             {servicesError && <p className="mb-8 text-center text-sm text-red-400">{servicesError}</p>}
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -189,9 +183,14 @@ export default function HomePage() {
                       <p className="text-sm leading-7 text-zinc-400">{service.description}</p>
                     )}
                   </div>
-                  <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-4 text-sm">
+                  <div className="mt-6 flex items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm">
                     <span className="text-zinc-400">{formatDuration(service.durationMinutes)}</span>
-                    <span className="font-medium text-white">{formatPriceToToman(service.price)}</span>
+                    <Link
+                      href={bookHref}
+                      className="inline-flex min-h-11 items-center rounded-md bg-white px-4 text-xs font-semibold text-black touch-manipulation hover:bg-zinc-200"
+                    >
+                      رزرو
+                    </Link>
                   </div>
                 </article>
               ))}
@@ -311,25 +310,15 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-            <div>
-              <div className="overflow-hidden rounded-2xl border border-white/10">
-                <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d4576.923143468721!2d51.41657430921262!3d35.790765659685626!2m3!1f0!2f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3f8e07007116900b%3A0x9f14de3d35145316!2sSam%20Center%20Parking!5e0!3m2!1sen!2s!4v1772003089353!5m2!1sen!2s"
-                  title="موقعیت سالن دوکارد"
-                  width="100%"
-                  height="380"
-                  style={{ border: 0 }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                />
-              </div>
-            </div>
+            <LandingMap address={landing.address} />
           </div>
         </section>
       </main>
 
-      <footer className="border-t border-white/10 bg-black px-4 py-10">
+      <footer
+        className="border-t border-white/10 bg-black px-4 py-10"
+        style={{ paddingBottom: "max(2.5rem, env(safe-area-inset-bottom, 0px))" }}
+      >
         <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
           <div>
             <p className="tracking-[0.3em] text-sm">DOOCARD BARBERSHOP</p>
