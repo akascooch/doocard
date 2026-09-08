@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, DollarSign, AlertCircle } from 'lucide-react';
+import { Loader2, DollarSign, AlertCircle, Package, Plus, Trash2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -74,6 +74,23 @@ interface BankAccount {
   balance: number;
 }
 
+interface CatalogProduct {
+  id: number;
+  name: string;
+  sku: string | null;
+  priceRial: string;
+  stock: number;
+  isActive: boolean;
+}
+
+interface StoreLine {
+  productId: number;
+  name: string;
+  quantity: number;
+  unitPriceRial: string;
+  stock: number;
+}
+
 interface PaymentModalProps {
   appointmentId: number | null;
   prefetchedAppointment?: AppointmentRecord | null;
@@ -111,6 +128,12 @@ export default function PaymentModal({
   const [serviceStaff, setServiceStaff] = useState<{ id: number; name: string }[]>([]);
   const [settleExternalRef, setSettleExternalRef] = useState<string | null>(null);
   const [serverOffline, setServerOffline] = useState(false);
+  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
+  const [storeLines, setStoreLines] = useState<StoreLine[]>([]);
+  const [productSearch, setProductSearch] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState<number | ''>('');
+  const [selectedQty, setSelectedQty] = useState(1);
+  const [storeSectionOpen, setStoreSectionOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen && appointmentId) {
@@ -171,20 +194,27 @@ export default function PaymentModal({
         notes: '',
       });
       setOpenDebts(null);
+      setStoreLines([]);
+      setProductSearch('');
+      setSelectedProductId('');
+      setSelectedQty(1);
+      setStoreSectionOpen(false);
 
       // Load bank accounts + open debts warning
       if (reachable) {
         const customerId = (apptData as Appointment).customerId;
-        const [accountsResponse, staffResponse, debtsResponse] = await Promise.all([
+        const [accountsResponse, staffResponse, debtsResponse, productsResponse] = await Promise.all([
           api.get('/accounting/accounts'),
           api.get('/employees/service-staff/active').catch(() => ({ data: [] })),
           customerId
             ? api.get(`/customers/${customerId}/open-debts`).catch(() => null)
             : Promise.resolve(null),
+          api.get('/products', { params: { isActive: true, limit: 100 } }).catch(() => ({ data: { data: [] } })),
         ]);
         await cacheFromResponse(REFERENCE_KEYS.accounts, accountsResponse.data);
         setAccounts(accountsResponse.data);
         setServiceStaff(staffResponse.data || []);
+        setCatalogProducts(productsResponse.data?.data || []);
         if (debtsResponse?.data) {
           setOpenDebts(debtsResponse.data as OpenDebtsSummary);
         }
@@ -230,6 +260,14 @@ export default function PaymentModal({
     const useOffline = await shouldUseOfflineQueue();
 
     if (useOffline) {
+      if (storeLines.length > 0) {
+        toast({
+          title: 'غیرفعال در حالت آفلاین',
+          description: 'فروش فروشگاه در حالت آفلاین امکان‌پذیر نیست.',
+          variant: 'destructive',
+        });
+        return;
+      }
       if (formData.paymentMethod !== 'CASH') {
         toast({
           title: 'غیرفعال در حالت آفلاین',
@@ -377,6 +415,12 @@ export default function PaymentModal({
           payload.tipTeamMemberIds = formData.tipTeamMemberIds;
         }
       }
+      if (storeLines.length > 0) {
+        payload.items = storeLines.map((line) => ({
+          productId: line.productId,
+          quantity: line.quantity,
+        }));
+      }
 
       console.log('💸 Settling appointment:', payload);
 
@@ -405,7 +449,10 @@ export default function PaymentModal({
       console.error('Error settling appointment:', error);
       toast({
         title: 'خطا',
-        description: error.response?.data?.message || 'تسویه نوبت با خطا مواجه شد',
+        description:
+          error.response?.data?.message_fa ||
+          error.response?.data?.message ||
+          'تسویه نوبت با خطا مواجه شد',
         variant: 'destructive',
       });
     } finally {
@@ -419,6 +466,56 @@ export default function PaymentModal({
         0,
       )
     : 0;
+
+  const storeSubtotalRial = storeLines.reduce(
+    (sum, line) => sum + Number(line.unitPriceRial) * line.quantity,
+    0,
+  );
+
+  const filteredCatalog = catalogProducts.filter((p) => {
+    const q = productSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      p.name.toLowerCase().includes(q) ||
+      (p.sku && p.sku.toLowerCase().includes(q))
+    );
+  });
+
+  const addStoreLine = () => {
+    if (!selectedProductId) return;
+    const product = catalogProducts.find((p) => p.id === selectedProductId);
+    if (!product) return;
+    const qty = Math.max(1, selectedQty);
+    const already = storeLines.find((l) => l.productId === product.id);
+    const nextQty = (already?.quantity || 0) + qty;
+    if (nextQty > product.stock) {
+      toast({
+        title: 'خطا',
+        description: `موجودی کافی نیست: ${product.name}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (already) {
+      setStoreLines(
+        storeLines.map((l) =>
+          l.productId === product.id ? { ...l, quantity: nextQty } : l,
+        ),
+      );
+    } else {
+      setStoreLines([
+        ...storeLines,
+        {
+          productId: product.id,
+          name: product.name,
+          quantity: qty,
+          unitPriceRial: product.priceRial,
+          stock: product.stock,
+        },
+      ]);
+    }
+    setSelectedQty(1);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -484,10 +581,99 @@ export default function PaymentModal({
                 ))}
               </ul>
               <div className="flex justify-between mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                <span className="font-semibold">جمع کل:</span>
+                <span className="font-semibold">جمع خدمات:</span>
                 <span className="font-bold text-main-orange">
                   {toTomans(calculatedTotal)}
                 </span>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 space-y-3">
+              <button
+                type="button"
+                className="w-full text-sm font-medium flex items-center justify-between gap-2"
+                onClick={() => setStoreSectionOpen((open) => !open)}
+                aria-expanded={storeSectionOpen}
+              >
+                <span className="flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  فروش محصولات انبار
+                  {storeLines.length > 0 ? (
+                    <span className="text-xs font-normal text-muted-foreground">
+                      ({storeLines.length} قلم)
+                    </span>
+                  ) : (
+                    <span className="text-xs font-normal text-muted-foreground">(اختیاری)</span>
+                  )}
+                </span>
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform ${storeSectionOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {storeSectionOpen && (
+                <>
+              <p className="text-xs text-muted-foreground">
+                مبلغ فروشگاه جدا از مبلغ نوبت است و در کمیسیون آرایشگر محاسبه نمی‌شود.
+              </p>
+              <Input
+                placeholder="جستجوی محصول..."
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+              />
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <select
+                  className="h-10 flex-1 rounded-md border bg-background px-3 text-sm"
+                  value={selectedProductId}
+                  onChange={(e) =>
+                    setSelectedProductId(e.target.value ? Number(e.target.value) : '')
+                  }
+                >
+                  <option value="">انتخاب محصول</option>
+                  {filteredCatalog.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} — {formatTomansFromRial(p.priceRial)} (موجودی {p.stock})
+                    </option>
+                  ))}
+                </select>
+                <Input
+                  type="number"
+                  min={1}
+                  className="sm:w-24"
+                  value={selectedQty}
+                  onChange={(e) => setSelectedQty(Math.max(1, Number(e.target.value) || 1))}
+                />
+                <Button type="button" variant="outline" onClick={addStoreLine}>
+                  <Plus className="h-4 w-4 ml-1" />
+                  افزودن
+                </Button>
+              </div>
+              {storeLines.length > 0 && (
+                <ul className="text-sm space-y-1">
+                  {storeLines.map((line) => (
+                    <li key={line.productId} className="flex items-center justify-between gap-2">
+                      <span>
+                        {line.name} × {line.quantity} @ {formatTomansFromRial(line.unitPriceRial)}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600"
+                        onClick={() =>
+                          setStoreLines(storeLines.filter((l) => l.productId !== line.productId))
+                        }
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+                </>
+              )}
+              <div className="flex justify-between pt-2 border-t text-sm">
+                <span className="font-semibold">جمع فروشگاه:</span>
+                <span className="font-bold">{formatTomansFromRial(storeSubtotalRial)}</span>
               </div>
             </div>
 

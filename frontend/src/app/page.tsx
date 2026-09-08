@@ -328,6 +328,9 @@ export default function HomePage() {
             <a href={`tel:${tel}`} dir="ltr">
               {landing.phone}
             </a>
+            <Link href="/products" className="hover:text-white">
+              فروشگاه
+            </Link>
             <a href={ig} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1">
               <Instagram className="h-4 w-4" />
               Instagram

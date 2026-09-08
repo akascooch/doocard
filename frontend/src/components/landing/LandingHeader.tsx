@@ -6,11 +6,12 @@ import { Menu, X } from "lucide-react"
 import { AppLogo } from "@/components/common/AppLogo"
 
 const NAV = [
-  { href: "#services", label: "خدمات" },
-  { href: "#team", label: "تیم دوکارد" },
-  { href: "#gallery", label: "گالری" },
-  { href: "#about", label: "درباره ما" },
-  { href: "#contact", label: "تماس" },
+  { href: "/#services", label: "خدمات" },
+  { href: "/#team", label: "تیم دوکارد" },
+  { href: "/products", label: "فروشگاه" },
+  { href: "/#gallery", label: "گالری" },
+  { href: "/#about", label: "درباره ما" },
+  { href: "/#contact", label: "تماس" },
 ]
 
 const tap =
@@ -25,7 +26,7 @@ export function LandingHeader({ bookHref }: { bookHref: string }) {
       style={{ paddingTop: "max(1rem, env(safe-area-inset-top, 0px))" }}
     >
       <div className="mx-auto flex min-h-11 max-w-7xl items-center justify-between gap-2 px-3 sm:min-h-16 sm:gap-3 sm:px-6 lg:px-8">
-        <Link href="#home" className={`${tap} flex min-h-11 min-w-0 items-center gap-2 sm:gap-3`}>
+        <Link href="/" className={`${tap} flex min-h-11 min-w-0 items-center gap-2 sm:gap-3`}>
           <div className="relative h-9 w-9 shrink-0 overflow-hidden sm:h-11 sm:w-11">
             <AppLogo size="sm" animated={false} />
           </div>
@@ -41,9 +42,9 @@ export function LandingHeader({ bookHref }: { bookHref: string }) {
 
         <nav className="hidden items-center gap-7 text-sm text-zinc-300 lg:flex">
           {NAV.map((item) => (
-            <a key={item.href} href={item.href} className={`${tap} transition-colors hover:text-white`}>
+            <Link key={item.href} href={item.href} className={`${tap} transition-colors hover:text-white`}>
               {item.label}
-            </a>
+            </Link>
           ))}
         </nav>
 
@@ -89,14 +90,14 @@ export function LandingHeader({ bookHref }: { bookHref: string }) {
       >
         <nav className="flex flex-col gap-1 px-4 py-4 text-sm">
           {NAV.map((item) => (
-            <a
+            <Link
               key={item.href}
               href={item.href}
               className={`${tap} min-h-11 rounded-md px-3 py-3 text-zinc-200 hover:bg-white/5`}
               onClick={() => setOpen(false)}
             >
               {item.label}
-            </a>
+            </Link>
           ))}
           <Link
             href="/login"

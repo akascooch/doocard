@@ -142,3 +142,6 @@ vite.config.ts.timestamp-*
 backend/backups/
 backend/backups/*.json
 backend/backups/pre-restore/
+
+# Product/landing uploads generated at runtime — never commit.
+backend/uploads/

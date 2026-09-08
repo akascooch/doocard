@@ -31,6 +31,7 @@ model User {
   financialReportsAccessUpdates FinancialReportsAccess[] @relation("FinancialReportsAccessUpdatedBy")
   createdTipSources   TipSource[]        @relation("TipSourceCreatedBy")
   voidedTipSources    TipSource[]        @relation("TipSourceVoidedBy")
+  inventoryMovements  InventoryMovement[] @relation("InventoryMovementPerformedBy")
 
   @@map("users")
 }
@@ -204,6 +205,7 @@ model Appointment {
   tips                Tip[]
   transactions        Transaction[]
   debts               CustomerDebt[]
+  appointmentProducts AppointmentProduct[]
 
   @@index([customerId])
   @@index([employeeId])
@@ -972,4 +974,82 @@ model SystemSettings {
   updatedAt          DateTime  @updatedAt
 
   @@map("system_settings")
+}
+
+enum InventoryMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+  APPOINTMENT_SALE
+  REVERSAL
+}
+
+model ProductCategory {
+  id        Int       @id @default(autoincrement())
+  name      String
+  sortOrder Int       @default(0)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+
+  @@map("product_categories")
+}
+
+model Product {
+  id             Int       @id @default(autoincrement())
+  name           String
+  sku            String?   @unique
+  barcode        String?   @unique
+  description    String?
+  priceRial      BigInt
+  isPriceVisible Boolean   @default(false)
+  stock          Int       @default(0)
+  lowStockAlert  Int?
+  categoryId     Int?
+  isActive       Boolean   @default(true)
+  images         Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  category       ProductCategory? @relation(fields: [categoryId], references: [id])
+  movements      InventoryMovement[]
+  appointmentProducts AppointmentProduct[]
+
+  @@index([categoryId])
+  @@index([isActive])
+  @@map("products")
+}
+
+model InventoryMovement {
+  id            Int                   @id @default(autoincrement())
+  productId     Int
+  type          InventoryMovementType
+  quantity      Int
+  unitCostRial  BigInt?
+  reason        String?
+  referenceType String?
+  referenceId   Int?
+  performedById Int?
+  createdAt     DateTime              @default(now())
+  product       Product               @relation(fields: [productId], references: [id])
+  performedBy   User?                 @relation("InventoryMovementPerformedBy", fields: [performedById], references: [id])
+
+  @@index([productId, createdAt])
+  @@index([referenceType, referenceId])
+  @@map("inventory_movements")
+}
+
+model AppointmentProduct {
+  id            Int         @id @default(autoincrement())
+  appointmentId Int
+  productId     Int
+  quantity      Int
+  unitPriceRial BigInt
+  lineTotalRial BigInt
+  createdAt     DateTime    @default(now())
+  appointment   Appointment @relation(fields: [appointmentId], references: [id])
+  product       Product     @relation(fields: [productId], references: [id])
+
+  @@index([appointmentId])
+  @@map("appointment_products")
 }

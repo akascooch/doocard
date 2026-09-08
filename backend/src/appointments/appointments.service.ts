@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, ConflictException, Inject, forwardRef } from '@nestjs/common';
-import { NotificationType, Prisma } from '@prisma/client';
+import { NotificationType, Prisma, InventoryMovementType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateAppointmentDto,
   UpdateAppointmentDto,
   SettleAppointmentDto,
+  SettleProductItemDto,
   TipRecipientType,
   GetSlotsDto,
   QueryAppointmentsDto,
@@ -1605,6 +1606,17 @@ export class AppointmentsService {
         }
       }
 
+      // Store lines: AppointmentProduct + APPOINTMENT_SALE movement only.
+      // Do NOT write a Transaction and do NOT add to Appointment.amount.
+      if (dto.items?.length) {
+        await this.applyAppointmentProductSales(
+          tx,
+          id,
+          dto.items,
+          adminUser.sub || adminUser.id,
+        );
+      }
+
       console.log('✅ Appointment settled successfully');
       return updated;
     }, { maxWait: 5_000, timeout: 30_000 });
@@ -1708,6 +1720,12 @@ export class AppointmentsService {
       await tx.appointmentTipAllocation.deleteMany({
         where: { appointmentId: id },
       });
+
+      await this.reverseAppointmentProductSales(
+        tx,
+        id,
+        adminUser.sub || adminUser.id,
+      );
 
       // E) Clear appointment financial fields and set status to CONFIRMED
       await tx.appointment.update({
@@ -2208,6 +2226,119 @@ export class AppointmentsService {
         jalaliDayOfWeek: appointment.calendarDate.jalaliDayOfWeek,
       } : null,
     };
+  }
+
+  private mergeSettleProductItems(
+    items: SettleProductItemDto[],
+  ): { productId: number; quantity: number }[] {
+    const merged = new Map<number, number>();
+    for (const item of items) {
+      merged.set(item.productId, (merged.get(item.productId) ?? 0) + item.quantity);
+    }
+    return [...merged.entries()].map(([productId, quantity]) => ({ productId, quantity }));
+  }
+
+  /**
+   * Snapshot store lines onto the appointment and decrement stock.
+   * Runs in the SAME settle transaction so insufficient stock rolls back the whole settle.
+   * Inserts: appointment_products + inventory_movements (APPOINTMENT_SALE, quantity=-qty).
+   * Does not insert Transaction rows and does not change Appointment.amount.
+   */
+  private async applyAppointmentProductSales(
+    tx: Prisma.TransactionClient,
+    appointmentId: number,
+    items: SettleProductItemDto[],
+    performedById: number | undefined,
+  ) {
+    const merged = this.mergeSettleProductItems(items);
+    for (const item of merged) {
+      const product = await tx.product.findUnique({ where: { id: item.productId } });
+      if (!product) {
+        throw new NotFoundException('محصول یافت نشد');
+      }
+      if (!product.isActive) {
+        throw new BadRequestException(`محصول «${product.name}» غیرفعال است`);
+      }
+
+      const affected = await tx.$executeRaw`
+        UPDATE "products"
+        SET stock = stock - ${item.quantity}, "updatedAt" = CURRENT_TIMESTAMP
+        WHERE id = ${item.productId} AND stock >= ${item.quantity}
+      `;
+      if (affected === 0) {
+        throw new ConflictException(`موجودی کافی نیست: ${product.name}`);
+      }
+
+      const lineTotalRial = product.priceRial * BigInt(item.quantity);
+      await tx.appointmentProduct.create({
+        data: {
+          appointmentId,
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPriceRial: product.priceRial,
+          lineTotalRial,
+        },
+      });
+
+      await tx.inventoryMovement.create({
+        data: {
+          productId: item.productId,
+          type: InventoryMovementType.APPOINTMENT_SALE,
+          quantity: -item.quantity,
+          reason: 'فروش در تسویه نوبت',
+          referenceType: 'APPOINTMENT',
+          referenceId: appointmentId,
+          performedById: performedById ?? null,
+        },
+      });
+    }
+  }
+
+  /**
+   * Restock APPOINTMENT_SALE lines and delete AppointmentProduct rows.
+   * No-ops if a REVERSAL movement already exists for this appointment.
+   */
+  private async reverseAppointmentProductSales(
+    tx: Prisma.TransactionClient,
+    appointmentId: number,
+    performedById: number | undefined,
+  ) {
+    const alreadyReversed = await tx.inventoryMovement.findFirst({
+      where: {
+        referenceType: 'APPOINTMENT',
+        referenceId: appointmentId,
+        type: InventoryMovementType.REVERSAL,
+      },
+      select: { id: true },
+    });
+    if (alreadyReversed) {
+      return;
+    }
+
+    const lines = await tx.appointmentProduct.findMany({
+      where: { appointmentId },
+    });
+    for (const line of lines) {
+      await tx.$executeRaw`
+        UPDATE "products"
+        SET stock = stock + ${line.quantity}, "updatedAt" = CURRENT_TIMESTAMP
+        WHERE id = ${line.productId}
+      `;
+      await tx.inventoryMovement.create({
+        data: {
+          productId: line.productId,
+          type: InventoryMovementType.REVERSAL,
+          quantity: line.quantity,
+          reason: 'بازگشت فروش به دلیل ابطال تسویه',
+          referenceType: 'APPOINTMENT',
+          referenceId: appointmentId,
+          performedById: performedById ?? null,
+        },
+      });
+    }
+    if (lines.length > 0) {
+      await tx.appointmentProduct.deleteMany({ where: { appointmentId } });
+    }
   }
 
   /**

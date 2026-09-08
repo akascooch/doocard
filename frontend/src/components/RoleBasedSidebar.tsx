@@ -20,6 +20,7 @@ import {
   CreditCard,
   UserPlus,
   Upload,
+  Package,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { LogoutButton } from './LogoutButton'
@@ -82,6 +83,12 @@ const adminMenuItems = [
     href: '/dashboard/admin/services',
     icon: Scissors,
     description: 'مدیریت خدمات'
+  },
+  {
+    title: 'محصولات',
+    href: '/dashboard/admin/products',
+    icon: Package,
+    description: 'کاتالوگ و موجودی فروشگاه'
   },
   {
     title: 'حسابداری',

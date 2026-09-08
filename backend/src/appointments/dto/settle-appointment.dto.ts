@@ -7,6 +7,8 @@ import {
   Min,
   IsArray,
   IsInt,
+  IsPositive,
+  ValidateNested,
   ValidateIf,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
@@ -30,6 +32,18 @@ function toPositiveIntArray(value: unknown): number[] | undefined {
     .map((v) => (typeof v === 'number' ? v : parseInt(String(v), 10)))
     .filter((n) => Number.isInteger(n) && n > 0);
   return ids;
+}
+
+export class SettleProductItemDto {
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  productId: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  quantity: number;
 }
 
 /**
@@ -109,4 +123,14 @@ export class SettleAppointmentDto {
   @IsString()
   @IsOptional()
   notes?: string; // Additional settlement notes
+
+  /**
+   * Optional store lines. Never included in Appointment.amount / commission base.
+   * Empty array is a no-op (same as omitting the field).
+   */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SettleProductItemDto)
+  items?: SettleProductItemDto[];
 }
