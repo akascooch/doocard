@@ -14,16 +14,21 @@ import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { RequestOtpDto } from './dto/request-otp.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { OtpService } from './otp.service';
 import {
   getAccessCookieMaxAgeMs,
   getRefreshCookieMaxAgeMs,
 } from './auth-token.config';
 import { Response, Request } from 'express';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
+    private readonly otpService: OtpService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -31,14 +36,16 @@ export class AuthController {
     res: Response,
     accessToken: string,
     refreshToken: string,
+    refreshMaxAgeMs?: number,
   ): void {
     const secure = process.env.NODE_ENV === 'production';
+    const refreshAge = refreshMaxAgeMs ?? getRefreshCookieMaxAgeMs(this.configService);
 
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
       secure,
       sameSite: 'lax',
-      maxAge: getRefreshCookieMaxAgeMs(this.configService),
+      maxAge: refreshAge,
       path: '/',
     });
 
@@ -62,7 +69,12 @@ export class AuthController {
 
     const result = await this.authService.login(loginDto, ipAddress, userAgent);
 
-    this.setAuthCookies(res, result.access_token, result.refresh_token);
+    this.setAuthCookies(
+      res,
+      result.access_token,
+      result.refresh_token,
+      result.refreshCookieMaxAgeMs,
+    );
     
     console.log('✅ Login successful, tokens set in cookies');
     
@@ -88,7 +100,12 @@ export class AuthController {
 
     const result = await this.authService.refreshAccessToken(refreshToken, ipAddress, userAgent);
 
-    this.setAuthCookies(res, result.access_token, result.refresh_token);
+    this.setAuthCookies(
+      res,
+      result.access_token,
+      result.refresh_token,
+      result.refreshCookieMaxAgeMs,
+    );
     
     console.log('✅ Token refreshed successfully');
     
@@ -117,6 +134,36 @@ export class AuthController {
     return { 
       success: true,
       message: 'با موفقیت خارج شدید',
+    };
+  }
+
+  @Post('otp/request')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ short: { limit: 3, ttl: 900_000 } })
+  requestOtp(@Body() dto: RequestOtpDto) {
+    return this.otpService.requestOtp(dto);
+  }
+
+  @Post('otp/verify')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ short: { limit: 5, ttl: 900_000 } })
+  async verifyOtp(
+    @Body() dto: VerifyOtpDto,
+    @Res({ passthrough: true }) res: Response,
+    @Req() req: Request,
+  ) {
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+    const result = await this.otpService.verifyOtp(dto, ipAddress, userAgent);
+    this.setAuthCookies(
+      res,
+      result.access_token,
+      result.refresh_token,
+      result.refreshCookieMaxAgeMs,
+    );
+    return {
+      user: result.user,
+      access_token: result.access_token,
     };
   }
 

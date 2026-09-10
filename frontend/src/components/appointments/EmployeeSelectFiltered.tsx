@@ -84,7 +84,9 @@ export default function EmployeeSelectFiltered({
 
   // Filter employees who can perform at least one of the selected services
   const filteredEmployees = employees.filter(employee => {
-    if (selectedServiceIds.length === 0) return true; // Show all if no services selected
+    if (employee.isActive === false) return false;
+    if (employee.user?.role && employee.user.role !== 'EMPLOYEE') return false;
+    if (selectedServiceIds.length === 0) return true;
     
     if (!employee.employeeServices || !Array.isArray(employee.employeeServices)) {
       return false;

@@ -112,7 +112,12 @@ export class CustomersService {
         user: true,
         preferredEmployee: {
           include: { user: true }
-        }
+        },
+        _count: {
+          select: {
+            appointments: { where: { deletedAt: null } },
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc'
@@ -583,6 +588,11 @@ export class CustomersService {
       include: {
         user: true,
         preferredEmployee: { include: { user: true } },
+        _count: {
+          select: {
+            appointments: { where: { deletedAt: null } },
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc'

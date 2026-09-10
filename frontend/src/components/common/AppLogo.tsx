@@ -9,24 +9,20 @@ interface AppLogoProps {
   centered?: boolean
   animated?: boolean
   className?: string
+  priority?: boolean
 }
+
+const IMAGE_SRC = '/images/mainlogo.png'
 
 export function AppLogo({ 
   size = 'md', 
   centered = false, 
   animated = true,
-  className 
+  className,
+  priority = true,
 }: AppLogoProps) {
-  
-  // Determine image source based on size - using high quality images
-  const imageSrc = size === 'lg' 
-    ? '/logo/logo-4096.png'  // 4096px for large (best quality)
-    : size === 'md' 
-      ? '/logo/logo-2048.png'  // 2048px for medium
-      : '/logo/logo-2048.png'  // 2048px for small (better quality than before)
-  
-  // Display dimensions — must match rendered size so production flex layout
-  // does not reserve 2048px intrinsic width from next/image width/height props.
+  // Display dimensions match the intended CSS box (1:1 source is 1024×1024)
+  // so next/image does not reserve the file's intrinsic pixel width in flex layouts.
   const dimensions = {
     sm: { width: 48, height: 48 },
     md: { width: 180, height: 180 },
@@ -43,7 +39,7 @@ export function AppLogo({
     size === 'sm' ? '48px' : size === 'md' ? '(max-width: 640px) 140px, 180px' : '(max-width: 640px) 220px, 280px'
 
   const baseClasses = cn(
-    'block h-auto w-full max-w-full min-w-0 shrink-0 object-contain',
+    'block aspect-square h-auto w-full max-w-full min-w-0 shrink-0 object-contain object-center',
     sizeClasses[size],
     centered && 'mx-auto',
     className
@@ -54,12 +50,12 @@ export function AppLogo({
     
     return (
       <MotionImage
-        src={imageSrc}
+        src={IMAGE_SRC}
         alt="Doocard Logo"
         width={dimensions[size].width}
         height={dimensions[size].height}
         sizes={sizesAttr}
-        priority
+        priority={priority}
         className={baseClasses}
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -70,12 +66,12 @@ export function AppLogo({
 
   return (
     <Image
-      src={imageSrc}
+      src={IMAGE_SRC}
       alt="Doocard Logo"
       width={dimensions[size].width}
       height={dimensions[size].height}
       sizes={sizesAttr}
-      priority
+      priority={priority}
       className={baseClasses}
     />
   )

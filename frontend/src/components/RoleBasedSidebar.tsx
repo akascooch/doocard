@@ -21,6 +21,7 @@ import {
   UserPlus,
   Upload,
   Package,
+  ShoppingBag,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { LogoutButton } from './LogoutButton'
@@ -89,6 +90,12 @@ const adminMenuItems = [
     href: '/dashboard/admin/products',
     icon: Package,
     description: 'کاتالوگ و موجودی فروشگاه'
+  },
+  {
+    title: 'سفارشات',
+    href: '/dashboard/admin/orders',
+    icon: ShoppingBag,
+    description: 'سفارش‌های فروشگاه و رسید کارت‌به‌کارت'
   },
   {
     title: 'حسابداری',

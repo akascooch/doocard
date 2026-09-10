@@ -16,6 +16,17 @@ function logError(error: any, context: string) {
 interface LoginCredentials {
   identifier: string;
   password: string;
+  rememberMe?: boolean;
+}
+
+export function persistAuthSession(data: { user?: any; access_token?: string }): void {
+  if (typeof window === 'undefined') return;
+  if (data.access_token) {
+    localStorage.setItem('token', data.access_token);
+  }
+  if (data.user) {
+    localStorage.setItem('user', JSON.stringify(data.user));
+  }
 }
 
 export async function login(credentials: LoginCredentials): Promise<{ user: any }> {
@@ -32,17 +43,10 @@ export async function login(credentials: LoginCredentials): Promise<{ user: any 
       throw new Error('Login failed');
     }
 
-    // Store JWT token in localStorage
-    // (refresh_token is automatically stored as HttpOnly cookie by backend)
-    if (response.data.access_token) {
-      localStorage.setItem('token', response.data.access_token);
-      console.log('🔵 Access token stored in localStorage');
-    } else {
-      console.log('⚠️ No access_token in response');
-    }
-
-    // Store user data
-    localStorage.setItem('user', JSON.stringify(response.data.user));
+    persistAuthSession({
+      user: response.data.user,
+      access_token: response.data.access_token,
+    });
     
     console.log('✅ User data stored successfully');
     console.groupEnd();

@@ -53,6 +53,22 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
+/// Phone OTP challenges for auth/booking. Codes are stored hashed only.
+model OtpChallenge {
+  id         String    @id @default(uuid())
+  phone      String
+  codeHash   String
+  purpose    String    @default("LOGIN")
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, purpose])
+  @@index([phone, createdAt])
+  @@map("otp_challenges")
+}
+
 model PushSubscription {
   id        Int      @id @default(autoincrement())
   userId    Int
@@ -1014,6 +1030,7 @@ model Product {
   category       ProductCategory? @relation(fields: [categoryId], references: [id])
   movements      InventoryMovement[]
   appointmentProducts AppointmentProduct[]
+  orders         OrderItem[]
 
   @@index([categoryId])
   @@index([isActive])
@@ -1052,4 +1069,54 @@ model AppointmentProduct {
 
   @@index([appointmentId])
   @@map("appointment_products")
+}
+
+enum OrderStatus {
+  PENDING_VERIFICATION
+  PAID
+  PROCESSING
+  SHIPPED
+  COMPLETED
+  CANCELLED
+}
+
+/// Shop card-to-card orders. Isolated from salon Transaction / AppointmentProduct.
+model Order {
+  id               String      @id @default(uuid())
+  orderNumber      String      @unique
+  customerName     String
+  customerPhone    String
+  customerAddress  String?
+  customerNotes    String?
+  totalAmountRial  BigInt
+  status           OrderStatus @default(PENDING_VERIFICATION)
+  receiptImageUrl  String?
+  trackingCode     String?
+  adminNotes       String?
+  verifiedAt       DateTime?
+  items            OrderItem[]
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@index([customerPhone])
+  @@map("orders")
+}
+
+model OrderItem {
+  id            Int      @id @default(autoincrement())
+  orderId       String
+  productId     Int
+  productTitle  String
+  unitPriceRial BigInt
+  quantity      Int
+  lineTotalRial BigInt
+  createdAt     DateTime @default(now())
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
 }

@@ -19,6 +19,7 @@ import { api } from '@/lib/axios';
 import { useToast } from '@/components/ui/use-toast';
 import { getCurrentUser } from '@/lib/auth';
 import { cn } from '@/lib/utils';
+import { getTehranAppointmentPresetRange } from '@/lib/date';
 
 interface Appointment {
   id: number;
@@ -33,52 +34,7 @@ interface Appointment {
   notes?: string;
 }
 
-// Helper function to get date range (timezone-safe)
-const getDateRange = (filter: 'today' | 'tomorrow' | 'week' | 'all') => {
-  const today = new Date();
-  
-  // Get local date components (no timezone conversion!)
-  const getLocalDateString = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  const todayStr = getLocalDateString(today);
-  
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = getLocalDateString(tomorrow);
-
-  const weekEnd = new Date(today);
-  weekEnd.setDate(weekEnd.getDate() + 7);
-  const weekEndStr = getLocalDateString(weekEnd);
-
-  switch (filter) {
-    case 'today':
-      // From today 00:00:00 to today 23:59:59
-      return { 
-        from: `${todayStr}T00:00:00`, 
-        to: `${todayStr}T23:59:59` 
-      };
-    case 'tomorrow':
-      // From tomorrow 00:00:00 to tomorrow 23:59:59
-      return { 
-        from: `${tomorrowStr}T00:00:00`, 
-        to: `${tomorrowStr}T23:59:59` 
-      };
-    case 'week':
-      // From today 00:00:00 to 7 days later 23:59:59
-      return { 
-        from: `${todayStr}T00:00:00`, 
-        to: `${weekEndStr}T23:59:59` 
-      };
-    case 'all':
-    default:
-      return {};
-  }
-};
+type LegacyPresetFilter = 'today' | 'yesterday' | 'tomorrow' | 'week' | 'all';
 
 // Smart sorting: PENDING_CONFIRMATION first, then by scheduled time (nearest first)
 const sortAppointments = (appointments: Appointment[]) => {
@@ -115,7 +71,7 @@ export default function AppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [dateFilter, setDateFilter] = useState<'today' | 'tomorrow' | 'week' | 'all'>('today'); // Default to today
+  const [dateFilter, setDateFilter] = useState<LegacyPresetFilter>('today');
 
   useEffect(() => {
     loadAppointments();
@@ -127,7 +83,7 @@ export default function AppointmentsPage() {
       const params: any = {};
       
       // Add date range filter (timezone-safe)
-      const dateRange = getDateRange(dateFilter);
+      const dateRange = getTehranAppointmentPresetRange(dateFilter);
       if (dateRange.from) params.from = dateRange.from;
       if (dateRange.to) params.to = dateRange.to;
 
@@ -206,6 +162,7 @@ export default function AppointmentsPage() {
         <h1 className="text-3xl font-bold">مدیریت نوبت‌ها</h1>
         <p className="text-muted-foreground mt-1">
           {dateFilter === 'today' && 'نوبت‌های امروز'}
+          {dateFilter === 'yesterday' && 'نوبت‌های دیروز'}
           {dateFilter === 'tomorrow' && 'نوبت‌های فردا'}
           {dateFilter === 'week' && 'نوبت‌های این هفته'}
           {dateFilter === 'all' && 'همه نوبت‌ها'}
@@ -242,6 +199,18 @@ export default function AppointmentsPage() {
                   {stats.total}
                 </span>
               )}
+            </Button>
+            <Button
+              variant={dateFilter === 'yesterday' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDateFilter('yesterday')}
+              className={cn(
+                'flex items-center gap-2',
+                dateFilter === 'yesterday' && 'bg-primary text-primary-foreground hover:bg-primary/90'
+              )}
+            >
+              <Clock className="h-4 w-4" />
+              دیروز
             </Button>
             <Button
               variant={dateFilter === 'tomorrow' ? 'default' : 'outline'}

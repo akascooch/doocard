@@ -515,6 +515,7 @@ export const getTehranJalaliMonthToTodayBounds = (
 
 export type TehranAppointmentPreset =
   | 'today'
+  | 'yesterday'
   | 'tomorrow'
   | 'week'
   | 'month'
@@ -533,6 +534,13 @@ export const getTehranAppointmentPresetRange = (
         from: tehranIsoFromGregorianDate(todayStr, '00:00:00'),
         to: tehranIsoFromGregorianDate(todayStr, '23:59:59'),
       };
+    case 'yesterday': {
+      const yesterdayStr = addDaysGregorianTehran(todayStr, -1);
+      return {
+        from: tehranIsoFromGregorianDate(yesterdayStr, '00:00:00'),
+        to: tehranIsoFromGregorianDate(yesterdayStr, '23:59:59'),
+      };
+    }
     case 'tomorrow':
       return {
         from: tehranIsoFromGregorianDate(tomorrowStr, '00:00:00'),

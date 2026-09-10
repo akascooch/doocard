@@ -2,6 +2,19 @@ import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppointmentStatus } from '@prisma/client';
 import { normalizeAppointmentFields } from '../common/utils/appointment-response.util';
+import { JALALI_MONTH_NAMES } from '../common/utils/date-utils';
+import { formatJalaliFromUtcInstant } from '../common/utils/tehran-business-day';
+import {
+  BARBER_DONE_STATUSES,
+  BARBER_PENDING_TODAY_STATUSES,
+  getCurrentJalaliYearMonth,
+  getJalaliMonthUtcRange,
+  getJalaliYearUtcRange,
+  getTehranTodayRange,
+  netRialToString,
+  parseServiceSnapshots,
+  resolveAuthUserId,
+} from './employee-dashboard.util';
 
 @Injectable()
 export class DashboardService {
@@ -527,124 +540,305 @@ export class DashboardService {
 
   // Employee dashboard stats
   async getEmployeeStats(currentUser: any) {
-    const employee = await this.prisma.employee.findFirst({
-      where: { 
-        user: { email: currentUser.email }
-      },
-      include: { user: true }
+    const empty = {
+      todayAppointments: 0,
+      todayCompletedAppointments: 0,
+      todayPendingAppointments: 0,
+      completedAppointments: 0,
+      pendingAppointments: 0,
+      monthlyNetEarningsRial: '0',
+      monthlyEarnings: 0,
+      totalCustomers: 0,
+      averageRating: null as number | null,
+    };
+
+    const userId = resolveAuthUserId(currentUser);
+    if (!userId) return empty;
+
+    const employee = await this.prisma.employee.findUnique({
+      where: { userId },
     });
+    if (!employee) return empty;
 
-    if (!employee) {
-      return {
-        todayAppointments: 0,
-        completedAppointments: 0,
-        pendingAppointments: 0,
-        monthlyEarnings: 0,
-        totalCustomers: 0,
-        averageRating: 0
-      };
-    }
-
-    const today = new Date();
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const today = getTehranTodayRange();
+    const { jy, jm } = getCurrentJalaliYearMonth();
+    const month = getJalaliMonthUtcRange(jy, jm);
 
     const [
       todayAppointments,
-      completedAppointments,
-      pendingAppointments,
-      monthlyEarnings,
-      totalCustomers
+      todayCompletedAppointments,
+      todayPendingAppointments,
+      monthlyNet,
+      totalCustomers,
     ] = await Promise.all([
       this.prisma.appointment.count({
         where: {
           employeeId: employee.id,
-          scheduledAt: {
-            gte: startOfDay,
-            lt: endOfDay,
-          },
+          deletedAt: null,
+          scheduledAt: { gte: today.start, lt: today.endExclusive },
         },
       }),
       this.prisma.appointment.count({
         where: {
           employeeId: employee.id,
-          status: 'COMPLETED',
+          deletedAt: null,
+          status: { in: BARBER_DONE_STATUSES },
+          scheduledAt: { gte: today.start, lt: today.endExclusive },
         },
       }),
       this.prisma.appointment.count({
         where: {
           employeeId: employee.id,
-          status: 'PENDING',
+          deletedAt: null,
+          status: { in: BARBER_PENDING_TODAY_STATUSES },
+          scheduledAt: { gte: today.start, lt: today.endExclusive },
         },
       }),
-      this.prisma.transaction.aggregate({
-        _sum: { amount: true },
+      this.prisma.appointment.aggregate({
+        _sum: { barberPayoutNetAmount: true },
         where: {
-          type: 'SERVICE',
-          appointment: {
-            employeeId: employee.id,
-          },
-          createdAt: {
-            gte: startOfMonth,
-            lte: endOfMonth,
-          },
+          employeeId: employee.id,
+          deletedAt: null,
+          status: { in: BARBER_DONE_STATUSES },
+          barberPayoutNetAmount: { not: null },
+          scheduledAt: { gte: month.start, lte: month.end },
         },
       }),
       this.prisma.customer.count({
-        where: { 
+        where: {
           appointments: {
-            some: { employeeId: employee.id }
-          }
+            some: { employeeId: employee.id, deletedAt: null },
+          },
         },
-      })
+      }),
     ]);
+
+    const monthlyNetEarningsRial = netRialToString(
+      monthlyNet._sum.barberPayoutNetAmount,
+    );
+    const netBig = monthlyNet._sum.barberPayoutNetAmount ?? 0n;
+    const monthlyEarningsToman = Number(netBig / 10n);
 
     return {
       todayAppointments,
-      completedAppointments,
-      pendingAppointments,
-      monthlyEarnings: Number(monthlyEarnings._sum.amount ?? 0),
+      todayCompletedAppointments,
+      todayPendingAppointments,
+      completedAppointments: todayCompletedAppointments,
+      pendingAppointments: todayPendingAppointments,
+      monthlyNetEarningsRial,
+      monthlyEarnings: monthlyEarningsToman,
       totalCustomers,
-      averageRating: 4.8 // This would need to be calculated from reviews if available
+      averageRating: null,
     };
   }
 
   async getEmployeeTodayAppointments(currentUser: any) {
-    const employee = await this.prisma.employee.findFirst({
-      where: { 
-        user: { email: currentUser.email }
-      },
-      include: { user: true }
+    const userId = resolveAuthUserId(currentUser);
+    if (!userId) return [];
+
+    const employee = await this.prisma.employee.findUnique({
+      where: { userId },
     });
+    if (!employee) return [];
 
-    if (!employee) {
-      return [];
-    }
-
-    const today = new Date();
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
-
-    return this.prisma.appointment.findMany({
+    const today = getTehranTodayRange();
+    const rows = await this.prisma.appointment.findMany({
       where: {
         employeeId: employee.id,
-        scheduledAt: {
-          gte: startOfDay,
-          lt: endOfDay,
-        },
+        deletedAt: null,
+        scheduledAt: { gte: today.start, lt: today.endExclusive },
       },
       include: {
-        customer: {
-          include: { user: true }
-        },
-        service: true
+        customer: { include: { user: true } },
+        service: true,
       },
-      orderBy: {
-        scheduledAt: 'asc'
-      }
+      orderBy: { scheduledAt: 'asc' },
     });
+
+    return rows.map((appointment) => {
+      const snapshots = parseServiceSnapshots(appointment.services);
+      const serviceName =
+        snapshots.map((s) => s.serviceName).join('، ') ||
+        appointment.service?.name ||
+        'خدمت';
+      return {
+        id: appointment.id,
+        scheduledAt: appointment.scheduledAt,
+        appointmentDate: appointment.scheduledAt,
+        status: appointment.status,
+        durationMin: appointment.durationMin,
+        serviceName,
+        customerName: appointment.customer?.user?.name || 'مشتری',
+        customerPhone: appointment.customer?.user?.phone || '',
+        service: {
+          name: serviceName,
+          durationMinutes: appointment.durationMin,
+        },
+        customer: {
+          user: {
+            name: appointment.customer?.user?.name || 'مشتری',
+            phone: appointment.customer?.user?.phone || '',
+          },
+        },
+      };
+    });
+  }
+
+  /**
+   * Employee-scoped performance (Jalali). Does not reuse admin yearly-report.
+   * Net earnings = SUM(barberPayoutNetAmount) on done appointments — settlement snapshot,
+   * not salon SERVICE transactions and not payroll netPayable (withdrawals excluded).
+   */
+  async getEmployeePerformance(currentUser: any, yearParam?: string) {
+    const userId = resolveAuthUserId(currentUser);
+    if (!userId) {
+      throw new ForbiddenException('Employee profile not found');
+    }
+
+    const employee = await this.prisma.employee.findUnique({
+      where: { userId },
+    });
+    if (!employee) {
+      throw new ForbiddenException('Employee profile not found');
+    }
+
+    const { jy: currentJalaliYear } = getCurrentJalaliYearMonth();
+    const parsed = yearParam ? parseInt(yearParam, 10) : currentJalaliYear;
+    const selectedJalaliYear =
+      Number.isInteger(parsed) && parsed >= 1300 && parsed <= 1500
+        ? parsed
+        : currentJalaliYear;
+
+    const years = Array.from({ length: 5 }, (_, i) => currentJalaliYear - 4 + i);
+    const spanStart = getJalaliYearUtcRange(years[0]).start;
+    const spanEnd = getJalaliYearUtcRange(years[years.length - 1]).end;
+
+    const rows = await this.prisma.appointment.findMany({
+      where: {
+        employeeId: employee.id,
+        deletedAt: null,
+        scheduledAt: { gte: spanStart, lte: spanEnd },
+      },
+      select: {
+        status: true,
+        customerId: true,
+        scheduledAt: true,
+        barberPayoutNetAmount: true,
+        services: true,
+        calendarDate: { select: { jalaliYear: true, jalaliMonth: true } },
+      },
+    });
+
+    const yearBuckets = new Map<
+      number,
+      { completedCount: number; cancelledCount: number; customers: Set<number>; net: bigint }
+    >();
+    const monthBuckets = new Map<
+      number,
+      { completedCount: number; customers: Set<number>; net: bigint }
+    >();
+    for (let m = 1; m <= 12; m++) {
+      monthBuckets.set(m, { completedCount: 0, customers: new Set(), net: 0n });
+    }
+    const serviceStats = new Map<string, { count: number; grossRial: number }>();
+
+    let completedCount = 0;
+    let cancelledCount = 0;
+    const allCustomers = new Set<number>();
+    let netAll = 0n;
+
+    for (const row of rows) {
+      const jalali = row.calendarDate
+        ? { jy: row.calendarDate.jalaliYear, jm: row.calendarDate.jalaliMonth }
+        : (() => {
+            const [jy, jm] = formatJalaliFromUtcInstant(row.scheduledAt)
+              .split('/')
+              .map(Number);
+            return { jy, jm };
+          })();
+
+      if (!yearBuckets.has(jalali.jy)) {
+        yearBuckets.set(jalali.jy, {
+          completedCount: 0,
+          cancelledCount: 0,
+          customers: new Set(),
+          net: 0n,
+        });
+      }
+      const yb = yearBuckets.get(jalali.jy)!;
+      const isDone = BARBER_DONE_STATUSES.includes(row.status);
+      const isCancelled = row.status === AppointmentStatus.CANCELLED;
+      const net = row.barberPayoutNetAmount ?? 0n;
+
+      if (isDone) {
+        completedCount += 1;
+        allCustomers.add(row.customerId);
+        netAll += net;
+        yb.completedCount += 1;
+        yb.customers.add(row.customerId);
+        yb.net += net;
+        if (jalali.jy === selectedJalaliYear) {
+          const mb = monthBuckets.get(jalali.jm);
+          if (mb) {
+            mb.completedCount += 1;
+            mb.customers.add(row.customerId);
+            mb.net += net;
+          }
+          for (const snap of parseServiceSnapshots(row.services)) {
+            const existing = serviceStats.get(snap.serviceName) || {
+              count: 0,
+              grossRial: 0,
+            };
+            existing.count += 1;
+            existing.grossRial += snap.priceAtBooking;
+            serviceStats.set(snap.serviceName, existing);
+          }
+        }
+      } else if (isCancelled) {
+        cancelledCount += 1;
+        yb.cancelledCount += 1;
+      }
+    }
+
+    return {
+      currentJalaliYear,
+      selectedJalaliYear,
+      summary: {
+        completedCount,
+        cancelledCount,
+        uniqueCustomers: allCustomers.size,
+        netEarningsRial: netRialToString(netAll),
+      },
+      years: years.map((year) => {
+        const bucket = yearBuckets.get(year);
+        return {
+          year,
+          completedCount: bucket?.completedCount ?? 0,
+          cancelledCount: bucket?.cancelledCount ?? 0,
+          uniqueCustomers: bucket?.customers.size ?? 0,
+          netEarningsRial: netRialToString(bucket?.net ?? 0n),
+        };
+      }),
+      months: Array.from({ length: 12 }, (_, i) => {
+        const month = i + 1;
+        const bucket = monthBuckets.get(month)!;
+        return {
+          month,
+          monthName: JALALI_MONTH_NAMES[month],
+          completedCount: bucket.completedCount,
+          uniqueCustomers: bucket.customers.size,
+          netEarningsRial: netRialToString(bucket.net),
+        };
+      }),
+      topServices: [...serviceStats.entries()]
+        .sort((a, b) => b[1].count - a[1].count || b[1].grossRial - a[1].grossRial)
+        .slice(0, 8)
+        .map(([name, stat]) => ({
+          name,
+          count: stat.count,
+          grossRial: String(stat.grossRial),
+        })),
+    };
   }
 
   // Customer dashboard stats

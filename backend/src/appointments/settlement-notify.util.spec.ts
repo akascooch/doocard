@@ -1,4 +1,5 @@
 import {
+  formatBarberSettlementMessage,
   formatFaAmount,
   resolveSettlementToman,
   rialToToman,
@@ -27,6 +28,13 @@ describe('settlement-notify.util', () => {
       relatedEntity: 'appointment.settled:42:emp:7',
       dedupeKey: 'appointment.settled:42:emp:7:sms',
     });
+  });
+
+  it('formats barber settlement copy with net toman only', () => {
+    const message = formatBarberSettlementMessage(42, 420_000);
+    expect(message).toContain('سهم خالص');
+    expect(message).toContain('۴۲۰');
+    expect(message).toMatch(/نوبت 42/);
   });
 
   it('falls back to checkout amount for gross when snapshot is missing', () => {

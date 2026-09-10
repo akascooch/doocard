@@ -7,8 +7,11 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { LandingHeader } from "@/components/landing/LandingHeader"
+import { CartSummary } from "@/components/shop/CartSummary"
+import { CheckoutForm } from "@/components/shop/CheckoutForm"
 import { formatTomansFromRial } from "@/lib/money"
 import { landingBookHref, readAuthToken } from "@/lib/landing"
+import { useShopCart } from "@/store/shop-cart"
 
 type PublicCategory = { id: number; name: string }
 
@@ -38,6 +41,8 @@ export default function PublicProductsPage() {
   const [products, setProducts] = useState<PublicProduct[]>([])
   const [search, setSearch] = useState("")
   const [categoryId, setCategoryId] = useState<number | null>(null)
+  const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const addItem = useShopCart((s) => s.addItem)
 
   useEffect(() => {
     setBookHref(landingBookHref(Boolean(readAuthToken())))
@@ -86,13 +91,14 @@ export default function PublicProductsPage() {
           محصولات منتخب سالن. قیمت برخی اقلام فقط در سالن اعلام می‌شود.
         </p>
 
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="جستجوی محصول..."
             className="border-white/15 bg-transparent text-white placeholder:text-zinc-500 sm:max-w-sm"
           />
+          <CartSummary onCheckout={() => setCheckoutOpen(true)} />
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
@@ -167,6 +173,25 @@ export default function PublicProductsPage() {
                     ) : (
                       <p className="text-sm text-zinc-500">قیمت در سالن اعلام می‌شود</p>
                     )}
+                    <button
+                      type="button"
+                      disabled={!showPrice || !product.priceRial}
+                      onClick={() => {
+                        if (!product.priceRial) return
+                        addItem({
+                          productId: product.id,
+                          title: product.name,
+                          price: product.priceRial,
+                          image: image || null,
+                        })
+                      }}
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-white px-4 text-sm font-semibold text-black hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      افزودن به سبد
+                    </button>
+                    {!showPrice ? (
+                      <p className="text-xs text-zinc-600">سفارش آنلاین برای این محصول فعال نیست.</p>
+                    ) : null}
                   </CardContent>
                 </Card>
               )
@@ -184,6 +209,7 @@ export default function PublicProductsPage() {
           </Link>
         </div>
       </footer>
+      <CheckoutForm open={checkoutOpen} onOpenChange={setCheckoutOpen} />
     </div>
   )
 }

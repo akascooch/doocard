@@ -23,6 +23,7 @@ export interface EmployeeListItem {
     name: string
     phone: string
     email?: string | null
+    role?: string
   }
   employeeServices?: Array<{
     id: number

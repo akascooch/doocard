@@ -70,17 +70,23 @@ export class DashboardController {
   }
 
   @Get('employee-stats')
-  @Roles('EMPLOYEE')
+  @Roles('EMPLOYEE', 'SERVICE')
   async getEmployeeStats(@Req() req: any) {
     const currentUser = req.user;
     return this.dashboardService.getEmployeeStats(currentUser);
   }
 
   @Get('employee-today-appointments')
-  @Roles('EMPLOYEE')
+  @Roles('EMPLOYEE', 'SERVICE')
   async getEmployeeTodayAppointments(@Req() req: any) {
     const currentUser = req.user;
     return this.dashboardService.getEmployeeTodayAppointments(currentUser);
+  }
+
+  @Get('employee-performance')
+  @Roles('EMPLOYEE', 'SERVICE')
+  async getEmployeePerformance(@Query('year') year: string, @Req() req: any) {
+    return this.dashboardService.getEmployeePerformance(req.user, year);
   }
 
   @Get('customer-stats')

@@ -19,6 +19,8 @@ export const SMS_TEMPLATE_KEYS = {
   SMS_CUSTOM: 'sms_custom',
   /** Manual admin notification SMS (aligns with notifications.controller sendSms) */
   AD_HOC_NOTIFICATION: 'ad_hoc_notification',
+  /** Admin alert for a new shop card-to-card order */
+  SHOP_ORDER_ADMIN: 'shop_order_admin',
 } as const;
 
 export type SmsTemplateKey =
@@ -161,5 +163,13 @@ export const DEFAULT_SMS_TEMPLATES: SmsTemplateSeed[] = [
       'هنگام ارسال نوتیفیکیشن دستی ادمین با sendSms؛ متن واقعی از عنوان+پیام ساخته می‌شود.',
     content: '{title}\n{message}',
     variables: ['title', 'message'],
+  },
+  {
+    name: SMS_TEMPLATE_KEYS.SHOP_ORDER_ADMIN,
+    label: 'سفارش جدید فروشگاه — ادمین',
+    description: 'پس از ثبت سفارش کارت‌به‌کارت فروشگاه، برای ادمین ارسال می‌شود.',
+    content:
+      'دوکارد فروشگاه\nسفارش جدید {orderNumber} به مبلغ {amount} تومان ثبت شد.\n{customerName} {customerPhone}',
+    variables: ['orderNumber', 'amount', 'customerName', 'customerPhone'],
   },
 ];

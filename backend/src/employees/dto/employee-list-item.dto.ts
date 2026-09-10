@@ -15,6 +15,7 @@ export interface EmployeeListUserDto {
   name: string;
   phone: string;
   email: string | null;
+  role?: string;
 }
 
 export interface EmployeeListEmployeeServiceDto {

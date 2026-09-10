@@ -6,6 +6,7 @@ import Link from "next/link"
 import { ArrowUp, Calendar, Clock, Instagram, MapPin, Phone, Shield, Sparkles } from "lucide-react"
 import { initializeRouterStateCleanup } from "@/lib/clearRouterState"
 import { initializeCacheClearing } from "@/lib/clearBrowserCache"
+import { AppLogo } from "@/components/common/AppLogo"
 import { LandingHeader } from "@/components/landing/LandingHeader"
 import { LandingCarousel } from "@/components/landing/LandingCarousel"
 import { LandingMap } from "@/components/landing/LandingMap"
@@ -117,7 +118,12 @@ export default function HomePage() {
             />
           ) : null}
           <div className="absolute inset-0 bg-gradient-to-b from-black via-black/80 to-[#080808]" />
-          <div className="relative z-10 mx-auto flex min-h-[88vh] max-w-5xl flex-col items-center justify-center px-4 py-20 text-center">
+          <div className="relative z-10 mx-auto flex min-h-[88vh] max-w-5xl flex-col items-center justify-center px-4 py-16 text-center sm:py-20">
+            <AppLogo
+              size="lg"
+              className="mx-auto mb-4 h-24 w-24 object-contain sm:h-32 sm:w-32"
+              priority
+            />
             <p className="mb-6 text-[11px] tracking-[0.42em] text-zinc-400">
               {detailsLoading ? "…" : landing.heroSubtitle || "PRECISION IN EVERY DETAIL"}
             </p>

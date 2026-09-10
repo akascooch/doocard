@@ -20,6 +20,8 @@ export const SMS_EVENT_KEYS = {
   ADMIN_TEST: 'admin.test',
   /** Admin panel custom free-text send (policy-gated; default on) */
   ADMIN_CUSTOM: 'admin.custom',
+  /** New shop card-to-card order (admin alert) */
+  SHOP_ORDER_CREATED: 'shop.orderCreated',
 } as const;
 
 export type SmsEventKey = (typeof SMS_EVENT_KEYS)[keyof typeof SMS_EVENT_KEYS];
@@ -91,6 +93,11 @@ export const DEFAULT_SMS_POLICY: SmsPolicyDefault[] = [
   {
     eventKey: SMS_EVENT_KEYS.ADMIN_CUSTOM,
     label: 'ارسال سفارشی ادمین',
+    smsEnabled: true,
+  },
+  {
+    eventKey: SMS_EVENT_KEYS.SHOP_ORDER_CREATED,
+    label: 'سفارش جدید فروشگاه',
     smsEnabled: true,
   },
 ];

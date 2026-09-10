@@ -35,6 +35,7 @@ import { PushNotificationsModule } from './push-notifications/push-notifications
 import { ImportModule } from './import/import.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { ProductsModule } from './products/products.module';
+import { OrdersModule } from './orders/orders.module';
 // Decision (2026-07-22): SmsQueueModule disabled — appointments already send via
 // SmsOutboundService (policy+dedupe). Queue processor had hardcoded copy and no
 // producer from AppointmentsService; leaving it loaded risked dormant/duplicate SMS.
@@ -73,6 +74,7 @@ import { ProductsModule } from './products/products.module';
     ImportModule,
     CalendarModule,
     ProductsModule,
+    OrdersModule,
     // SmsQueueModule, // disabled — see comment above
     // SettingsModule,
     // SmsModule,

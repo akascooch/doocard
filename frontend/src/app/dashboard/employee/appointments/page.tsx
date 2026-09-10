@@ -46,7 +46,7 @@ interface Appointment {
   notes?: string;
 }
 
-type PresetFilter = 'today' | 'tomorrow' | 'week' | 'month' | 'all';
+type PresetFilter = 'today' | 'yesterday' | 'tomorrow' | 'week' | 'month' | 'all';
 type FilterMode = 'preset' | 'singleDay' | 'dateTimeRange';
 type AdvancedMode = 'singleDay' | 'dateTimeRange';
 
@@ -227,6 +227,7 @@ export default function EmployeeAppointmentsPage() {
     filterMode === 'preset'
       ? {
           today: 'نوبت‌های امروز شما',
+          yesterday: 'نوبت‌های دیروز شما',
           tomorrow: 'نوبت‌های فردا شما',
           week: 'نوبت‌های این هفته شما',
           month: 'نوبت‌های ماه جاری شما',
@@ -253,6 +254,7 @@ export default function EmployeeAppointmentsPage() {
             {(
               [
                 ['today', 'امروز', Clock],
+                ['yesterday', 'دیروز', Clock],
                 ['tomorrow', 'فردا', Calendar],
                 ['week', 'این هفته', Calendar],
                 ['month', 'ماه جاری', Calendar],

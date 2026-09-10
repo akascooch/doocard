@@ -34,6 +34,7 @@ import { SMS_TEMPLATE_KEYS } from '../sms/sms-template.catalog';
 import { SMS_EVENT_KEYS } from '../sms/sms-event-keys';
 import {
   formatFaAmount,
+  formatBarberSettlementMessage,
   resolveSettlementToman,
   settlementBarberNotifyKeys,
 } from './settlement-notify.util';
@@ -284,11 +285,18 @@ export class AppointmentsService {
     if (dto.employeeId) {
       const employee = await this.prisma.employee.findUnique({
         where: { id: dto.employeeId },
-        include: { employeeServices: { include: { service: true } } },
+        include: {
+          user: true,
+          employeeServices: { include: { service: true } },
+        },
       });
 
       if (!employee) {
         throw new NotFoundException(`Employee with ID ${dto.employeeId} not found`);
+      }
+
+      if (!employee.isActive || employee.user?.role !== 'EMPLOYEE') {
+        throw new BadRequestException('این آرایشگر برای رزرو در دسترس نیست');
       }
 
       // Check if employee can perform at least one service
@@ -667,7 +675,10 @@ export class AppointmentsService {
       }
     }
 
-    if (query.customerId) where.customerId = query.customerId;
+    // CUSTOMER is already scoped to their own profile; never honor a foreign customerId.
+    if (query.customerId && currentUser?.role !== 'CUSTOMER') {
+      where.customerId = query.customerId;
+    }
     if (query.employeeId) where.employeeId = query.employeeId;
     if (query.status) where.status = query.status;
 
@@ -2513,8 +2524,6 @@ export class AppointmentsService {
     try {
       const { grossToman, netToman } = resolveSettlementToman(appointment, amount);
       const grossLabel = formatFaAmount(grossToman);
-      const netLabel = formatFaAmount(netToman);
-      const customerName = appointment.customer?.user?.name || 'مشتری';
 
       if (appointment.customer?.userId) {
         const customerTitle = 'نوبت تسویه شد';
@@ -2557,7 +2566,7 @@ export class AppointmentsService {
         });
         if (!existing) {
           const barberTitle = 'تسویه نوبت انجام شد';
-          const barberMessage = `تسویه نوبت شماره ${appointment.id} برای مشتری ${customerName} با مبلغ خالص ${netLabel} تومان ثبت گردید.`;
+          const barberMessage = formatBarberSettlementMessage(appointment.id, netToman);
           const notification = await this.notificationsService.create({
             title: barberTitle,
             message: barberMessage,

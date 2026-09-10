@@ -32,6 +32,7 @@ type EmployeeWithUserAndServices = {
     name: string;
     phone: string;
     email: string | null;
+    role?: string;
   } | null;
   employeeServices?: EmployeeServiceWithService[];
 };
@@ -103,6 +104,7 @@ export function mapEmployeeToListItem(
       name: emp.user.name,
       phone: emp.user.phone,
       email: emp.user.email,
+      role: emp.user.role,
     },
     employeeServices,
   };

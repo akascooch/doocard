@@ -37,6 +37,7 @@ import {
   Mail,
   Calendar,
   Download,
+  History,
 } from 'lucide-react'
 import {
   Bar,
@@ -52,6 +53,7 @@ import axios from '@/lib/axios'
 import { queueCustomerQuick, shouldUseOfflineQueue } from '@/lib/offline/sync-worker'
 import PersianDatePicker from '@/components/ui/PersianDatePicker'
 import { formatToJalali, parseFromJalali } from '@/lib/date'
+import { formatTomansFromRial } from '@/lib/money'
 import {
   type EmployeeListItem,
   getEmployeeDisplayName,
@@ -88,6 +90,10 @@ export default function AdminCustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null)
+  const [historyRows, setHistoryRows] = useState<any[]>([])
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
 
@@ -137,7 +143,7 @@ export default function AdminCustomersPage() {
         createdAt: c.createdAt,
         role: 'CUSTOMER',
         isActive: true,
-        totalAppointments: 0,
+        totalAppointments: c._count?.appointments ?? c.totalAppointments ?? 0,
       }))
       if (filterBarber === SALON_TEAM_VALUE) {
         mapped = mapped.filter((c: Customer) => c.preferredEmployeeId == null)
@@ -152,6 +158,28 @@ export default function AdminCustomersPage() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const openHistory = async (customer: Customer) => {
+    setHistoryCustomer(customer)
+    setHistoryOpen(true)
+    setHistoryLoading(true)
+    setHistoryRows([])
+    try {
+      const response = await axios.get('/appointments', {
+        params: { customerId: customer.id, take: 80 },
+      })
+      setHistoryRows(response.data?.data || response.data || [])
+    } catch (error) {
+      console.error('Error fetching customer history:', error)
+      toast({
+        title: 'خطا',
+        description: 'بارگذاری تاریخچه نوبت‌ها با خطا مواجه شد',
+        variant: 'destructive',
+      })
+    } finally {
+      setHistoryLoading(false)
     }
   }
 
@@ -531,6 +559,7 @@ export default function AdminCustomersPage() {
                   <TableHead>شماره موبایل</TableHead>
                   <TableHead>ایمیل</TableHead>
                   <TableHead>آرایشگر</TableHead>
+                  <TableHead>نوبت‌ها</TableHead>
                   <TableHead>وضعیت</TableHead>
                   <TableHead>تاریخ تولد</TableHead>
                   <TableHead>تاریخ عضویت</TableHead>
@@ -568,6 +597,9 @@ export default function AdminCustomersPage() {
                       </div>
                     </TableCell>
                     <TableCell>
+                      {customer.totalAppointments.toLocaleString('fa-IR')}
+                    </TableCell>
+                    <TableCell>
                       <Badge variant={customer.isActive ? 'success' : 'outline'}>
                         {customer.isActive ? 'فعال' : 'غیرفعال'}
                       </Badge>
@@ -590,6 +622,14 @@ export default function AdminCustomersPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openHistory(customer)}
+                        >
+                          <History className="h-4 w-4" />
+                          <span className="hidden sm:inline mr-1">تاریخچه</span>
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
@@ -735,6 +775,51 @@ export default function AdminCustomersPage() {
               {saving ? 'در حال ذخیره...' : 'ذخیره تغییرات'}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>تاریخچه نوبت‌ها</DialogTitle>
+            <DialogDescription>
+              {historyCustomer?.name || 'مشتری'}
+              {historyCustomer
+                ? ` — ${historyCustomer.totalAppointments.toLocaleString('fa-IR')} نوبت`
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          {historyLoading ? (
+            <div className="flex justify-center py-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : historyRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">نوبتی ثبت نشده است</p>
+          ) : (
+            <div className="space-y-3">
+              {historyRows.map((row) => {
+                const services = Array.isArray(row.services)
+                  ? row.services.map((s: any) => s.serviceName || s.name).filter(Boolean).join('، ')
+                  : row.serviceName || 'خدمت'
+                return (
+                  <div key={row.id} className="border rounded-lg p-3 text-sm space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">{services || 'خدمت'}</span>
+                      <Badge variant="outline">{row.status}</Badge>
+                    </div>
+                    <div className="text-muted-foreground flex flex-wrap gap-3">
+                      <span>
+                        {row.calendarDate?.jalaliDate ||
+                          (row.scheduledAt ? formatToJalali(row.scheduledAt) : '—')}
+                      </span>
+                      <span>{row.employeeName || row.employee?.user?.name || 'آرایشگر'}</span>
+                      <span>{formatTomansFromRial(row.amount ?? row.serviceAmount ?? 0)}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

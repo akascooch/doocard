@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { Calendar, Plus } from 'lucide-react';
 import { AppointmentForm, AppointmentList } from '@/components/appointments';
 import { api } from '@/lib/axios';
@@ -24,6 +26,7 @@ interface Appointment {
 
 export default function CustomerAppointmentsPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -106,6 +109,13 @@ export default function CustomerAppointmentsPage() {
         <p className="text-gray-600 dark:text-gray-400 mt-1">
           مشاهده و رزرو نوبت جدید
         </p>
+        <Button
+          variant="outline"
+          className="mt-3"
+          onClick={() => router.push('/dashboard/customer/history')}
+        >
+          تاریخچه نوبت‌ها
+        </Button>
       </div>
 
       {/* Stats Cards */}

@@ -69,6 +69,7 @@ describe('AppointmentsService.notifyAppointmentSettled [R1]', () => {
         type: NotificationType.APPOINTMENT_SETTLED,
         userIdTarget: 70,
         relatedEntity: 'appointment.settled:42:emp:7',
+        message: expect.stringMatching(/سهم خالص[\s\S]*۴۲۰/),
       }),
     );
 

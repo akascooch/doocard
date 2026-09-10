@@ -182,18 +182,37 @@ export class EmployeesService {
 
   async findAllActivePublic() {
     const employees = await this.prisma.employee.findMany({
-      where: { isActive: true },
-      include: { user: true },
-      orderBy: [
-        { isDefault: 'desc' },
-        { id: 'asc' },
-      ],
+      where: {
+        isActive: true,
+        user: { role: 'EMPLOYEE' },
+      },
+      include: {
+        user: true,
+        _count: {
+          select: {
+            appointments: {
+              where: {
+                status: { notIn: ['CANCELLED'] },
+                deletedAt: null,
+              },
+            },
+          },
+        },
+      },
     });
-    return employees.map(e => ({
-      id: e.id,
-      name: e.user?.name,
-      isDefault: e.isDefault,
-    }));
+    return employees
+      .sort((a, b) => {
+        const countDelta = b._count.appointments - a._count.appointments;
+        if (countDelta !== 0) return countDelta;
+        if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1;
+        return a.id - b.id;
+      })
+      .map((e) => ({
+        id: e.id,
+        name: e.user?.name,
+        isDefault: e.isDefault,
+        appointmentCount: e._count.appointments,
+      }));
   }
 
   /** Active service staff eligible for tip recipient selection (excludes hairstylists). */
@@ -607,54 +626,45 @@ export class EmployeesService {
   }
 
   async getEmployeesByService(serviceId: number) {
-    // Get employees who can perform this service
-    const employeeServices = await this.prisma.employeeService.findMany({
-      where: { serviceId },
+    const employees = await this.prisma.employee.findMany({
+      where: {
+        isActive: true,
+        user: { role: 'EMPLOYEE' },
+        employeeServices: { some: { serviceId } },
+      },
       include: {
-        employee: {
-          include: {
-            user: true
-          }
-        }
-      }
+        user: true,
+        employeeServices: { include: { service: true } },
+        _count: {
+          select: {
+            appointments: {
+              where: {
+                status: { notIn: ['CANCELLED'] },
+                deletedAt: null,
+              },
+            },
+          },
+        },
+      },
     });
 
-    // For each employee, count their total appointments
-    const employeesWithCount = await Promise.all(
-      employeeServices.map(async (es) => {
-        const appointmentCount = await this.prisma.appointment.count({
-          where: {
-            employeeId: es.employee.id,
-            // Only count non-cancelled appointments
-            status: {
-              notIn: ['CANCELLED']
-            }
-          }
-        });
-
-        const item = mapEmployeeToListItem({
-          ...es.employee,
-          employeeServices: [],
-        });
-        if (!item) {
-          return null;
-        }
+    const mapped = employees
+      .map((employee) => {
+        const item = mapEmployeeToListItem(employee);
+        if (!item) return null;
         return {
           ...item,
-          appointmentCount,
+          appointmentCount: employee._count.appointments,
         };
       })
-    );
-
-    const sorted = employeesWithCount
       .filter((e): e is NonNullable<typeof e> => e !== null)
       .sort((a, b) => b.appointmentCount - a.appointmentCount);
 
     console.log(
       '📊 Employees sorted by appointment count:',
-      sorted.map((e) => `${e.name}: ${e.appointmentCount} appointments`),
+      mapped.map((e) => `${e.name}: ${e.appointmentCount} appointments`),
     );
 
-    return sorted;
+    return mapped;
   }
 }

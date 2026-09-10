@@ -75,6 +75,19 @@ export default function PersianDatePicker({
         pointer-events: auto !important;
         z-index: 10050 !important;
       }
+      @media (max-width: 640px) {
+        .rmdp-calendar {
+          width: min(100vw - 1.5rem, 22rem) !important;
+        }
+        .rmdp-day span,
+        .rmdp-week-day {
+          font-size: 0.9rem;
+        }
+        .rmdp-day {
+          height: 2.75rem;
+          width: 2.75rem;
+        }
+      }
     `;
     document.head.appendChild(style);
   }, [disablePortal]);

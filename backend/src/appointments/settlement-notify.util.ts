@@ -10,6 +10,14 @@ export function formatFaAmount(value: number): string {
   return value.toLocaleString('fa-IR');
 }
 
+/** Short in-app / push copy for the barber. Net only. SMS is not sent from here. */
+export function formatBarberSettlementMessage(
+  appointmentId: number,
+  netToman: number,
+): string {
+  return `سهم خالص تسویه نوبت ${appointmentId}: ${formatFaAmount(netToman)} تومان`;
+}
+
 export function settlementBarberNotifyKeys(
   appointmentId: number,
   employeeId: number,

@@ -33,7 +33,7 @@ import { type AppointmentRecord } from '@/lib/appointment';
 interface Appointment extends AppointmentRecord {}
 
 type Employee = EmployeeListItem;
-type PresetFilter = 'today' | 'tomorrow' | 'week' | 'month' | 'all';
+type PresetFilter = 'today' | 'yesterday' | 'tomorrow' | 'week' | 'month' | 'all';
 type DateMode = 'quick' | 'single' | 'range';
 
 type AppointmentsSummary = {
@@ -316,6 +316,7 @@ export default function AdminAppointmentsPage() {
     return (
       {
         today: 'نوبت‌های امروز',
+        yesterday: 'نوبت‌های دیروز',
         tomorrow: 'نوبت‌های فردا',
         week: 'نوبت‌های این هفته',
         month: 'نوبت‌های ماه جاری',
@@ -381,6 +382,7 @@ export default function AdminAppointmentsPage() {
               {(
                 [
                   ['today', 'امروز', Clock],
+                  ['yesterday', 'دیروز', Clock],
                   ['tomorrow', 'فردا', Calendar],
                   ['week', 'این هفته', Calendar],
                   ['month', 'ماه جاری', Calendar],

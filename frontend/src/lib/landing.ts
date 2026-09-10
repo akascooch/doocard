@@ -80,10 +80,9 @@ export function instagramHref(url?: string | null): string {
   return `https://www.instagram.com/${handle}`
 }
 
-export function landingBookHref(hasToken: boolean, employeeId?: number): string {
+export function landingBookHref(_hasToken: boolean, employeeId?: number): string {
   const q = employeeId ? `?employeeId=${employeeId}` : ""
-  if (employeeId) return `/book-appointment${q}`
-  return hasToken ? "/book-appointment" : "/register"
+  return `/book-appointment${q}`
 }
 
 export function readAuthToken(): string | null {

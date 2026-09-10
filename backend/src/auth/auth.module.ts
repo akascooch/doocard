@@ -5,9 +5,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { OtpService } from './otp.service';
+import { SmsIrVerifyAdapter } from '../sms/adapters/smsir-verify.adapter';
 import { UsersModule } from '../users/users.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { CustomerRegistrationSmsModule } from '../sms/customer-registration-sms.module';
+import { AppThrottlerModule } from '../throttler/throttler.module';
 import { DEFAULT_JWT_EXPIRES_IN } from './auth-token.config';
 
 @Module({
@@ -16,6 +19,7 @@ import { DEFAULT_JWT_EXPIRES_IN } from './auth-token.config';
     forwardRef(() => UsersModule),
     PrismaModule,
     CustomerRegistrationSmsModule,
+    AppThrottlerModule,
     PassportModule,
     JwtModule.registerAsync({
       useFactory: async (configService: ConfigService) => {
@@ -32,7 +36,7 @@ import { DEFAULT_JWT_EXPIRES_IN } from './auth-token.config';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, OtpService, SmsIrVerifyAdapter],
   exports: [AuthService],
 })
 export class AuthModule {}

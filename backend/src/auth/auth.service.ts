@@ -6,7 +6,11 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import {
   getJwtAccessExpiresIn,
+  getRefreshCookieMaxAgeMs,
   getRefreshTokenExpiresAt,
+  getRememberMeCookieMaxAgeMs,
+  getRememberMeRefreshExpiresAt,
+  shouldApplyRememberMe,
 } from './auth-token.config';
 import { CustomerRegistrationSmsService } from '../sms/customer-registration-sms.service';
 import * as bcrypt from 'bcrypt';
@@ -90,28 +94,67 @@ export class AuthService {
   }
 
   /**
-   * Generate refresh token (TTL from JWT_REFRESH_EXPIRES_IN, default 365d).
+   * Generate refresh token (TTL from JWT_REFRESH_EXPIRES_IN, or explicit expiresAt).
    */
   private async generateRefreshToken(
-    userId: number, 
+    userId: number,
     ipAddress?: string,
-    userAgent?: string
+    userAgent?: string,
+    expiresAt?: Date,
   ): Promise<string> {
     const token = randomBytes(64).toString('hex');
-    const expiresAt = getRefreshTokenExpiresAt(this.configService);
+    const expiry = expiresAt ?? getRefreshTokenExpiresAt(this.configService);
 
-    // Store in database
     await this.prisma.refreshToken.create({
       data: {
         token,
         userId,
-        expiresAt,
+        expiresAt: expiry,
         ipAddress,
         userAgent,
       },
     });
 
     return token;
+  }
+
+  /**
+   * Issue access + refresh tokens (password login and OTP verify).
+   */
+  async issueSession(
+    user: {
+      id: number;
+      role: string;
+      email?: string | null;
+      phone?: string | null;
+      name?: string | null;
+    },
+    ipAddress?: string,
+    userAgent?: string,
+    rememberMe?: boolean,
+  ) {
+    const applyRemember = shouldApplyRememberMe(user.role, rememberMe);
+    const refreshExpiresAt = applyRemember
+      ? getRememberMeRefreshExpiresAt()
+      : getRefreshTokenExpiresAt(this.configService);
+    const refreshCookieMaxAgeMs = applyRemember
+      ? getRememberMeCookieMaxAgeMs()
+      : getRefreshCookieMaxAgeMs(this.configService);
+
+    const accessToken = this.generateAccessToken(user);
+    const refreshToken = await this.generateRefreshToken(
+      user.id,
+      ipAddress,
+      userAgent,
+      refreshExpiresAt,
+    );
+
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      user,
+      refreshCookieMaxAgeMs,
+    };
   }
 
   /**
@@ -135,15 +178,9 @@ export class AuthService {
       role: user.role 
     });
     
-    // Generate tokens
-    const accessToken = this.generateAccessToken(user);
-    const refreshToken = await this.generateRefreshToken(user.id, ipAddress, userAgent);
+    const result = await this.issueSession(user, ipAddress, userAgent, loginDto.rememberMe);
     
-    return {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      user,
-    };
+    return result;
   }
 
   /**
@@ -173,18 +210,19 @@ export class AuthService {
       throw new UnauthorizedException('رفرش توکن منقضی شده است');
     }
 
-    // Generate new access token
     const { password, ...user } = storedToken.user;
     const accessToken = this.generateAccessToken(user);
+    const newRefreshToken = await this.generateRefreshToken(
+      user.id,
+      ipAddress,
+      userAgent,
+      storedToken.expiresAt,
+    );
+    const remainingMs = Math.max(storedToken.expiresAt.getTime() - Date.now(), 60_000);
 
-    // Optionally: Rotate refresh token (generate new one and revoke old)
-    // This is more secure but requires updating the cookie
-    const newRefreshToken = await this.generateRefreshToken(user.id, ipAddress, userAgent);
-    
-    // Revoke old refresh token
     await this.prisma.refreshToken.update({
       where: { id: storedToken.id },
-      data: { 
+      data: {
         isRevoked: true,
         revokedAt: new Date(),
       },
@@ -194,6 +232,7 @@ export class AuthService {
       access_token: accessToken,
       refresh_token: newRefreshToken,
       user,
+      refreshCookieMaxAgeMs: remainingMs,
     };
   }
 

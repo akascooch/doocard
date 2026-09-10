@@ -11,15 +11,18 @@ describe('DashboardService', () => {
       count: jest.fn(),
       findMany: jest.fn(),
       groupBy: jest.fn(),
+      aggregate: jest.fn(),
     },
     customer: {
       count: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
       findMany: jest.fn(),
     },
     employee: {
       count: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
       findMany: jest.fn(),
     },
     service: {
@@ -221,6 +224,7 @@ describe('DashboardService', () => {
   describe('getAdminStats', () => {
     it('should return admin-specific statistics', async () => {
       mockPrismaService.appointment.count.mockResolvedValue(10);
+      mockPrismaService.appointment.aggregate.mockResolvedValue({ _sum: { amount: 10000 } });
       mockPrismaService.customer.count.mockResolvedValue(5);
       mockPrismaService.employee.count.mockResolvedValue(3);
       mockPrismaService.transaction.aggregate.mockResolvedValue({ _sum: { amount: 10000 } });
@@ -237,32 +241,41 @@ describe('DashboardService', () => {
   });
 
   describe('getEmployeeStats', () => {
-    it('should return employee-specific statistics', async () => {
+    it('should return employee-specific statistics using userId and net snapshot', async () => {
       const currentUser = { id: 1, email: 'employee@test.com' };
-      
-      mockPrismaService.employee.findFirst.mockResolvedValue({ id: 1 });
-      mockPrismaService.appointment.count.mockResolvedValue(20);
-      mockPrismaService.transaction.aggregate.mockResolvedValue({ _sum: { amount: 5000 } });
-      mockPrismaService.tip.aggregate.mockResolvedValue({ _sum: { amount: 1000 } });
+
+      mockPrismaService.employee.findUnique.mockResolvedValue({ id: 7, userId: 1 });
+      mockPrismaService.appointment.count.mockResolvedValue(2);
+      mockPrismaService.appointment.aggregate.mockResolvedValue({
+        _sum: { barberPayoutNetAmount: 4_200_000n },
+      });
+      mockPrismaService.customer.count.mockResolvedValue(8);
 
       const result = await service.getEmployeeStats(currentUser);
 
-      expect(result).toHaveProperty('completedAppointments');
-      expect(result).toHaveProperty('monthlyEarnings');
-      expect(result).toHaveProperty('averageRating');
+      expect(mockPrismaService.employee.findUnique).toHaveBeenCalledWith({
+        where: { userId: 1 },
+      });
+      expect(result.completedAppointments).toBe(2);
+      expect(result.monthlyNetEarningsRial).toBe('4200000');
+      expect(result.monthlyEarnings).toBe(420000);
+      expect(result.averageRating).toBeNull();
     });
   });
 
   describe('getEmployeeTodayAppointments', () => {
     it('should return today appointments for employee', async () => {
       const currentUser = { id: 1, email: 'employee@test.com' };
-      
-      mockPrismaService.employee.findFirst.mockResolvedValue({ id: 1 });
+
+      mockPrismaService.employee.findUnique.mockResolvedValue({ id: 7, userId: 1 });
       mockPrismaService.appointment.findMany.mockResolvedValue([
         {
           id: 1,
           scheduledAt: new Date(),
-          customer: { user: { name: 'John' } },
+          durationMin: 45,
+          status: 'CONFIRMED',
+          services: [{ serviceName: 'Haircut', priceAtBooking: 1000 }],
+          customer: { user: { name: 'John', phone: '0912' } },
           service: { name: 'Haircut' },
         },
       ]);
@@ -273,6 +286,7 @@ describe('DashboardService', () => {
       expect(result[0]).toHaveProperty('id');
       expect(result[0]).toHaveProperty('customer');
       expect(result[0]).toHaveProperty('service');
+      expect(result[0].serviceName).toBe('Haircut');
     });
   });
 
@@ -280,7 +294,7 @@ describe('DashboardService', () => {
     it('should return customer-specific statistics', async () => {
       const currentUser = { id: 1, email: 'customer@test.com' };
       
-      mockPrismaService.customer.findFirst.mockResolvedValue({ id: 1 });
+      mockPrismaService.customer.findUnique.mockResolvedValue({ id: 1 });
       mockPrismaService.appointment.count.mockResolvedValue(5);
       mockPrismaService.transaction.aggregate.mockResolvedValue({ _sum: { amount: 2500 } });
 
@@ -295,7 +309,7 @@ describe('DashboardService', () => {
     it('should return upcoming appointments for customer', async () => {
       const currentUser = { id: 1, email: 'customer@test.com' };
       
-      mockPrismaService.customer.findFirst.mockResolvedValue({ id: 1 });
+      mockPrismaService.customer.findUnique.mockResolvedValue({ id: 1 });
       mockPrismaService.appointment.findMany.mockResolvedValue([
         {
           id: 1,

@@ -22,6 +22,7 @@ export default function LoginPage() {
   const [formData, setFormData] = useState({
     identifier: '',
     password: '',
+    rememberMe: false,
   })
 
   // Check if user is already authenticated
@@ -38,7 +39,8 @@ export default function LoginPage() {
     try {
       const result = await login({
         identifier: formData.identifier,
-        password: formData.password
+        password: formData.password,
+        rememberMe: formData.rememberMe,
       })
       
       if (result.user) {
@@ -113,6 +115,21 @@ export default function LoginPage() {
                   }
                   className="input-doocard"
                 />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="rememberMe"
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={formData.rememberMe}
+                  onChange={(e) =>
+                    setFormData({ ...formData, rememberMe: e.target.checked })
+                  }
+                />
+                <Label htmlFor="rememberMe" className="text-sm font-normal">
+                  مرا به خاطر بسپار (کارکنان، تا ۹۰ روز)
+                </Label>
               </div>
               
               <Button
