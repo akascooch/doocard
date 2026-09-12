@@ -6,7 +6,9 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { PushNotificationsService } from '../push-notifications/push-notifications.service';
 import { CalendarService } from '../calendar/calendar.service';
-import { FarazSmsSendService } from '../sms/faraz-sms-send.service';
+import { SmsOutboundService } from '../sms/sms-outbound.service';
+import { SmsTemplateService } from '../sms/sms-template.service';
+import { TipAlertService } from '../sms/tip-alert.service';
 
 describe('AppointmentsService slot generation', () => {
   let service: AppointmentsService;
@@ -36,7 +38,9 @@ describe('AppointmentsService slot generation', () => {
         { provide: NotificationsGateway, useValue: {} },
         { provide: PushNotificationsService, useValue: {} },
         { provide: CalendarService, useValue: mockCalendarService },
-        { provide: FarazSmsSendService, useValue: { sendSingle: jest.fn() } },
+        { provide: SmsOutboundService, useValue: { sendTemplated: jest.fn() } },
+        { provide: SmsTemplateService, useValue: { getByKey: jest.fn() } },
+        { provide: TipAlertService, useValue: { notify: jest.fn() } },
       ],
     }).compile();
 
@@ -175,7 +179,9 @@ describe('AppointmentsService intervalsOverlap', () => {
         { provide: NotificationsGateway, useValue: {} },
         { provide: PushNotificationsService, useValue: {} },
         { provide: CalendarService, useValue: {} },
-        { provide: FarazSmsSendService, useValue: { sendSingle: jest.fn() } },
+        { provide: SmsOutboundService, useValue: { sendTemplated: jest.fn() } },
+        { provide: SmsTemplateService, useValue: { getByKey: jest.fn() } },
+        { provide: TipAlertService, useValue: { notify: jest.fn() } },
       ],
     }).compile();
 

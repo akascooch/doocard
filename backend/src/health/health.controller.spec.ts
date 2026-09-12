@@ -6,8 +6,8 @@ import { PrismaHealthIndicator } from './prisma-health.indicator';
 describe('HealthController', () => {
   let controller: HealthController;
   let healthCheckService: HealthCheckService;
-  let httpHealthIndicator: HttpHealthIndicator;
-  let prismaHealthIndicator: PrismaHealthIndicator;
+  let _httpHealthIndicator: HttpHealthIndicator;
+  let _prismaHealthIndicator: PrismaHealthIndicator;
 
   const mockHealthCheckService = {
     check: jest.fn(),
@@ -42,8 +42,8 @@ describe('HealthController', () => {
 
     controller = module.get<HealthController>(HealthController);
     healthCheckService = module.get<HealthCheckService>(HealthCheckService);
-    httpHealthIndicator = module.get<HttpHealthIndicator>(HttpHealthIndicator);
-    prismaHealthIndicator = module.get<PrismaHealthIndicator>(PrismaHealthIndicator);
+    _httpHealthIndicator = module.get<HttpHealthIndicator>(HttpHealthIndicator);
+    _prismaHealthIndicator = module.get<PrismaHealthIndicator>(PrismaHealthIndicator);
   });
 
   afterEach(() => {
@@ -63,7 +63,7 @@ describe('HealthController', () => {
 
       mockHealthCheckService.check.mockResolvedValue(mockHealthResult);
 
-      const result = controller.check();
+      const _result = controller.check();
 
       expect(healthCheckService.check).toHaveBeenCalledWith([
         expect.any(Function),

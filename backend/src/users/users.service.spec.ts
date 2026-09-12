@@ -9,7 +9,7 @@ jest.mock('bcrypt', () => ({
 
 describe('UsersService', () => {
   let service: UsersService;
-  let prismaService: PrismaService;
+  let _prismaService: PrismaService;
 
   const mockUser = {
     id: 1,
@@ -38,6 +38,9 @@ describe('UsersService', () => {
     employee: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      upsert: jest.fn(),
+      updateMany: jest.fn(),
     },
   };
 
@@ -50,7 +53,9 @@ describe('UsersService', () => {
       mockPrismaService as unknown as PrismaService,
       mockCustomerRegistrationSms as unknown as CustomerRegistrationSmsService,
     );
-    prismaService = mockPrismaService as unknown as PrismaService;
+    _prismaService = mockPrismaService as unknown as PrismaService;
+    mockPrismaService.employee.findFirst.mockResolvedValue(null);
+    mockPrismaService.employee.findUnique.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -127,6 +132,7 @@ describe('UsersService', () => {
       delete dtoWithoutEmail.email;
 
       mockPrismaService.user.findUnique.mockResolvedValue(null);
+      mockPrismaService.employee.findFirst.mockResolvedValue(null);
       mockPrismaService.user.create.mockResolvedValue(mockUser);
       mockPrismaService.customer.create.mockResolvedValue({ id: 1, userId: 1 });
       (bcrypt.hash as unknown as jest.Mock).mockResolvedValue('hashedPassword' as never);
@@ -211,7 +217,9 @@ describe('UsersService', () => {
 
     it('should update user successfully', async () => {
       const updatedUser = { ...mockUser, ...updateUserDto };
-      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.user.findUnique
+        .mockResolvedValueOnce(mockUser)
+        .mockResolvedValueOnce(updatedUser);
       mockPrismaService.user.update.mockResolvedValue(updatedUser);
 
       const result = await service.update(1, updateUserDto);
@@ -230,7 +238,9 @@ describe('UsersService', () => {
       const partialUpdate = { name: 'New Name' };
       const updatedUser = { ...mockUser, name: 'New Name' };
       
-      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.user.findUnique
+        .mockResolvedValueOnce(mockUser)
+        .mockResolvedValueOnce(updatedUser);
       mockPrismaService.user.update.mockResolvedValue(updatedUser);
 
       const result = await service.update(1, partialUpdate);

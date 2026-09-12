@@ -157,6 +157,7 @@ export default function SalaryManagement() {
     fetchBarbers();
     fetchSalaryReports();
     setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [selectedMonth]);
 
   const formatAmount = (amount: number) => formatTomansFromRial(amount);

@@ -2,7 +2,7 @@ import { IsDateString, IsEnum, IsInt, IsOptional, IsString, Max, Min, MaxLength,
 import { Type } from 'class-transformer';
 import { ChequeLeafCategory, ChequePayeeKind } from '@prisma/client';
 
-const MAX_LEAF_NUMBER = 9999999999999999;
+const MAX_LEAF_NUMBER = Number.MAX_SAFE_INTEGER;
 
 export class CreateChequeLeafDto {
   @Type(() => Number)

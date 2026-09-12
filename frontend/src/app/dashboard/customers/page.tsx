@@ -109,6 +109,7 @@ export default function CustomersPage() {
   useEffect(() => {
     fetchCustomers();
     fetchBarbers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, []);
 
   const fetchCustomers = async () => {

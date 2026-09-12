@@ -25,7 +25,7 @@ import {
 import PaymentModal from './PaymentModal';
 import { api } from '@/lib/axios';
 import { useToast } from '@/components/ui/use-toast';
-import { formatToJalali } from '@/lib/date';
+import { formatAppointmentWhenTehran } from '@/lib/date';
 import { toTomans } from '@/lib/money';
 import {
   type AppointmentRecord,
@@ -287,13 +287,8 @@ export default function AppointmentList({
             <div className="text-sm space-y-1">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span>
-                  {formatToJalali(appointment.scheduledAt, 'YYYY/MM/DD')}{' '}
-                  {new Date(appointment.scheduledAt).toLocaleTimeString('fa-IR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    timeZone: 'Asia/Tehran',
-                  })}
+                <span data-cy="appointment-when">
+                  {formatAppointmentWhenTehran(appointment.scheduledAt)}
                 </span>
               </div>
               {userRole !== 'CUSTOMER' && appointment.amount ? (
@@ -331,14 +326,7 @@ export default function AppointmentList({
               <TableRow key={appointment.id}>
                 <TableCell className="font-medium">
                   <div>
-                    <div>{formatToJalali(appointment.scheduledAt, 'YYYY/MM/DD')}</div>
-                    <div className="text-sm text-foreground/80">
-                      {new Date(appointment.scheduledAt).toLocaleTimeString('fa-IR', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        timeZone: 'Asia/Tehran',
-                      })}
-                    </div>
+                    <div data-cy="appointment-when">{formatAppointmentWhenTehran(appointment.scheduledAt)}</div>
                   </div>
                 </TableCell>
                 <TableCell>

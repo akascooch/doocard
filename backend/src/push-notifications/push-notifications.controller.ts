@@ -1,4 +1,4 @@
-import { Controller, Post, Delete, Get, Body, Req, UseGuards, Param } from '@nestjs/common';
+import { Controller, Post, Delete, Get, Body, Req, UseGuards } from '@nestjs/common';
 import { PushNotificationsService } from './push-notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 

@@ -340,7 +340,7 @@ export class DashboardService {
     };
   }
 
-  async getAppointmentStats(currentUser?: any) {
+  async getAppointmentStats(_currentUser?: any) {
     return {
       dailyStats: [],
       totalRevenue: 0,
@@ -348,11 +348,11 @@ export class DashboardService {
     };
   }
 
-  async getRevenue(currentUser?: any) {
+  async getRevenue(_currentUser?: any) {
     return { revenue: 0 };
   }
 
-  async getCustomerAppointmentsChart(currentUser?: any) {
+  async getCustomerAppointmentsChart(_currentUser?: any) {
     return { customers: [] };
   }
 
@@ -858,7 +858,7 @@ export class DashboardService {
     }
 
     const today = new Date();
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const _startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 

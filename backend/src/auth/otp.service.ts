@@ -38,7 +38,11 @@ export class OtpService {
     const purpose = dto.purpose || 'LOGIN';
 
     if (!this.verifyAdapter.isConfigured()) {
-      throw new ServiceUnavailableException('سرویس ارسال کد تأیید پیکربندی نشده است');
+      this.logger.warn('OTP request rejected: verify provider is not configured');
+      throw new ServiceUnavailableException({
+        message: 'سرویس ارسال کد تأیید پیکربندی نشده است',
+        error: 'SERVICE_UNAVAILABLE',
+      });
     }
 
     const windowStart = new Date(Date.now() - OTP_WINDOW_MS);
@@ -72,8 +76,11 @@ export class OtpService {
         where: { id: challenge.id },
         data: { consumedAt: new Date() },
       });
-      this.logger.warn(`OTP send failed phone=***${phone.slice(-4)}: ${sent.error}`);
-      throw new ServiceUnavailableException('ارسال پیامک تأیید ناموفق بود. بعداً تلاش کنید.');
+      this.logger.warn(`OTP send failed phone=***${phone.slice(-4)}`);
+      throw new ServiceUnavailableException({
+        message: 'ارسال پیامک تأیید ناموفق بود. بعداً تلاش کنید.',
+        error: 'SERVICE_UNAVAILABLE',
+      });
     }
 
     this.logger.log(`OTP requested phone=***${phone.slice(-4)} purpose=${purpose}`);

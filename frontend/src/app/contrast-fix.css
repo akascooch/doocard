@@ -81,6 +81,31 @@ button[class*="bg-secondary"]:not([class*="bg-secondary/"]) {
   color: hsl(var(--muted-foreground)) !important;
 }
 
+/* Force-dark rules previously injected at runtime into <head> (hydration-safe). */
+html, #__next {
+  color-scheme: dark !important;
+}
+
+.bg-white, .bg-gray-50, .bg-gray-100, .bg-slate-50 {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+.bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-purple-500, .bg-pink-500 {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--card)) !important;
+}
+
+.text-blue-500, .text-blue-600, .text-indigo-500, .text-purple-500, .text-pink-500 {
+  color: hsl(var(--primary)) !important;
+}
+
+input, textarea, select {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--primary)) !important;
+  border-color: rgba(161, 209, 177, 0.3) !important;
+}
+
 /* Ensure cards over background image are readable */
 .bg-white\/90,
 .bg-card\/80,

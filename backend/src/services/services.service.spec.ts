@@ -1,4 +1,3 @@
-import { ConflictException } from '@nestjs/common';
 import { ServicesService } from './services.service';
 import { PrismaService } from '../prisma/prisma.service';
 

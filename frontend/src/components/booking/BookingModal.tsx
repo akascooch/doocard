@@ -112,6 +112,7 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
         notes: ''
       })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [open])
   
   const fetchPreferredEmployee = async () => {
@@ -134,6 +135,7 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
       setEmployees([])
       setFormData(prev => ({ ...prev, employeeId: '' }))
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [formData.serviceId])
 
   useEffect(() => {
@@ -142,6 +144,7 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
       setFormData(prev => ({ ...prev, appointmentTime: '' }))
       fetchTimeSlots()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [formData.appointmentDate, formData.employeeId, formData.serviceId])
 
   const fetchServices = async () => {

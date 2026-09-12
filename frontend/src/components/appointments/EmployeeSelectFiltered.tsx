@@ -40,6 +40,8 @@ interface EmployeeSelectFilteredProps {
   label?: string;
   required?: boolean;
   error?: string;
+  locked?: boolean;
+  lockedDisplayName?: string;
 }
 
 export default function EmployeeSelectFiltered({
@@ -49,38 +51,40 @@ export default function EmployeeSelectFiltered({
   label = 'آرایشگر',
   required = false,
   error,
+  locked = false,
+  lockedDisplayName,
 }: EmployeeSelectFilteredProps) {
   const { toast } = useToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadEmployees();
-  }, []);
-
-  const loadEmployees = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/employees');
-      console.log('👥 Loaded employees:', response.data);
-      const data = normalizeEmployeeList(await cacheFromResponse(REFERENCE_KEYS.employees, response.data));
-      setEmployees(data);
-    } catch (error) {
-      console.error('Error loading employees:', error);
-      const cached = await getReferenceCache<EmployeeListItem[]>(REFERENCE_KEYS.employees);
-      if (cached?.data?.length) {
-        setEmployees(normalizeEmployeeList(cached.data));
-      } else {
-        toast({
-          title: 'خطا',
-          description: 'بارگذاری لیست آرایشگران با خطا مواجه شد',
-          variant: 'destructive',
-        });
+    const loadEmployees = async () => {
+      try {
+        setLoading(true);
+        const response = await api.get('/employees');
+        console.log('👥 Loaded employees:', response.data);
+        const data = normalizeEmployeeList(await cacheFromResponse(REFERENCE_KEYS.employees, response.data));
+        setEmployees(data);
+      } catch (error) {
+        console.error('Error loading employees:', error);
+        const cached = await getReferenceCache<EmployeeListItem[]>(REFERENCE_KEYS.employees);
+        if (cached?.data?.length) {
+          setEmployees(normalizeEmployeeList(cached.data));
+        } else {
+          toast({
+            title: 'خطا',
+            description: 'بارگذاری لیست آرایشگران با خطا مواجه شد',
+            variant: 'destructive',
+          });
+        }
+      } finally {
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+    void loadEmployees();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
+  }, []);
 
   // Filter employees who can perform at least one of the selected services
   const filteredEmployees = employees.filter(employee => {
@@ -134,11 +138,25 @@ export default function EmployeeSelectFiltered({
         </Label>
       )}
 
+      {locked ? (
+        <div
+          className={cn(
+            'flex min-h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm',
+            error && 'border-red-500',
+          )}
+        >
+          {lockedDisplayName ||
+            getEmployeeDisplayName(
+              employees.find((employee) => employee.id === selectedEmployeeId),
+            ) ||
+            'آرایشگر شما'}
+        </div>
+      ) : (
       <Select
         value={selectedEmployeeId?.toString() || ''}
         onValueChange={(val) => onChange(val ? parseInt(val) : null)}
       >
-        <SelectTrigger className={cn('text-right', error && 'border-red-500')}>
+        <SelectTrigger data-cy="select-employee" className={cn('text-right', error && 'border-red-500')}>
           <SelectValue placeholder="انتخاب آرایشگر..." />
         </SelectTrigger>
         <SelectContent>
@@ -181,8 +199,9 @@ export default function EmployeeSelectFiltered({
           )}
         </SelectContent>
       </Select>
+      )}
 
-      {selectedServiceIds.length > 0 && filteredEmployees.length > 0 && (
+      {selectedServiceIds.length > 0 && filteredEmployees.length > 0 && !locked && (
         <p className="text-xs text-muted-foreground">
           {filteredEmployees.length} آرایشگر برای سرویس‌های انتخابی موجود است
         </p>

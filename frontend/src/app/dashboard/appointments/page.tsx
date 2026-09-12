@@ -75,6 +75,7 @@ export default function AppointmentsPage() {
 
   useEffect(() => {
     loadAppointments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [dateFilter]);
 
   const loadAppointments = async () => {

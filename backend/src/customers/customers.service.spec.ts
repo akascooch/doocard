@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { CustomerRegistrationSmsService } from '../sms/customer-registration-sms.service';
 
 describe('CustomersService', () => {
   let service: CustomersService;
@@ -40,6 +41,10 @@ describe('CustomersService', () => {
     transaction: {
       aggregate: jest.fn(),
     },
+    employee: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+    },
   };
 
   beforeEach(async () => {
@@ -50,15 +55,19 @@ describe('CustomersService', () => {
           provide: PrismaService,
           useValue: mockPrismaService,
         },
+        {
+          provide: CustomerRegistrationSmsService,
+          useValue: { handleNewCustomer: jest.fn().mockResolvedValue(undefined) },
+        },
       ],
     }).compile();
 
     service = module.get<CustomersService>(CustomersService);
     prismaService = module.get<PrismaService>(PrismaService);
+    mockPrismaService.employee.findFirst.mockResolvedValue(null);
+    mockPrismaService.employee.findUnique.mockResolvedValue(null);
     // ensure delete exists on user delegate
-    // @ts-ignore
     prismaService.user.delete = prismaService.user.delete || jest.fn();
-    // @ts-ignore
     prismaService.$transaction = jest.fn(async (cb: any) => cb({
       ...prismaService,
       user: prismaService.user,
@@ -117,8 +126,17 @@ describe('CustomersService', () => {
 
       expect(result).toEqual(mockCustomers);
       expect(mockPrismaService.customer.findMany).toHaveBeenCalledWith({
+        where: undefined,
         include: {
           user: true,
+          preferredEmployee: {
+            include: { user: true },
+          },
+          _count: {
+            select: {
+              appointments: { where: { deletedAt: null } },
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',
@@ -138,6 +156,9 @@ describe('CustomersService', () => {
         where: { id: 1 },
         include: {
           user: true,
+          preferredEmployee: {
+            include: { user: true },
+          },
           appointments: {
             include: {
               employee: {
@@ -145,7 +166,6 @@ describe('CustomersService', () => {
                   user: true,
                 },
               },
-              service: true,
             },
             orderBy: {
               scheduledAt: 'desc',
@@ -183,7 +203,6 @@ describe('CustomersService', () => {
                   employee: {
                     include: { user: true }
                   },
-                  service: true
                 },
                 orderBy: {
                   scheduledAt: 'desc'
@@ -219,7 +238,7 @@ describe('CustomersService', () => {
       expect(result).toEqual(updatedCustomer);
       expect(mockPrismaService.customer.update).toHaveBeenCalledWith(expect.objectContaining({
         where: { id: 1 },
-        include: { user: true },
+        include: expect.objectContaining({ user: true }),
       }));
     });
 

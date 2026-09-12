@@ -1,7 +1,7 @@
 import { IsDateString, IsInt, IsOptional, IsString, Max, Min, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
-const MAX_LEAF_NUMBER = 9999999999999999;
+const MAX_LEAF_NUMBER = Number.MAX_SAFE_INTEGER;
 
 export class CreateChequebookDto {
   @Type(() => Number)

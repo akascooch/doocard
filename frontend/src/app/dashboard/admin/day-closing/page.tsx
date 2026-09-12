@@ -49,6 +49,7 @@ export default function DayClosingPage() {
 
   useEffect(() => {
     fetchDayClosingData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [selectedDate])
 
   const fetchDayClosingData = async () => {

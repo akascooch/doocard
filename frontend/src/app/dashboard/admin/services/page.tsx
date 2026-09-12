@@ -518,7 +518,7 @@ export default function AdminServices() {
           <DialogHeader>
             <DialogTitle>اختصاص خدمت به کارمندان</DialogTitle>
             <DialogDescription>
-              کارمندانی که می‌توانند خدمت "{selectedService?.name}" را ارائه دهند را انتخاب کنید
+              کارمندانی که می‌توانند خدمت «{selectedService?.name}» را ارائه دهند را انتخاب کنید
             </DialogDescription>
           </DialogHeader>
           

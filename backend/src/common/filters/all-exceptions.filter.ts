@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
+import { toUserFacingFaMessage } from './http-user-message';
 
 interface StructuredError {
   status: number;
@@ -46,17 +47,30 @@ export class AllExceptionsFilter implements ExceptionFilter {
       correlationId
     );
 
-    // Log error with context
-    this.logger.error(
-      `[${correlationId}] ${structuredError.error}: ${structuredError.message_en}`,
-      {
-        correlationId,
-        path: request.url,
-        method: request.method,
-        userId: (request as any).user?.id,
-        error: exception instanceof Error ? exception.stack : exception,
-      }
-    );
+    const logPayload = {
+      correlationId,
+      path: request.url,
+      method: request.method,
+      userId: (request as any).user?.id,
+      status: structuredError.status,
+      internalCode: structuredError.internalCode,
+    };
+    const isExpectedClientOrConfig =
+      structuredError.status < 500 || structuredError.status === 503;
+    if (isExpectedClientOrConfig) {
+      this.logger.warn(
+        `[${correlationId}] ${structuredError.error}: ${structuredError.message_en}`,
+        logPayload,
+      );
+    } else {
+      this.logger.error(
+        `[${correlationId}] ${structuredError.error}: ${structuredError.message_en}`,
+        {
+          ...logPayload,
+          error: exception instanceof Error ? exception.stack : exception,
+        },
+      );
+    }
 
     // Send structured response
     response.status(structuredError.status).json(structuredError);
@@ -84,7 +98,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return {
         status,
         error: exceptionResponse.error || this.getErrorName(status),
-        message_fa: this.translateMessage(message, status),
+        message_fa: toUserFacingFaMessage(message, status),
         message_en: Array.isArray(message) ? message.join(', ') : message,
         internalCode: exceptionResponse.error || `HTTP_${status}`,
         timestamp,
@@ -205,59 +219,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
           correlationId,
           suggestions: ['contact_support'],
         };
-    }
-  }
-
-  private translateMessage(message: string | string[], status: number): string {
-    const msg = Array.isArray(message) ? message[0] : message;
-
-    // Common error translations
-    const translations: Record<string, string> = {
-      'Unauthorized': 'دسترسی غیرمجاز. لطفاً وارد شوید.',
-      'Forbidden': 'شما مجاز به انجام این عملیات نیستید.',
-      'Not Found': 'موردی یافت نشد.',
-      'Bad Request': 'درخواست نامعتبر.',
-      'Conflict': 'تداخل در داده‌ها.',
-      'Internal Server Error': 'خطای داخلی سرور.',
-      'Service Unavailable': 'سرویس در دسترس نیست.',
-      'Too Many Requests': 'تعداد درخواست‌ها بیش از حد مجاز است.',
-      'Validation failed': 'اعتبارسنجی ناموفق بود.',
-      'Customer not found': 'مشتری یافت نشد.',
-      'Employee not found': 'آرایشگر یافت نشد.',
-      'Appointment not found': 'نوبت یافت نشد.',
-      'Session expired': 'نشست شما منقضی شده است.',
-    };
-
-    // Try exact match
-    if (translations[msg]) {
-      return translations[msg];
-    }
-
-    // Try partial match
-    for (const [key, value] of Object.entries(translations)) {
-      if (msg.toLowerCase().includes(key.toLowerCase())) {
-        return value;
-      }
-    }
-
-    // Fallback
-    switch (status) {
-      case 400:
-        return 'درخواست نامعتبر. لطفاً ورودی‌ها را بررسی کنید.';
-      case 401:
-        return 'نشست شما منقضی شده. لطفاً دوباره وارد شوید.';
-      case 403:
-        return 'شما مجاز به انجام این عملیات نیستید.';
-      case 404:
-        return 'موردی یافت نشد.';
-      case 409:
-        return 'تداخل در داده‌ها. لطفاً دوباره تلاش کنید.';
-      case 500:
-        return 'خطای سرور. لطفاً چند لحظه دیگر تکرار کنید.';
-      case 503:
-        return 'سرویس موقتاً در دسترس نیست.';
-      default:
-        return msg || 'خطای ناشناخته';
     }
   }
 

@@ -186,6 +186,7 @@ export default function AccountingPage() {
 
   useEffect(() => {
     fetchTransactions()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [filterType, filterCategoryId, startDate, endDate])
 
   const filteredTransactions = useMemo(() => {
@@ -928,7 +929,7 @@ export default function AccountingPage() {
                           <div className="flex flex-col items-center gap-2">
                             <FileText className="h-12 w-12 text-muted-foreground opacity-50" />
                             <p>هنوز تراکنشی ثبت نشده است</p>
-                            <p className="text-sm">با کلیک روی "تراکنش جدید" اولین تراکنش خود را ثبت کنید</p>
+                            <p className="text-sm">با کلیک روی «تراکنش جدید» اولین تراکنش خود را ثبت کنید</p>
                           </div>
                         </TableCell>
                       </TableRow>

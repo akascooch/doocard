@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { UnauthorizedException, ConflictException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { CustomerRegistrationSmsService } from '../sms/customer-registration-sms.service';
 import * as bcrypt from 'bcrypt';
 jest.mock('bcrypt', () => ({
   compare: jest.fn(),
@@ -12,8 +13,8 @@ jest.mock('bcrypt', () => ({
 
 describe('AuthService', () => {
   let service: AuthService;
-  let prismaService: PrismaService;
-  let jwtService: JwtService;
+  let _prismaService: PrismaService;
+  let _jwtService: JwtService;
 
   const mockUser = {
     id: 1,
@@ -37,7 +38,16 @@ describe('AuthService', () => {
     },
     employee: {
       create: jest.fn(),
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
     },
+    refreshToken: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+    $transaction: jest.fn(),
   };
 
   const mockJwtService = {
@@ -68,12 +78,26 @@ describe('AuthService', () => {
           provide: ConfigService,
           useValue: mockConfigService,
         },
+        {
+          provide: CustomerRegistrationSmsService,
+          useValue: { handleNewCustomer: jest.fn().mockResolvedValue(undefined) },
+        },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-    prismaService = module.get<PrismaService>(PrismaService);
-    jwtService = module.get<JwtService>(JwtService);
+    _prismaService = module.get<PrismaService>(PrismaService);
+    _jwtService = module.get<JwtService>(JwtService);
+    mockPrismaService.$transaction.mockImplementation(async (cb: any) =>
+      cb({
+        user: mockPrismaService.user,
+        customer: mockPrismaService.customer,
+        employee: mockPrismaService.employee,
+      }),
+    );
+    mockPrismaService.employee.findFirst.mockResolvedValue(null);
+    mockPrismaService.employee.findUnique.mockResolvedValue(null);
+    mockPrismaService.refreshToken.create.mockResolvedValue({ id: 1, token: 'refresh' });
   });
 
   afterEach(() => {
@@ -158,24 +182,27 @@ describe('AuthService', () => {
 
       const result = await service.login(loginDto);
 
-      expect(result).toEqual({
-        access_token: 'mock-jwt-token',
-        user: {
-          id: mockUser.id,
-          name: mockUser.name,
-          email: mockUser.email,
-          phone: mockUser.phone,
-          role: mockUser.role,
-          createdAt: mockUser.createdAt,
-          updatedAt: mockUser.updatedAt,
-        },
-      });
-      expect(mockJwtService.sign).toHaveBeenCalledWith({
+      expect(result.access_token).toBe('mock-jwt-token');
+      expect(result.refresh_token).toEqual(expect.any(String));
+      expect(result.user).toEqual({
+        id: mockUser.id,
+        name: mockUser.name,
         email: mockUser.email,
         phone: mockUser.phone,
-        sub: mockUser.id,
         role: mockUser.role,
+        createdAt: mockUser.createdAt,
+        updatedAt: mockUser.updatedAt,
       });
+      expect(mockJwtService.sign).toHaveBeenCalledWith(
+        {
+          email: mockUser.email,
+          phone: mockUser.phone,
+          sub: mockUser.id,
+          role: mockUser.role,
+        },
+        { expiresIn: '24h' },
+      );
+      expect(mockPrismaService.refreshToken.create).toHaveBeenCalled();
     });
 
     it('should throw UnauthorizedException when credentials are invalid', async () => {
@@ -220,7 +247,7 @@ describe('AuthService', () => {
       const result = await service.register(registerDto);
 
       expect(result).toEqual({
-        message: 'ثبت نام با موفقیت انجام شد',
+        message: 'کاربر با موفقیت ثبت‌نام شد',
         user: mockUser,
       });
       expect(mockPrismaService.user.create).toHaveBeenCalledWith({
@@ -236,8 +263,7 @@ describe('AuthService', () => {
       expect(mockPrismaService.customer.create).toHaveBeenCalledWith({
         data: {
           userId: mockUser.id,
-          birthdate: new Date(registerDto.birthdate),
-          notes: registerDto.notes,
+          preferredEmployeeId: null,
         },
       });
     });
@@ -262,9 +288,6 @@ describe('AuthService', () => {
       expect(mockPrismaService.employee.create).toHaveBeenCalledWith({
         data: {
           userId: mockUser.id,
-          specialty: 'General',
-          baseSalary: 0,
-          commissionRate: 0,
         },
       });
     });
@@ -280,10 +303,17 @@ describe('AuthService', () => {
       mockPrismaService.user.findFirst.mockResolvedValue(null);
       mockPrismaService.user.create.mockResolvedValue(mockUser);
       mockPrismaService.customer.create.mockRejectedValue(new Error('Profile creation failed'));
-      mockPrismaService.user.delete.mockResolvedValue(mockUser);
+      mockPrismaService.$transaction.mockImplementation(async (cb: any) =>
+        cb({
+          user: mockPrismaService.user,
+          customer: mockPrismaService.customer,
+          employee: mockPrismaService.employee,
+        }),
+      );
 
-      await expect(service.register(registerDto)).rejects.toThrow('خطا در ایجاد پروفایل کاربر');
-      expect(mockPrismaService.user.delete).toHaveBeenCalledWith({ where: { id: mockUser.id } });
+      await expect(service.register(registerDto)).rejects.toThrow('Profile creation failed');
+      expect(mockPrismaService.user.create).toHaveBeenCalled();
+      expect(mockPrismaService.customer.create).toHaveBeenCalled();
     });
   });
 });

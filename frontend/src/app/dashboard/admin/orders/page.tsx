@@ -96,6 +96,7 @@ export default function AdminOrdersPage() {
     status: OrderStatus
     adminNotes?: string
     trackingCode?: string
+    quotedTotalRial?: number
   }) => {
     if (!selected) return
     setSaving(true)

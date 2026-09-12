@@ -7,9 +7,9 @@ import { FarazHttpAdapter } from './adapters/faraz-http.adapter';
 
 describe('SmsServiceEnhanced', () => {
   let service: SmsServiceEnhanced;
-  let prismaService: PrismaService;
-  let sdkAdapter: FarazSdkAdapter;
-  let httpAdapter: FarazHttpAdapter;
+  let _prismaService: PrismaService;
+  let _sdkAdapter: FarazSdkAdapter;
+  let _httpAdapter: FarazHttpAdapter;
 
   const mockPrismaService = {
     smsEvent: {
@@ -65,9 +65,14 @@ describe('SmsServiceEnhanced', () => {
     }).compile();
 
     service = module.get<SmsServiceEnhanced>(SmsServiceEnhanced);
-    prismaService = module.get<PrismaService>(PrismaService);
-    sdkAdapter = module.get<FarazSdkAdapter>(FarazSdkAdapter);
-    httpAdapter = module.get<FarazHttpAdapter>(FarazHttpAdapter);
+    _prismaService = module.get<PrismaService>(PrismaService);
+    _sdkAdapter = module.get<FarazSdkAdapter>(FarazSdkAdapter);
+    _httpAdapter = module.get<FarazHttpAdapter>(FarazHttpAdapter);
+
+    mockSdkAdapter.isConfigured.mockReturnValue(true);
+    mockHttpAdapter.isConfigured.mockReturnValue(false);
+    mockSdkAdapter.send.mockReset();
+    mockHttpAdapter.send.mockReset();
 
     // Initialize the service (simulate onModuleInit)
     service.onModuleInit();
@@ -147,14 +152,15 @@ describe('SmsServiceEnhanced', () => {
     });
 
     it('should return error when no adapter is available', async () => {
-      // Mock no adapter configured
-      mockSdkAdapter.isConfigured.mockReturnValue(false);
-      mockHttpAdapter.isConfigured.mockReturnValue(false);
+      const isolated = new SmsServiceEnhanced(
+        mockPrismaService as any,
+        mockConfigService as any,
+        { isConfigured: () => false, send: jest.fn() } as any,
+        { isConfigured: () => false, send: jest.fn() } as any,
+      );
+      isolated.onModuleInit();
 
-      // Re-initialize service
-      service.onModuleInit();
-
-      const result = await service.sendSms(['+989123456789'], 'Test');
+      const result = await isolated.sendSms(['+989123456789'], 'Test');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('not configured');

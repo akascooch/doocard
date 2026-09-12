@@ -201,7 +201,7 @@ export class UsersService {
 
     try {
       // Update user
-      const updatedUser = await this.prisma.user.update({
+      const _updatedUser = await this.prisma.user.update({
         where: { id },
         data: {
           ...(nextName !== undefined && { name: nextName }),

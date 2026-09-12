@@ -87,6 +87,7 @@ export default function AdminProductsPage() {
       return
     }
     void loadAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [])
 
   const loadAll = async () => {
@@ -484,7 +485,8 @@ export default function AdminProductsPage() {
                     }
                     title="حذف تصویر"
                   >
-                    {/* product thumbnail */}
+                    {/* Arbitrary upload URLs; next/image needs a configured loader. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={url} alt="" className="h-full w-full object-cover" />
                   </button>
                 ))}

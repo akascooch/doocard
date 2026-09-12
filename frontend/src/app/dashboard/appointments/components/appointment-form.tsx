@@ -23,11 +23,8 @@ import { Service } from "@/types/service"
 import { Barber } from "@/types/barber"
 import { DialogClose } from "@radix-ui/react-dialog"
 import { DialogFooter } from "@/components/ui/dialog"
-import { PersianDatePicker } from "@/components/ui/persian-date-picker"
-import dayjs from "dayjs"
-import jalaliday from "jalaliday"
-import jalaali from 'jalaali-js'
-dayjs.extend(jalaliday)
+import PersianDatePicker from "@/components/ui/PersianDatePicker"
+import { getTehranTodayJalali, jalaliToApiDate, tehranHHmmFromIso } from "@/lib/date"
 
 const formSchema = z.object({
   customerId: z.string({
@@ -61,10 +58,16 @@ export function AppointmentForm({ onSuccess }: { onSuccess: () => void }) {
 
   // مقدار پیش‌فرض تاریخ و ساعت
   const getNowJalali = () => {
-    const now = dayjs().calendar('jalali')
+    const now = new Date()
+    const time = now.toLocaleTimeString('en-GB', {
+      timeZone: 'Asia/Tehran',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
     return {
-      date: now.format('YYYY/MM/DD'),
-      time: now.format('HH:mm'),
+      date: getTehranTodayJalali(),
+      time,
     }
   }
 
@@ -78,12 +81,13 @@ export function AppointmentForm({ onSuccess }: { onSuccess: () => void }) {
       services: [],
     },
   })
+  const { reset } = form
 
   // هر بار که فرم باز می‌شود، تاریخ و ساعت را به امروز ریست کن
   useEffect(() => {
     if (dialogOpen) {
       const now = getNowJalali()
-      form.reset({
+      reset({
         customerId: "",
         barberId: "",
         date: now.date,
@@ -92,7 +96,7 @@ export function AppointmentForm({ onSuccess }: { onSuccess: () => void }) {
       })
       setSelectedServices([])
     }
-  }, [dialogOpen])
+  }, [dialogOpen, reset])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -131,18 +135,24 @@ export function AppointmentForm({ onSuccess }: { onSuccess: () => void }) {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      // تبدیل تاریخ جلالی به میلادی برای ارسال به سرور
-      const [jy, jm, jd] = values.date.split('/').map(Number)
-      const [hour, minute] = values.time.split(':').map(Number)
-      const { gy, gm, gd } = jalaali.toGregorian(jy, jm, jd)
-      const dateTime = new Date(gy, gm - 1, gd, hour, minute)
+      const jalaliDate = jalaliToApiDate(values.date)
+      const time = tehranHHmmFromIso(values.time)
+      if (!jalaliDate || !time) {
+        toast({
+          variant: "destructive",
+          title: "خطا",
+          description: "تاریخ یا ساعت نامعتبر است",
+        })
+        return
+      }
       await api.post("/appointments", {
         customerId: Number(values.customerId),
-        barberId: Number(values.barberId),
-        date: dateTime.toISOString(),
+        employeeId: Number(values.barberId),
+        jalaliDate,
+        time,
         services: values.services.map(s => ({
           serviceId: Number(s.serviceId),
-          price: s.price,
+          priceAtBooking: s.price,
         })),
       })
       toast({

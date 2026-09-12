@@ -21,6 +21,8 @@ export const SMS_TEMPLATE_KEYS = {
   AD_HOC_NOTIFICATION: 'ad_hoc_notification',
   /** Admin alert for a new shop card-to-card order */
   SHOP_ORDER_ADMIN: 'shop_order_admin',
+  /** Customer waitlist: product is back in stock */
+  PRODUCT_BACK_IN_STOCK: 'product_back_in_stock',
 } as const;
 
 export type SmsTemplateKey =
@@ -171,5 +173,12 @@ export const DEFAULT_SMS_TEMPLATES: SmsTemplateSeed[] = [
     content:
       'دوکارد فروشگاه\nسفارش جدید {orderNumber} به مبلغ {amount} تومان ثبت شد.\n{customerName} {customerPhone}',
     variables: ['orderNumber', 'amount', 'customerName', 'customerPhone'],
+  },
+  {
+    name: SMS_TEMPLATE_KEYS.PRODUCT_BACK_IN_STOCK,
+    label: 'موجود شدن کالا — لیست انتظار',
+    description: 'وقتی موجودی کالای ناموجود از صفر بیشتر شود، برای مشترکین ACTIVE ارسال می‌شود.',
+    content: 'مشتری گرامی دوکارد، محصول {productName} مجدداً موجود شد.',
+    variables: ['productName'],
   },
 ];

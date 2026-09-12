@@ -46,7 +46,7 @@ export class OrdersController {
     }),
   )
   create(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: Express.Multer.File | undefined,
     @Body() dto: CreateOrderDto,
   ) {
     return this.ordersService.create(dto, file);

@@ -4,6 +4,7 @@ import {
   Logger,
   NotFoundException,
   OnModuleInit,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OrderStatus, Prisma } from '@prisma/client';
@@ -19,6 +20,22 @@ import { SMS_ALWAYS_CC_PHONES } from '../sms/sms-always-cc';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto } from './dto/order-query.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import {
+  assertPositiveIntQuantity,
+  decrementShopStockAtomic,
+  insufficientStockException,
+  restoreShopOrderStock,
+  shouldRestoreStockOnStatusChange,
+  sortedProductIds,
+} from './order-stock.util';
+import {
+  assertQuoteCannotBeMarkedPaid,
+  initialShopOrderStatus,
+  orderRequiresQuote,
+  parseQuotedTotalRial,
+  quoteOrderTotalRial,
+} from './order-quote.util';
+import { StockNotificationService } from '../waitlist/stock-notification.service';
 
 const RECEIPT_UPLOAD_DIR = join(process.cwd(), 'uploads', 'receipts');
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -26,6 +43,7 @@ const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const RECEIPT_URL = /^\/uploads\/receipts\/[A-Za-z0-9._-]+$/;
 
 const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  AWAITING_QUOTE: [OrderStatus.PENDING_VERIFICATION, OrderStatus.PROCESSING, OrderStatus.CANCELLED],
   PENDING_VERIFICATION: [OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.CANCELLED],
   PAID: [OrderStatus.PROCESSING, OrderStatus.CANCELLED],
   PROCESSING: [OrderStatus.SHIPPED, OrderStatus.CANCELLED],
@@ -45,6 +63,7 @@ export class OrdersService implements OnModuleInit {
     private readonly notificationsGateway: NotificationsGateway,
     private readonly smsOutbound: SmsOutboundService,
     private readonly configService: ConfigService,
+    @Optional() private readonly stockNotifications?: StockNotificationService,
   ) {}
 
   onModuleInit() {
@@ -77,18 +96,12 @@ export class OrdersService implements OnModuleInit {
     return url;
   }
 
-  async create(dto: CreateOrderDto, file: Express.Multer.File) {
-    const receiptImageUrl = this.saveReceipt(file);
-    try {
-      const order = await this.createOrderRecord(dto, receiptImageUrl);
-      this.notifyAdmins(order).catch((err) => {
-        this.logger.warn(`Order notify failed: ${err?.message || 'unknown'}`);
-      });
-      return this.serializeOrder(order);
-    } catch (error) {
-      this.unlinkReceipt(receiptImageUrl);
-      throw error;
-    }
+  async create(dto: CreateOrderDto, file?: Express.Multer.File) {
+    const order = await this.createOrderRecord(dto, file);
+    this.notifyAdmins(order).catch((err) => {
+      this.logger.warn(`Order notify failed: ${err?.message || 'unknown'}`);
+    });
+    return this.serializeOrder(order);
   }
 
   async list(query: OrderQueryDto) {
@@ -129,166 +142,203 @@ export class OrdersService implements OnModuleInit {
   }
 
   async updateStatus(id: string, dto: UpdateOrderStatusDto) {
-    const existing = await this.prisma.order.findUnique({
-      where: { id },
-      include: { items: true },
-    });
-    if (!existing) {
-      throw new NotFoundException('سفارش یافت نشد');
-    }
-
-    const allowed = STATUS_TRANSITIONS[existing.status];
-    if (dto.status !== existing.status && !allowed.includes(dto.status)) {
-      throw new BadRequestException(
-        `تغییر وضعیت از ${existing.status} به ${dto.status} مجاز نیست`,
-      );
-    }
-
-    const shouldRestoreStock =
-      dto.status === OrderStatus.CANCELLED &&
-      existing.status !== OrderStatus.CANCELLED;
-
-    const verifiedAt =
-      dto.status === OrderStatus.PAID
-        ? existing.verifiedAt ?? new Date()
-        : existing.verifiedAt;
-
-    const updated = await this.prisma.$transaction(async (tx) => {
-      if (shouldRestoreStock) {
-        for (const item of existing.items) {
-          await tx.product.update({
-            where: { id: item.productId },
-            data: { stock: { increment: item.quantity } },
-          });
+    const { updated, restockTransitions } = await this.prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "orders" WHERE id = ${id} FOR UPDATE`;
+        const existing = await tx.order.findUnique({
+          where: { id },
+          include: { items: true },
+        });
+        if (!existing) {
+          throw new NotFoundException('سفارش یافت نشد');
         }
-      }
 
-      return tx.order.update({
-        where: { id },
-        data: {
-          status: dto.status,
-          adminNotes: dto.adminNotes ?? existing.adminNotes,
-          trackingCode: dto.trackingCode ?? existing.trackingCode,
-          verifiedAt,
-        },
-        include: { items: { orderBy: { id: 'asc' } } },
-      });
-    });
+        assertQuoteCannotBeMarkedPaid(existing.status, dto.status);
 
+        const allowed = STATUS_TRANSITIONS[existing.status];
+        if (dto.status !== existing.status && !allowed.includes(dto.status)) {
+          throw new BadRequestException(
+            `تغییر وضعیت از ${existing.status} به ${dto.status} مجاز نیست`,
+          );
+        }
+
+        const quotedTotalRial = parseQuotedTotalRial(dto.quotedTotalRial);
+
+        const shouldRestoreStock = shouldRestoreStockOnStatusChange(
+          existing.status,
+          dto.status,
+        );
+        const restockTransitions: { productId: number; previousStock: number; nextStock: number }[] =
+          [];
+        if (shouldRestoreStock) {
+          const qtyByProduct = new Map<number, number>();
+          for (const item of existing.items) {
+            qtyByProduct.set(item.productId, (qtyByProduct.get(item.productId) ?? 0) + item.quantity);
+          }
+          const productIds = [...qtyByProduct.keys()];
+          const stocks = await tx.product.findMany({
+            where: { id: { in: productIds } },
+            select: { id: true, stock: true },
+          });
+          await restoreShopOrderStock(tx, existing.items);
+          for (const product of stocks) {
+            restockTransitions.push({
+              productId: product.id,
+              previousStock: product.stock,
+              nextStock: product.stock + (qtyByProduct.get(product.id) ?? 0),
+            });
+          }
+        }
+
+        const verifiedAt =
+          dto.status === OrderStatus.PAID
+            ? existing.verifiedAt ?? new Date()
+            : existing.verifiedAt;
+
+        const updated = await tx.order.update({
+          where: { id },
+          data: {
+            status: dto.status,
+            adminNotes: dto.adminNotes ?? existing.adminNotes,
+            trackingCode: dto.trackingCode ?? existing.trackingCode,
+            verifiedAt,
+            ...(quotedTotalRial != null && existing.status === OrderStatus.AWAITING_QUOTE
+              ? { totalAmountRial: quotedTotalRial }
+              : {}),
+          },
+          include: { items: { orderBy: { id: 'asc' } } },
+        });
+        return { updated, restockTransitions };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+    );
+
+    this.stockNotifications?.scheduleBackInStock(restockTransitions);
     return this.serializeOrder(updated);
   }
 
   private async createOrderRecord(
     dto: CreateOrderDto,
-    receiptImageUrl: string,
+    file?: Express.Multer.File,
   ): Promise<OrderWithItems> {
+    // Stock is decremented at create (held through PENDING_VERIFICATION or AWAITING_QUOTE).
+    // Quote orders reserve stock the same way; restock happens on admin CANCELLED or if this transaction rolls back.
     const qtyByProduct = new Map<number, number>();
     for (const item of dto.items) {
+      const quantity = assertPositiveIntQuantity(item.quantity);
       qtyByProduct.set(
         item.productId,
-        (qtyByProduct.get(item.productId) ?? 0) + item.quantity,
+        (qtyByProduct.get(item.productId) ?? 0) + quantity,
       );
     }
-    const productIds = [...qtyByProduct.keys()];
+    const productIds = sortedProductIds(qtyByProduct.keys());
 
-    return this.prisma.$transaction(async (tx) => {
-      const products = await tx.product.findMany({
-        where: { id: { in: productIds } },
-      });
-      if (products.length !== productIds.length) {
-        throw new BadRequestException('یک یا چند محصول نامعتبر است');
-      }
-
-      const lines: {
-        productId: number;
-        productTitle: string;
-        unitPriceRial: bigint;
-        quantity: number;
-        lineTotalRial: bigint;
-      }[] = [];
-      let totalAmountRial = 0n;
-
-      for (const product of products) {
-        const quantity = qtyByProduct.get(product.id) ?? 0;
-        if (!product.isActive) {
-          throw new BadRequestException(`محصول «${product.name}» فعال نیست`);
-        }
-        if (quantity < 1) {
-          throw new BadRequestException('تعداد نامعتبر است');
-        }
-        if (product.stock < quantity) {
-          throw new BadRequestException(
-            `موجودی «${product.name}» کافی نیست (موجود: ${product.stock})`,
-          );
-        }
-
-        const unitPriceRial = product.priceRial;
-        const lineTotalRial = unitPriceRial * BigInt(quantity);
-        totalAmountRial += lineTotalRial;
-        lines.push({
-          productId: product.id,
-          productTitle: product.name,
-          unitPriceRial,
-          quantity,
-          lineTotalRial,
-        });
-      }
-
-      if (totalAmountRial <= 0n) {
-        throw new BadRequestException('مبلغ سفارش باید بیشتر از صفر باشد');
-      }
-
-      for (const line of lines) {
-        const updated = await tx.product.updateMany({
-          where: {
-            id: line.productId,
-            isActive: true,
-            stock: { gte: line.quantity },
-          },
-          data: { stock: { decrement: line.quantity } },
-        });
-        if (updated.count !== 1) {
-          throw new BadRequestException(
-            `موجودی «${line.productTitle}» در لحظه ثبت کافی نبود`,
-          );
-        }
-      }
-
-      let order: OrderWithItems | null = null;
-      for (let attempt = 0; attempt < 5; attempt += 1) {
-        const orderNumber = this.generateOrderNumber();
-        try {
-          order = await tx.order.create({
-            data: {
-              orderNumber,
-              customerName: dto.customerName.trim(),
-              customerPhone: dto.customerPhone,
-              customerAddress: dto.customerAddress?.trim() || null,
-              customerNotes: dto.customerNotes?.trim() || null,
-              totalAmountRial,
-              receiptImageUrl,
-              items: { create: lines },
-            },
-            include: { items: { orderBy: { id: 'asc' } } },
+    let receiptImageUrl: string | null = null;
+    try {
+      return await this.prisma.$transaction(
+        async (tx) => {
+          const products = await tx.product.findMany({
+            where: { id: { in: productIds } },
           });
-          break;
-        } catch (error) {
-          if (
-            error instanceof Prisma.PrismaClientKnownRequestError &&
-            error.code === 'P2002' &&
-            attempt < 4
-          ) {
-            continue;
+          if (products.length !== productIds.length) {
+            throw new BadRequestException('یک یا چند محصول نامعتبر است');
           }
-          throw error;
-        }
-      }
 
-      if (!order) {
-        throw new BadRequestException('ثبت شماره سفارش ناموفق بود');
+          const requiresQuote = orderRequiresQuote(products);
+          const status = initialShopOrderStatus(requiresQuote);
+
+          const productById = new Map(products.map((product) => [product.id, product]));
+          const lines: {
+            productId: number;
+            productTitle: string;
+            unitPriceRial: bigint;
+            quantity: number;
+            lineTotalRial: bigint;
+          }[] = [];
+          let lineSumRial = 0n;
+
+          for (const productId of productIds) {
+            const product = productById.get(productId);
+            if (!product) {
+              throw new BadRequestException('یک یا چند محصول نامعتبر است');
+            }
+            const quantity = assertPositiveIntQuantity(qtyByProduct.get(product.id) ?? 0);
+            if (!product.isActive) {
+              throw new BadRequestException(`محصول «${product.name}» فعال نیست`);
+            }
+            if (product.stock < quantity) {
+              throw insufficientStockException(product.name, product.stock);
+            }
+
+            const unitPriceRial = requiresQuote ? 0n : product.priceRial;
+            const lineTotalRial = unitPriceRial * BigInt(quantity);
+            lineSumRial += lineTotalRial;
+            lines.push({
+              productId: product.id,
+              productTitle: product.name,
+              unitPriceRial,
+              quantity,
+              lineTotalRial,
+            });
+          }
+
+          const totalAmountRial = quoteOrderTotalRial(requiresQuote, lineSumRial);
+          if (!requiresQuote && totalAmountRial <= 0n) {
+            throw new BadRequestException('مبلغ سفارش باید بیشتر از صفر باشد');
+          }
+
+          if (!requiresQuote) {
+            receiptImageUrl = this.saveReceipt(file as Express.Multer.File);
+          }
+
+          for (const line of lines) {
+            await decrementShopStockAtomic(tx, line.productId, line.quantity, line.productTitle);
+          }
+
+          let order: OrderWithItems | null = null;
+          for (let attempt = 0; attempt < 5; attempt += 1) {
+            const orderNumber = this.generateOrderNumber();
+            try {
+              order = await tx.order.create({
+                data: {
+                  orderNumber,
+                  customerName: dto.customerName.trim(),
+                  customerPhone: dto.customerPhone,
+                  customerAddress: dto.customerAddress?.trim() || null,
+                  customerNotes: dto.customerNotes?.trim() || null,
+                  totalAmountRial,
+                  status,
+                  receiptImageUrl,
+                  items: { create: lines },
+                },
+                include: { items: { orderBy: { id: 'asc' } } },
+              });
+              break;
+            } catch (error) {
+              if (
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error.code === 'P2002' &&
+                attempt < 4
+              ) {
+                continue;
+              }
+              throw error;
+            }
+          }
+
+          if (!order) {
+            throw new BadRequestException('ثبت شماره سفارش ناموفق بود');
+          }
+          return order;
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+      );
+    } catch (error) {
+      if (receiptImageUrl) {
+        this.unlinkReceipt(receiptImageUrl);
       }
-      return order;
-    });
+      throw error;
+    }
   }
 
   private generateOrderNumber(): string {
@@ -310,8 +360,10 @@ export class OrdersService implements OnModuleInit {
   }
 
   private async notifyAdmins(order: OrderWithItems): Promise<void> {
-    const toman = (order.totalAmountRial / 10n).toString();
-    const message = `سفارش جدید ${order.orderNumber} به مبلغ ${toman} تومان ثبت شد.`;
+    const message =
+      order.status === OrderStatus.AWAITING_QUOTE
+        ? `درخواست استعلام قیمت ${order.orderNumber} ثبت شد.`
+        : `سفارش جدید ${order.orderNumber} به مبلغ ${(order.totalAmountRial / 10n).toString()} تومان ثبت شد.`;
     const payload = {
       type: 'NEW_ORDER',
       title: 'سفارش جدید فروشگاه',

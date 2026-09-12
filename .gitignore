@@ -138,7 +138,15 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# Local backup dumps. Already-tracked files under this tree remain tracked.
+# Cypress artifacts and local secrets
+cypress/videos/
+cypress/screenshots/
+cypress.env.json
+frontend/.cypress-cache/
+**/cypress/videos/**
+**/*.mp4
+**/node_modules.__bak_*/**
+
 backend/backups/
 backend/backups/*.json
 backend/backups/pre-restore/

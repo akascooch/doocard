@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException, ConflictException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, ConflictException, Inject, forwardRef, Optional } from '@nestjs/common';
 import { NotificationType, Prisma, InventoryMovementType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -9,7 +9,6 @@ import {
   TipRecipientType,
   GetSlotsDto,
   QueryAppointmentsDto,
-  AppointmentServiceDto,
 } from './dto';
 import {
   TIP_PERSONAL_RECIPIENT_PERCENT,
@@ -27,20 +26,31 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { PushNotificationsService } from '../push-notifications/push-notifications.service';
 import { CalendarService } from '../calendar/calendar.service';
+import { tehranIsoFromUtcMidnightAndTime } from '../calendar/tehran-civil-datetime.util';
 import { SmsOutboundService } from '../sms/sms-outbound.service';
 import { SmsTemplateService } from '../sms/sms-template.service';
 import { TipAlertService } from '../sms/tip-alert.service';
 import { SMS_TEMPLATE_KEYS } from '../sms/sms-template.catalog';
-import { SMS_EVENT_KEYS } from '../sms/sms-event-keys';
 import {
   formatFaAmount,
   formatBarberSettlementMessage,
   resolveSettlementToman,
   settlementBarberNotifyKeys,
 } from './settlement-notify.util';
-import * as bcrypt from 'bcrypt';
 import { normalizeAppointmentFields } from '../common/utils/appointment-response.util';
 import { buildAppointmentTipDescription } from '../common/utils/tip-ledger-description';
+import {
+  APPOINTMENT_NOT_FOUND_FA,
+  EMPLOYEE_PROFILE_MISSING_FA,
+  actorUserId,
+  assertCustomerOwnsAppointment,
+  assertEmployeeNotImpersonating,
+  assertEmployeeOwnsAppointment,
+  isCustomerRole,
+  isEmployeeRole,
+  scopedEmployeeListId,
+} from './appointment-access.util';
+import { StockNotificationService } from '../waitlist/stock-notification.service';
 
 export interface ServiceSnapshot {
   serviceId: number;
@@ -95,7 +105,46 @@ export class AppointmentsService {
     private smsOutbound: SmsOutboundService,
     private smsTemplates: SmsTemplateService,
     private tipAlertService: TipAlertService,
+    @Optional() private readonly stockNotifications?: StockNotificationService,
   ) {}
+
+  private async requireEmployeeActor(currentUser: any) {
+    const userId = actorUserId(currentUser);
+    if (!userId) {
+      throw new ForbiddenException(EMPLOYEE_PROFILE_MISSING_FA);
+    }
+    const employee = await this.prisma.employee.findUnique({
+      where: { userId },
+    });
+    if (!employee) {
+      throw new ForbiddenException(EMPLOYEE_PROFILE_MISSING_FA);
+    }
+    return employee;
+  }
+
+  private async assertAppointmentReadAccess(
+    appointment: { employeeId?: number | null; customerId?: number | null },
+    currentUser?: any,
+  ) {
+    if (isEmployeeRole(currentUser)) {
+      const employee = await this.requireEmployeeActor(currentUser);
+      assertEmployeeOwnsAppointment(employee.id, appointment.employeeId ?? null);
+      return;
+    }
+    if (isCustomerRole(currentUser)) {
+      const userId = actorUserId(currentUser);
+      if (!userId) {
+        throw new ForbiddenException('Customer profile not found');
+      }
+      const customer = await this.prisma.customer.findUnique({
+        where: { userId },
+      });
+      if (!customer) {
+        throw new ForbiddenException('Customer profile not found');
+      }
+      assertCustomerOwnsAppointment(customer.id, appointment.customerId ?? null);
+    }
+  }
 
   /**
    * Policy-gated, deduped appointment SMS via SmsOutboundService.
@@ -174,6 +223,12 @@ export class AppointmentsService {
   async create(dto: CreateAppointmentDto, currentUser?: any) {
     console.log('📅 Creating appointment (reserving slot):', dto);
 
+    if (isEmployeeRole(currentUser)) {
+      const actorEmployee = await this.requireEmployeeActor(currentUser);
+      assertEmployeeNotImpersonating(dto.employeeId, actorEmployee.id);
+      dto.employeeId = actorEmployee.id;
+    }
+
     const clientOpId = dto.clientOpId?.trim();
     if (clientOpId) {
       const existing = await this.prisma.appointment.findUnique({
@@ -181,6 +236,7 @@ export class AppointmentsService {
         include: APPOINTMENT_DETAIL_INCLUDE,
       });
       if (existing) {
+        await this.assertAppointmentReadAccess(existing, currentUser);
         console.log('♻️ Returning existing appointment for clientOpId:', clientOpId);
         return this.formatAppointment(existing);
       }
@@ -194,23 +250,24 @@ export class AppointmentsService {
       // Parse Jalali date + time (Iran timezone: UTC+3:30)
       const gregorianDate = this.calendarService.toGregorian(dto.jalaliDate);
       const [hours, minutes] = dto.time.split(':').map(Number);
-
-      if (minutes % SLOT_INTERVAL_MIN !== 0) {
+      if (
+        !Number.isInteger(hours) ||
+        hours < 0 ||
+        hours > 23 ||
+        !Number.isInteger(minutes) ||
+        minutes % SLOT_INTERVAL_MIN !== 0
+      ) {
         throw new BadRequestException(
           `زمان نوبت باید در بازه‌های ${SLOT_INTERVAL_MIN} دقیقه‌ای باشد (مثلاً 14:00 یا 14:30)`,
         );
       }
       
-      // Convert Iran local time to UTC using ISO 8601 with timezone offset
-      // Iran is UTC+3:30
-      const year = gregorianDate.getFullYear();
-      const month = String(gregorianDate.getMonth() + 1).padStart(2, '0');
-      const day = String(gregorianDate.getDate()).padStart(2, '0');
-      const hourStr = String(hours).padStart(2, '0');
-      const minStr = String(minutes).padStart(2, '0');
-      
-      // Create ISO 8601 string with Iran timezone offset (+03:30)
-      const isoWithTZ = `${year}-${month}-${day}T${hourStr}:${minStr}:00+03:30`;
+      let isoWithTZ: string;
+      try {
+        isoWithTZ = tehranIsoFromUtcMidnightAndTime(gregorianDate, dto.time);
+      } catch {
+        throw new BadRequestException('زمان نوبت نامعتبر است');
+      }
       scheduledAt = new Date(isoWithTZ);
 
       // Get calendar_date_id
@@ -243,7 +300,7 @@ export class AppointmentsService {
     const todayTehran = nowUtc.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
     const bookingDateTehran = scheduledAt.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
 
-    const isCustomer = currentUser?.role === 'CUSTOMER';
+    const _isCustomer = currentUser?.role === 'CUSTOMER';
     const isStaff = currentUser?.role === 'ADMIN' || currentUser?.role === 'EMPLOYEE';
 
     // [TZ-VALIDATE STEP 4] Midnight boundary (no logic change)
@@ -664,14 +721,9 @@ export class AppointmentsService {
           throw new ForbiddenException('Customer profile not found');
         }
         where.customerId = customer.id;
-      } else if (currentUser.role === 'EMPLOYEE') {
-        const employee = await this.prisma.employee.findUnique({
-          where: { userId: currentUser.sub || currentUser.id },
-        });
-        if (!employee) {
-          throw new ForbiddenException('Employee profile not found');
-        }
-        where.employeeId = employee.id;
+      } else if (isEmployeeRole(currentUser)) {
+        const employee = await this.requireEmployeeActor(currentUser);
+        where.employeeId = scopedEmployeeListId(employee.id, query.employeeId);
       }
     }
 
@@ -679,7 +731,10 @@ export class AppointmentsService {
     if (query.customerId && currentUser?.role !== 'CUSTOMER') {
       where.customerId = query.customerId;
     }
-    if (query.employeeId) where.employeeId = query.employeeId;
+    // EMPLOYEE list scope already bound above; never honor a foreign employeeId.
+    if (query.employeeId && !isEmployeeRole(currentUser)) {
+      where.employeeId = query.employeeId;
+    }
     if (query.status) where.status = query.status;
 
     if (query.from || query.to) {
@@ -778,7 +833,7 @@ export class AppointmentsService {
   /**
    * Find one appointment by ID
    */
-  async findOne(id: number) {
+  async findOne(id: number, currentUser?: any) {
     const appointment = await this.prisma.appointment.findFirst({
       where: { id, deletedAt: null },
       include: {
@@ -788,8 +843,10 @@ export class AppointmentsService {
     });
 
     if (!appointment) {
-      throw new NotFoundException(`Appointment with ID ${id} not found`);
+      throw new NotFoundException(APPOINTMENT_NOT_FOUND_FA);
     }
+
+    await this.assertAppointmentReadAccess(appointment, currentUser);
 
     return this.formatAppointment(appointment);
   }
@@ -797,8 +854,16 @@ export class AppointmentsService {
   /**
    * Update appointment
    */
-  async update(id: number, dto: UpdateAppointmentDto) {
-    const existing = await this.findOne(id);
+  async update(id: number, dto: UpdateAppointmentDto, currentUser?: any) {
+    const existing = await this.findOne(id, currentUser);
+
+    if (isEmployeeRole(currentUser)) {
+      const actorEmployee = await this.requireEmployeeActor(currentUser);
+      assertEmployeeNotImpersonating(dto.employeeId, actorEmployee.id);
+      if (dto.employeeId != null) {
+        dto.employeeId = actorEmployee.id;
+      }
+    }
 
     if (existing.financiallyLockedAt) {
       throw new BadRequestException(
@@ -884,8 +949,8 @@ export class AppointmentsService {
   /**
    * Soft delete appointment
    */
-  async remove(id: number) {
-    const appointment = await this.findOne(id);
+  async remove(id: number, currentUser?: any) {
+    const appointment = await this.findOne(id, currentUser);
 
     if (appointment.status === 'SETTLED' || appointment.status === 'PAID') {
       throw new BadRequestException('نمی‌توان نوبت تسویه شده را حذف کرد');
@@ -1251,7 +1316,7 @@ export class AppointmentsService {
         slotIntervalMin: SLOT_INTERVAL_MIN,
       });
 
-      const totalSlots = result.slots.length;
+      const _totalSlots = result.slots.length;
       const availableSlots = result.slots.filter((s) => s.available).length;
       console.log('[Earliest] Available slots count:', availableSlots);
       const first = result.slots.find((s) => s.available);
@@ -1282,7 +1347,7 @@ export class AppointmentsService {
   async settle(id: number, dto: SettleAppointmentDto, adminUser: any) {
     console.log('💰 Settling appointment:', id, 'by admin role:', adminUser?.role);
 
-    const appointment = await this.findOne(id);
+    const appointment = await this.findOne(id, adminUser);
 
     if (appointment.status === 'SETTLED' || appointment.status === 'PAID') {
       throw new ConflictException('این نوبت قبلاً تسویه شده است');
@@ -1344,7 +1409,7 @@ export class AppointmentsService {
 
       if (existingTransaction) {
         console.log('⚠️  Duplicate settlement detected, returning existing');
-        return this.findOne(id);
+        return this.findOne(id, adminUser);
       }
     }
 
@@ -1679,13 +1744,13 @@ export class AppointmentsService {
       );
     }
 
-    const appointment = await this.findOne(id);
+    const appointment = await this.findOne(id, adminUser);
 
     if (appointment.status !== 'SETTLED' && appointment.status !== 'PAID') {
       throw new BadRequestException('فقط نوبت‌های تسویه شده قابل برگشت از تسویه هستند');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const now = new Date();
 
       // A) Find all transactions for this appointment (INCOME + TIP) not yet soft-deleted
@@ -1732,7 +1797,7 @@ export class AppointmentsService {
         where: { appointmentId: id },
       });
 
-      await this.reverseAppointmentProductSales(
+      const restockTransitions = await this.reverseAppointmentProductSales(
         tx,
         id,
         adminUser.sub || adminUser.id,
@@ -1761,32 +1826,18 @@ export class AppointmentsService {
       });
 
       console.log('✅ Revert settlement completed for appointment', id);
-      return { message: 'Settlement reverted successfully' };
+      return { message: 'Settlement reverted successfully', restockTransitions };
     }, { maxWait: 5_000, timeout: 30_000 });
+
+    this.stockNotifications?.scheduleBackInStock(result.restockTransitions);
+    return { message: result.message };
   }
 
   /**
    * Cancel appointment
    */
   async cancel(id: number, currentUser: any) {
-    const appointment = await this.findOne(id);
-
-    // Permission check
-    if (currentUser.role === 'CUSTOMER') {
-      const customer = await this.prisma.customer.findUnique({
-        where: { userId: currentUser.sub || currentUser.id },
-      });
-      if (customer?.id !== appointment.customerId) {
-        throw new BadRequestException('شما فقط می‌توانید نوبت‌های خود را لغو کنید');
-      }
-    } else if (currentUser.role === 'EMPLOYEE') {
-      const employee = await this.prisma.employee.findUnique({
-        where: { userId: currentUser.sub || currentUser.id },
-      });
-      if (employee?.id !== appointment.employeeId) {
-        throw new BadRequestException('شما فقط می‌توانید نوبت‌های خود را لغو کنید');
-      }
-    }
+    const appointment = await this.findOne(id, currentUser);
 
     if (appointment.status === 'SETTLED' || appointment.status === 'PAID') {
       throw new BadRequestException('نمی‌توان نوبت تسویه شده را لغو کرد');
@@ -1822,7 +1873,7 @@ export class AppointmentsService {
   async confirm(id: number, currentUser: any) {
     console.log('✅ Confirming appointment:', id, 'by user role:', currentUser?.role);
 
-    const appointment = await this.findOne(id);
+    const appointment = await this.findOne(id, currentUser);
 
     if (appointment.status !== 'PENDING_CONFIRMATION' && appointment.status !== 'PENDING') {
       throw new BadRequestException('فقط نوبت‌های در انتظار تایید قابل تایید هستند');
@@ -2323,12 +2374,25 @@ export class AppointmentsService {
       select: { id: true },
     });
     if (alreadyReversed) {
-      return;
+      return [];
     }
 
     const lines = await tx.appointmentProduct.findMany({
       where: { appointmentId },
     });
+    const qtyByProduct = new Map<number, number>();
+    for (const line of lines) {
+      qtyByProduct.set(line.productId, (qtyByProduct.get(line.productId) ?? 0) + line.quantity);
+    }
+    const productIds = [...qtyByProduct.keys()];
+    const stocks = productIds.length
+      ? await tx.product.findMany({
+          where: { id: { in: productIds } },
+          select: { id: true, stock: true },
+        })
+      : [];
+    const previousById = new Map(stocks.map((row) => [row.id, row.stock]));
+
     for (const line of lines) {
       await tx.$executeRaw`
         UPDATE "products"
@@ -2350,6 +2414,15 @@ export class AppointmentsService {
     if (lines.length > 0) {
       await tx.appointmentProduct.deleteMany({ where: { appointmentId } });
     }
+
+    return productIds.map((productId) => {
+      const previousStock = previousById.get(productId) ?? 0;
+      return {
+        productId,
+        previousStock,
+        nextStock: previousStock + (qtyByProduct.get(productId) ?? 0),
+      };
+    });
   }
 
   /**

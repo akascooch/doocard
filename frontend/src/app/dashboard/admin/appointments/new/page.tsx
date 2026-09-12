@@ -27,7 +27,13 @@ import {
 import { useToast } from '@/components/ui/use-toast'
 import { getCurrentUser } from '@/lib/auth'
 import axios from '@/lib/axios'
-import { PersianDatePicker } from '@/components/ui/persian-date-picker'
+import PersianDatePicker from '@/components/ui/PersianDatePicker'
+import {
+  getTehranTodayJalali,
+  jalaliToApiDate,
+  slotsApiDateFromPicker,
+  tehranHHmmFromIso,
+} from '@/lib/date'
 import MoneyInput from '@/components/ui/MoneyInput'
 import { toThousandTomans } from '@/lib/money'
 import { type EmployeeListItem, getEmployeeDisplayName, normalizeEmployeeList } from '@/lib/employee'
@@ -59,7 +65,7 @@ export default function NewAppointmentPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [services, setServices] = useState<Service[]>([])
-  const [selectedDate, setSelectedDate] = useState<Date>()
+  const [selectedDate, setSelectedDate] = useState('')
   const [selectedTime, setSelectedTime] = useState('')
   const [availableSlots, setAvailableSlots] = useState<{ time: string; displayTime: string }[]>([])
   const [quickOpen, setQuickOpen] = useState(false)
@@ -97,6 +103,9 @@ export default function NewAppointmentPage() {
     fetchCustomers()
     fetchEmployees()
     fetchServices()
+    const today = getTehranTodayJalali()
+    setSelectedDate(today)
+    setFormData((prev) => (prev.appointmentDate ? prev : { ...prev, appointmentDate: today }))
   }, [router])
 
   const fetchCustomers = async () => {
@@ -132,10 +141,15 @@ export default function NewAppointmentPage() {
     }
   }
 
-  const fetchAvailableSlots = async (date: string, employeeId: string) => {
+  const fetchAvailableSlots = async (jalaliDate: string, employeeId: string) => {
+    const gregorianDate = slotsApiDateFromPicker(jalaliDate)
+    if (!gregorianDate) {
+      setAvailableSlots([])
+      return
+    }
     try {
       const response = await axios.get(
-        `/appointments/available-slots?date=${date}&employeeId=${employeeId}&durationMin=60&slotIntervalMin=30`
+        `/appointments/slots?date=${gregorianDate}&employeeId=${employeeId}&durationMin=60&slotIntervalMin=30`
       )
       const slots = response.data?.slots ?? []
       const available = slots.filter((s: { available?: boolean }) => s.available !== false)
@@ -151,20 +165,18 @@ export default function NewAppointmentPage() {
     }
   }
 
-  const handleDateChange = (date: Date | undefined) => {
+  const handleDateChange = (date: string) => {
     setSelectedDate(date)
+    setFormData({ ...formData, appointmentDate: date, appointmentTime: '' })
     if (date && formData.employeeId) {
-      const dateString = date.toISOString().split('T')[0]
-      setFormData({ ...formData, appointmentDate: dateString })
-      fetchAvailableSlots(dateString, formData.employeeId)
+      fetchAvailableSlots(date, formData.employeeId)
     }
   }
 
   const handleEmployeeChange = (employeeId: string) => {
-    setFormData({ ...formData, employeeId })
+    setFormData({ ...formData, employeeId, appointmentTime: '' })
     if (selectedDate) {
-      const dateString = selectedDate.toISOString().split('T')[0]
-      fetchAvailableSlots(dateString, employeeId)
+      fetchAvailableSlots(selectedDate, employeeId)
     }
   }
 
@@ -191,17 +203,31 @@ export default function NewAppointmentPage() {
 
     setLoading(true)
     try {
-      const appointmentData = {
-        ...formData,
-        customerId: Number(formData.customerId),
-        employeeId: parseInt(formData.employeeId),
-        serviceId: parseInt(formData.serviceId),
-        totalAmount: parseFloat(formData.totalAmount.toString()),
-        paidAmount: parseFloat(formData.paidAmount.toString()),
-        tipAmount: parseFloat(formData.tipAmount.toString())
+      const jalaliDate = jalaliToApiDate(formData.appointmentDate)
+      const time = tehranHHmmFromIso(formData.appointmentTime)
+      if (!jalaliDate || !time) {
+        toast({
+          title: 'خطا',
+          description: 'تاریخ یا ساعت انتخاب‌شده نامعتبر است',
+          variant: 'destructive'
+        })
+        return
       }
-
-      await axios.post('/appointments', appointmentData)
+      const service = services.find((row) => row.id.toString() === formData.serviceId)
+      await axios.post('/appointments', {
+        customerId: Number(formData.customerId),
+        employeeId: parseInt(formData.employeeId, 10),
+        services: [
+          {
+            serviceId: parseInt(formData.serviceId, 10),
+            priceAtBooking: service ? service.price : undefined,
+            durationMin: service ? service.duration : undefined,
+          },
+        ],
+        jalaliDate,
+        time,
+        notes: formData.notes || undefined,
+      })
       
       toast({
         title: 'موفق',

@@ -48,7 +48,7 @@ describe('AppointmentsService.notifyAppointmentSettled [R1]', () => {
   });
 
   it('sends in-app + Web Push and never calls sendIfAllowed', async () => {
-    await (service as unknown as { notifyAppointmentSettled: Function }).notifyAppointmentSettled(
+    await (service as unknown as { notifyAppointmentSettled: (appointment: unknown, gross: number, extra: number) => Promise<void> }).notifyAppointmentSettled(
       appointment,
       5_000_000,
       0,

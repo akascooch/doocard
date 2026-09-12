@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/axios';
 import { useToast } from '@/components/ui/use-toast';
-import { parseFromJalali } from '@/lib/date';
+import { slotsApiDateFromPicker } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
 interface TimeSlot {
@@ -44,55 +44,51 @@ export default function SlotPickerProfessional({
 
   useEffect(() => {
     if (employeeId && date && durationMin > 0) {
-      loadSlots();
+      const loadSlots = async () => {
+        if (!employeeId || !date) return;
+
+        try {
+          setLoading(true);
+
+          const gregorianDate = slotsApiDateFromPicker(date);
+          if (!gregorianDate) {
+            throw new Error('Invalid date format');
+          }
+
+          console.log(`🔄 Converting: ${date} → ${gregorianDate}`);
+
+          const response = await api.get('/appointments/slots', {
+            params: {
+              employeeId,
+              date: gregorianDate, // Send Gregorian date (YYYY-MM-DD)
+              durationMin,
+              bufferMin: 5,
+              slotIntervalMin: 30,
+            },
+          });
+
+          console.log('🕐 Available slots:', response.data);
+          setSlots(response.data.slots || []);
+          setFirstAvailableSlot(response.data.firstAvailableSlot ?? null);
+        } catch (error: any) {
+          console.error('Error loading slots:', error);
+          toast({
+            title: 'خطا',
+            description: error.response?.data?.message || 'بارگذاری زمان‌های موجود با خطا مواجه شد',
+            variant: 'destructive',
+          });
+          setSlots([]);
+          setFirstAvailableSlot(null);
+        } finally {
+          setLoading(false);
+        }
+      };
+      void loadSlots();
     } else {
       setSlots([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [employeeId, date, durationMin]);
-
-  const loadSlots = async () => {
-    if (!employeeId || !date) return;
-
-    try {
-      setLoading(true);
-      
-      // Convert Jalali to Gregorian (UTC)
-      const gregorianDateObj = parseFromJalali(date);
-      
-      if (!gregorianDateObj) {
-        throw new Error('Invalid date format');
-      }
-      
-      const gregorianDate = gregorianDateObj.toISOString().split('T')[0]; // YYYY-MM-DD
-
-      console.log(`🔄 Converting: ${date} → ${gregorianDate}`);
-
-      const response = await api.get('/appointments/slots', {
-        params: {
-          employeeId,
-          date: gregorianDate, // Send Gregorian date (YYYY-MM-DD)
-          durationMin,
-          bufferMin: 5,
-          slotIntervalMin: 30,
-        },
-      });
-
-      console.log('🕐 Available slots:', response.data);
-      setSlots(response.data.slots || []);
-      setFirstAvailableSlot(response.data.firstAvailableSlot ?? null);
-    } catch (error: any) {
-      console.error('Error loading slots:', error);
-      toast({
-        title: 'خطا',
-        description: error.response?.data?.message || 'بارگذاری زمان‌های موجود با خطا مواجه شد',
-        variant: 'destructive',
-      });
-      setSlots([]);
-      setFirstAvailableSlot(null);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const selectSlot = (slot: TimeSlot) => {
     if (!slot.available) return;

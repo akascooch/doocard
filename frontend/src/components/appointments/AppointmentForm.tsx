@@ -15,7 +15,14 @@ import {
 import PersianDatePicker from '@/components/ui/PersianDatePicker';
 import { api } from '@/lib/axios';
 import { useToast } from '@/components/ui/use-toast';
-import { getCurrentJalaliDate, persianToEnglishDigits } from '@/lib/date';
+import { getCurrentUser } from '@/lib/auth';
+import {
+  getTehranTodayJalali,
+  jalaliToApiDate,
+  tehranHHmmFromIso,
+} from '@/lib/date';
+import { employeeUiIsLocked, findEmployeeIdForUser } from '@/lib/appointment-employee-lock';
+import { getEmployeeDisplayName, normalizeEmployeeList } from '@/lib/employee';
 import { Loader2 } from 'lucide-react';
 import {
   shouldUseOfflineQueue,
@@ -53,7 +60,7 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
     serviceIds: [] as number[],
     employeeId: null as number | null,
     customerId: customerId || null as number | null,
-    date: getCurrentJalaliDate(),
+    date: '',
     time: null as string | null,
     notes: '',
   });
@@ -62,34 +69,69 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
   const [slotRefreshKey, setSlotRefreshKey] = useState(0);
   const [offlineCustomerOutboxId, setOfflineCustomerOutboxId] = useState<string | null>(null);
   const [offlineCustomerLabel, setOfflineCustomerLabel] = useState<string | null>(null);
+  const [lockedEmployeeId, setLockedEmployeeId] = useState<number | null>(null);
+  const [lockedEmployeeName, setLockedEmployeeName] = useState('');
+  const lockEmployee = employeeUiIsLocked(role);
 
   useEffect(() => {
-    loadServices();
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingServices(true);
+        const response = await api.get('/services', { params: { sort: 'usage' } });
+        const data = await cacheFromResponse(REFERENCE_KEYS.services, response.data);
+        if (!cancelled) setServices(data);
+      } catch (error) {
+        console.error('Error loading services:', error);
+        const cached = await getReferenceCache<Service[]>(REFERENCE_KEYS.services);
+        if (cancelled) return;
+        if (cached?.data?.length) {
+          setServices(cached.data);
+        } else {
+          toast({
+            title: 'خطا',
+            description: 'بارگذاری سرویس‌ها با خطا مواجه شد',
+            variant: 'destructive',
+          });
+        }
+      } finally {
+        if (!cancelled) setLoadingServices(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // One-shot catalog fetch on mount; toast is not a data input.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadServices = async () => {
-    try {
-      setLoadingServices(true);
-      const response = await api.get('/services', { params: { sort: 'usage' } });
-      console.log('📋 Loaded services:', response.data);
-      const data = await cacheFromResponse(REFERENCE_KEYS.services, response.data);
-      setServices(data);
-    } catch (error) {
-      console.error('Error loading services:', error);
-      const cached = await getReferenceCache<Service[]>(REFERENCE_KEYS.services);
-      if (cached?.data?.length) {
-        setServices(cached.data);
-      } else {
-        toast({
-          title: 'خطا',
-          description: 'بارگذاری سرویس‌ها با خطا مواجه شد',
-          variant: 'destructive',
-        });
-      }
-    } finally {
-      setLoadingServices(false);
-    }
-  };
+  useEffect(() => {
+    setFormData((prev) => (prev.date ? prev : { ...prev, date: getTehranTodayJalali() }));
+  }, []);
+
+  useEffect(() => {
+    if (!lockEmployee) return;
+    const actorUserId = Number(getCurrentUser()?.id);
+    let cancelled = false;
+    api
+      .get('/employees')
+      .then((response) => {
+        if (cancelled) return;
+        const list = normalizeEmployeeList(response.data);
+        const mine = findEmployeeIdForUser(list, Number.isInteger(actorUserId) ? actorUserId : undefined);
+        if (mine == null) return;
+        const row = list.find((employee) => employee.id === mine);
+        setLockedEmployeeId(mine);
+        setLockedEmployeeName(getEmployeeDisplayName(row));
+        setFormData((prev) => ({ ...prev, employeeId: mine }));
+      })
+      .catch(() => {
+        // Backend still derives employeeId from the JWT; keep the selector locked.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [lockEmployee]);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -98,8 +140,12 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
       newErrors.serviceIds = 'حداقل یک سرویس را انتخاب کنید';
     }
 
-    if (!formData.employeeId) {
+    if (!lockEmployee && !formData.employeeId) {
       newErrors.employeeId = 'انتخاب آرایشگر الزامی است';
+    }
+
+    if (lockEmployee && lockedEmployeeId == null && !formData.employeeId) {
+      newErrors.employeeId = 'پروفایل آرایشگر یافت نشد';
     }
 
     if (role !== 'CUSTOMER' && !formData.customerId && !offlineCustomerOutboxId) {
@@ -140,12 +186,37 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
         durationMin: s.durationMinutes,
       }));
 
-      const timeDate = new Date(formData.time!);
-      const hours = timeDate.getHours().toString().padStart(2, '0');
-      const minutes = timeDate.getMinutes().toString().padStart(2, '0');
-      const timeStr = `${hours}:${minutes}`;
+      const timeStr = tehranHHmmFromIso(formData.time!);
+      if (!timeStr) {
+        toast({
+          title: 'خطا',
+          description: 'زمان انتخاب‌شده نامعتبر است',
+          variant: 'destructive',
+        });
+        return;
+      }
 
-      const jalaliDateFormatted = persianToEnglishDigits(formData.date).replace(/\//g, '-');
+      const jalaliDateFormatted = jalaliToApiDate(formData.date);
+      if (!jalaliDateFormatted) {
+        toast({
+          title: 'خطا',
+          description: 'تاریخ انتخاب‌شده نامعتبر است',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const employeeIdForPayload = lockEmployee
+        ? lockedEmployeeId ?? formData.employeeId
+        : formData.employeeId;
+      if (lockEmployee && lockedEmployeeId != null && employeeIdForPayload !== lockedEmployeeId) {
+        toast({
+          title: 'خطا',
+          description: 'ثبت نوبت فقط برای آرایشگر خودتان مجاز است',
+          variant: 'destructive',
+        });
+        return;
+      }
 
       const useOffline = await shouldUseOfflineQueue();
 
@@ -185,7 +256,7 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
           {
             clientOpId,
             customerRef,
-            employeeId: formData.employeeId!,
+            employeeId: employeeIdForPayload!,
             services: servicesPayload,
             jalaliDate: jalaliDateFormatted,
             time: timeStr,
@@ -202,9 +273,9 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
 
         setFormData({
           serviceIds: [],
-          employeeId: null,
+          employeeId: lockEmployee ? lockedEmployeeId : null,
           customerId: role === 'CUSTOMER' ? (customerId || null) : null,
-          date: getCurrentJalaliDate(),
+          date: getTehranTodayJalali(),
           time: null,
           notes: '',
         });
@@ -217,7 +288,7 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
 
       const payload = {
         services: servicesPayload,
-        employeeId: formData.employeeId,
+        employeeId: employeeIdForPayload,
         customerId: role === 'CUSTOMER' ? customerId : formData.customerId,
         jalaliDate: jalaliDateFormatted,
         time: timeStr,
@@ -240,9 +311,9 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
       // Reset form
       setFormData({
         serviceIds: [],
-        employeeId: null,
+        employeeId: lockEmployee ? lockedEmployeeId : null,
         customerId: role === 'CUSTOMER' ? (customerId || null) : null,
-        date: getCurrentJalaliDate(),
+        date: getTehranTodayJalali(),
         time: null,
         notes: '',
       });
@@ -314,7 +385,7 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
         </CardDescription>
       </CardHeader>
       <CardContent className="p-4 md:p-6">
-        <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6" dir="rtl">
+        <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6" dir="rtl" data-cy="appointment-form">
           {/* Services Multi-Select */}
           <ServicesMultiSelect
             services={services}
@@ -330,10 +401,15 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
           <EmployeeSelectFiltered
             selectedServiceIds={formData.serviceIds}
             selectedEmployeeId={formData.employeeId}
-            onChange={(id) => setFormData({ ...formData, employeeId: id })}
+            onChange={(id) => {
+              if (lockEmployee) return;
+              setFormData({ ...formData, employeeId: id });
+            }}
             label="آرایشگر *"
             required
             error={errors.employeeId}
+            locked={lockEmployee}
+            lockedDisplayName={lockedEmployeeName}
           />
 
           {/* Customer Typeahead (only for ADMIN/EMPLOYEE) */}
@@ -374,6 +450,7 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
               onChange={(date) => setFormData({ ...formData, date })}
               label="تاریخ *"
               placeholder="مثال: ۱۴۰۳/۰۷/۲۱"
+              className="jalali-date-picker"
             />
             {errors.date && <p className="text-sm text-red-500 mt-1">{errors.date}</p>}
           </div>
@@ -431,6 +508,7 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
           <Button
             type="submit"
             disabled={loading}
+            data-cy="submit-appointment"
             className="w-full bg-main-orange hover:bg-main-orange/90"
           >
             {loading ? (

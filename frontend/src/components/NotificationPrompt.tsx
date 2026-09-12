@@ -111,6 +111,7 @@ export function NotificationPrompt({ onClose, className = '' }: NotificationProm
       <Card
         role="dialog"
         aria-modal="true"
+        data-cy="notification-prompt"
         className={`relative w-full max-w-md shadow-lg ${className}`}
       >
         <CardHeader className="text-center">
@@ -215,6 +216,7 @@ export function NotificationPrompt({ onClose, className = '' }: NotificationProm
             onClick={handleClose}
             variant="ghost"
             size="sm"
+            data-cy="notification-prompt-close"
             className="text-muted-foreground hover:text-foreground"
           >
             <X className="w-4 h-4" />

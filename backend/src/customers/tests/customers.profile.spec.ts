@@ -1,13 +1,8 @@
-import { Test, TestingModule } from '@nestjs/testing'
 import { CustomersService } from '../customers.service'
-import { PrismaService } from '../../prisma/prisma.service'
 import { NotFoundException } from '@nestjs/common'
 
 describe('CustomersService.getMyProfile', () => {
-  let service: CustomersService
-  let prisma: jest.Mocked<PrismaService>
-
-  const mockPrisma = {
+  const prisma = {
     customer: {
       findFirst: jest.fn(),
     },
@@ -15,19 +10,14 @@ describe('CustomersService.getMyProfile', () => {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
     },
-  } as any as jest.Mocked<PrismaService>
+  }
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        CustomersService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
-    }).compile()
+  const sms = { handleNewCustomer: jest.fn().mockResolvedValue(undefined) }
+  let service: CustomersService
 
-    service = module.get(CustomersService)
-    prisma = module.get(PrismaService) as any
+  beforeEach(() => {
     jest.clearAllMocks()
+    service = new CustomersService(prisma as any, sms as any)
   })
 
   it('Case 1: returns preferred employee when preferredEmployeeId exists', async () => {
@@ -99,5 +89,3 @@ describe('CustomersService.getMyProfile', () => {
     await expect(service.getMyProfile(999)).rejects.toBeInstanceOf(NotFoundException)
   })
 })
-
-

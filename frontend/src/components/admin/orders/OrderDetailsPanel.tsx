@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import MoneyInput from "@/components/ui/MoneyInput"
 import { formatToJalali } from "@/lib/date"
 import { formatTomansFromRial } from "@/lib/money"
 import {
+  isAwaitingQuote,
   isOrderStatus,
   ORDER_STATUS_BADGE_CLASS,
   ORDER_STATUS_LABELS,
@@ -17,13 +19,15 @@ import {
   type ShopOrder,
 } from "@/lib/orders"
 
-const STATUS_ACTIONS: OrderStatus[] = [
-  "PAID",
-  "PROCESSING",
-  "SHIPPED",
-  "COMPLETED",
-  "CANCELLED",
-]
+const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  AWAITING_QUOTE: ["PENDING_VERIFICATION", "PROCESSING", "CANCELLED"],
+  PENDING_VERIFICATION: ["PAID", "PROCESSING", "CANCELLED"],
+  PAID: ["PROCESSING", "CANCELLED"],
+  PROCESSING: ["SHIPPED", "CANCELLED"],
+  SHIPPED: ["COMPLETED", "CANCELLED"],
+  COMPLETED: [],
+  CANCELLED: [],
+}
 
 export function OrderDetailsPanel({
   order,
@@ -38,14 +42,17 @@ export function OrderDetailsPanel({
     status: OrderStatus
     adminNotes?: string
     trackingCode?: string
+    quotedTotalRial?: number
   }) => Promise<void>
 }) {
   const [adminNotes, setAdminNotes] = useState("")
   const [trackingCode, setTrackingCode] = useState("")
+  const [quotedTotalRial, setQuotedTotalRial] = useState(0)
 
   useEffect(() => {
     setAdminNotes(order?.adminNotes || "")
     setTrackingCode(order?.trackingCode || "")
+    setQuotedTotalRial(0)
   }, [order?.id, order?.adminNotes, order?.trackingCode])
 
   if (loading) {
@@ -61,6 +68,8 @@ export function OrderDetailsPanel({
   }
 
   const status = isOrderStatus(order.status) ? order.status : "PENDING_VERIFICATION"
+  const quotePending = isAwaitingQuote(status)
+  const nextStatuses = STATUS_TRANSITIONS[status]
 
   return (
     <div className="space-y-5 text-sm">
@@ -82,7 +91,7 @@ export function OrderDetailsPanel({
         <p className="sm:col-span-2">آدرس: {order.customerAddress || "—"}</p>
         <p className="sm:col-span-2">یادداشت مشتری: {order.customerNotes || "—"}</p>
         <p className="font-semibold sm:col-span-2">
-          مبلغ کل: {formatTomansFromRial(order.totalAmountRial)}
+          مبلغ کل: {quotePending ? "نیازمند استعلام" : formatTomansFromRial(order.totalAmountRial)}
         </p>
       </div>
 
@@ -93,7 +102,7 @@ export function OrderDetailsPanel({
             <span>
               {item.productTitle} × {item.quantity}
             </span>
-            <span>{formatTomansFromRial(item.lineTotalRial)}</span>
+            <span>{quotePending ? "استعلام" : formatTomansFromRial(item.lineTotalRial)}</span>
           </div>
         ))}
       </div>
@@ -108,11 +117,21 @@ export function OrderDetailsPanel({
             className="max-h-72 rounded-md border border-border object-contain"
           />
         ) : (
-          <p className="text-muted-foreground">رسید ثبت نشده است.</p>
+          <p className="text-muted-foreground">
+            {quotePending ? "این سفارش در انتظار اعلام قیمت است و رسید ندارد." : "رسید ثبت نشده است."}
+          </p>
         )}
       </div>
 
       <div className="space-y-3">
+        {quotePending ? (
+          <MoneyInput
+            value={quotedTotalRial}
+            onChange={setQuotedTotalRial}
+            label="مبلغ اعلام‌شده (تومان)"
+            placeholder="قیمت نهایی پس از استعلام"
+          />
+        ) : null}
         <div className="space-y-1.5">
           <Label htmlFor="admin-notes">یادداشت ادمین</Label>
           <Textarea
@@ -135,7 +154,7 @@ export function OrderDetailsPanel({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {STATUS_ACTIONS.map((next) => (
+        {nextStatuses.map((next) => (
           <Button
             key={next}
             type="button"
@@ -147,6 +166,8 @@ export function OrderDetailsPanel({
                 status: next,
                 adminNotes: adminNotes.trim() || undefined,
                 trackingCode: trackingCode.trim() || undefined,
+                quotedTotalRial:
+                  quotePending && quotedTotalRial > 0 ? quotedTotalRial : undefined,
               })
             }
           >

@@ -136,7 +136,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   @SubscribeMessage('ping')
-  handlePing(client: Socket) {
+  handlePing(_client: Socket) {
     return { event: 'pong', data: { timestamp: Date.now() } };
   }
 }

@@ -2,16 +2,18 @@
 
 import { ShoppingBag } from "lucide-react"
 import { formatTomansFromRial } from "@/lib/money"
-import { cartItemCount, cartTotalRial, useShopCart } from "@/store/shop-cart"
+import { cartItemCount, cartRequiresQuote, cartTotalRial, useShopCart } from "@/store/shop-cart"
 
 export function CartSummary({ onCheckout }: { onCheckout: () => void }) {
   const items = useShopCart((s) => s.items)
   const count = cartItemCount(items)
   const total = cartTotalRial(items)
+  const quoteRequired = cartRequiresQuote(items)
 
   return (
     <button
       type="button"
+      data-cy="open-cart"
       onClick={onCheckout}
       className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-white/20 bg-white px-4 text-sm font-semibold text-black hover:bg-zinc-200"
     >
@@ -22,7 +24,7 @@ export function CartSummary({ onCheckout }: { onCheckout: () => void }) {
       ) : null}
       {count > 0 ? (
         <span className="hidden text-xs font-normal text-zinc-600 sm:inline">
-          {formatTomansFromRial(total)}
+          {quoteRequired ? "نیازمند استعلام" : formatTomansFromRial(total)}
         </span>
       ) : null}
     </button>

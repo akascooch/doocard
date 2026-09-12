@@ -22,6 +22,8 @@ export const SMS_EVENT_KEYS = {
   ADMIN_CUSTOM: 'admin.custom',
   /** New shop card-to-card order (admin alert) */
   SHOP_ORDER_CREATED: 'shop.orderCreated',
+  /** Waitlist: product stock moved from 0 to available */
+  PRODUCT_BACK_IN_STOCK: 'shop.productBackInStock',
 } as const;
 
 export type SmsEventKey = (typeof SMS_EVENT_KEYS)[keyof typeof SMS_EVENT_KEYS];
@@ -98,6 +100,11 @@ export const DEFAULT_SMS_POLICY: SmsPolicyDefault[] = [
   {
     eventKey: SMS_EVENT_KEYS.SHOP_ORDER_CREATED,
     label: 'سفارش جدید فروشگاه',
+    smsEnabled: true,
+  },
+  {
+    eventKey: SMS_EVENT_KEYS.PRODUCT_BACK_IN_STOCK,
+    label: 'موجود شدن کالای فروشگاه',
     smsEnabled: true,
   },
 ];

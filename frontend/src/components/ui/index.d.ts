@@ -87,7 +87,9 @@ declare module "@/components/ui/form" {
 
 declare module "@/components/ui/input" {
   interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
-  export function Input(props: InputProps): JSX.Element;
+  export const Input: React.ForwardRefExoticComponent<
+    InputProps & React.RefAttributes<HTMLInputElement>
+  >;
 }
 
 declare module "@/components/ui/password-input" {
@@ -111,7 +113,12 @@ declare module "@/lib/auth" {
   interface LoginCredentials {
     identifier: string;
     password: string;
+    rememberMe?: boolean;
   }
+  export function persistAuthSession(data: {
+    user?: any;
+    access_token?: string;
+  }): void;
   export function login(credentials: LoginCredentials): Promise<{ user: any }>;
   export function logout(): void;
   export function getCurrentUser(): any;
@@ -173,6 +180,8 @@ declare module "@/components/ui/table" {
   }
   interface TableRowProps {
     children: React.ReactNode;
+    className?: string;
+    onClick?: React.MouseEventHandler<HTMLTableRowElement>;
   }
   interface TableCellProps {
     children: React.ReactNode;

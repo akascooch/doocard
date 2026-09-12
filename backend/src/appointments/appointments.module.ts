@@ -8,6 +8,7 @@ import { PushNotificationsModule } from '../push-notifications/push-notification
 import { CalendarModule } from '../calendar/calendar.module';
 import { SmsSendModule } from '../sms/sms-send.module';
 import { TipAlertModule } from '../sms/tip-alert.module';
+import { WaitlistModule } from '../waitlist/waitlist.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { TipAlertModule } from '../sms/tip-alert.module';
     CalendarModule,
     SmsSendModule, // Appointment SMS: SmsOutboundService (policy + dedupe); no Bull queue
     TipAlertModule,
+    WaitlistModule,
   ],
   controllers: [AppointmentsController],
   providers: [AppointmentsService],

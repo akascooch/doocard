@@ -32,6 +32,7 @@ model User {
   createdTipSources   TipSource[]        @relation("TipSourceCreatedBy")
   voidedTipSources    TipSource[]        @relation("TipSourceVoidedBy")
   inventoryMovements  InventoryMovement[] @relation("InventoryMovementPerformedBy")
+  productStockSubscriptions ProductStockSubscription[]
 
   @@map("users")
 }
@@ -1031,6 +1032,7 @@ model Product {
   movements      InventoryMovement[]
   appointmentProducts AppointmentProduct[]
   orders         OrderItem[]
+  stockSubscriptions ProductStockSubscription[]
 
   @@index([categoryId])
   @@index([isActive])
@@ -1072,6 +1074,7 @@ model AppointmentProduct {
 }
 
 enum OrderStatus {
+  AWAITING_QUOTE
   PENDING_VERIFICATION
   PAID
   PROCESSING
@@ -1119,4 +1122,38 @@ model OrderItem {
   @@index([orderId])
   @@index([productId])
   @@map("order_items")
+}
+
+enum StockWaitlistChannel {
+  SMS
+  IN_APP
+}
+
+enum StockWaitlistStatus {
+  ACTIVE
+  CANCELLED
+  NOTIFIED
+}
+
+/// Customer waitlist for out-of-stock shop products. Notifications are Phase D; this row is lifecycle only.
+/// ACTIVE uniqueness is a partial unique index in SQL: (productId, userId) WHERE status = 'ACTIVE'.
+model ProductStockSubscription {
+  id          String               @id @default(uuid())
+  productId   Int
+  userId      Int
+  /// Normalized Iran mobile snapshot from User.phone at subscribe time.
+  phone       String
+  channel     StockWaitlistChannel @default(SMS)
+  status      StockWaitlistStatus  @default(ACTIVE)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  cancelledAt DateTime?
+  notifiedAt  DateTime?
+  product     Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([productId, status])
+  @@index([phone, status])
+  @@map("product_stock_subscriptions")
 }

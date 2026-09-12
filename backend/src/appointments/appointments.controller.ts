@@ -122,7 +122,7 @@ export class AppointmentsController {
   @Roles('ADMIN', 'EMPLOYEE', 'CUSTOMER')
   findOne(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     console.log('🔍 GET /appointments/:id -', actorLog(req.user), 'id=', id);
-    return this.service.findOne(id);
+    return this.service.findOne(id, req.user);
   }
 
   /**
@@ -137,7 +137,7 @@ export class AppointmentsController {
     @Req() req: any
   ) {
     console.log('✏️  PATCH /appointments/:id -', actorLog(req.user), 'id=', id);
-    return this.service.update(id, dto);
+    return this.service.update(id, dto, req.user);
   }
 
   /**
@@ -201,6 +201,6 @@ export class AppointmentsController {
   @HttpCode(HttpStatus.OK)
   remove(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     console.log('🗑️ DELETE /appointments/:id -', actorLog(req.user), 'id=', id);
-    return this.service.remove(id);
+    return this.service.remove(id, req.user);
   }
 }

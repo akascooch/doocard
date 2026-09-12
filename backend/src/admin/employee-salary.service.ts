@@ -692,7 +692,7 @@ export async function calculateEmployeeSalaryPreview(
 
   // Business rule: tips are exclusive to SERVICE staff.
   // Barber (EMPLOYEE) payroll ignores TEAM tip allocations entirely.
-  const teamShareIncome = 0n;
+  const _teamShareIncome = 0n;
 
   const priorWithdrawalRows = await findPriorWithdrawals(
     prisma,

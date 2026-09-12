@@ -88,17 +88,42 @@ export default function BookAppointmentPage() {
       }
     }
     void skipIfLoggedIn()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [])
 
   useEffect(() => {
     if (formData.serviceId) {
       void fetchEmployeesByService(parseInt(formData.serviceId, 10))
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [formData.serviceId])
 
   useEffect(() => {
     if (formData.appointmentDate && formData.employeeId) {
-      void fetchTimeSlots()
+      const gregorianDate = parseFromJalali(formData.appointmentDate)
+      if (!gregorianDate) return
+
+      const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Tehran',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      })
+      const dateStr = formatter.format(gregorianDate)
+
+      void (async () => {
+        try {
+          const response = await fetch(
+            `/api/appointments/slots?date=${dateStr}&employeeId=${formData.employeeId}&durationMin=60&slotIntervalMin=30`
+          )
+          if (response.ok) {
+            const data = await response.json()
+            setTimeSlots(data.slots || [])
+          }
+        } catch (error) {
+          console.error('Error fetching time slots:', error)
+        }
+      })()
     }
   }, [formData.appointmentDate, formData.employeeId])
 
@@ -132,32 +157,6 @@ export default function BookAppointmentPage() {
       }
     } catch (error) {
       console.error('Error fetching employees:', error)
-    }
-  }
-
-  const fetchTimeSlots = async () => {
-    if (!formData.appointmentDate || !formData.employeeId) return
-    const gregorianDate = parseFromJalali(formData.appointmentDate)
-    if (!gregorianDate) return
-
-    const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Tehran',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    })
-    const dateStr = formatter.format(gregorianDate)
-
-    try {
-      const response = await fetch(
-        `/api/appointments/slots?date=${dateStr}&employeeId=${formData.employeeId}&durationMin=60&slotIntervalMin=30`
-      )
-      if (response.ok) {
-        const data = await response.json()
-        setTimeSlots(data.slots || [])
-      }
-    } catch (error) {
-      console.error('Error fetching time slots:', error)
     }
   }
 

@@ -10,14 +10,10 @@ import {
   Post,
   ParseIntPipe,
   Query,
-  Res,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { UsersService } from './users.service';
-import { Role } from '../common/enums';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -68,7 +64,7 @@ export class UsersController {
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
-    const currentUser = req.user;
+    const _currentUser = req.user;
     return this.usersService.findOne(id);
   }
 
@@ -123,7 +119,7 @@ export class UsersController {
   ) {
     console.log('🔧 PATCH /users/:id called with id:', id, 'by role:', req.user?.role);
     
-    const currentUser = req.user;
+    const _currentUser = req.user;
     try {
       const result = await this.usersService.update(id, updateUserDto);
       console.log('✅ Update result:', result);
@@ -254,7 +250,7 @@ export class UsersController {
     }
 
     try {
-      const result = await this.usersService.changePassword(id, body.password);
+      const _result = await this.usersService.changePassword(id, body.password);
       console.log('✅ Password changed successfully for user:', id);
       return {
         success: true,

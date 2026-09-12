@@ -65,7 +65,7 @@ export class DashboardController {
 
   @Get('admin-stats')
   @Roles('ADMIN')
-  async getAdminStats(@Req() req: any) {
+  async getAdminStats(@Req() _req: any) {
     return this.dashboardService.getAdminStats();
   }
 
@@ -106,7 +106,7 @@ export class DashboardController {
   @Get('financial-stats')
   @Roles('ADMIN')
   @UseGuards(FinancialReportsAccessGuard)
-  async getFinancialStats(@Req() req: any) {
+  async getFinancialStats(@Req() _req: any) {
     return this.dashboardService.getFinancialStats();
   }
 }

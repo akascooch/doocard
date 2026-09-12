@@ -39,12 +39,14 @@ export default function CustomerAppointmentsPage() {
     if (user) {
       loadCustomerId(user.id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, []);
 
   useEffect(() => {
     if (customerId) {
       loadAppointments();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [customerId]);
 
   const loadCustomerId = async (userId: number) => {
@@ -143,11 +145,11 @@ export default function CustomerAppointmentsPage() {
       {/* Tabs */}
       <Tabs defaultValue="list" className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="list">
+          <TabsTrigger value="list" data-cy="tab-my-appointments">
             <Calendar className="h-4 w-4 ml-2" />
             نوبت‌های من
           </TabsTrigger>
-          <TabsTrigger value="new">
+          <TabsTrigger value="new" data-cy="tab-new-appointment">
             <Plus className="h-4 w-4 ml-2" />
             رزرو نوبت
           </TabsTrigger>

@@ -77,6 +77,7 @@ export default function ServicesMultiSelect({
           <Button
             type="button"
             variant="outline"
+            data-cy="select-services"
             className={cn(
               'w-full justify-between text-right h-auto min-h-[40px] py-2',
               error && 'border-red-500',
@@ -102,6 +103,7 @@ export default function ServicesMultiSelect({
             {services.map((service) => (
               <div
                 key={service.id}
+                data-cy={`service-option-${service.id}`}
                 className={cn(
                   'flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors',
                   selectedServiceIds.includes(service.id) && 'border-main-orange bg-orange-50 dark:bg-orange-900/20'

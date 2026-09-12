@@ -104,7 +104,7 @@ export class ImportService {
   /**
    * Parse customers from Excel buffer
    */
-  async parseCustomersExcel(buffer: Buffer, dryRun: boolean = true) {
+  async parseCustomersExcel(buffer: Buffer, _dryRun: boolean = true) {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(buffer as any);
     

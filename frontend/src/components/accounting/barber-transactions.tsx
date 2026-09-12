@@ -39,6 +39,7 @@ export function BarberTransactions() {
 
   useEffect(() => {
     fetchTransactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [currentPage]);
 
   const fetchTransactions = async () => {

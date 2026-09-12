@@ -80,6 +80,7 @@ export default function AdminEmployeesPage() {
   useEffect(() => {
     fetchEmployees()
     fetchServices()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [])
 
   const fetchEmployees = async () => {

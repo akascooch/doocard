@@ -12,6 +12,7 @@ import {
 import { formatToJalali } from "@/lib/date"
 import { formatTomansFromRial } from "@/lib/money"
 import {
+  isAwaitingQuote,
   isOrderStatus,
   ORDER_STATUS_BADGE_CLASS,
   ORDER_STATUS_LABELS,
@@ -55,7 +56,9 @@ export function OrdersTable({
               <TableCell className="font-semibold">{order.orderNumber}</TableCell>
               <TableCell>{order.customerName}</TableCell>
               <TableCell dir="ltr">{order.customerPhone}</TableCell>
-              <TableCell>{formatTomansFromRial(order.totalAmountRial)}</TableCell>
+              <TableCell>
+                {isAwaitingQuote(status) ? "نیازمند استعلام" : formatTomansFromRial(order.totalAmountRial)}
+              </TableCell>
               <TableCell>
                 <Badge variant="outline" className={ORDER_STATUS_BADGE_CLASS[status]}>
                   {ORDER_STATUS_LABELS[status]}

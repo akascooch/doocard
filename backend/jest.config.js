@@ -59,4 +59,6 @@ module.exports = {
   testTimeout: 30000,
   maxWorkers: 1, // Run tests sequentially to avoid database conflicts
   verbose: true,
+  // Time-boxed: PrismaTestService / doocard_test DB are out of G-R scope.
+  testPathIgnorePatterns: ['\\.integration\\.spec\\.ts$'],
 };

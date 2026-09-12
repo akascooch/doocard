@@ -1,44 +1,40 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AccountingService } from '../accounting/accounting.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
+import { PushNotificationsService } from '../push-notifications/push-notifications.service';
+import { CalendarService } from '../calendar/calendar.service';
+import { SmsOutboundService } from '../sms/sms-outbound.service';
+import { SmsTemplateService } from '../sms/sms-template.service';
+import { TipAlertService } from '../sms/tip-alert.service';
+import { APPOINTMENT_NOT_FOUND_FA } from './appointment-access.util';
 
 describe('AppointmentsService', () => {
   let service: AppointmentsService;
-  let prismaService: PrismaService;
 
-  const mockAppointment = {
+  const appointmentRow = {
     id: 1,
     customerId: 1,
     employeeId: 1,
-    serviceId: 1,
+    status: 'CONFIRMED',
+    services: [{ serviceId: 1, priceAtBooking: 500000, durationMin: 30, serviceName: 'Haircut' }],
     scheduledAt: new Date('2024-01-15T10:00:00Z'),
-    status: 'PENDING',
+    durationMin: 30,
+    amount: null,
+    financiallyLockedAt: null,
+    deletedAt: null,
     customer: {
       id: 1,
       userId: 1,
-      user: {
-        id: 1,
-        name: 'John Doe',
-        email: 'john@example.com',
-        phone: '09123456789',
-      },
+      user: { id: 1, name: 'John Doe', email: 'john@example.com', phone: '09123456789', role: 'CUSTOMER' },
     },
     employee: {
       id: 1,
       userId: 2,
-      user: {
-        id: 2,
-        name: 'Jane Smith',
-        email: 'jane@example.com',
-        phone: '09987654321',
-      },
-    },
-    service: {
-      id: 1,
-      name: 'Haircut',
-      price: 50.0,
-      durationMinutes: 30,
+      user: { id: 2, name: 'Jane Smith', email: 'jane@example.com', phone: '09987654321', role: 'EMPLOYEE' },
     },
     transactions: [],
   };
@@ -46,7 +42,9 @@ describe('AppointmentsService', () => {
   const mockPrismaService = {
     appointment: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
+      count: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
@@ -61,312 +59,201 @@ describe('AppointmentsService', () => {
       findMany: jest.fn(),
       findUnique: jest.fn(),
     },
-    transaction: {
-      create: jest.fn(),
-      deleteMany: jest.fn(),
-    },
-    user: {
-      findFirst: jest.fn(),
-      findUnique: jest.fn(),
-      create: jest.fn(),
-    },
     $transaction: jest.fn(),
+  };
+
+  const mockCalendarService = {
+    toGregorian: jest.fn(),
+    toJalali: jest.fn(),
+    ensureExists: jest.fn(),
+    getByGregorian: jest.fn(),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AppointmentsService,
-        {
-          provide: PrismaService,
-          useValue: mockPrismaService,
-        },
+        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: AccountingService, useValue: {} },
+        { provide: NotificationsService, useValue: {} },
+        { provide: NotificationsGateway, useValue: {} },
+        { provide: PushNotificationsService, useValue: {} },
+        { provide: CalendarService, useValue: mockCalendarService },
+        { provide: SmsOutboundService, useValue: { sendTemplated: jest.fn() } },
+        { provide: SmsTemplateService, useValue: { getByKey: jest.fn() } },
+        { provide: TipAlertService, useValue: { notify: jest.fn() } },
       ],
     }).compile();
 
     service = module.get<AppointmentsService>(AppointmentsService);
-    prismaService = module.get<PrismaService>(PrismaService);
-  });
-
-  afterEach(() => {
     jest.clearAllMocks();
   });
 
   describe('findAll', () => {
-    it('should return all appointments for admin user', async () => {
-      const currentUser = { role: 'ADMIN' };
-      mockPrismaService.appointment.findMany.mockResolvedValue([mockAppointment]);
+    it('returns a paginated list for admin without employee scoping', async () => {
+      mockPrismaService.appointment.findMany.mockResolvedValue([appointmentRow]);
+      mockPrismaService.appointment.count.mockResolvedValue(1);
 
-      const result = await service.findAll(currentUser);
+      const result = await service.findAll({} as any, { id: 1, role: 'ADMIN' });
 
-      expect(result).toHaveLength(1);
-      expect(mockPrismaService.appointment.findMany).toHaveBeenCalledWith({
-        include: expect.any(Object),
-        orderBy: { scheduledAt: 'desc' },
-      });
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(1);
+      expect(result.take).toBe(200);
+      expect(mockPrismaService.appointment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ deletedAt: null }),
+          orderBy: { scheduledAt: 'desc' },
+        }),
+      );
+      expect(mockPrismaService.employee.findUnique).not.toHaveBeenCalled();
     });
 
-    it('should return employee appointments for employee user', async () => {
-      const currentUser = { role: 'EMPLOYEE', email: 'jane@example.com' };
-      mockPrismaService.user.findFirst.mockResolvedValue({
-        id: 2,
-        email: 'jane@example.com',
-        employee: { id: 1 },
-      });
-      mockPrismaService.appointment.findMany.mockResolvedValue([mockAppointment]);
+    it('scopes customer lists to the authenticated customer profile', async () => {
+      mockPrismaService.customer.findUnique.mockResolvedValue({ id: 1, userId: 9 });
+      mockPrismaService.appointment.findMany.mockResolvedValue([appointmentRow]);
+      mockPrismaService.appointment.count.mockResolvedValue(1);
 
-      const result = await service.findAll(currentUser);
+      await service.findAll({} as any, { id: 9, role: 'CUSTOMER' });
 
-      expect(result).toHaveLength(1);
-      expect(mockPrismaService.appointment.findMany).toHaveBeenCalledWith({
-        where: { employeeId: 1 },
-        include: expect.any(Object),
-        orderBy: { scheduledAt: 'desc' },
-      });
-    });
-
-    it('should return customer appointments for customer user', async () => {
-      const currentUser = { role: 'CUSTOMER', id: 1 };
-      mockPrismaService.appointment.findMany.mockResolvedValue([mockAppointment]);
-
-      const result = await service.findAll(currentUser);
-
-      expect(result).toHaveLength(1);
-      expect(mockPrismaService.appointment.findMany).toHaveBeenCalledWith({
-        where: { customerId: 1 },
-        include: expect.any(Object),
-        orderBy: { scheduledAt: 'desc' },
-      });
+      expect(mockPrismaService.appointment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ customerId: 1, deletedAt: null }),
+        }),
+      );
     });
   });
 
   describe('findOne', () => {
-    it('should return appointment when found', async () => {
-      mockPrismaService.appointment.findUnique.mockResolvedValue(mockAppointment);
+    it('returns the formatted appointment when found', async () => {
+      mockPrismaService.appointment.findFirst.mockResolvedValue(appointmentRow);
 
-      const result = await service.findOne(1);
+      const result = await service.findOne(1, { id: 1, role: 'ADMIN' });
 
-      expect(result).toHaveProperty('totalAmount', 50.0);
-      expect(result).toHaveProperty('paidAmount', 0);
-      expect(result).toHaveProperty('isPaid', false);
-      expect(result).toHaveProperty('customerName', 'John Doe');
-      expect(result).toHaveProperty('employeeName', 'Jane Smith');
-      expect(result).toHaveProperty('serviceName', 'Haircut');
+      expect(result.id).toBe(1);
+      expect(result.customerId).toBe(1);
+      expect(result.employeeId).toBe(1);
     });
 
-    it('should throw NotFoundException when appointment not found', async () => {
-      mockPrismaService.appointment.findUnique.mockResolvedValue(null);
+    it('throws NotFoundException when appointment is missing', async () => {
+      mockPrismaService.appointment.findFirst.mockResolvedValue(null);
 
-      await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(999, { id: 1, role: 'ADMIN' })).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(999, { id: 1, role: 'ADMIN' })).rejects.toThrow(
+        APPOINTMENT_NOT_FOUND_FA,
+      );
     });
   });
 
   describe('create', () => {
-    const createAppointmentDto = {
-      customerId: 1,
-      employeeId: 1,
-      serviceId: 1,
-      scheduledAt: '2024-01-15T10:00:00Z',
-      status: 'PENDING',
-    };
-
-    it('should create appointment successfully', async () => {
-      mockPrismaService.customer.findUnique.mockResolvedValue({ id: 1, userId: 1 });
-      mockPrismaService.employee.findUnique.mockResolvedValue({ id: 1, userId: 2 });
-      mockPrismaService.service.findUnique.mockResolvedValue({ id: 1, name: 'Haircut', price: 50.0 });
-      mockPrismaService.appointment.create.mockResolvedValue(mockAppointment);
-
-      const result = await service.create(createAppointmentDto);
-
-      expect(result).toHaveProperty('totalAmount', 50.0);
-      expect(mockPrismaService.appointment.create).toHaveBeenCalledWith({
-        data: {
-          customerId: 1,
-          employeeId: 1,
-          serviceId: 1,
-          scheduledAt: new Date('2024-01-15T10:00:00Z'),
-          status: 'PENDING',
-        },
-        include: expect.any(Object),
-      });
+    it('rejects payloads without jalaliDate+time or scheduledAt', async () => {
+      await expect(
+        service.create(
+          { customerId: 1, employeeId: 1, services: [{ serviceId: 1 }] } as any,
+          { id: 1, role: 'ADMIN' },
+        ),
+      ).rejects.toThrow(BadRequestException);
     });
 
-    it('should throw NotFoundException when customer not found', async () => {
-      mockPrismaService.customer.findUnique.mockResolvedValue(null);
+    it('rejects times that are not on the 30-minute slot grid', async () => {
+      mockCalendarService.toGregorian.mockReturnValue(new Date(Date.UTC(2021, 2, 21)));
 
-      await expect(service.create(createAppointmentDto)).rejects.toThrow(NotFoundException);
-    });
-
-    it('should throw NotFoundException when employee not found', async () => {
-      mockPrismaService.customer.findUnique.mockResolvedValue({ id: 1, userId: 1 });
-      mockPrismaService.employee.findUnique.mockResolvedValue(null);
-
-      await expect(service.create(createAppointmentDto)).rejects.toThrow(NotFoundException);
-    });
-
-    it('should throw NotFoundException when service not found', async () => {
-      mockPrismaService.customer.findUnique.mockResolvedValue({ id: 1, userId: 1 });
-      mockPrismaService.employee.findUnique.mockResolvedValue({ id: 1, userId: 2 });
-      mockPrismaService.service.findUnique.mockResolvedValue(null);
-
-      await expect(service.create(createAppointmentDto)).rejects.toThrow(NotFoundException);
+      await expect(
+        service.create(
+          {
+            customerId: 1,
+            employeeId: 1,
+            services: [{ serviceId: 1 }],
+            jalaliDate: '1400-01-01',
+            time: '14:15',
+          } as any,
+          { id: 1, role: 'ADMIN' },
+        ),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('update', () => {
-    const updateAppointmentDto = {
-      status: 'CONFIRMED',
-    };
+    it('throws NotFoundException when appointment is missing', async () => {
+      mockPrismaService.appointment.findFirst.mockResolvedValue(null);
 
-    it('should update appointment successfully', async () => {
-      mockPrismaService.appointment.findUnique.mockResolvedValue(mockAppointment);
-      mockPrismaService.appointment.update.mockResolvedValue({
-        ...mockAppointment,
-        status: 'CONFIRMED',
-      });
-
-      const result = await service.update(1, updateAppointmentDto);
-
-      expect(result.status).toBe('CONFIRMED');
-      expect(mockPrismaService.appointment.update).toHaveBeenCalledWith({
-        where: { id: 1 },
-        data: { status: 'CONFIRMED' },
-        include: expect.any(Object),
-      });
-    });
-
-    it('should throw NotFoundException when appointment not found', async () => {
-      mockPrismaService.appointment.findUnique.mockResolvedValue(null);
-
-      await expect(service.update(999, updateAppointmentDto)).rejects.toThrow(NotFoundException);
+      await expect(
+        service.update(999, { notes: 'x' } as any, { id: 1, role: 'ADMIN' }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('remove', () => {
-    it('should delete appointment successfully', async () => {
-      mockPrismaService.appointment.findUnique.mockResolvedValue(mockAppointment);
-      mockPrismaService.transaction.deleteMany.mockResolvedValue({ count: 0 });
-      mockPrismaService.appointment.delete.mockResolvedValue(mockAppointment);
+    it('soft-deletes an unsettled appointment', async () => {
+      mockPrismaService.appointment.findFirst.mockResolvedValue(appointmentRow);
+      mockPrismaService.appointment.update.mockResolvedValue({
+        ...appointmentRow,
+        deletedAt: new Date(),
+      });
 
-      const result = await service.remove(1);
+      const result = await service.remove(1, { id: 1, role: 'ADMIN' });
 
       expect(result).toEqual({ message: 'Appointment deleted successfully' });
-      expect(mockPrismaService.transaction.deleteMany).toHaveBeenCalledWith({
-        where: { relatedId: 1 },
-      });
-      expect(mockPrismaService.appointment.delete).toHaveBeenCalledWith({
-        where: { id: 1 },
-      });
+      expect(mockPrismaService.appointment.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: expect.objectContaining({ deletedAt: expect.any(Date) }),
+        }),
+      );
+      expect(mockPrismaService.appointment.delete).not.toHaveBeenCalled();
     });
 
-    it('should throw NotFoundException when appointment not found', async () => {
-      mockPrismaService.appointment.findUnique.mockResolvedValue(null);
+    it('throws NotFoundException when appointment is missing', async () => {
+      mockPrismaService.appointment.findFirst.mockResolvedValue(null);
 
-      await expect(service.remove(999)).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  describe('settleAppointment', () => {
-    it('should settle appointment successfully', async () => {
-      const settledAppointment = { ...mockAppointment, status: 'COMPLETED' };
-      mockPrismaService.appointment.findUnique.mockResolvedValue(mockAppointment);
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        return callback({
-          appointment: {
-            update: jest.fn().mockResolvedValue(settledAppointment),
-          },
-          transaction: {
-            create: jest.fn().mockResolvedValue({ id: 1 }),
-          },
-        });
-      });
-
-      const result = await service.settleAppointment(1);
-
-      expect(result.status).toBe('COMPLETED');
-    });
-
-    it('should throw NotFoundException when appointment not found', async () => {
-      mockPrismaService.appointment.findUnique.mockResolvedValue(null);
-
-      await expect(service.settleAppointment(999)).rejects.toThrow(NotFoundException);
-    });
-
-    it('should throw BadRequestException when appointment already settled', async () => {
-      const completedAppointment = { ...mockAppointment, status: 'COMPLETED' };
-      mockPrismaService.appointment.findUnique.mockResolvedValue(completedAppointment);
-
-      await expect(service.settleAppointment(1)).rejects.toThrow(BadRequestException);
+      await expect(service.remove(999, { id: 1, role: 'ADMIN' })).rejects.toThrow(NotFoundException);
     });
   });
 
-  describe('cancelAppointment', () => {
-    it('should cancel appointment successfully', async () => {
-      const currentUser = { role: 'CUSTOMER', id: 1 };
-      mockPrismaService.appointment.findUnique.mockResolvedValue(mockAppointment);
-      mockPrismaService.appointment.update.mockResolvedValue({
-        ...mockAppointment,
-        status: 'CANCELLED',
+  describe('settle', () => {
+    it('throws NotFoundException when appointment is missing', async () => {
+      mockPrismaService.appointment.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.settle(999, { amount: 1 } as any, { id: 1, role: 'ADMIN' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects settling an already settled appointment', async () => {
+      mockPrismaService.appointment.findFirst.mockResolvedValue({
+        ...appointmentRow,
+        status: 'SETTLED',
       });
 
-      const result = await service.cancelAppointment(1, currentUser);
+      await expect(
+        service.settle(1, { amount: 1 } as any, { id: 1, role: 'ADMIN' }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
 
-      expect(result.status).toBe('CANCELLED');
+  describe('cancel', () => {
+    it('throws NotFoundException when appointment is missing', async () => {
+      mockPrismaService.appointment.findFirst.mockResolvedValue(null);
+
+      await expect(service.cancel(999, { id: 1, role: 'ADMIN' })).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw BadRequestException when user tries to cancel others appointment', async () => {
-      const currentUser = { role: 'CUSTOMER', id: 999 };
-      mockPrismaService.appointment.findUnique.mockResolvedValue(mockAppointment);
+    it('rejects cancelling a settled appointment', async () => {
+      mockPrismaService.appointment.findFirst.mockResolvedValue({
+        ...appointmentRow,
+        status: 'SETTLED',
+      });
 
-      await expect(service.cancelAppointment(1, currentUser)).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw BadRequestException when appointment already cancelled', async () => {
-      const currentUser = { role: 'CUSTOMER', id: 1 };
-      const cancelledAppointment = { ...mockAppointment, status: 'CANCELLED' };
-      mockPrismaService.appointment.findUnique.mockResolvedValue(cancelledAppointment);
-
-      await expect(service.cancelAppointment(1, currentUser)).rejects.toThrow(BadRequestException);
+      await expect(service.cancel(1, { id: 1, role: 'ADMIN' })).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('getAvailableSlots', () => {
-    it('should return available slots for a given date and employee', async () => {
-      const date = new Date('2024-01-15');
-      const employeeId = 1;
-      
-      mockPrismaService.appointment.findMany.mockResolvedValue([]);
+    it('throws NotFoundException when the employee does not exist', async () => {
+      mockPrismaService.employee.findUnique.mockResolvedValue(null);
 
-      const result = await service.getAvailableSlots(date, employeeId);
-
-      expect(result).toHaveProperty('slots');
-      expect(result).toHaveProperty('date');
-      expect(Array.isArray(result.slots)).toBe(true);
-    });
-  });
-
-  describe('getPublicServices', () => {
-    it('should return public services', async () => {
-      const mockServices = [
-        { id: 1, name: 'Haircut', category: 'Hair', durationMinutes: 30, price: 50.0 },
-        { id: 2, name: 'Beard Trim', category: 'Beard', durationMinutes: 15, price: 25.0 },
-      ];
-
-      mockPrismaService.service.findMany.mockResolvedValue(mockServices);
-
-      const result = await service.getPublicServices();
-
-      expect(result).toEqual(mockServices);
-      expect(mockPrismaService.service.findMany).toHaveBeenCalledWith({
-        select: {
-          id: true,
-          name: true,
-          category: true,
-          durationMinutes: true,
-          price: true,
-        },
-        orderBy: { name: 'asc' },
-      });
+      await expect(
+        service.getAvailableSlots({ employeeId: 99, date: '2030-06-15' } as any),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

@@ -445,6 +445,61 @@ export const jalaliDayBoundsTehran = (
   };
 };
 
+/** HH:mm in Asia/Tehran from an ISO timestamp, or pass-through of HH:mm. */
+export const tehranHHmmFromIso = (value: string): string | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (/^\d{1,2}:\d{2}(?::\d{2})?$/.test(trimmed)) {
+    const [h, m] = trimmed.split(':');
+    return `${h.padStart(2, '0')}:${m}`;
+  }
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Tehran',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const hour = parts.find((part) => part.type === 'hour')?.value;
+  const minute = parts.find((part) => part.type === 'minute')?.value;
+  if (!hour || !minute) return null;
+  return `${hour}:${minute}`;
+};
+
+/** Jalali YYYY/MM/DD + Tehran HH:mm for appointment display (not browser-local). */
+export const formatAppointmentWhenTehran = (iso: string | Date): string => {
+  const date = typeof iso === 'string' ? new Date(iso) : iso;
+  if (!date || Number.isNaN(date.getTime())) return '';
+  const gregorian = date.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
+  const [gy, gm, gd] = gregorian.split('-').map(Number);
+  const { jy, jm, jd } = jalaali.toJalaali(gy, gm, gd);
+  const time = tehranHHmmFromIso(date.toISOString()) || '';
+  return `${jy}/${String(jm).padStart(2, '0')}/${String(jd).padStart(2, '0')}${time ? ` ${time}` : ''}`;
+};
+
+/** Jalali picker value → API jalaliDate YYYY-MM-DD */
+export const jalaliToApiDate = (jalaliDate: string): string | null => {
+  if (!jalaliDate) return null;
+  const normalized = persianToEnglishDigits(jalaliDate).replace(/\//g, '-');
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
+};
+
+/**
+ * Convert a picker date to the Gregorian YYYY-MM-DD the slots API expects.
+ * Years >= 1700 are treated as already-Gregorian so ISO dates are not re-parsed as Jalali.
+ */
+export const slotsApiDateFromPicker = (date: string): string | null => {
+  if (!date) return null;
+  const normalized = persianToEnglishDigits(date).replace(/\//g, '-');
+  const year = Number(normalized.slice(0, 4));
+  if (!Number.isFinite(year)) return null;
+  if (year >= 1700) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
+  }
+  return jalaliToGregorian(date);
+};
+
 /** Jalali date + HH:mm → ISO with +03:30 */
 export const jalaliDateTimeTehranIso = (
   jalaliDate: string,
@@ -559,7 +614,7 @@ export const getTehranAppointmentPresetRange = (
 // Export dayjs configured with Jalali for advanced use cases
 export const jalaliDayjs = dayjs;
 
-export default {
+const dateHelpers = {
   formatToJalali,
   parseFromJalali,
   jalaliToISO,
@@ -589,5 +644,11 @@ export default {
   getTehranJalaliMonthToTodayBounds,
   getTehranAppointmentPresetRange,
   jalaliDateTimeTehranIso,
+  tehranHHmmFromIso,
+  formatAppointmentWhenTehran,
+  jalaliToApiDate,
+  slotsApiDateFromPicker,
 };
+
+export default dateHelpers;
 

@@ -79,7 +79,7 @@ export class DayClosingService {
     return dayClosing;
   }
 
-  async reopenDay(date: Date, reopenedBy: number) {
+  async reopenDay(date: Date, _reopenedBy: number) {
     const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     
     const dayClosing = await this.prisma.dayClosing.findUnique({

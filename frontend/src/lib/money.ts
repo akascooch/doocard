@@ -265,7 +265,7 @@ export const formatMoney = formatRials;
 export const toTomans = toThousandTomans; // Legacy (now returns Rials)
 export const fromTomans = fromThousandTomans; // Legacy (no conversion)
 
-export default {
+const moneyHelpers = {
   formatNumberWithCommas,
   parseFormattedNumber,
   formatRials,
@@ -285,4 +285,6 @@ export default {
   persianToEnglishDigits,
   englishToPersianDigits,
 };
+
+export default moneyHelpers;
 

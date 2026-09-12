@@ -61,4 +61,20 @@ describe('SMS catalog — settlement + tip', () => {
     );
     expect(tpl?.content).toContain('{bankName}');
   });
+
+  it('registers back-in-stock waitlist template and policy', () => {
+    const tpl = DEFAULT_SMS_TEMPLATES.find(
+      (t) => t.name === SMS_TEMPLATE_KEYS.PRODUCT_BACK_IN_STOCK,
+    );
+    expect(tpl?.content).toContain('{productName}');
+    const rule = DEFAULT_SMS_POLICY.find(
+      (r) => r.eventKey === SMS_EVENT_KEYS.PRODUCT_BACK_IN_STOCK,
+    );
+    expect(rule).toEqual(
+      expect.objectContaining({
+        eventKey: 'shop.productBackInStock',
+        smsEnabled: true,
+      }),
+    );
+  });
 });

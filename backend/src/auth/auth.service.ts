@@ -71,7 +71,7 @@ export class AuthService {
     const passwordMatch = await bcrypt.compare(password, user.password);
 
     if (passwordMatch) {
-      const { password, ...result } = user;
+      const { password: _password, ...result } = user;
       return result;
     }
     return null;
@@ -210,7 +210,7 @@ export class AuthService {
       throw new UnauthorizedException('رفرش توکن منقضی شده است');
     }
 
-    const { password, ...user } = storedToken.user;
+    const { password: _password, ...user } = storedToken.user;
     const accessToken = this.generateAccessToken(user);
     const newRefreshToken = await this.generateRefreshToken(
       user.id,

@@ -81,6 +81,7 @@ export default function PermissionsPage() {
 
   useEffect(() => {
     fetchInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, []);
 
   useEffect(() => {
@@ -89,6 +90,7 @@ export default function PermissionsPage() {
     } else if (activeTab === "users" && selectedUser) {
       fetchUserPermissions(selectedUser.id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [activeTab, selectedRole, selectedUser]);
 
   const fetchInitialData = async () => {

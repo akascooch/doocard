@@ -64,6 +64,7 @@ export default function EmployeeRequestsPage() {
 
   useEffect(() => {
     loadRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, []);
 
   const loadRequests = async () => {

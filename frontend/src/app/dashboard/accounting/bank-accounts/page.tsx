@@ -56,7 +56,10 @@ export default function BankAccountsPage() {
     defaultValues: { name: "", cardNumber: "" },
   });
 
-  useEffect(() => { fetchAccounts(); }, []);
+  useEffect(() => {
+    fetchAccounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
+  }, []);
 
   useEffect(() => {
     if (accounts.length > 0) {
@@ -71,6 +74,7 @@ export default function BankAccountsPage() {
         } catch {}
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- accounts.length gates refetch; full accounts identity would loop via setAccounts
   }, [accounts.length]);
 
   // گرفتن مقدار پیش‌فرض از API

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { RoleBasedSidebar } from "@/components/RoleBasedSidebar"
@@ -113,10 +113,15 @@ export default function DashboardLayout({
     }
   }
 
+  const isSidebarOpenRef = useRef(isSidebarOpen)
+  isSidebarOpenRef.current = isSidebarOpen
+  const isMobileRef = useRef(isMobile)
+  isMobileRef.current = isMobile
+
   // Close sidebar on any route change (single central fix for all panels)
   useEffect(() => {
-    if (isSidebarOpen) {
-      closeMobileSidebar()
+    if (isSidebarOpenRef.current && isMobileRef.current) {
+      setIsSidebarOpen(false)
     }
   }, [pathname])
 

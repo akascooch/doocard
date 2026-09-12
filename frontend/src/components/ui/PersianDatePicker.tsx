@@ -149,7 +149,7 @@ export default function PersianDatePicker({
   };
 
   return (
-    <div className={`space-y-2 ${className} ${disablePortal ? 'relative overflow-visible' : ''}`}>
+    <div className={`space-y-2 ${className} ${disablePortal ? 'relative overflow-visible' : ''}`} data-cy="jalali-date-picker">
       {label && (
         <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
           {label}
@@ -169,6 +169,7 @@ export default function PersianDatePicker({
         maxDate={getMinMaxDate(maxDate)}
         editable
         inputClass={`
+          rmdp-input
           w-full px-4 py-2 rounded-lg border text-right
           ${error 
             ? 'border-red-500 focus:ring-red-500 focus:border-red-500' 

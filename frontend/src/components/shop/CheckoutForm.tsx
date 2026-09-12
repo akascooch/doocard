@@ -15,8 +15,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { normalizeIranMobileClient } from "@/components/customers/QuickRegisterCustomerForm"
 import { formatTomansFromRial } from "@/lib/money"
-import { parseFetchError, SHOP_CARD_TO_CARD, type ShopOrder } from "@/lib/orders"
-import { cartTotalRial, useShopCart } from "@/store/shop-cart"
+import { parseShopApiError, INSUFFICIENT_STOCK, SHOP_CARD_TO_CARD, type ShopOrder } from "@/lib/orders"
+import { cartRequiresQuote, cartTotalRial, useShopCart } from "@/store/shop-cart"
 
 const IRAN_MOBILE_RE = /^09\d{9}$/
 const RECEIPT_TYPES = ["image/jpeg", "image/png", "image/webp"]
@@ -33,7 +33,9 @@ export function CheckoutForm({
   const decrease = useShopCart((s) => s.decrease)
   const removeItem = useShopCart((s) => s.removeItem)
   const clearCart = useShopCart((s) => s.clearCart)
+  const syncFromCatalog = useShopCart((s) => s.syncFromCatalog)
   const total = cartTotalRial(items)
+  const quoteRequired = cartRequiresQuote(items)
 
   const [customerName, setCustomerName] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
@@ -104,9 +106,11 @@ export function CheckoutForm({
     if (!customerName.trim() || customerName.trim().length < 2) return "نام الزامی است"
     const phone = normalizeIranMobileClient(customerPhone)
     if (!IRAN_MOBILE_RE.test(phone)) return "شماره موبایل معتبر نیست (مثال: 09121234567)"
-    if (!receipt) return "تصویر رسید کارت‌به‌کارت الزامی است"
-    if (!RECEIPT_TYPES.includes(receipt.type)) return "فقط فایل JPEG، PNG یا WebP مجاز است"
-    if (receipt.size > 5 * 1024 * 1024) return "حجم تصویر حداکثر ۵ مگابایت است"
+    if (!quoteRequired) {
+      if (!receipt) return "تصویر رسید کارت‌به‌کارت الزامی است"
+      if (!RECEIPT_TYPES.includes(receipt.type)) return "فقط فایل JPEG، PNG یا WebP مجاز است"
+      if (receipt.size > 5 * 1024 * 1024) return "حجم تصویر حداکثر ۵ مگابایت است"
+    }
     return null
   }
 
@@ -117,7 +121,7 @@ export function CheckoutForm({
       setError(validationError)
       return
     }
-    if (!receipt) return
+    if (!quoteRequired && !receipt) return
 
     setSubmitting(true)
     setError(null)
@@ -131,7 +135,9 @@ export function CheckoutForm({
         "items",
         JSON.stringify(items.map((item) => ({ productId: item.productId, quantity: item.quantity }))),
       )
-      form.append("receipt", receipt)
+      if (!quoteRequired && receipt) {
+        form.append("receipt", receipt)
+      }
 
       const res = await fetch("/api/orders", {
         method: "POST",
@@ -139,7 +145,21 @@ export function CheckoutForm({
         credentials: "omit",
       })
       if (!res.ok) {
-        throw new Error(await parseFetchError(res, "ثبت سفارش ناموفق بود"))
+        const parsed = await parseShopApiError(res, "ثبت سفارش ناموفق بود")
+        if (parsed.code === INSUFFICIENT_STOCK) {
+          try {
+            const catalogRes = await fetch("/api/public/products", { credentials: "omit" })
+            if (catalogRes.ok) {
+              const catalog = (await catalogRes.json()) as {
+                products?: { id: number; stock?: number; inStock?: boolean }[]
+              }
+              syncFromCatalog(catalog.products || [])
+            }
+          } catch {
+            // keep the server message even if catalog refresh fails
+          }
+        }
+        throw new Error(parsed.message)
       }
       const order = (await res.json()) as ShopOrder
       clearCart()
@@ -160,18 +180,22 @@ export function CheckoutForm({
         onOpenChange(next)
       }}
     >
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto border-white/10 bg-[#0c0c0c] text-white sm:max-w-xl">
+      <DialogContent data-cy="checkout-dialog" className="max-h-[90vh] max-w-lg overflow-y-auto border-white/10 bg-[#0c0c0c] text-white sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>تسویه کارت‌به‌کارت</DialogTitle>
+          <DialogTitle>{quoteRequired ? "ثبت درخواست استعلام قیمت" : "تسویه کارت‌به‌کارت"}</DialogTitle>
           <DialogDescription className="text-zinc-400">
-            سفارش پس از بررسی رسید توسط سالن تأیید می‌شود.
+            {quoteRequired
+              ? "برخی اقلام نیازمند استعلام قیمت هستند؛ پس از ثبت سفارش، کارشناسان قیمت نهایی را اعلام خواهند کرد."
+              : "سفارش پس از بررسی رسید توسط سالن تأیید می‌شود."}
           </DialogDescription>
         </DialogHeader>
 
         {successOrder ? (
           <div className="space-y-4 text-sm">
-            <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-emerald-200">
-              سفارش شما ثبت شد.
+            <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-emerald-200" data-cy="checkout-success">
+              {successOrder.status === "AWAITING_QUOTE"
+                ? "درخواست استعلام قیمت شما ثبت شد."
+                : "سفارش شما ثبت شد."}
               {successOrder.orderNumber ? (
                 <>
                   {" "}
@@ -192,32 +216,41 @@ export function CheckoutForm({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="rounded-md border border-white/15 bg-white/5 p-4 text-sm text-zinc-100">
-              <p className="text-zinc-300">به نام</p>
-              <p className="mt-1 text-base font-semibold">{SHOP_CARD_TO_CARD.ownerName}</p>
-              <p className="mt-4 text-zinc-300">شماره کارت</p>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <p dir="ltr" className="font-mono text-lg tracking-wide">
-                  {SHOP_CARD_TO_CARD.cardNumberDisplay}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => void copyCardNumber()}
-                  aria-label="کپی شماره کارت"
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-white/20 px-3 text-xs text-white hover:bg-white/10"
-                >
-                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  {copied ? "کپی شد" : "کپی شماره کارت"}
-                </button>
+            {quoteRequired ? (
+              <p className="rounded-md border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm leading-7 text-amber-100">
+                برخی اقلام نیازمند استعلام قیمت هستند؛ پس از ثبت سفارش، کارشناسان قیمت نهایی را اعلام خواهند کرد.
+              </p>
+            ) : (
+              <div className="rounded-md border border-white/15 bg-white/5 p-4 text-sm text-zinc-100">
+                <p className="text-zinc-300">به نام</p>
+                <p className="mt-1 text-base font-semibold">{SHOP_CARD_TO_CARD.ownerName}</p>
+                <p className="mt-4 text-zinc-300">شماره کارت</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <p dir="ltr" className="font-mono text-lg tracking-wide">
+                    {SHOP_CARD_TO_CARD.cardNumberDisplay}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void copyCardNumber()}
+                    aria-label="کپی شماره کارت"
+                    className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-white/20 px-3 text-xs text-white hover:bg-white/10"
+                  >
+                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    {copied ? "کپی شد" : "کپی شماره کارت"}
+                  </button>
+                </div>
+                <p className="mt-3 leading-7 text-zinc-300">{SHOP_CARD_TO_CARD.instructions}</p>
               </div>
-              <p className="mt-3 leading-7 text-zinc-300">{SHOP_CARD_TO_CARD.instructions}</p>
-            </div>
+            )}
 
             <div className="space-y-2">
               {items.length === 0 ? (
                 <p className="text-sm text-zinc-500">سبد خرید خالی است.</p>
               ) : (
-                items.map((item) => (
+                items.map((item) => {
+                  const atMax =
+                    item.maxStock != null && Number.isFinite(item.maxStock) && item.quantity >= item.maxStock
+                  return (
                   <div
                     key={item.productId}
                     className="flex items-center justify-between gap-3 rounded-md border border-white/10 px-3 py-2"
@@ -225,13 +258,18 @@ export function CheckoutForm({
                     <div className="min-w-0">
                       <p className="truncate text-sm">{item.title}</p>
                       <p className="text-xs text-zinc-500">
-                        {formatTomansFromRial(item.price)} × {item.quantity}
+                        {item.quoteRequired
+                          ? "نیازمند استعلام قیمت"
+                          : `${formatTomansFromRial(item.price)} × ${item.quantity}`}
                       </p>
+                      {item.maxStock != null ? (
+                        <p className="text-xs text-zinc-500">حداکثر موجودی: {item.maxStock}</p>
+                      ) : null}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       <button
                         type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded border border-white/15"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded border border-white/15 disabled:cursor-not-allowed disabled:opacity-40"
                         onClick={() => decrease(item.productId)}
                         aria-label="کاهش"
                       >
@@ -240,8 +278,9 @@ export function CheckoutForm({
                       <span className="w-6 text-center text-sm">{item.quantity}</span>
                       <button
                         type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded border border-white/15"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded border border-white/15 disabled:cursor-not-allowed disabled:opacity-40"
                         onClick={() => increase(item.productId)}
+                        disabled={atMax}
                         aria-label="افزایش"
                       >
                         <Plus className="h-3 w-3" />
@@ -256,10 +295,13 @@ export function CheckoutForm({
                       </button>
                     </div>
                   </div>
-                ))
+                  )
+                })
               )}
               {items.length > 0 ? (
-                <p className="pt-1 text-sm font-semibold">جمع: {formatTomansFromRial(total)}</p>
+                <p className="pt-1 text-sm font-semibold">
+                  جمع: {quoteRequired ? "نیازمند استعلام" : formatTomansFromRial(total)}
+                </p>
               ) : null}
             </div>
 
@@ -317,6 +359,7 @@ export function CheckoutForm({
                   maxLength={1000}
                 />
               </div>
+              {!quoteRequired ? (
               <div className="space-y-1.5">
                 <Label htmlFor="shop-receipt" className="text-zinc-200">
                   تصویر رسید *
@@ -340,6 +383,7 @@ export function CheckoutForm({
                   />
                 ) : null}
               </div>
+              ) : null}
             </div>
 
             {error ? <p className="text-sm text-red-400">{error}</p> : null}
@@ -347,10 +391,11 @@ export function CheckoutForm({
             <Button
               type="submit"
               disabled={!canSubmit}
+              data-cy="checkout-submit"
               className="w-full bg-white text-black hover:bg-zinc-200"
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              ثبت سفارش
+              {quoteRequired ? "ثبت درخواست و استعلام قیمت" : "ثبت سفارش"}
             </Button>
           </form>
         )}

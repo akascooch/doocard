@@ -49,6 +49,8 @@ export function getErrorMessage(error: ErrorResponse): string {
         return 'اطلاعات ورودی نامعتبر است.';
       case 500:
         return 'خطا در سرور. لطفاً بعداً دوباره تلاش کنید.';
+      case 503:
+        return 'سرویس ارسال کد تأیید در حال حاضر در دسترس نیست. لطفاً بعداً تلاش کنید.';
       default:
         return `خطای ${error.response.status} رخ داده است.`;
     }

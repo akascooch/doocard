@@ -3,9 +3,10 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Prisma, InventoryMovementType } from '@prisma/client';
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,6 +21,8 @@ import {
   UpdateProductCategoryDto,
   UpdateProductDto,
 } from './dto';
+import { toPublicCatalogProduct } from './public-product.util';
+import { StockNotificationService } from '../waitlist/stock-notification.service';
 
 const PRODUCT_UPLOAD_DIR = join(process.cwd(), 'uploads', 'products');
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -73,27 +76,30 @@ function toPublicProduct(row: {
   images: Prisma.JsonValue | null;
   priceRial: bigint;
   isPriceVisible: boolean;
+  stock: number;
   category: { id: number; name: string } | null;
 }) {
-  const priceVisible = row.isPriceVisible;
-  return {
+  return toPublicCatalogProduct({
     id: row.id,
     name: row.name,
     description: row.description,
     images: publicImages(row.images),
+    priceRial: row.priceRial,
+    isPriceVisible: row.isPriceVisible,
+    stock: row.stock,
     category: {
       id: row.category!.id,
       name: row.category!.name,
     },
-    priceRial: priceVisible ? row.priceRial.toString() : null,
-    priceVisible,
-    isPriceVisible: priceVisible,
-  };
+  });
 }
 
 @Injectable()
 export class ProductsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Optional() private readonly stockNotifications?: StockNotificationService,
+  ) {}
 
   listCategories() {
     return this.prisma.productCategory.findMany({
@@ -172,7 +178,8 @@ export class ProductsService {
 
   /**
    * Customer catalog. Explicit fields only — never spread the Prisma row.
-   * Active product + active category required. Stock/SKU/cost/timestamps stay off the wire.
+   * Active product + active category required.
+   * Public stock is remaining sellable quantity only. SKU/cost/lowStockAlert/timestamps stay off the wire.
    */
   async listPublicCatalog(query: QueryPublicProductsDto) {
     const search = query.search?.trim();
@@ -205,6 +212,7 @@ export class ProductsService {
           images: true,
           priceRial: true,
           isPriceVisible: true,
+          stock: true,
           category: { select: { id: true, name: true } },
         },
         orderBy: [{ name: 'asc' }, { id: 'asc' }],
@@ -324,13 +332,14 @@ export class ProductsService {
       throw new BadRequestException('تعداد ورود/خروج باید حداقل ۱ باشد');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const product = await tx.product.findUnique({ where: { id: productId } });
       if (!product) {
         throw new NotFoundException('محصول یافت نشد');
       }
 
       let movementQty = dto.quantity;
+      let previousStock = product.stock;
       let nextStock = product.stock;
 
       if (dto.type === ManualInventoryMovementType.IN) {
@@ -363,6 +372,7 @@ export class ProductsService {
         if (current == null) {
           throw new NotFoundException('محصول یافت نشد');
         }
+        previousStock = current;
         const delta = dto.quantity - current;
         await tx.$executeRaw`
           UPDATE "products"
@@ -389,10 +399,17 @@ export class ProductsService {
       });
 
       return {
-        ...serializeMovement(movement),
-        stock: nextStock,
+        movement: {
+          ...serializeMovement(movement),
+          stock: nextStock,
+        },
+        previousStock,
+        nextStock,
       };
     });
+
+    this.stockNotifications?.notifyIfBackInStock(productId, result.previousStock, result.nextStock);
+    return result.movement;
   }
 
   async listMovements(productId: number, query: QueryMovementsDto) {

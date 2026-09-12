@@ -1,7 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import {
   AppointmentStatus,
-  EmployeeCommissionSettlementStatus,
   TransactionType,
 } from '@prisma/client';
 import {

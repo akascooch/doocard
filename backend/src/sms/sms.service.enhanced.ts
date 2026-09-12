@@ -172,7 +172,7 @@ export class SmsServiceEnhanced implements OnModuleInit {
     status: string,
     appointmentId?: number,
     providerResp?: any,
-    error?: string,
+    _error?: string,
   ): Promise<void> {
     try {
       const events = recipients.map((phone) => ({

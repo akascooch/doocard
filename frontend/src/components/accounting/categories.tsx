@@ -75,10 +75,24 @@ export function Categories() {
 
   useEffect(() => {
     fetchCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, []);
 
   useEffect(() => {
-    filterCategories();
+    let filtered = categories;
+
+    if (searchTerm) {
+      filtered = filtered.filter(category =>
+        category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (category.description && category.description.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+
+    if (typeFilter !== 'ALL') {
+      filtered = filtered.filter(category => category.type === typeFilter);
+    }
+
+    setFilteredCategories(filtered);
   }, [categories, searchTerm, typeFilter]);
 
   const fetchCategories = async () => {
@@ -93,25 +107,6 @@ export function Categories() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const filterCategories = () => {
-    let filtered = categories;
-
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter(category =>
-        category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (category.description && category.description.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
-    }
-
-    // Filter by type
-    if (typeFilter !== 'ALL') {
-      filtered = filtered.filter(category => category.type === typeFilter);
-    }
-
-    setFilteredCategories(filtered);
   };
 
   const resetForm = () => {
@@ -433,7 +428,7 @@ export function Categories() {
                             <AlertDialogHeader>
                               <AlertDialogTitle>حذف دسته‌بندی</AlertDialogTitle>
                               <AlertDialogDescription>
-                                آیا مطمئن هستید که می‌خواهید دسته‌بندی "{category.name}" را حذف کنید؟
+                                آیا مطمئن هستید که می‌خواهید دسته‌بندی «{category.name}» را حذف کنید؟
                                 این عملیات غیرقابل بازگشت است.
                               </AlertDialogDescription>
                             </AlertDialogHeader>

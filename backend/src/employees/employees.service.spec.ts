@@ -33,6 +33,7 @@ describe('EmployeesService', () => {
       create: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
     },
@@ -62,11 +63,9 @@ describe('EmployeesService', () => {
 
     service = module.get<EmployeesService>(EmployeesService);
     prismaService = module.get<PrismaService>(PrismaService);
+    mockPrismaService.employee.findFirst.mockResolvedValue(null);
     // ensure delete exists on user delegate
-    // @ts-ignore
     prismaService.user.delete = prismaService.user.delete || jest.fn();
-    // mock $transaction to directly execute callback with tx containing needed delegates
-    // @ts-ignore
     prismaService.$transaction = jest.fn(async (cb: any) => cb({
       ...prismaService,
       user: prismaService.user,
@@ -91,6 +90,7 @@ describe('EmployeesService', () => {
     };
 
       mockPrismaService.user.findUnique.mockResolvedValue(null);
+      mockPrismaService.employee.findFirst.mockResolvedValue(null);
       mockPrismaService.user.create.mockResolvedValue({ id: 1, ...createEmployeeDto });
       mockPrismaService.employee.create.mockResolvedValue(mockEmployee);
 

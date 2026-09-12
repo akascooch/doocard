@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 describe('PrismaHealthIndicator', () => {
   let indicator: PrismaHealthIndicator;
-  let prismaService: PrismaService;
+  let _prismaService: PrismaService;
 
   const mockPrismaService = {
     $queryRaw: jest.fn(),
@@ -23,7 +23,7 @@ describe('PrismaHealthIndicator', () => {
     }).compile();
 
     indicator = module.get<PrismaHealthIndicator>(PrismaHealthIndicator);
-    prismaService = module.get<PrismaService>(PrismaService);
+    _prismaService = module.get<PrismaService>(PrismaService);
   });
 
   afterEach(() => {

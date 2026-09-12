@@ -53,6 +53,7 @@ export function DailyTips() {
 
   useEffect(() => {
     fetchDailyStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [selectedDate]);
 
   const fetchDailyStats = async () => {

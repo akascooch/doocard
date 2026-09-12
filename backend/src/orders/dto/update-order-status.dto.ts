@@ -1,5 +1,6 @@
 import { OrderStatus } from '@prisma/client';
-import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsEnum, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class UpdateOrderStatusDto {
   @IsEnum(OrderStatus)
@@ -14,4 +15,10 @@ export class UpdateOrderStatusDto {
   @IsString()
   @MaxLength(80)
   trackingCode?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  quotedTotalRial?: number;
 }

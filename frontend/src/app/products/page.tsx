@@ -11,6 +11,7 @@ import { CartSummary } from "@/components/shop/CartSummary"
 import { CheckoutForm } from "@/components/shop/CheckoutForm"
 import { formatTomansFromRial } from "@/lib/money"
 import { landingBookHref, readAuthToken } from "@/lib/landing"
+import { subscribeToProductWaitlist } from "@/lib/waitlist"
 import { useShopCart } from "@/store/shop-cart"
 
 type PublicCategory = { id: number; name: string }
@@ -24,6 +25,23 @@ type PublicProduct = {
   priceRial: string | null
   priceVisible: boolean
   isPriceVisible: boolean
+  stock?: number
+  inStock?: boolean
+  stockStatus?: "IN_STOCK" | "OUT_OF_STOCK"
+}
+
+function catalogAvailability(product: PublicProduct): { inStock: boolean; stock?: number } {
+  if (typeof product.inStock === "boolean") {
+    return {
+      inStock: product.inStock,
+      stock: typeof product.stock === "number" ? Math.max(0, Math.floor(product.stock)) : undefined,
+    }
+  }
+  if (typeof product.stock === "number") {
+    const stock = Math.max(0, Math.floor(product.stock))
+    return { inStock: stock > 0, stock }
+  }
+  return { inStock: true }
 }
 
 function truncate(text: string | null, max = 90) {
@@ -42,7 +60,33 @@ export default function PublicProductsPage() {
   const [search, setSearch] = useState("")
   const [categoryId, setCategoryId] = useState<number | null>(null)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const [waitlistBusyId, setWaitlistBusyId] = useState<number | null>(null)
+  const [waitlistNote, setWaitlistNote] = useState<Record<number, string>>({})
   const addItem = useShopCart((s) => s.addItem)
+  const syncFromCatalog = useShopCart((s) => s.syncFromCatalog)
+
+  const requestWaitlist = async (productId: number) => {
+    const token = readAuthToken()
+    if (!token) {
+      setWaitlistNote((prev) => ({
+        ...prev,
+        [productId]: "برای خبر شدن هنگام موجود شدن، وارد شوید.",
+      }))
+      return
+    }
+    setWaitlistBusyId(productId)
+    try {
+      await subscribeToProductWaitlist(productId, token)
+      setWaitlistNote((prev) => ({ ...prev, [productId]: "ثبت شد. وقتی موجود شود خبرتان می‌کنیم." }))
+    } catch (err) {
+      setWaitlistNote((prev) => ({
+        ...prev,
+        [productId]: err instanceof Error ? err.message : "ثبت درخواست ناموفق بود",
+      }))
+    } finally {
+      setWaitlistBusyId(null)
+    }
+  }
 
   useEffect(() => {
     setBookHref(landingBookHref(Boolean(readAuthToken())))
@@ -57,8 +101,10 @@ export default function PublicProductsPage() {
     })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error("catalog"))))
       .then((data: { categories?: PublicCategory[]; products?: PublicProduct[] }) => {
+        const nextProducts = data.products || []
         setCategories(data.categories || [])
-        setProducts(data.products || [])
+        setProducts(nextProducts)
+        syncFromCatalog(nextProducts)
         setError(null)
       })
       .catch((err) => {
@@ -69,7 +115,7 @@ export default function PublicProductsPage() {
       .finally(() => setLoading(false))
 
     return () => controller.abort()
-  }, [])
+  }, [syncFromCatalog])
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -135,9 +181,15 @@ export default function PublicProductsPage() {
             {visible.map((product) => {
               const image = product.images[0]
               const showPrice = product.priceVisible && product.priceRial != null
+              const { inStock, stock } = catalogAvailability(product)
+              const canAdd = inStock
+              const quoteRequired = !showPrice
               return (
                 <Card
                   key={product.id}
+                  data-cy={`product-card-${product.id}`}
+                  data-stock={inStock ? "in" : "out"}
+                  data-quote={quoteRequired ? "yes" : "no"}
                   className="overflow-hidden border-white/10 bg-[#080808] text-white"
                 >
                   <div className="relative aspect-[4/3] bg-zinc-900">
@@ -155,9 +207,26 @@ export default function PublicProductsPage() {
                     )}
                   </div>
                   <CardHeader className="space-y-2">
-                    <Badge variant="outline" className="w-fit border-white/20 text-zinc-300">
-                      {product.category.name}
-                    </Badge>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline" className="w-fit border-white/20 text-zinc-300">
+                        {product.category.name}
+                      </Badge>
+                      {!inStock ? (
+                        <Badge
+                          variant="outline"
+                          className="w-fit border-red-400/40 bg-red-500/10 text-red-200"
+                        >
+                          ناموجود
+                        </Badge>
+                      ) : quoteRequired ? (
+                        <Badge
+                          variant="outline"
+                          className="w-fit border-amber-400/40 bg-amber-500/10 text-amber-200"
+                        >
+                          نیازمند استعلام قیمت
+                        </Badge>
+                      ) : null}
+                    </div>
                     <CardTitle className="text-lg">{product.name}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
@@ -171,26 +240,65 @@ export default function PublicProductsPage() {
                         {formatTomansFromRial(product.priceRial)}
                       </p>
                     ) : (
-                      <p className="text-sm text-zinc-500">قیمت در سالن اعلام می‌شود</p>
+                      <p className="text-sm text-amber-200">تماس جهت استعلام</p>
                     )}
                     <button
                       type="button"
-                      disabled={!showPrice || !product.priceRial}
+                      data-cy={
+                        !inStock
+                          ? "product-out-of-stock"
+                          : quoteRequired
+                            ? "product-add-quote"
+                            : "product-add-fixed"
+                      }
+                      disabled={!canAdd}
                       onClick={() => {
-                        if (!product.priceRial) return
+                        if (!inStock) return
                         addItem({
                           productId: product.id,
                           title: product.name,
-                          price: product.priceRial,
+                          price: showPrice && product.priceRial ? product.priceRial : "0",
                           image: image || null,
+                          maxStock: stock,
+                          quoteRequired,
                         })
                       }}
                       className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-white px-4 text-sm font-semibold text-black hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      افزودن به سبد
+                      {!inStock ? "ناموجود" : quoteRequired ? "افزودن برای استعلام" : "افزودن به سبد"}
                     </button>
-                    {!showPrice ? (
-                      <p className="text-xs text-zinc-600">سفارش آنلاین برای این محصول فعال نیست.</p>
+                    {!inStock ? (
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          data-cy="product-waitlist"
+                          disabled={waitlistBusyId === product.id || waitlistNote[product.id]?.startsWith("ثبت شد")}
+                          onClick={() => void requestWaitlist(product.id)}
+                          className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-white/20 px-4 text-sm text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {waitlistBusyId === product.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : waitlistNote[product.id]?.startsWith("ثبت شد") ? (
+                            "ثبت شد"
+                          ) : (
+                            "خبرم کنید"
+                          )}
+                        </button>
+                        {waitlistNote[product.id] ? (
+                          <p className="text-xs text-zinc-500">
+                            {waitlistNote[product.id]}{" "}
+                            {waitlistNote[product.id].includes("وارد شوید") ? (
+                              <Link href="/login" className="text-zinc-300 underline">
+                                ورود
+                              </Link>
+                            ) : null}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-zinc-600">این محصول در حال حاضر موجود نیست.</p>
+                        )}
+                      </div>
+                    ) : quoteRequired ? (
+                      <p className="text-xs text-zinc-500">پس از ثبت درخواست، کارشناسان قیمت نهایی را اعلام می‌کنند.</p>
                     ) : null}
                   </CardContent>
                 </Card>

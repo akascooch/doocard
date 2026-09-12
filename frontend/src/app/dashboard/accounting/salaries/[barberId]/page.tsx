@@ -76,6 +76,7 @@ export default function BarberTransactionDetailsPage() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [barberId]);
 
   const handleWithdrawalRequest = async () => {

@@ -145,6 +145,7 @@ export default function PaymentModal({
     if (isOpen && appointmentId) {
       loadData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [isOpen, appointmentId]);
 
   const loadData = async () => {

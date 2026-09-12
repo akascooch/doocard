@@ -156,10 +156,10 @@ export default function TestDatePage() {
           <div className="mt-6 p-4 bg-green-50 border-l-4 border-green-500 rounded">
             <h2 className="font-bold text-lg mb-2">Instructions:</h2>
             <ol className="list-decimal list-inside space-y-1">
-              <li>Check the "Current Result" above</li>
+              <li>Check the «Current Result» above</li>
               <li>Check all the debug logs</li>
               <li>Open DevTools Console (F12) for more details</li>
-              <li>Compare with "Expected Today"</li>
+              <li>Compare with «Expected Today»</li>
               <li>If wrong, check timezone offset</li>
             </ol>
           </div>

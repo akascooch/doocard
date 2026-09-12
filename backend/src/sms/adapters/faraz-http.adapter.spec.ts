@@ -113,7 +113,7 @@ describe('FarazHttpAdapter', () => {
 
   it('should return error if not configured', async () => {
     mockConfigService.get.mockReturnValue('');
-    const newAdapter = new FarazHttpAdapter(httpService, configService);
+    const newAdapter = new FarazHttpAdapter(configService, httpService);
 
     const result = await newAdapter.send('1000', ['+989123456789'], 'Test');
 

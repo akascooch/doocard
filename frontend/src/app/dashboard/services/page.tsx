@@ -91,6 +91,7 @@ export default function ServicesPage() {
 
   useEffect(() => {
     fetchServices()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [])
 
   useEffect(() => {
@@ -577,7 +578,7 @@ export default function ServicesPage() {
                               حذف خدمت
                             </AlertDialogTitle>
                             <AlertDialogDescription>
-                              آیا از حذف خدمت "{service.name}" اطمینان دارید؟ این عملیات قابل بازگشت نیست.
+                              آیا از حذف خدمت «{service.name}» اطمینان دارید؟ این عملیات قابل بازگشت نیست.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>

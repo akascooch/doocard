@@ -46,6 +46,7 @@ export default function StaffPage() {
   useEffect(() => {
     fetchStaff()
     fetchServices()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [])
 
   const fetchStaff = async () => {

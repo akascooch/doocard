@@ -1,4 +1,5 @@
 export const ORDER_STATUSES = [
+  'AWAITING_QUOTE',
   'PENDING_VERIFICATION',
   'PAID',
   'PROCESSING',
@@ -57,6 +58,7 @@ export const SHOP_CARD_TO_CARD = {
 }
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  AWAITING_QUOTE: 'در انتظار استعلام قیمت',
   PENDING_VERIFICATION: 'در انتظار تأیید رسید',
   PAID: 'پرداخت تأیید شد',
   PROCESSING: 'در حال آماده‌سازی',
@@ -66,6 +68,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 }
 
 export const ORDER_STATUS_BADGE_CLASS: Record<OrderStatus, string> = {
+  AWAITING_QUOTE: 'border-orange-400/40 bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-200',
   PENDING_VERIFICATION: 'border-amber-400/40 bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200',
   PAID: 'border-emerald-400/40 bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200',
   PROCESSING: 'border-sky-400/40 bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-200',
@@ -104,14 +107,58 @@ export function shopApiErrorMessage(error: unknown, fallback: string): string {
   return fallback
 }
 
-export async function parseFetchError(res: Response, fallback: string): Promise<string> {
+export const INSUFFICIENT_STOCK = 'INSUFFICIENT_STOCK'
+export const INVALID_ORDER_QUANTITY = 'INVALID_ORDER_QUANTITY'
+export const PAYMENT_NOT_ALLOWED_FOR_QUOTE = 'PAYMENT_NOT_ALLOWED_FOR_QUOTE'
+
+export function isAwaitingQuote(status: string): boolean {
+  return status === 'AWAITING_QUOTE'
+}
+
+export function isStockDomainError(data: {
+  error?: string
+  internalCode?: string
+} | null | undefined): boolean {
+  const code = data?.error || data?.internalCode
+  return code === INSUFFICIENT_STOCK || code === INVALID_ORDER_QUANTITY
+}
+
+export async function parseShopApiError(
+  res: Response,
+  fallback: string,
+): Promise<{ message: string; code?: string }> {
   try {
-    const data = (await res.json()) as { message_fa?: string; message?: string | string[] }
-    if (typeof data?.message_fa === 'string') return data.message_fa
-    if (typeof data?.message === 'string') return data.message
-    if (Array.isArray(data?.message)) return data.message[0] || fallback
+    const data = (await res.json()) as {
+      message_fa?: string
+      message?: string | string[]
+      error?: string
+      internalCode?: string
+    }
+    const code = data?.error || data?.internalCode
+    if (typeof data?.message_fa === 'string' && data.message_fa.trim()) {
+      return { message: data.message_fa, code }
+    }
+    if (typeof data?.message === 'string' && data.message.trim()) {
+      return { message: data.message, code }
+    }
+    if (Array.isArray(data?.message) && data.message[0]) {
+      return { message: data.message[0], code }
+    }
+    if (code === INSUFFICIENT_STOCK) {
+      return { message: 'موجودی این محصول کافی نیست', code }
+    }
+    if (code === PAYMENT_NOT_ALLOWED_FOR_QUOTE) {
+      return { message: 'تا اعلام قیمت نهایی، ثبت پرداخت برای این سفارش مجاز نیست', code }
+    }
+    if (code === 'PRODUCT_IN_STOCK') {
+      return { message: 'این محصول موجود است و نیازی به عضویت در خبررسانی نیست', code }
+    }
+    return { message: fallback, code }
   } catch {
-    // ignore non-JSON
+    return { message: fallback }
   }
-  return fallback
+}
+
+export async function parseFetchError(res: Response, fallback: string): Promise<string> {
+  return (await parseShopApiError(res, fallback)).message
 }

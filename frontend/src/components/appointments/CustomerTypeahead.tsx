@@ -86,30 +86,28 @@ export default function CustomerTypeahead({
     }
 
     const timer = setTimeout(() => {
-      searchCustomers(searchQuery);
+      void (async () => {
+        try {
+          setLoading(true);
+          const response = await api.get(`/customers`, {
+            params: {
+              search: searchQuery,
+              ...(scopeMine ? { mine: '1' } : {}),
+            },
+          });
+          console.log('🔍 Customer search results:', response.data);
+          setCustomers(Array.isArray(response.data) ? response.data : []);
+        } catch (error) {
+          console.error('Error searching customers:', error);
+          setCustomers([]);
+        } finally {
+          setLoading(false);
+        }
+      })();
     }, 250);
 
     return () => clearTimeout(timer);
   }, [searchQuery, scopeMine]);
-
-  const searchCustomers = async (query: string) => {
-    try {
-      setLoading(true);
-      const response = await api.get(`/customers`, {
-        params: {
-          search: query,
-          ...(scopeMine ? { mine: '1' } : {}),
-        },
-      });
-      console.log('🔍 Customer search results:', response.data);
-      setCustomers(Array.isArray(response.data) ? response.data : []);
-    } catch (error) {
-      console.error('Error searching customers:', error);
-      setCustomers([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const selectCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);

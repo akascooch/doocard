@@ -24,6 +24,7 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     loadNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, []);
 
   const loadNotifications = async () => {

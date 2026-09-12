@@ -93,8 +93,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <meta name="msapplication-tap-highlight" content="no" />
         <meta name="apple-touch-fullscreen" content="yes" />
         
-        {/* Modern Inter font for elegant typography */}
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+        {/* Inter is loaded via globals.css @import so App Router does not emit a per-page font link. */}
         
         {/* Force dark theme styles - color-scheme only; no global color overrides */}
         <style dangerouslySetInnerHTML={{
@@ -133,36 +132,9 @@ export default function RootLayout({ children }: RootLayoutProps) {
                   
                   // CRITICAL: DON'T set background-color - preserve background IMAGE
                   document.body.classList.add('dark', 'force-dark');
-                  
-                  const style = document.createElement('style');
-                  style.textContent = \`
-                    html, #__next {
-                      color-scheme: dark !important;
-                    }
-                    
-                    .bg-white, .bg-gray-50, .bg-gray-100, .bg-slate-50 {
-                      background-color: hsl(var(--card)) !important;
-                      color: hsl(var(--primary)) !important;
-                    }
-                    
-                    .bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-purple-500, .bg-pink-500 {
-                      background-color: hsl(var(--primary)) !important;
-                      color: hsl(var(--card)) !important;
-                    }
-                    
-                    .text-blue-500, .text-blue-600, .text-indigo-500, .text-purple-500, .text-pink-500 {
-                      color: hsl(var(--primary)) !important;
-                    }
-                    
-                    input, textarea, select {
-                      background-color: hsl(var(--card)) !important;
-                      color: hsl(var(--primary)) !important;
-                      border-color: rgba(161, 209, 177, 0.3) !important;
-                    }
-                  \`;
-                  
-                  document.head.appendChild(style);
-                  
+                  // Do not append <style> into <head> here: that mismatches SSR HTML
+                  // ("matching <style> in <head>") and throws in Next.js dev / Cypress.
+
                   document.querySelectorAll('.light').forEach(el => {
                     el.classList.remove('light');
                     el.classList.add('dark');

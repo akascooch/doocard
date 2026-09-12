@@ -352,7 +352,7 @@ export class AccountingService {
    * Update transaction
    * Recalculates account balance if account changed
    */
-  async update(id: number, dto: UpdateTransactionDto, userId?: number) {
+  async update(id: number, dto: UpdateTransactionDto, _userId?: number) {
     const existing = await this.findOne(id);
 
     const nextType = (dto.type ?? existing.type) as TransactionType;
@@ -643,7 +643,7 @@ export class AccountingService {
   }
 
   async removeCategory(id: number) {
-    const category = await this.findOneCategory(id);
+    const _category = await this.findOneCategory(id);
 
     // Check if has transactions
     const transactionCount = await this.prisma.transaction.count({
@@ -806,7 +806,7 @@ export class AccountingService {
    * Recalculate account balance from all transactions
    */
   async recalculateAccountBalance(accountId: number) {
-    const account = await this.findOneAccount(accountId);
+    const _account = await this.findOneAccount(accountId);
 
     const aggregations = await this.prisma.transaction.groupBy({
       by: ['type'],
