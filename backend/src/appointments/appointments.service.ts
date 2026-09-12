@@ -1213,7 +1213,8 @@ export class AppointmentsService {
     console.log('[TZ-VALIDATE] dayStartUtc (tehranMidnightUtc):', dayStartUtc.toISOString());
     console.log('[TZ-VALIDATE] firstGeneratedSlot:', firstGeneratedSlot);
 
-    // Min 2h rule: apply ONLY for today (Asia/Tehran). Block slots whose start is in the next 2h (absolute time).
+    // Min 2h rule: today (Asia/Tehran) only, non-staff. Matches create(): scheduledAt < now+2h.
+    // gapMinutes < 120 covers past slots (negative gap) and the next two hours.
     const requestedDate = date.slice(0, 10); // YYYY-MM-DD (normalize if ISO)
     console.log('[MIN2H-DEBUG]', {
       requestedDate,
@@ -1231,9 +1232,9 @@ export class AppointmentsService {
       const minGapMinutes = 2 * 60; // 2 hours in minutes
       for (const slot of allSlots) {
         const gapMinutes = (new Date(slot.time).getTime() - nowUtc.getTime()) / 60000;
-        if (gapMinutes >= 0 && gapMinutes < minGapMinutes && slot.available) {
+        if (gapMinutes < minGapMinutes && slot.available) {
           slot.available = false;
-          slot.reason = 'min_2h';
+          slot.reason = gapMinutes < 0 ? 'past' : 'min_2h';
         }
       }
     }

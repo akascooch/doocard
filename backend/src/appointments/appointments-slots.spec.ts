@@ -60,8 +60,10 @@ describe('AppointmentsService slot generation', () => {
       hour12: false,
     });
 
-  const slotAtTehran = (slots: { time: string; available: boolean }[], hhmm: string) =>
-    slots.find((s) => tehranDisplayTime(s.time) === hhmm);
+  const slotAtTehran = (
+    slots: { time: string; available: boolean; reason?: string }[],
+    hhmm: string,
+  ) => slots.find((s) => tehranDisplayTime(s.time) === hhmm);
 
   it('returns slots in 30-minute intervals within 10:00–22:00 Tehran', async () => {
     mockPrisma.appointment.findMany.mockResolvedValue([]);
@@ -154,15 +156,37 @@ describe('AppointmentsService slot generation', () => {
     const nowUtc = new Date();
     const result = await service.getAvailableSlots({ employeeId: 1, date: todayTehran });
 
-    const min2hSlots = result.slots.filter((s) => s.reason === 'min_2h');
+    const leadBlocked = result.slots.filter((s) => s.reason === 'min_2h' || s.reason === 'past');
     const next2hSlotExists = result.slots.some((s) => {
       const gapMinutes = (new Date(s.time).getTime() - nowUtc.getTime()) / 60000;
-      return gapMinutes >= 0 && gapMinutes < 120;
+      return gapMinutes < 120;
     });
 
     if (next2hSlotExists) {
-      expect(min2hSlots.length).toBeGreaterThan(0);
+      expect(leadBlocked.length).toBeGreaterThan(0);
     }
+  });
+
+  it('blocks past morning slots and the next 2h at 16:00 Tehran for non-staff', async () => {
+    mockPrisma.appointment.findMany.mockResolvedValue([]);
+
+    const nowUtc = new Date('2026-09-12T12:30:00.000Z'); // 16:00 Asia/Tehran
+    jest.spyOn(service as any, 'getTehranNow').mockReturnValue({
+      nowUtc,
+      dateStr: '2026-09-12',
+      timeStr: '16:00:00',
+    });
+
+    const result = await service.getAvailableSlots({ employeeId: 1, date: '2026-09-12' });
+
+    expect(slotAtTehran(result.slots, '10:00')?.available).toBe(false);
+    expect(slotAtTehran(result.slots, '10:00')?.reason).toBe('past');
+    expect(slotAtTehran(result.slots, '16:00')?.available).toBe(false);
+    expect(slotAtTehran(result.slots, '16:00')?.reason).toBe('min_2h');
+    expect(slotAtTehran(result.slots, '17:30')?.available).toBe(false);
+    expect(slotAtTehran(result.slots, '17:30')?.reason).toBe('min_2h');
+    expect(slotAtTehran(result.slots, '18:00')?.available).toBe(true);
+    expect(slotAtTehran(result.slots, '18:30')?.available).toBe(true);
   });
 });
 

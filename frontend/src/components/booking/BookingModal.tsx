@@ -886,15 +886,15 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                     </div>
                   )}
                   
-                  {/* Busy Slots — only truly booked; exclude min_2h (too-early) */}
-                  {timeSlots.filter(s => s.available === false && s.reason !== 'min_2h').length > 0 && (
+                  {/* Busy Slots — only truly booked; exclude lead-time (past / min_2h) */}
+                  {timeSlots.filter(s => s.available === false && s.reason !== 'min_2h' && s.reason !== 'past').length > 0 && (
                     <div>
                       <p className="text-xs text-gray-500 mb-2 flex items-center">
                         <div className="w-2 h-2 rounded-full bg-red-500 ml-2"></div>
-                        ساعت‌های رزرو شده ({timeSlots.filter(s => s.available === false && s.reason !== 'min_2h').length} ساعت)
+                        ساعت‌های رزرو شده ({timeSlots.filter(s => s.available === false && s.reason !== 'min_2h' && s.reason !== 'past').length} ساعت)
                       </p>
                       <div className="grid grid-cols-3 gap-3">
-                        {timeSlots.filter(s => s.available === false && s.reason !== 'min_2h').map((slot) => (
+                        {timeSlots.filter(s => s.available === false && s.reason !== 'min_2h' && s.reason !== 'past').map((slot) => (
                           <Card
                             key={slot.time}
                             className="cursor-not-allowed opacity-60 bg-red-50 dark:bg-red-950/20 border-red-200"

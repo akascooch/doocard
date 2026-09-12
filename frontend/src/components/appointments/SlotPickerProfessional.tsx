@@ -91,7 +91,7 @@ export default function SlotPickerProfessional({
   }, [employeeId, date, durationMin]);
 
   const selectSlot = (slot: TimeSlot) => {
-    if (!slot.available) return;
+    if (slot.available === false) return;
     onChange(slot.time);
   };
 
@@ -145,8 +145,8 @@ export default function SlotPickerProfessional({
     );
   }
 
-  const availableSlots = slots.filter(s => s.available);
-  const busySlots = slots.filter(s => !s.available);
+  const availableSlots = slots.filter((s) => s.available !== false);
+  const busySlots = slots.filter((s) => s.available === false);
 
   return (
     <div className="space-y-3" dir="rtl">

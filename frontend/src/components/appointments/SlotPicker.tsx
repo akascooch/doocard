@@ -14,6 +14,8 @@ import { cn } from '@/lib/utils';
 interface TimeSlot {
   time: string; // ISO string
   displayTime: string; // Persian formatted time like "14:30"
+  available?: boolean;
+  reason?: string;
 }
 
 interface SlotPickerProps {
@@ -88,6 +90,7 @@ export default function SlotPicker({
   }, [employeeId, date, durationMin]);
 
   const selectSlot = (slot: TimeSlot) => {
+    if (slot.available === false) return;
     onChange(slot.time);
     setManualMode(false);
   };
@@ -170,22 +173,27 @@ export default function SlotPicker({
         <>
           {slots.length > 0 ? (
             <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
-              {slots.map((slot, index) => (
+              {slots.map((slot, index) => {
+                const isUnavailable = slot.available === false;
+                return (
                 <Button
                   key={index}
                   type="button"
                   variant={selectedTime === slot.time ? 'default' : 'outline'}
                   size="sm"
+                  disabled={isUnavailable}
                   onClick={() => selectSlot(slot)}
                   className={cn(
                     'text-sm',
                     selectedTime === slot.time &&
-                      'bg-main-orange hover:bg-main-orange/90'
+                      'bg-main-orange hover:bg-main-orange/90',
+                    isUnavailable && 'cursor-not-allowed opacity-50'
                   )}
                 >
                   {slot.displayTime}
                 </Button>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center text-sm text-muted-foreground">
@@ -253,7 +261,7 @@ export default function SlotPicker({
 
       {slots.length > 0 && !manualMode && (
         <p className="text-xs text-muted-foreground">
-          {slots.length} زمان خالی موجود است • مدت زمان: {durationMin} دقیقه
+          {slots.filter((s) => s.available !== false).length} زمان خالی موجود است • مدت زمان: {durationMin} دقیقه
         </p>
       )}
     </div>
