@@ -467,6 +467,33 @@ export const tehranHHmmFromIso = (value: string): string | null => {
   return `${hour}:${minute}`;
 };
 
+/**
+ * Snap a typed HH:mm clock to the 30-minute grid.
+ * Ties round later (safer for the 2h lead-time rule). 23:45 stays 23:30.
+ */
+export const snapToThirtyMinuteClock = (hhmm: string): string | null => {
+  const match = String(hhmm || '').trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hours = Number.parseInt(match[1], 10);
+  const minutes = Number.parseInt(match[2], 10);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return null;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+  const down = Math.floor(minutes / 30) * 30;
+  const up = down + 30;
+  const useLater = up - minutes <= minutes - down;
+  let snappedHours = hours;
+  let snappedMinutes = useLater ? up : down;
+  if (snappedMinutes === 60) {
+    snappedHours += 1;
+    snappedMinutes = 0;
+  }
+  if (snappedHours > 23) {
+    snappedHours = 23;
+    snappedMinutes = 30;
+  }
+  return `${String(snappedHours).padStart(2, '0')}:${String(snappedMinutes).padStart(2, '0')}`;
+};
+
 /** Jalali YYYY/MM/DD + Tehran HH:mm for appointment display (not browser-local). */
 export const formatAppointmentWhenTehran = (iso: string | Date): string => {
   const date = typeof iso === 'string' ? new Date(iso) : iso;
@@ -645,6 +672,7 @@ const dateHelpers = {
   getTehranAppointmentPresetRange,
   jalaliDateTimeTehranIso,
   tehranHHmmFromIso,
+  snapToThirtyMinuteClock,
   formatAppointmentWhenTehran,
   jalaliToApiDate,
   slotsApiDateFromPicker,

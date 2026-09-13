@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/axios';
 import { useToast } from '@/components/ui/use-toast';
-import { slotsApiDateFromPicker } from '@/lib/date';
+import { slotsApiDateFromPicker, snapToThirtyMinuteClock, tehranIsoFromGregorianDate } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
 interface TimeSlot {
@@ -99,23 +99,40 @@ export default function SlotPicker({
     if (!manualTime.match(/^([0-1][0-9]|2[0-3]):([0-5][0-9])$/)) {
       toast({
         title: 'خطا',
-        description: 'فرمت زمان نامعتبر است. مثال: 14:30',
+        description: 'لطفاً زمان شروع نوبت را از اسلات‌های موجود انتخاب کنید.',
         variant: 'destructive',
       });
       return;
     }
 
-    // Construct ISO time from date and manual time
-    let isoDate = date;
-    if (date.includes('/')) {
-      const [year, month, day] = date.split('/');
-      isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    const snapped = snapToThirtyMinuteClock(manualTime);
+    if (!snapped) {
+      toast({
+        title: 'خطا',
+        description: 'لطفاً زمان شروع نوبت را از اسلات‌های موجود انتخاب کنید.',
+        variant: 'destructive',
+      });
+      return;
     }
 
-    const [hours, minutes] = manualTime.split(':');
-    const manualDateTime = new Date(`${isoDate}T${hours}:${minutes}:00`);
-    
-    onChange(manualDateTime.toISOString());
+    const gregorianDate = slotsApiDateFromPicker(date);
+    if (!gregorianDate) {
+      toast({
+        title: 'خطا',
+        description: 'تاریخ نامعتبر است',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (snapped !== manualTime) {
+      toast({
+        title: 'زمان تنظیم شد',
+        description: `ساعت به نزدیک‌ترین اسلات ${snapped} منتقل شد.`,
+      });
+    }
+
+    onChange(tehranIsoFromGregorianDate(gregorianDate, `${snapped}:00`));
     setManualMode(false);
     setManualTime('');
   };

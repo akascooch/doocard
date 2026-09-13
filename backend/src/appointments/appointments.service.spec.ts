@@ -154,9 +154,7 @@ describe('AppointmentsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('rejects times that are not on the 30-minute slot grid', async () => {
-      mockCalendarService.toGregorian.mockReturnValue(new Date(Date.UTC(2021, 2, 21)));
-
+    it('rejects times that are not on the 30-minute slot grid with an instructional message', async () => {
       await expect(
         service.create(
           {
@@ -169,6 +167,18 @@ describe('AppointmentsService', () => {
           { id: 1, role: 'ADMIN' },
         ),
       ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.create(
+          {
+            customerId: 1,
+            employeeId: 1,
+            services: [{ serviceId: 1 }],
+            jalaliDate: '1400-01-01',
+            time: '14:15',
+          } as any,
+          { id: 1, role: 'ADMIN' },
+        ),
+      ).rejects.toThrow('لطفاً زمان شروع نوبت را از اسلات‌های موجود انتخاب کنید.');
     });
   });
 

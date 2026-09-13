@@ -25,7 +25,7 @@ import {
   AlertCircle
 } from 'lucide-react'
 import axios from '@/lib/axios'
-import { parseFromJalali, persianToEnglishDigits, getCurrentJalaliDate, getJalaliWeekdayName, addDaysToJalali, isJalaliDateBefore, englishToPersianDigits } from '@/lib/date'
+import { parseFromJalali, persianToEnglishDigits, getCurrentJalaliDate, getJalaliWeekdayName, addDaysToJalali, isJalaliDateBefore, englishToPersianDigits, tehranHHmmFromIso } from '@/lib/date'
 import { getCurrentUser } from '@/lib/auth'
 import PersianDatePicker from '@/components/ui/PersianDatePicker'
 
@@ -425,21 +425,14 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
         durationMin: 60,
       }]
 
-      const tehranTimeFormatter = new Intl.DateTimeFormat('en-GB', {
-        timeZone: 'Asia/Tehran',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      })
-
-      let timeStr = formData.appointmentTime
-      if (timeStr.includes('T')) {
-        timeStr = tehranTimeFormatter.format(new Date(timeStr))
-      } else if (timeStr.includes(':')) {
-        const [h, m] = timeStr.split(':')
-        timeStr = `${h.padStart(2, '0')}:${m.padStart(2, '0')}`
-      } else {
-        timeStr = `${timeStr.padStart(2, '0')}:00`
+      const timeStr = tehranHHmmFromIso(formData.appointmentTime)
+      if (!timeStr) {
+        toast({
+          title: 'خطا',
+          description: 'لطفاً زمان شروع نوبت را از اسلات‌های موجود انتخاب کنید.',
+          variant: 'destructive',
+        })
+        return
       }
 
       // Convert Persian digits to English and format jalali date

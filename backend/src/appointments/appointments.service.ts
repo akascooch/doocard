@@ -27,6 +27,11 @@ import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { PushNotificationsService } from '../push-notifications/push-notifications.service';
 import { CalendarService } from '../calendar/calendar.service';
 import { tehranIsoFromUtcMidnightAndTime } from '../calendar/tehran-civil-datetime.util';
+import {
+  normalizeBookingClockTime,
+  SLOT_INTERVAL_MIN,
+  SLOT_TIME_INSTRUCTION_FA,
+} from './slot-time.util';
 import { SmsOutboundService } from '../sms/sms-outbound.service';
 import { SmsTemplateService } from '../sms/sms-template.service';
 import { TipAlertService } from '../sms/tip-alert.service';
@@ -60,7 +65,6 @@ export interface ServiceSnapshot {
 }
 
 /** Slot grid and booking window (Asia/Tehran business hours). */
-const SLOT_INTERVAL_MIN = 30;
 const BOOKING_DURATION_MIN = 60;
 const BUSINESS_HOUR_START = 10;
 const BUSINESS_HOUR_END = 22;
@@ -248,23 +252,15 @@ export class AppointmentsService {
 
     if (dto.jalaliDate && dto.time) {
       // Parse Jalali date + time (Iran timezone: UTC+3:30)
-      const gregorianDate = this.calendarService.toGregorian(dto.jalaliDate);
-      const [hours, minutes] = dto.time.split(':').map(Number);
-      if (
-        !Number.isInteger(hours) ||
-        hours < 0 ||
-        hours > 23 ||
-        !Number.isInteger(minutes) ||
-        minutes % SLOT_INTERVAL_MIN !== 0
-      ) {
-        throw new BadRequestException(
-          `زمان نوبت باید در بازه‌های ${SLOT_INTERVAL_MIN} دقیقه‌ای باشد (مثلاً 14:00 یا 14:30)`,
-        );
+      const clock = normalizeBookingClockTime(dto.time);
+      if (!clock) {
+        throw new BadRequestException(SLOT_TIME_INSTRUCTION_FA);
       }
+      const gregorianDate = this.calendarService.toGregorian(dto.jalaliDate);
       
       let isoWithTZ: string;
       try {
-        isoWithTZ = tehranIsoFromUtcMidnightAndTime(gregorianDate, dto.time);
+        isoWithTZ = tehranIsoFromUtcMidnightAndTime(gregorianDate, clock);
       } catch {
         throw new BadRequestException('زمان نوبت نامعتبر است');
       }
@@ -274,7 +270,7 @@ export class AppointmentsService {
       const calendarDate = await this.calendarService.ensureExists({ jalaliDate: dto.jalaliDate });
       calendarDateId = calendarDate.id;
       
-      console.log(`📅 Parsed Jalali: ${dto.jalaliDate} ${dto.time} (Iran/UTC+3:30) → ${scheduledAt.toISOString()} (UTC) (calendar_date_id: ${calendarDateId})`);
+      console.log(`📅 Parsed Jalali: ${dto.jalaliDate} ${clock} (Iran/UTC+3:30) → ${scheduledAt.toISOString()} (UTC) (calendar_date_id: ${calendarDateId})`);
     } else if (dto.scheduledAt) {
       // Parse ISO date-time
       scheduledAt = new Date(dto.scheduledAt);

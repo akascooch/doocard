@@ -13,7 +13,7 @@ import { OtpInput } from '@/components/auth/OtpInput'
 import { getCurrentUser, isAuthenticated, persistAuthSession } from '@/lib/auth'
 import { getErrorMessage } from '@/lib/error-handler'
 import { normalizeIranMobileClient } from '@/components/customers/QuickRegisterCustomerForm'
-import { getCurrentJalaliDate, parseFromJalali, persianToEnglishDigits } from '@/lib/date'
+import { getCurrentJalaliDate, parseFromJalali, persianToEnglishDigits, tehranHHmmFromIso } from '@/lib/date'
 import api from '@/lib/axios'
 import {
   ArrowRight,
@@ -266,10 +266,14 @@ export default function BookAppointmentPage() {
       const selected = services.find(s => s.id.toString() === formData.serviceId)
       if (!selected) throw new Error('خدمت انتخاب نشده است')
 
-      let timeStr = formData.appointmentTime
-      if (timeStr.includes(':')) {
-        const [h, m] = timeStr.split(':')
-        timeStr = `${h.padStart(2, '0')}:${m.padStart(2, '0')}`
+      const timeStr = tehranHHmmFromIso(formData.appointmentTime)
+      if (!timeStr) {
+        toast({
+          title: 'خطا',
+          description: 'لطفاً زمان شروع نوبت را از اسلات‌های موجود انتخاب کنید.',
+          variant: 'destructive',
+        })
+        return
       }
 
       const jalaliDateFormatted = persianToEnglishDigits(formData.appointmentDate).replace(/\//g, '-')
