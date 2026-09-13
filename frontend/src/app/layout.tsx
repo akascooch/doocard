@@ -4,7 +4,6 @@ import "./contrast-fix.css"
 import { ReactNode } from "react"
 import { Metadata } from "next"
 import { Providers } from "../components/providers"
-import { ThemeProvider } from "../lib/theme"
 import { Toaster } from '../components/ui/toaster'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 
@@ -75,7 +74,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <meta httpEquiv="Pragma" content="no-cache" />
         <meta httpEquiv="Expires" content="0" />
         
-        {/* PWA Meta Tags - FORCE DARK THEME */}
+        {/* PWA Meta Tags — default dark; next-themes updates color-scheme at runtime */}
         <meta name="theme-color" content="hsl(var(--card))" />
         <meta name="background-color" content="hsl(var(--card))" />
         <meta name="color-scheme" content="dark" />
@@ -94,105 +93,63 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <meta name="apple-touch-fullscreen" content="yes" />
         
         {/* Inter is loaded via globals.css @import so App Router does not emit a per-page font link. */}
-        
-        {/* Force dark theme styles - color-scheme only; no global color overrides */}
-        <style dangerouslySetInnerHTML={{
-          __html: `
-            html, body, #__next {
-              color-scheme: dark !important;
-            }
-            *, *::before, *::after {
-              color-scheme: dark !important;
-            }
-          `
-        }} />
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
-        <ThemeProvider>
-          <ErrorBoundary>
-            <Providers>
-              <div className="relative flex min-h-screen flex-col">
-                <div className="flex-1" data-app-wrapper="true">{children}</div>
-              </div>
-            </Providers>
-          </ErrorBoundary>
-        </ThemeProvider>
+        <ErrorBoundary>
+          <Providers>
+            <div className="relative flex min-h-screen flex-col">
+              <div className="flex-1" data-app-wrapper="true">{children}</div>
+            </div>
+            <Toaster />
+          </Providers>
+        </ErrorBoundary>
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              // Force Dark Theme Script - WITHOUT background override
               (function() {
                 'use strict';
-                
-                function forceDarkTheme() {
-                  document.documentElement.style.colorScheme = 'dark';
+                try {
+                  var stored = localStorage.getItem('doocard-theme') || localStorage.getItem('theme');
+                  var resolved;
+                  if (stored === 'light' || stored === 'dark') {
+                    resolved = stored;
+                  } else if (stored === 'system') {
+                    resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                  } else {
+                    resolved = 'dark';
+                  }
+                  document.documentElement.setAttribute('data-theme', resolved);
+                  document.documentElement.classList.toggle('dark', resolved === 'dark');
+                  document.documentElement.style.colorScheme = resolved;
+                } catch (e) {
                   document.documentElement.setAttribute('data-theme', 'dark');
                   document.documentElement.classList.add('dark');
-                  document.documentElement.classList.remove('light');
-                  
-                  // CRITICAL: DON'T set background-color - preserve background IMAGE
-                  document.body.classList.add('dark', 'force-dark');
-                  // Do not append <style> into <head> here: that mismatches SSR HTML
-                  // ("matching <style> in <head>") and throws in Next.js dev / Cypress.
+                }
 
-                  document.querySelectorAll('.light').forEach(el => {
-                    el.classList.remove('light');
-                    el.classList.add('dark');
-                  });
-                  
-                  let metaThemeColor = document.querySelector('meta[name="theme-color"]');
-                  if (!metaThemeColor) {
-                    metaThemeColor = document.createElement('meta');
-                    metaThemeColor.name = 'theme-color';
-                    document.head.appendChild(metaThemeColor);
-                  }
-                  metaThemeColor.content = 'hsl(var(--card))';
-                }
-                
-                forceDarkTheme();
-                
-                if (document.readyState === 'loading') {
-                  document.addEventListener('DOMContentLoaded', forceDarkTheme);
-                } else {
-                  forceDarkTheme();
-                }
-                
-                window.addEventListener('load', forceDarkTheme);
-                
-                document.addEventListener('visibilitychange', function() {
-                  if (!document.hidden) {
-                    setTimeout(forceDarkTheme, 100);
-                  }
-                });
-              })();
-              
-              // Service Worker
-              if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js')
-                    .then(function(registration) {
-                      console.log('Service Worker registered successfully:', registration.scope);
-                      
-                      registration.addEventListener('updatefound', function() {
-                        const newWorker = registration.installing;
-                        newWorker.addEventListener('statechange', function() {
-                          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            if (confirm('نسخه جدیدی از اپلیکیشن موجود است. آیا می‌خواهید صفحه را بازخوانی کنید؟')) {
-                              window.location.reload();
+                if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+                  window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/sw.js')
+                      .then(function(registration) {
+                        registration.addEventListener('updatefound', function() {
+                          const newWorker = registration.installing;
+                          newWorker.addEventListener('statechange', function() {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                              if (confirm('نسخه جدیدی از اپلیکیشن موجود است. آیا می‌خواهید صفحه را بازخوانی کنید؟')) {
+                                window.location.reload();
+                              }
                             }
-                          }
+                          });
                         });
+                      })
+                      .catch(function(error) {
+                        console.log('Service Worker registration failed:', error);
                       });
-                    })
-                    .catch(function(error) {
-                      console.log('Service Worker registration failed:', error);
-                    });
-                });
-              }
+                  });
+                }
+              })();
             `,
           }}
         />
-        <Toaster />
       </body>
     </html>
   )

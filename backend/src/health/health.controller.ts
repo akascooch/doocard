@@ -16,6 +16,8 @@ export class HealthController {
   @Get()
   @HealthCheck()
   check() {
+    // Intentionally public: liveness/readiness for nginx and uptime probes.
+    // Internals (memory, env) live on GET /health/full (ADMIN) and /monitoring/* (ADMIN).
     return this.health.check([
       () => this.prisma.pingCheck('database'),
     ]);

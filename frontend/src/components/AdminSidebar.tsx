@@ -92,7 +92,7 @@ export default function AdminSidebar() {
         {!collapsed && (
           <div className="p-4 border-t">
             <div className="text-sm text-gray-500 text-center">
-              نسخه 1.0.0
+              نسخه {process.env.NEXT_PUBLIC_APP_VERSION || ''}
             </div>
           </div>
         )}

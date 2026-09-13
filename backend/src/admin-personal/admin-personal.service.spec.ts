@@ -1,0 +1,419 @@
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { AdminFrogStatus } from '@prisma/client';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import { AdminPersonalService, shiftDateKey, tehranDateKey } from './admin-personal.service';
+import {
+  CreatePersonalExpenseDto,
+  FrogHistoryQueryDto,
+  ListPersonalExpensesQueryDto,
+  MAX_AMOUNT_RIAL,
+  isValidDateKey,
+  parseAmountRial,
+} from './dto/admin-personal.dto';
+
+describe('tehran date helpers', () => {
+  it('shifts YYYY-MM-DD without timezone drift', () => {
+    expect(shiftDateKey('2026-09-13', -1)).toBe('2026-09-12');
+    expect(shiftDateKey('2026-03-01', -1)).toBe('2026-02-28');
+  });
+
+  it('uses Asia/Tehran civil day around midnight (+03:30)', () => {
+    expect(tehranDateKey(new Date('2026-09-12T20:29:59.999Z'))).toBe('2026-09-12');
+    expect(tehranDateKey(new Date('2026-09-12T20:30:00.000Z'))).toBe('2026-09-13');
+  });
+
+  it('rejects impossible calendar dates', () => {
+    expect(isValidDateKey('2026-09-13')).toBe(true);
+    expect(isValidDateKey('2026-02-30')).toBe(false);
+    expect(isValidDateKey('2026-13-01')).toBe(false);
+  });
+});
+
+describe('parseAmountRial', () => {
+  it('accepts integer strings and numbers within the documented max', () => {
+    expect(parseAmountRial('1250000')).toBe(1250000n);
+    expect(parseAmountRial(1250000)).toBe(1250000n);
+    expect(parseAmountRial(String(MAX_AMOUNT_RIAL))).toBe(BigInt(MAX_AMOUNT_RIAL));
+  });
+
+  it('rejects decimal, negative, empty, and oversized values', () => {
+    expect(() => parseAmountRial('12.5')).toThrow();
+    expect(() => parseAmountRial(-1)).toThrow();
+    expect(() => parseAmountRial(0)).toThrow();
+    expect(() => parseAmountRial('')).toThrow();
+    expect(() => parseAmountRial(Number.NaN)).toThrow();
+    expect(() => parseAmountRial(Number.POSITIVE_INFINITY)).toThrow();
+    expect(() => parseAmountRial(String(MAX_AMOUNT_RIAL) + '0')).toThrow();
+  });
+});
+
+describe('CreatePersonalExpenseDto', () => {
+  it('rejects extra userId and decimal amount', async () => {
+    const extra = plainToInstance(CreatePersonalExpenseDto, {
+      amount: '1000',
+      category: 'PETTY_CASH',
+      title: 'نان',
+      userId: 99,
+    });
+    const extraErrors = await validate(extra, { whitelist: true, forbidNonWhitelisted: true });
+    expect(extraErrors.some((err) => err.property === 'userId')).toBe(true);
+
+    const decimal = plainToInstance(CreatePersonalExpenseDto, {
+      amount: '12.5',
+      category: 'PETTY_CASH',
+      title: 'نان',
+    });
+    const decimalErrors = await validate(decimal);
+    expect(decimalErrors.some((err) => err.property === 'amount')).toBe(true);
+  });
+
+  it('rejects invalid page, pageSize, and dates on list/history query DTOs', async () => {
+    const history = plainToInstance(FrogHistoryQueryDto, { page: 0, pageSize: 999 });
+    const historyErrors = await validate(history);
+    expect(historyErrors.some((err) => err.property === 'page')).toBe(true);
+    expect(historyErrors.some((err) => err.property === 'pageSize')).toBe(true);
+
+    const list = plainToInstance(ListPersonalExpensesQueryDto, {
+      from: '13-09-2026',
+      to: '2026-02-30',
+      page: -1,
+    });
+    const listErrors = await validate(list);
+    expect(listErrors.some((err) => err.property === 'from')).toBe(true);
+    expect(listErrors.some((err) => err.property === 'page')).toBe(true);
+  });
+});
+
+describe('AdminPersonalService', () => {
+  const prisma = {
+    adminDailyFrog: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn(),
+      upsert: jest.fn(),
+      update: jest.fn(),
+      create: jest.fn(),
+    },
+    adminPersonalExpense: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      count: jest.fn(),
+      delete: jest.fn(),
+      update: jest.fn(),
+      aggregate: jest.fn(),
+    },
+    transaction: { create: jest.fn(), update: jest.fn() },
+    order: { create: jest.fn(), update: jest.fn() },
+    customer: { update: jest.fn() },
+    appointment: { update: jest.fn() },
+    $transaction: jest.fn(),
+  };
+
+  const service = new AdminPersonalService(prisma as never);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('GET today is read-only and does not create rows', async () => {
+    prisma.adminDailyFrog.findUnique.mockResolvedValue(null);
+    prisma.adminDailyFrog.findFirst.mockResolvedValue(null);
+    await service.getTodayFrog(1);
+    expect(prisma.adminDailyFrog.create).not.toHaveBeenCalled();
+    expect(prisma.adminDailyFrog.upsert).not.toHaveBeenCalled();
+  });
+
+  it('rapid GET today across Tehran midnight never writes rows', async () => {
+    prisma.adminDailyFrog.findUnique.mockResolvedValue(null);
+    prisma.adminDailyFrog.findFirst.mockResolvedValue(null);
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date('2026-09-12T20:29:59.000Z'));
+      await Promise.all([
+        service.getTodayFrog(11),
+        service.getTodayFrog(11),
+        service.getTodayFrog(11),
+      ]);
+      jest.setSystemTime(new Date('2026-09-12T20:30:01.000Z'));
+      await Promise.all([service.getTodayFrog(11), service.getTodayFrog(11)]);
+    } finally {
+      jest.useRealTimers();
+    }
+    expect(prisma.adminDailyFrog.create).not.toHaveBeenCalled();
+    expect(prisma.adminDailyFrog.upsert).not.toHaveBeenCalled();
+    expect(prisma.adminDailyFrog.update).not.toHaveBeenCalled();
+  });
+
+  it('does not offer a completed yesterday frog as rollover', async () => {
+    prisma.adminDailyFrog.findUnique.mockResolvedValue(null);
+    prisma.adminDailyFrog.findFirst.mockResolvedValue(null);
+    const result = await service.getTodayFrog(7);
+    expect(result.rollover).toBeNull();
+    expect(prisma.adminDailyFrog.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          userId: 7,
+          isCompleted: false,
+        }),
+      }),
+    );
+  });
+
+  it('returns yesterday incomplete frog as rollover when today is empty', async () => {
+    prisma.adminDailyFrog.findUnique.mockResolvedValue(null);
+    prisma.adminDailyFrog.findFirst.mockResolvedValue({
+      id: 'old',
+      userId: 1,
+      dateKey: '2026-09-12',
+      title: 'تماس با تامین‌کننده',
+      description: null,
+      status: AdminFrogStatus.IN_PROGRESS,
+      isCompleted: false,
+      completedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await service.getTodayFrog(1);
+    expect(result.frog).toBeNull();
+    expect(result.rollover?.id).toBe('old');
+  });
+
+  it('rejects rollover of another owner or a completed frog', async () => {
+    prisma.adminDailyFrog.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'old', userId: 2, isCompleted: false, status: 'PENDING', dateKey: 'x' });
+    await expect(service.upsertTodayFrog(1, { rolloverId: 'old' })).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+
+    prisma.adminDailyFrog.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: 'old',
+        userId: 1,
+        isCompleted: true,
+        status: AdminFrogStatus.DONE,
+        dateKey: shiftDateKey(tehranDateKey(), -1),
+        title: 'done',
+      });
+    await expect(service.upsertTodayFrog(1, { rolloverId: 'old' })).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('upserts today frog from yesterday rollover without a second create path', async () => {
+    const yesterday = shiftDateKey(tehranDateKey(), -1);
+    prisma.adminDailyFrog.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: 'old',
+        userId: 1,
+        title: 'قورباغه دیروز',
+        description: 'جزئیات',
+        isCompleted: false,
+        status: AdminFrogStatus.PENDING,
+        dateKey: yesterday,
+      });
+    prisma.adminDailyFrog.upsert.mockResolvedValue({
+      id: 'new',
+      userId: 1,
+      dateKey: tehranDateKey(),
+      title: 'قورباغه دیروز',
+      description: 'جزئیات',
+      status: AdminFrogStatus.PENDING,
+      isCompleted: false,
+      completedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const row = await service.upsertTodayFrog(1, { rolloverId: 'old' });
+    expect(row.title).toBe('قورباغه دیروز');
+    expect(prisma.adminDailyFrog.upsert).toHaveBeenCalledTimes(1);
+    expect(prisma.adminDailyFrog.create).not.toHaveBeenCalled();
+  });
+
+  it('upserts only the authenticated owner\'s today row', async () => {
+    prisma.adminDailyFrog.upsert.mockResolvedValue({
+      id: 'new',
+      userId: 8,
+      dateKey: tehranDateKey(),
+      title: 'کار امروز',
+      description: null,
+      status: AdminFrogStatus.PENDING,
+      isCompleted: false,
+      completedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await service.upsertTodayFrog(8, { title: 'کار امروز' });
+    expect(prisma.adminDailyFrog.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId_dateKey: { userId: 8, dateKey: tehranDateKey() } },
+        create: expect.objectContaining({ userId: 8, dateKey: tehranDateKey() }),
+        update: expect.objectContaining({ title: 'کار امروز' }),
+      }),
+    );
+    expect(prisma.adminDailyFrog.upsert.mock.calls[0][0].update.dateKey).toBeUndefined();
+    expect(prisma.adminDailyFrog.upsert.mock.calls[0][0].update.userId).toBeUndefined();
+  });
+
+  it('rejects invalid expense dates and caps page size', async () => {
+    await expect(
+      service.createExpense(1, {
+        amount: '1000',
+        category: 'PETTY_CASH',
+        title: 'نان',
+        dateKey: '2026-02-30',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.adminPersonalExpense.create).not.toHaveBeenCalled();
+
+    await expect(service.listExpenses(1, { from: '2026-02-30' })).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(
+      service.listExpenses(1, { from: '2026-09-13', to: '2026-09-01' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    prisma.$transaction.mockResolvedValue([0, []]);
+    await service.listExpenses(9, { page: 1, pageSize: 999 });
+    expect(prisma.adminPersonalExpense.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 9, deletedAt: null },
+        take: 50,
+      }),
+    );
+  });
+
+  it('lists only the owner\'s non-deleted expenses', async () => {
+    prisma.$transaction.mockResolvedValue([0, []]);
+    await service.listExpenses(5, { from: '2026-09-01', to: '2026-09-13' });
+    expect(prisma.adminPersonalExpense.count).toHaveBeenCalledWith({
+      where: {
+        userId: 5,
+        deletedAt: null,
+        dateKey: { gte: '2026-09-01', lte: '2026-09-13' },
+      },
+    });
+  });
+
+  it('advances PENDING → IN_PROGRESS → DONE and does not reset DONE', async () => {
+    prisma.adminDailyFrog.findUnique.mockResolvedValue({
+      id: 'f1',
+      userId: 1,
+      status: AdminFrogStatus.PENDING,
+      completedAt: null,
+    });
+    prisma.adminDailyFrog.update.mockResolvedValue({
+      id: 'f1',
+      userId: 1,
+      dateKey: '2026-09-13',
+      title: 'x',
+      description: null,
+      status: AdminFrogStatus.IN_PROGRESS,
+      isCompleted: false,
+      completedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const progressed = await service.toggleFrog(1, 'f1', {});
+    expect(progressed.status).toBe('IN_PROGRESS');
+
+    prisma.adminDailyFrog.findUnique.mockResolvedValue({
+      id: 'f1',
+      userId: 1,
+      status: AdminFrogStatus.DONE,
+      isCompleted: true,
+      completedAt: new Date('2026-09-13T10:00:00.000Z'),
+      dateKey: '2026-09-13',
+      title: 'x',
+      description: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const done = await service.toggleFrog(1, 'f1', {});
+    expect(done.status).toBe('DONE');
+    expect(prisma.adminDailyFrog.update).toHaveBeenCalledTimes(1);
+
+    await expect(
+      service.toggleFrog(1, 'f1', { status: 'PENDING' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('does not toggle or update another admin frog', async () => {
+    prisma.adminDailyFrog.findUnique.mockResolvedValue({
+      id: 'f1',
+      userId: 99,
+      status: AdminFrogStatus.PENDING,
+    });
+    await expect(service.toggleFrog(1, 'f1', {})).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.adminDailyFrog.update).not.toHaveBeenCalled();
+  });
+
+  it('history is owner-scoped and excludes today', async () => {
+    prisma.$transaction.mockResolvedValue([0, []]);
+    await service.listFrogHistory(3, { page: 1, pageSize: 20 });
+    expect(prisma.adminDailyFrog.count).toHaveBeenCalledWith({
+      where: { userId: 3, dateKey: { lt: tehranDateKey() } },
+    });
+  });
+
+  it('stores expense amount as BigInt, returns decimal string, and never writes ledger tables', async () => {
+    prisma.adminPersonalExpense.create.mockResolvedValue({
+      id: 'e1',
+      userId: 1,
+      amount: 1250000n,
+      category: 'PETTY_CASH',
+      title: 'نان',
+      description: null,
+      dateKey: '2026-09-13',
+      occurredAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
+    });
+    const row = await service.createExpense(1, {
+      amount: '1250000',
+      category: 'PETTY_CASH',
+      title: 'نان',
+      dateKey: '2026-09-13',
+    });
+    expect(row.amount).toBe('1250000');
+    expect(prisma.transaction.create).not.toHaveBeenCalled();
+    expect(prisma.transaction.update).not.toHaveBeenCalled();
+    expect(prisma.order.create).not.toHaveBeenCalled();
+    expect(prisma.order.update).not.toHaveBeenCalled();
+    expect(prisma.customer.update).not.toHaveBeenCalled();
+    expect(prisma.appointment.update).not.toHaveBeenCalled();
+  });
+
+  it('summarizes today/week/month as decimal strings scoped to owner', async () => {
+    prisma.adminPersonalExpense.aggregate
+      .mockResolvedValueOnce({ _sum: { amount: 100n } })
+      .mockResolvedValueOnce({ _sum: { amount: 300n } })
+      .mockResolvedValueOnce({ _sum: { amount: 900n } });
+    const sum = await service.expenseSummary(4);
+    expect(sum).toMatchObject({ today: '100', week: '300', month: '900' });
+    expect(prisma.adminPersonalExpense.aggregate.mock.calls[0][0].where.userId).toBe(4);
+    expect(prisma.adminPersonalExpense.aggregate.mock.calls[0][0].where.deletedAt).toBeNull();
+  });
+
+  it('soft-deletes own expense only and hides other owners', async () => {
+    prisma.adminPersonalExpense.findFirst.mockResolvedValue({ id: 'e1', userId: 1, deletedAt: null });
+    prisma.adminPersonalExpense.update.mockResolvedValue({});
+    await expect(service.deleteExpense(1, 'e1')).resolves.toEqual({ ok: true, id: 'e1' });
+    expect(prisma.adminPersonalExpense.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ deletedAt: expect.any(Date) }) }),
+    );
+
+    prisma.adminPersonalExpense.findFirst.mockResolvedValue({ id: 'e2', userId: 2, deletedAt: null });
+    await expect(service.deleteExpense(1, 'e2')).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.adminPersonalExpense.delete).not.toHaveBeenCalled();
+  });
+});

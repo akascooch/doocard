@@ -1,3 +1,5 @@
+const { version: packageVersion } = require('./package.json')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Enable standalone output for Docker
@@ -194,7 +196,8 @@ const nextConfig = {
     BACKEND_URL: process.env.BACKEND_URL || 'http://doocardbarbershop.com/api',
     NEXT_PUBLIC_PWA_ENABLED: 'true',
     NEXT_PUBLIC_APP_NAME: 'Doocard Salon',
-    NEXT_PUBLIC_APP_VERSION: '1.0.0',
+    // Build-time App Router exposure. Prefer package.json; allow explicit env override.
+    NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION || packageVersion,
   },
 }
 

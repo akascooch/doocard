@@ -56,7 +56,7 @@ export function LandingHeader({ bookHref }: { bookHref: string }) {
             ورود
           </Link>
           <Link
-            href="/register"
+            href="/login?intent=register"
             className={`${tap} inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-white/20 px-3 text-xs text-white hover:bg-white/10 sm:px-4 sm:text-sm`}
           >
             ثبت‌نام
@@ -107,7 +107,7 @@ export function LandingHeader({ bookHref }: { bookHref: string }) {
             ورود
           </Link>
           <Link
-            href="/register"
+            href="/login?intent=register"
             className={`${tap} flex min-h-11 items-center rounded-md px-3 py-3 text-zinc-200 hover:bg-white/5`}
             onClick={() => setOpen(false)}
           >

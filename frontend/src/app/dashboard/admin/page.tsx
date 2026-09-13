@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { canAccessAdminDashboard, getDashboardHomePath } from '@/lib/user-roles'
+import { AdminFrogWidget } from '@/components/admin/AdminFrogWidget'
 
 interface AdminStats {
   totalAppointments: number
@@ -144,6 +145,8 @@ export default function AdminDashboard() {
           </Button>
         </div>
       </div>
+
+      {user?.role === 'ADMIN' ? <AdminFrogWidget /> : null}
 
       {/* Main Stats Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">

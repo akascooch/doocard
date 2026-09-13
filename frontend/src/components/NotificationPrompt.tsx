@@ -40,15 +40,10 @@ export function NotificationPrompt({ onClose, className = '' }: NotificationProm
       // Truth table:
       // - already subscribed            => never
       // - permission === 'denied'       => never
-      // - permission === 'granted' but NOT subscribed => ALWAYS show
-      //   (incomplete desktop/Windows setup: browser permission granted,
-      //    but pushManager.subscribe never completed / never synced)
-      // - dismissed flag present        => never (only when permission still default)
-      // - fresh user, permission=default, not subscribed, not dismissed => show once
+      // - dismissed flag present        => never
+      // - otherwise                     => show once until closed
       if (isSubscribed || permission === 'denied') {
         setCanShow(false);
-      } else if (permission === 'granted') {
-        setCanShow(true);
       } else if (dismissed) {
         setCanShow(false);
       } else {

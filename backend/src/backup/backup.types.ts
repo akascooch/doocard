@@ -15,8 +15,44 @@ export interface BackupPayload {
   data: Record<string, unknown[]>;
 }
 
+/**
+ * Prisma client delegate keys.
+ *
+ * Coverage vs schema (PR0):
+ * ADDED (were live in schema, previously omitted from dump/restore):
+ *   smsNotificationRule, productCategory, product, appointmentProduct,
+ *   inventoryMovement, order, orderItem, productStockSubscription,
+ *   tipSource, manualTipAllocation, appointmentTipAllocation,
+ *   employeeSalaryRequest
+ *
+ * DEFERRED (intentionally not in this list):
+ *   otpChallenge — ephemeral hashed OTP rows (short TTL, attempt counters).
+ *     Restoring them has no business value and can rehydrate expired challenges.
+ *   systemSettings — already in BACKUP_FORBIDDEN_DATA_KEYS (restore must not
+ *     overwrite backup path / auto-backup flags from a dump).
+ *
+ * FK notes:
+ *   appointmentTipAllocation.paidInSettlementId and
+ *   manualTipAllocation.paidInSettlementId are optional FKs to
+ *   employeeCommissionSettlement — those two models are inserted AFTER
+ *   settlements so non-null paidInSettlementId does not violate FK.
+ *   employeeSalaryRequest.paymentTransactionId is inserted AFTER transaction.
+ *   appointmentProduct requires appointment + product.
+ *   orderItem requires order + product.
+ *   adminDailyFrog / adminPersonalExpense require user (inserted after user).
+ */
+
 /** Prisma delegate keys — delete children first */
 export const BACKUP_DELETE_ORDER = [
+  'adminPersonalExpense',
+  'adminDailyFrog',
+  'productStockSubscription',
+  'orderItem',
+  'order',
+  'inventoryMovement',
+  'manualTipAllocation',
+  'appointmentTipAllocation',
+  'appointmentProduct',
   'employeeCommissionSettlementTransaction',
   'employeeCommissionSettlementAppointment',
   'employeeCommissionSettlement',
@@ -26,6 +62,7 @@ export const BACKUP_DELETE_ORDER = [
   'employeeService',
   'tip',
   'salary',
+  'employeeSalaryRequest',
   'transaction',
   'customerDebt',
   'notification',
@@ -37,12 +74,16 @@ export const BACKUP_DELETE_ORDER = [
   'importJob',
   'smsLog',
   'smsEvent',
+  'smsNotificationRule',
   'permission',
   'dayClosing',
   'customer',
+  'tipSource',
   'employee',
   'calendarDate',
   'service',
+  'product',
+  'productCategory',
   'transactionCategory',
   'bankAccount',
   'category',
@@ -64,20 +105,26 @@ export const BACKUP_INSERT_ORDER = [
   'calendarDate',
   'smsSettings',
   'smsTemplate',
+  'smsNotificationRule',
   'homepageDetails',
   'landingSlide',
   'financialReportsAccess',
+  'productCategory',
+  'product',
   'employee',
   'customer',
   'permission',
   'refreshToken',
   'pushSubscription',
+  'adminDailyFrog',
+  'adminPersonalExpense',
   'employeeService',
   'workSchedule',
   'blockedTime',
   'chequebook',
   'appointment',
   'appointmentService',
+  'appointmentProduct',
   'tip',
   'customerDebt',
   'notification',
@@ -85,12 +132,20 @@ export const BACKUP_INSERT_ORDER = [
   'importJob',
   'smsLog',
   'smsEvent',
+  'tipSource',
   'transaction',
   'chequeLeaf',
   'salary',
+  'employeeSalaryRequest',
   'employeeCommissionSettlement',
   'employeeCommissionSettlementAppointment',
   'employeeCommissionSettlementTransaction',
+  'appointmentTipAllocation',
+  'manualTipAllocation',
+  'inventoryMovement',
+  'order',
+  'orderItem',
+  'productStockSubscription',
 ] as const;
 
 export type BackupModelKey = (typeof BACKUP_INSERT_ORDER)[number];
@@ -112,6 +167,9 @@ export const BACKUP_FORBIDDEN_DATA_KEYS = [
   'systemSettings',
   'SystemSettings',
 ] as const;
+
+/** Live Prisma models intentionally omitted from backup coverage (see file header). */
+export const BACKUP_DEFERRED_MODEL_KEYS = ['otpChallenge'] as const;
 
 export const BACKUP_ALLOWED_DATA_KEYS: ReadonlySet<string> = new Set(
   BACKUP_INSERT_ORDER as readonly string[],

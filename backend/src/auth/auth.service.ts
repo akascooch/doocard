@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -259,6 +259,25 @@ export class AuthService {
     }
 
     return { success: true };
+  }
+
+  async updateOwnName(userId: number, name: string) {
+    const trimmed = name.trim();
+    if (trimmed.length < 2) {
+      throw new BadRequestException('نام باید حداقل ۲ کاراکتر باشد');
+    }
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { name: trimmed },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+      },
+    });
   }
 
   /**

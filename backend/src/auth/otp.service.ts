@@ -20,7 +20,8 @@ const OTP_TTL_MS = 2 * 60 * 1000;
 const OTP_WINDOW_MS = 15 * 60 * 1000;
 const OTP_MAX_PER_WINDOW = 3;
 const OTP_MAX_ATTEMPTS = 5;
-const OTP_LENGTH = 5;
+const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
+export const OTP_LENGTH = 5;
 
 @Injectable()
 export class OtpService {
@@ -46,6 +47,22 @@ export class OtpService {
         message: 'سرویس ارسال کد تأیید پیکربندی نشده است',
         error: 'SERVICE_UNAVAILABLE',
       });
+    }
+
+    const latest = await this.prisma.otpChallenge.findFirst({
+      where: { phone },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+    if (latest) {
+      const elapsed = Date.now() - latest.createdAt.getTime();
+      if (elapsed < OTP_RESEND_COOLDOWN_MS) {
+        const retryAfterSeconds = Math.ceil((OTP_RESEND_COOLDOWN_MS - elapsed) / 1000);
+        throw new HttpException(
+          `لطفاً ${retryAfterSeconds} ثانیه دیگر برای ارسال مجدد صبر کنید.`,
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
     }
 
     const windowStart = new Date(Date.now() - OTP_WINDOW_MS);
@@ -138,11 +155,6 @@ export class OtpService {
       throw new UnauthorizedException('کد تأیید نادرست است');
     }
 
-    const user = await this.findOrCreateCustomer(phone, dto.name);
-    return this.authService.issueSession(user, ipAddress, userAgent, dto.rememberMe);
-  }
-
-  private async findOrCreateCustomer(phone: string, name?: string) {
     const existing = await this.prisma.user.findUnique({
       where: { phone },
       select: {
@@ -155,9 +167,18 @@ export class OtpService {
         updatedAt: true,
       },
     });
-    if (existing) {
-      return existing;
-    }
+    const isNewUser = !existing;
+    const user = existing ?? (await this.createCustomer(phone, dto.name));
+    const session = await this.authService.issueSession(
+      user,
+      ipAddress,
+      userAgent,
+      dto.rememberMe,
+    );
+    return { ...session, isNewUser };
+  }
+
+  private async createCustomer(phone: string, name?: string) {
 
     const displayName = name?.trim() && name.trim().length >= 2
       ? name.trim()

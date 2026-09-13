@@ -52,7 +52,7 @@ function truncate(text: string | null, max = 90) {
 }
 
 export default function PublicProductsPage() {
-  const [bookHref, setBookHref] = useState("/register")
+  const [bookHref, setBookHref] = useState("/book-appointment")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [categories, setCategories] = useState<PublicCategory[]>([])

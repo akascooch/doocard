@@ -129,6 +129,27 @@ describe('BackupService restore', () => {
     expect(result.snapshotPath).toContain('pre-restore');
   });
 
+  it('does not delete models omitted from a legacy dump payload', async () => {
+    const productDeleteMany = jest.fn().mockResolvedValue({ count: 9 });
+    const tx = {
+      $executeRaw: jest.fn().mockResolvedValue(undefined),
+      product: { deleteMany: productDeleteMany },
+      user: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+        createMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+
+    prisma.$transaction.mockImplementation(async (fn: (client: typeof tx) => Promise<void>) => {
+      await fn(tx);
+    });
+
+    await service.restoreFromUploadedJson(JSON.stringify(minimalBackupPayload()));
+
+    expect(productDeleteMany).not.toHaveBeenCalled();
+    expect(tx.user.deleteMany).toHaveBeenCalled();
+  });
+
   it('rolls back when transaction insert fails', async () => {
     prisma.$transaction.mockRejectedValue(new Error('insert failed'));
 

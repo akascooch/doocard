@@ -10,6 +10,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from '@nestjs/common';
 import { resolveCorsOrigins } from './common/utils/cors-origins';
 import { CorsIoAdapter } from './common/adapters/cors-io.adapter';
+import { getAppVersion } from './common/app-version';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -91,7 +92,7 @@ async function bootstrap() {
     const config = new DocumentBuilder()
       .setTitle('Doocard Salon Management API')
       .setDescription('API documentation for Doocard Salon Management System')
-      .setVersion('1.0')
+      .setVersion(getAppVersion())
       .addBearerAuth()
       .addTag('auth', 'Authentication endpoints')
       .addTag('users', 'User management')

@@ -7,7 +7,7 @@ import type {
 } from "./toast"
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_REMOVE_DELAY = 1000
 
 type ToasterToast = ToastProps & {
   id: string
@@ -140,7 +140,7 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, "id">
 
-function toast({ ...props }: Toast) {
+export function toast({ ...props }: Toast) {
   const id = genId()
 
   const update = (props: ToasterToast) =>
@@ -169,6 +169,14 @@ function toast({ ...props }: Toast) {
   }
 }
 
+export function notifySuccess(title: string, description?: string) {
+  return toast({ title, description })
+}
+
+export function notifyError(title: string, description?: string) {
+  return toast({ title, description, variant: 'destructive' })
+}
+
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState)
 
@@ -189,4 +197,4 @@ function useToast() {
   }
 }
 
-export { useToast, toast } 
+export { useToast } 

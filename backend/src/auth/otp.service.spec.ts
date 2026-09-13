@@ -39,6 +39,7 @@ describe('OtpService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockConfig();
+    prisma.otpChallenge.findFirst.mockResolvedValue(null);
     service = new OtpService(
       prisma as unknown as PrismaService,
       config as unknown as ConfigService,
@@ -182,5 +183,64 @@ describe('OtpService', () => {
       service.verifyOtp({ phone: '09120000000', code: '12345' }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(auth.issueSession).not.toHaveBeenCalled();
+  });
+
+  it('enforces a 60-second resend cooldown per phone', async () => {
+    adapter.isConfigured.mockReturnValue(true);
+    prisma.otpChallenge.findFirst.mockResolvedValue({
+      createdAt: new Date(),
+    });
+
+    try {
+      await service.requestOtp({ phone: '09120000000', purpose: 'LOGIN' });
+      fail('expected cooldown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
+    }
+    expect(prisma.otpChallenge.create).not.toHaveBeenCalled();
+  });
+
+  it('issues a session for an existing user and flags isNewUser false', async () => {
+    const existing = {
+      id: 9,
+      name: 'علی',
+      email: null,
+      phone: '09120000000',
+      role: 'CUSTOMER',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    prisma.otpChallenge.findFirst.mockResolvedValue({
+      id: 'ch-ok',
+      expiresAt: new Date(Date.now() + 60_000),
+      attempts: 0,
+      codeHash: require('crypto')
+        .createHash('sha256')
+        .update('test-secret:09120000000:12345')
+        .digest('hex'),
+    });
+    prisma.otpChallenge.update.mockResolvedValue({});
+    prisma.user.findUnique.mockResolvedValue(existing);
+    auth.issueSession.mockResolvedValue({
+      access_token: 'a',
+      refresh_token: 'r',
+      user: existing,
+      refreshCookieMaxAgeMs: 1000,
+    });
+
+    const result = await service.verifyOtp({
+      phone: '09120000000',
+      code: '12345',
+      purpose: 'LOGIN',
+    });
+
+    expect(result.isNewUser).toBe(false);
+    expect(auth.issueSession).toHaveBeenCalledWith(
+      existing,
+      undefined,
+      undefined,
+      undefined,
+    );
   });
 });

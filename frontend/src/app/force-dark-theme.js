@@ -1,3 +1,8 @@
+/**
+ * LEGACY — not imported by the live app.
+ * Do not wire this back in: it force-sets dark on every load/visibility change
+ * and fights next-themes. Live theme: `components/providers.tsx`.
+ */
 // Force Dark Theme Script - Doocard Modern Design
 (function() {
   'use strict';

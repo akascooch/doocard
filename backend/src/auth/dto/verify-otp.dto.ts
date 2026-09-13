@@ -19,7 +19,7 @@ export class VerifyOtpDto {
 
   @Transform(({ value }) => String(value ?? '').replace(/\D/g, ''))
   @IsString()
-  @Matches(/^\d{4,6}$/, { message: 'کد تأیید نامعتبر است' })
+  @Matches(/^\d{5}$/, { message: 'کد تأیید باید ۵ رقم باشد' })
   code: string;
 
   @IsOptional()

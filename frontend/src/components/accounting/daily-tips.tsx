@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calendar, DollarSign, TrendingUp, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/notify';
 import api from '../../lib/axios';
 import { PersianDatePicker } from '../../components/ui/persian-date-picker';
 import { formatTomansFromRial } from '@/lib/money';

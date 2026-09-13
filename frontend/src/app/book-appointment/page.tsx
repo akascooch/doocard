@@ -1,19 +1,22 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/components/ui/use-toast'
 import PersianDatePicker from '@/components/ui/PersianDatePicker'
-import { OtpInput } from '@/components/auth/OtpInput'
-import { getCurrentUser, isAuthenticated, persistAuthSession } from '@/lib/auth'
+import { PhoneOtpAuth } from '@/components/auth/PhoneOtpAuth'
+import { getCurrentUser, isAuthenticated } from '@/lib/auth'
 import { getErrorMessage } from '@/lib/error-handler'
-import { normalizeIranMobileClient } from '@/components/customers/QuickRegisterCustomerForm'
 import { getCurrentJalaliDate, parseFromJalali, persianToEnglishDigits, tehranHHmmFromIso } from '@/lib/date'
+import {
+  clearBookingDraft,
+  readBookingDraft,
+  writeBookingDraft,
+} from '@/lib/booking-draft'
 import api from '@/lib/axios'
 import {
   ArrowRight,
@@ -45,21 +48,17 @@ interface TimeSlot {
   available?: boolean
 }
 
-const IRAN_MOBILE_RE = /^09\d{9}$/
-
 export default function BookAppointmentPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const submittingRef = useRef(false)
 
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
-  const [otpSending, setOtpSending] = useState(false)
-  const [otpSent, setOtpSent] = useState(false)
   const [identitySkipped, setIdentitySkipped] = useState(false)
   const [services, setServices] = useState<Service[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
-  const [otpCode, setOtpCode] = useState('')
 
   const [formData, setFormData] = useState({
     customerName: '',
@@ -72,9 +71,17 @@ export default function BookAppointmentPage() {
 
   useEffect(() => {
     fetchServices()
-    const preset = new URLSearchParams(window.location.search).get('employeeId')
-    if (preset) {
-      setFormData((prev) => ({ ...prev, employeeId: preset }))
+    const params = new URLSearchParams(window.location.search)
+    const preset = params.get('employeeId')
+    const draft = readBookingDraft()
+
+    setFormData((prev) => ({
+      ...prev,
+      ...(draft || {}),
+      employeeId: preset || draft?.employeeId || prev.employeeId,
+    }))
+    if (draft?.step && draft.step >= 1 && draft.step <= 3) {
+      setStep(draft.step)
     }
 
     const skipIfLoggedIn = async () => {
@@ -82,20 +89,30 @@ export default function BookAppointmentPage() {
       try {
         await api.get('/customers/me')
         setIdentitySkipped(true)
-        setStep(2)
       } catch {
-        // Not a customer profile — keep OTP/identity step
+        setIdentitySkipped(false)
       }
     }
     void skipIfLoggedIn()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only restore
   }, [])
+
+  useEffect(() => {
+    const hasFields = Boolean(
+      formData.serviceId ||
+        formData.employeeId ||
+        formData.appointmentDate ||
+        formData.appointmentTime,
+    )
+    if (!hasFields) return
+    writeBookingDraft({ ...formData, step })
+  }, [formData, step])
 
   useEffect(() => {
     if (formData.serviceId) {
       void fetchEmployeesByService(parseInt(formData.serviceId, 10))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- service change is the input
   }, [formData.serviceId])
 
   useEffect(() => {
@@ -167,98 +184,9 @@ export default function BookAppointmentPage() {
     }))
   }
 
-  const requestOtp = async () => {
-    const phone = normalizeIranMobileClient(formData.customerPhone)
-    if (!formData.customerName.trim() || formData.customerName.trim().length < 2) {
-      toast({ title: 'خطا', description: 'نام را وارد کنید', variant: 'destructive' })
-      return
-    }
-    if (!IRAN_MOBILE_RE.test(phone)) {
-      toast({ title: 'خطا', description: 'شماره موبایل معتبر نیست', variant: 'destructive' })
-      return
-    }
-    setOtpSending(true)
-    try {
-      await api.post('/auth/otp/request', { phone, purpose: 'BOOKING' })
-      setOtpSent(true)
-      handleInputChange('customerPhone', phone)
-      toast({ title: 'کد ارسال شد', description: 'کد تأیید پیامک شده را وارد کنید.' })
-    } catch (error: any) {
-      const status = error?.response?.status
-      const rawMessage = error?.response?.data?.message
-      const backendMessage = Array.isArray(rawMessage) ? rawMessage[0] : rawMessage
-      let description = getErrorMessage(error)
-      if (status === 400) {
-        description = backendMessage || 'شماره موبایل نامعتبر است.'
-      } else if (status === 429) {
-        description = backendMessage || 'تعداد درخواست کد بیش از حد مجاز است. کمی بعد تلاش کنید.'
-      } else if (status === 503) {
-        description = backendMessage || 'سرویس ارسال پیامک در دسترس نیست. لطفاً بعداً تلاش کنید.'
-      }
-      toast({
-        title: 'ارسال کد ناموفق',
-        description,
-        variant: 'destructive',
-      })
-    } finally {
-      setOtpSending(false)
-    }
-  }
-
-  const verifyOtpAndContinue = async () => {
-    const phone = normalizeIranMobileClient(formData.customerPhone)
-    if (!otpCode || otpCode.length < 4) {
-      toast({ title: 'خطا', description: 'کد تأیید را وارد کنید', variant: 'destructive' })
-      return
-    }
-    setLoading(true)
-    try {
-      const response = await api.post('/auth/otp/verify', {
-        phone,
-        code: otpCode,
-        purpose: 'BOOKING',
-        name: formData.customerName.trim(),
-      })
-      persistAuthSession(response.data)
-      setIdentitySkipped(true)
-      setStep(2)
-    } catch (error: any) {
-      toast({
-        title: 'تأیید ناموفق',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleNext = () => {
-    if (step === 1) {
-      if (identitySkipped) {
-        setStep(2)
-        return
-      }
-      if (!otpSent) {
-        void requestOtp()
-        return
-      }
-      void verifyOtpAndContinue()
-      return
-    }
-    if (step === 2 && formData.serviceId && formData.employeeId) {
-      setStep(3)
-    } else if (step === 3 && formData.appointmentTime) {
-      void handleSubmit()
-    }
-  }
-
-  const handlePrev = () => {
-    if (step === 2 && identitySkipped) return
-    if (step > 1) setStep(step - 1)
-  }
-
   const handleSubmit = async () => {
+    if (submittingRef.current) return
+    submittingRef.current = true
     try {
       setLoading(true)
       const customerRes = await api.get('/customers/me')
@@ -289,30 +217,54 @@ export default function BookAppointmentPage() {
         time: timeStr,
       })
 
+      clearBookingDraft()
       toast({
         title: 'موفقیت',
         description: 'نوبت شما با موفقیت ثبت شد. منتظر تایید باشید.',
       })
       router.push('/dashboard/customer')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error booking appointment:', error)
       toast({
         title: 'خطا',
-        description: getErrorMessage(error) || 'خطا در ثبت نوبت. لطفاً دوباره تلاش کنید.',
+        description: getErrorMessage(error as Parameters<typeof getErrorMessage>[0]) || 'خطا در ثبت نوبت. لطفاً دوباره تلاش کنید.',
         variant: 'destructive',
       })
     } finally {
+      submittingRef.current = false
       setLoading(false)
     }
+  }
+
+  const handleNext = () => {
+    if (step === 1 && formData.serviceId && formData.employeeId) {
+      setStep(2)
+      return
+    }
+    if (step === 2 && formData.appointmentTime) {
+      if (identitySkipped) {
+        void handleSubmit()
+        return
+      }
+      setStep(3)
+      return
+    }
+    if (step === 3 && identitySkipped) {
+      void handleSubmit()
+    }
+  }
+
+  const handlePrev = () => {
+    if (step > 1) setStep(step - 1)
   }
 
   const selectedService = services.find(s => s.id.toString() === formData.serviceId)
   const canGoNext =
     step === 1
-      ? identitySkipped || (!otpSent && formData.customerName.trim().length >= 2 && formData.customerPhone.length >= 10) || (otpSent && otpCode.length >= 4)
+      ? Boolean(formData.serviceId && formData.employeeId)
       : step === 2
-        ? Boolean(formData.serviceId && formData.employeeId)
-        : Boolean(formData.appointmentTime)
+        ? Boolean(formData.appointmentTime)
+        : identitySkipped
 
   return (
     <div className="min-h-screen py-8">
@@ -340,53 +292,27 @@ export default function BookAppointmentPage() {
         <Card className="max-w-2xl mx-auto">
           <CardHeader>
             <CardTitle className="text-center">
-              {step === 1 && 'تأیید شماره موبایل'}
-              {step === 2 && 'انتخاب خدمت و آرایشگر'}
-              {step === 3 && 'انتخاب زمان'}
+              {step === 1 && 'انتخاب خدمت و آرایشگر'}
+              {step === 2 && 'انتخاب زمان'}
+              {step === 3 && 'تأیید شماره موبایل'}
             </CardTitle>
             <CardDescription className="text-center">
-              {step === 1 && (identitySkipped ? 'هویت شما از حساب کاربری خوانده شد' : 'کد تأیید پیامکی برای ثبت نوبت لازم است')}
-              {step === 2 && 'خدمت مورد نظر و آرایشگر را انتخاب کنید'}
-              {step === 3 && 'زمان مناسب را انتخاب کنید'}
+              {step === 1 && 'خدمت مورد نظر و آرایشگر را انتخاب کنید'}
+              {step === 2 && 'زمان مناسب را انتخاب کنید'}
+              {step === 3 && (identitySkipped
+                ? 'هویت شما تأیید شد. نوبت در حال ثبت است.'
+                : 'برای ثبت نوبت، کد ۵ رقمی پیامکی را وارد کنید. انتخاب‌های شما حفظ می‌شود.')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {step === 1 && !identitySkipped && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="customerName">نام و نام خانوادگی *</Label>
-                  <Input
-                    id="customerName"
-                    placeholder="نام و نام خانوادگی خود را وارد کنید"
-                    value={formData.customerName}
-                    onChange={(e) => handleInputChange('customerName', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="customerPhone">شماره موبایل *</Label>
-                  <Input
-                    id="customerPhone"
-                    placeholder="09123456789"
-                    dir="ltr"
-                    value={formData.customerPhone}
-                    onChange={(e) => handleInputChange('customerPhone', e.target.value)}
-                  />
-                </div>
-                {otpSent ? (
-                  <OtpInput value={otpCode} onChange={setOtpCode} autoFocus />
-                ) : null}
-              </div>
-            )}
-
-            {step === 1 && identitySkipped && (
-              <p className="text-sm text-muted-foreground text-center">در حال انتقال به انتخاب خدمت…</p>
-            )}
-
-            {step === 2 && (
+            {step === 1 && (
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="service">خدمت مورد نظر *</Label>
-                  <Select onValueChange={(value) => handleInputChange('serviceId', value)}>
+                  <Select
+                    value={formData.serviceId || undefined}
+                    onValueChange={(value) => handleInputChange('serviceId', value)}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="خدمت مورد نظر را انتخاب کنید" />
                     </SelectTrigger>
@@ -429,7 +355,7 @@ export default function BookAppointmentPage() {
               </div>
             )}
 
-            {step === 3 && (
+            {step === 2 && (
               <div className="space-y-4">
                 <PersianDatePicker
                   value={formData.appointmentDate}
@@ -464,19 +390,49 @@ export default function BookAppointmentPage() {
               </div>
             )}
 
+            {step === 3 && !identitySkipped && (
+              <PhoneOtpAuth
+                purpose="BOOKING"
+                intent="login"
+                initialPhone={formData.customerPhone}
+                onAuthenticated={(result) => {
+                  setIdentitySkipped(true)
+                  if (result.user?.name) {
+                    handleInputChange('customerName', result.user.name)
+                  }
+                  if (result.user?.phone) {
+                    handleInputChange('customerPhone', result.user.phone)
+                  }
+                  void handleSubmit()
+                }}
+              />
+            )}
+
+            {step === 3 && identitySkipped && (
+              <p className="text-sm text-muted-foreground text-center">در حال ثبت نوبت…</p>
+            )}
+
             <div className="flex justify-between pt-6">
               <Button
                 variant="outline"
                 onClick={handlePrev}
-                disabled={step === 1 || (step === 2 && identitySkipped)}
+                disabled={step === 1 || loading}
               >
                 <ArrowRight className="w-4 h-4 ml-2" />
                 قبلی
               </Button>
-              <Button onClick={handleNext} disabled={loading || otpSending || !canGoNext}>
-                {step === 3 ? (loading ? 'در حال ثبت...' : 'ثبت نوبت') : step === 1 && !otpSent && !identitySkipped ? (otpSending ? 'در حال ارسال...' : 'ارسال کد') : step === 1 && otpSent ? (loading ? 'در حال تأیید...' : 'تأیید و ادامه') : 'بعدی'}
-                {step !== 3 && <ArrowLeft className="w-4 h-4 mr-2" />}
-              </Button>
+              {step !== 3 || identitySkipped ? (
+                <Button onClick={handleNext} disabled={loading || !canGoNext}>
+                  {step === 2 && identitySkipped
+                    ? (loading ? 'در حال ثبت...' : 'ثبت نوبت')
+                    : step === 3
+                      ? (loading ? 'در حال ثبت...' : 'ثبت نوبت')
+                      : 'بعدی'}
+                  {!(step === 2 && identitySkipped) && step !== 3 && <ArrowLeft className="w-4 h-4 mr-2" />}
+                </Button>
+              ) : (
+                <span />
+              )}
             </div>
           </CardContent>
         </Card>

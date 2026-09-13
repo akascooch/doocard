@@ -1,4 +1,7 @@
-// Force theme injection for immediate effect
+/**
+ * LEGACY — unused. Do not call injectThemeOverrides(); it paints hardcoded
+ * colors with !important and collides with the live next-themes provider.
+ */
 export function injectThemeOverrides() {
   if (typeof window === 'undefined') return;
 

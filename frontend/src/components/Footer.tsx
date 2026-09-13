@@ -1,6 +1,8 @@
 import React from 'react';
 import { Instagram } from 'lucide-react';
 
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || ''
+
 const Footer: React.FC = () => {
   return (
             <footer className="mt-auto py-4 px-4 border-t border-border/30 bg-card/50 backdrop-blur-sm">
@@ -16,6 +18,11 @@ const Footer: React.FC = () => {
                       <Instagram className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
                       Powered by Techooch
                     </a>
+                    {APP_VERSION ? (
+                      <span className="text-xs text-muted-foreground/80" dir="ltr">
+                        v{APP_VERSION}
+                      </span>
+                    ) : null}
                   </p>
                 </div>
               </div>

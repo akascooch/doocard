@@ -52,7 +52,7 @@ const FALLBACK: LandingPublicData = {
 export default function HomePage() {
   const [landing, setLanding] = useState<LandingPublicData>(FALLBACK)
   const [detailsLoading, setDetailsLoading] = useState(true)
-  const [bookHref, setBookHref] = useState("/register")
+  const [bookHref, setBookHref] = useState("/book-appointment")
   const [hasToken, setHasToken] = useState(false)
 
   const [services, setServices] = useState<Service[]>([])

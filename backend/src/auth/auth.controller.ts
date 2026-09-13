@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Patch,
   Body,
   Res,
   Req,
@@ -16,6 +17,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { UpdateOwnNameDto } from './dto/update-own-name.dto';
 import { OtpService } from './otp.service';
 import {
   getAccessCookieMaxAgeMs,
@@ -144,6 +146,14 @@ export class AuthController {
     return this.otpService.requestOtp(dto);
   }
 
+  /** Alias of otp/request — customer landing/booking clients use /otp/send. */
+  @Post('otp/send')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ short: { limit: 3, ttl: 900_000 } })
+  sendOtp(@Body() dto: RequestOtpDto) {
+    return this.otpService.requestOtp(dto);
+  }
+
   @Post('otp/verify')
   @UseGuards(ThrottlerGuard)
   @Throttle({ short: { limit: 5, ttl: 900_000 } })
@@ -164,7 +174,18 @@ export class AuthController {
     return {
       user: result.user,
       access_token: result.access_token,
+      isNewUser: result.isNewUser,
     };
+  }
+
+  @Patch('me/name')
+  @UseGuards(JwtAuthGuard)
+  updateOwnName(@Req() req: { user?: { id: number } }, @Body() dto: UpdateOwnNameDto) {
+    const userId = req.user?.id
+    if (!userId) {
+      throw new UnauthorizedException('احراز هویت نامعتبر است')
+    }
+    return this.authService.updateOwnName(userId, dto.name)
   }
 
   @Post('register')

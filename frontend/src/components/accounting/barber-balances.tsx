@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '../../components/ui/badge';
-import { toast } from 'sonner';
+import { toast } from '@/lib/notify';
 import api from '../../lib/axios';
 import { DollarSign, CheckCircle, XCircle, Hourglass, Banknote, Edit, Trash2, Info } from 'lucide-react';
 import Link from 'next/link';

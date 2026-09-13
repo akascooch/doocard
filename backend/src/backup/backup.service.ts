@@ -272,6 +272,13 @@ export class BackupService {
                 this.logger.log(`Skipping delete for ${modelKey} (session stability)`);
                 continue;
               }
+              // Legacy dumps omit models added to coverage later. Do not wipe
+              // live rows for keys that are not present in the payload at all.
+              // Empty array [] still means "this snapshot had zero rows — delete".
+              if (!Object.prototype.hasOwnProperty.call(backup.data, modelKey)) {
+                this.logger.log(`Skipping delete for ${modelKey} (absent from dump)`);
+                continue;
+              }
               const delegate = (tx as any)[modelKey] as {
                 deleteMany: () => Promise<{ count: number }>;
               };

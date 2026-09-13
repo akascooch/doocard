@@ -22,6 +22,7 @@ import {
   Upload,
   Package,
   ShoppingBag,
+  Wallet,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { LogoutButton } from './LogoutButton'
@@ -42,6 +43,12 @@ const adminMenuItems = [
     href: '/dashboard/admin',
     icon: LayoutDashboard,
     description: 'نمای کلی سیستم'
+  },
+  {
+    title: 'تنخواه و هزینه شخصی',
+    href: '/dashboard/admin/personal-expenses',
+    icon: Wallet,
+    description: 'هزینه‌های روزمره مدیر'
   },
   {
     title: 'مدیریت صفحه اصلی',
@@ -386,6 +393,7 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
               <Link
                 key={item.href}
                 href={item.href}
+                data-cy={`nav-${item.href}`}
                 className={cn(
                   'group flex items-center gap-4 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-300 ease-out',
                   isActive 

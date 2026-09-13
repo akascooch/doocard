@@ -5,6 +5,7 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
 import { useToast } from "@/components/ui/use-toast"
+import { useTheme } from "next-themes"
 import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
@@ -127,6 +128,7 @@ function backupOperationErrorMessage(error: any, fallback: string): string {
 
 export default function SettingsPage() {
   const { toast } = useToast()
+  const { theme, setTheme } = useTheme()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
   const [salonName, setSalonName] = useState("")
@@ -141,7 +143,6 @@ export default function SettingsPage() {
   const [backupConfigError, setBackupConfigError] = useState<string | null>(null)
   const [backupRunning, setBackupRunning] = useState(false)
   const [restoreRunning, setRestoreRunning] = useState(false)
-  const [theme, setTheme] = useState("dark")
   const [isLoading, setIsLoading] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
   const [showResetDialog, setShowResetDialog] = useState(false)
@@ -722,7 +723,8 @@ export default function SettingsPage() {
             <div>
               <label className="block text-sm font-medium mb-2">تم</label>
               <select
-                value={theme}
+                data-cy="theme-select"
+                value={mounted ? (theme || "dark") : "dark"}
                 onChange={(e) => setTheme(e.target.value)}
                 className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-all"
               >

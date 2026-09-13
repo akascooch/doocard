@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { UnauthorizedException, ConflictException } from '@nestjs/common';
+import { UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CustomerRegistrationSmsService } from '../sms/customer-registration-sms.service';
@@ -32,6 +32,7 @@ describe('AuthService', () => {
       findFirst: jest.fn(),
       create: jest.fn(),
       delete: jest.fn(),
+      update: jest.fn(),
     },
     customer: {
       create: jest.fn(),
@@ -314,6 +315,36 @@ describe('AuthService', () => {
       await expect(service.register(registerDto)).rejects.toThrow('Profile creation failed');
       expect(mockPrismaService.user.create).toHaveBeenCalled();
       expect(mockPrismaService.customer.create).toHaveBeenCalled();
+    });
+  });
+
+  describe('updateOwnName', () => {
+    it('updates the authenticated user display name', async () => {
+      mockPrismaService.user.update.mockResolvedValue({
+        id: 1,
+        name: 'علی رضایی',
+        email: 'test@example.com',
+        phone: '09123456789',
+        role: 'CUSTOMER',
+      });
+
+      const result = await service.updateOwnName(1, '  علی رضایی  ');
+      expect(result.name).toBe('علی رضایی');
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { name: 'علی رضایی' },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          role: true,
+        },
+      });
+    });
+
+    it('rejects names shorter than 2 characters', async () => {
+      await expect(service.updateOwnName(1, 'ا')).rejects.toThrow(BadRequestException);
     });
   });
 });
