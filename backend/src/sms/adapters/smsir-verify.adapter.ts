@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
+import { normalizeIranMobile } from '../../common/utils/phone.util';
 
 const SMS_IR_VERIFY_URL = 'https://api.sms.ir/v1/send/verify';
 
@@ -12,6 +13,7 @@ export type SmsIrVerifyResult = {
 
 /**
  * Independent sms.ir Verify adapter (OTP only).
+ * POST /v1/send/verify with header `x-api-key` (not Bearer).
  * Does not use SmsOutboundService and never CCs extra recipients.
  */
 @Injectable()
@@ -33,31 +35,34 @@ export class SmsIrVerifyAdapter {
       return { success: false, error: 'sms.ir verify is not configured' };
     }
 
+    const normalized = normalizeIranMobile(mobile);
+    if (!normalized) {
+      return { success: false, error: 'invalid mobile for sms.ir verify' };
+    }
+
     const paramName =
       this.configService.get<string>('SMS_IR_OTP_PARAM_NAME')?.trim() || 'CODE';
 
+    const payload = {
+      mobile: normalized,
+      templateId: Number(templateId),
+      parameters: [{ name: paramName, value: String(code) }],
+    };
+
     try {
-      const response = await axios.post(
-        SMS_IR_VERIFY_URL,
-        {
-          mobile,
-          templateId,
-          parameters: [{ name: paramName, value: code }],
+      const response = await axios.post(SMS_IR_VERIFY_URL, payload, {
+        timeout: 15_000,
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'x-api-key': apiKey,
         },
-        {
-          timeout: 15_000,
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-            'X-API-KEY': apiKey,
-            'x-api-key': apiKey,
-          },
-        },
-      );
+      });
 
       const httpOk = response?.status >= 200 && response?.status < 300;
       const body = response?.data;
-      const ok = httpOk && (body?.status === 1 || body?.status === '1');
+      const providerStatus = body?.status;
+      const ok = httpOk && (providerStatus === 1 || providerStatus === '1');
       if (ok) {
         const messageId =
           body?.data?.messageId != null
@@ -65,30 +70,37 @@ export class SmsIrVerifyAdapter {
             : body?.messageId != null
               ? String(body.messageId)
               : undefined;
-        this.logger.log(`sms.ir verify OK mobile=***${mobile.slice(-4)}`);
+        this.logger.log(`sms.ir verify OK mobile=***${normalized.slice(-4)}`);
         return { success: true, messageId };
       }
 
-      const errMsg = body?.message || `sms.ir verify status=${body?.status ?? 'n/a'}`;
-      this.logger.warn(`sms.ir verify failed mobile=***${mobile.slice(-4)}: ${errMsg}`);
+      const errMsg = body?.message || `sms.ir verify status=${providerStatus ?? 'n/a'}`;
+      this.logger.warn(
+        `sms.ir verify rejected mobile=***${normalized.slice(-4)} http=${response?.status ?? 'n/a'} status=${providerStatus ?? 'n/a'} message=${errMsg}`,
+      );
       return { success: false, error: errMsg };
     } catch (err: any) {
-      const status = err?.response?.status;
-      const msg = err?.response?.data?.message || err?.message || 'sms.ir verify request failed';
+      const httpStatus = err?.response?.status;
+      const data = err?.response?.data;
+      const providerStatus = data?.status;
+      const msg = data?.message || err?.message || 'sms.ir verify request failed';
       this.logger.error(
-        `sms.ir verify error mobile=***${mobile.slice(-4)} http=${status ?? 'n/a'}: ${msg}`,
+        `sms.ir verify error mobile=***${normalized.slice(-4)} http=${httpStatus ?? 'n/a'} status=${providerStatus ?? 'n/a'} message=${msg}`,
       );
       return { success: false, error: msg };
     }
   }
 
   private getApiKey(): string {
-    return (this.configService.get<string>('SMS_API_KEY', '') || '').trim();
+    const primary = this.configService.get<string>('SMS_API_KEY', '') || '';
+    const alias = this.configService.get<string>('SMS_IR_API_KEY', '') || '';
+    return (primary || alias).trim();
   }
 
   private getTemplateId(): number | null {
-    const raw = this.configService.get<string>('SMS_IR_OTP_TEMPLATE_ID', '') || '';
-    const parsed = parseInt(raw.trim(), 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    const raw = String(this.configService.get<string>('SMS_IR_OTP_TEMPLATE_ID', '') || '').trim();
+    if (!/^\d+$/.test(raw)) return null;
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
   }
 }

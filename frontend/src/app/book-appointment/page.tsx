@@ -184,9 +184,20 @@ export default function BookAppointmentPage() {
       handleInputChange('customerPhone', phone)
       toast({ title: 'کد ارسال شد', description: 'کد تأیید پیامک شده را وارد کنید.' })
     } catch (error: any) {
+      const status = error?.response?.status
+      const rawMessage = error?.response?.data?.message
+      const backendMessage = Array.isArray(rawMessage) ? rawMessage[0] : rawMessage
+      let description = getErrorMessage(error)
+      if (status === 400) {
+        description = backendMessage || 'شماره موبایل نامعتبر است.'
+      } else if (status === 429) {
+        description = backendMessage || 'تعداد درخواست کد بیش از حد مجاز است. کمی بعد تلاش کنید.'
+      } else if (status === 503) {
+        description = backendMessage || 'سرویس ارسال پیامک در دسترس نیست. لطفاً بعداً تلاش کنید.'
+      }
       toast({
         title: 'ارسال کد ناموفق',
-        description: getErrorMessage(error),
+        description,
         variant: 'destructive',
       })
     } finally {

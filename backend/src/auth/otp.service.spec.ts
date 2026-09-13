@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { HttpException, HttpStatus, Logger, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OtpService } from './otp.service';
 import { AuthService } from './auth.service';
@@ -25,8 +25,20 @@ describe('OtpService', () => {
 
   let service: OtpService;
 
+  function mockConfig(overrides: Record<string, string> = {}) {
+    const map: Record<string, string> = {
+      SMS_ENABLED: 'true',
+      NODE_ENV: 'test',
+      SMS_OTP_TTL_SECONDS: '120',
+      JWT_SECRET: 'test-secret',
+      ...overrides,
+    };
+    config.get.mockImplementation((key: string, fallback?: string) => map[key] ?? fallback ?? '');
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
+    mockConfig();
     service = new OtpService(
       prisma as unknown as PrismaService,
       config as unknown as ConfigService,
@@ -74,6 +86,81 @@ describe('OtpService', () => {
       expect((err as HttpException).getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
     }
     expect(adapter.sendVerifyCode).not.toHaveBeenCalled();
+  });
+
+  it('in development logs the OTP and returns ok when SMS_ENABLED is false', async () => {
+    mockConfig({ NODE_ENV: 'development', SMS_ENABLED: 'false' });
+    adapter.isConfigured.mockReturnValue(true);
+    prisma.otpChallenge.count.mockResolvedValue(0);
+    prisma.otpChallenge.updateMany.mockResolvedValue({ count: 0 });
+    prisma.otpChallenge.create.mockResolvedValue({ id: 'ch-dev' });
+
+    const result = await service.requestOtp({ phone: '09120000000', purpose: 'BOOKING' });
+
+    expect(result).toEqual({ ok: true, expiresInSeconds: 120 });
+    expect(prisma.otpChallenge.create).toHaveBeenCalled();
+    expect(adapter.sendVerifyCode).not.toHaveBeenCalled();
+    expect(result).not.toHaveProperty('code');
+  });
+
+  it('in development logs the OTP and returns ok when keys are missing', async () => {
+    mockConfig({ NODE_ENV: 'development', SMS_ENABLED: 'true' });
+    adapter.isConfigured.mockReturnValue(false);
+    prisma.otpChallenge.count.mockResolvedValue(0);
+    prisma.otpChallenge.updateMany.mockResolvedValue({ count: 0 });
+    prisma.otpChallenge.create.mockResolvedValue({ id: 'ch-dev-2' });
+
+    const result = await service.requestOtp({ phone: '09120000000', purpose: 'LOGIN' });
+
+    expect(result.ok).toBe(true);
+    expect(adapter.sendVerifyCode).not.toHaveBeenCalled();
+  });
+
+  it.each(['', 'false', '0', 'TRUE', 'True', 'yes'])(
+    'fail-closes in production when SMS_ENABLED=%j even if the adapter is configured',
+    async (enabled) => {
+      const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+      mockConfig({ NODE_ENV: 'production', SMS_ENABLED: enabled });
+      adapter.isConfigured.mockReturnValue(true);
+
+      await expect(
+        service.requestOtp({ phone: '09120000000', purpose: 'BOOKING' }),
+      ).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+      expect(prisma.otpChallenge.create).not.toHaveBeenCalled();
+      expect(adapter.sendVerifyCode).not.toHaveBeenCalled();
+      const logged = warnSpy.mock.calls.map((call) => String(call[0])).join(' ');
+      expect(logged).not.toMatch(/\bcode=\d{5}\b/);
+      warnSpy.mockRestore();
+    },
+  );
+
+  it('does not log OTP when NODE_ENV is staging or unknown', async () => {
+    const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    mockConfig({ NODE_ENV: 'staging', SMS_ENABLED: 'false' });
+    adapter.isConfigured.mockReturnValue(true);
+
+    await expect(
+      service.requestOtp({ phone: '09120000000', purpose: 'BOOKING' }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+    expect(prisma.otpChallenge.create).not.toHaveBeenCalled();
+    expect(warnSpy.mock.calls.map((call) => String(call[0])).join(' ')).not.toMatch(/\bcode=\d{5}\b/);
+    warnSpy.mockRestore();
+  });
+
+  it('returns ok without the OTP after a live send', async () => {
+    adapter.isConfigured.mockReturnValue(true);
+    prisma.otpChallenge.count.mockResolvedValue(0);
+    prisma.otpChallenge.updateMany.mockResolvedValue({ count: 0 });
+    prisma.otpChallenge.create.mockResolvedValue({ id: 'ch-ok' });
+    adapter.sendVerifyCode.mockResolvedValue({ success: true, messageId: '9' });
+
+    const result = await service.requestOtp({ phone: '09120000000', purpose: 'BOOKING' });
+
+    expect(result).toEqual({ ok: true, expiresInSeconds: 120 });
+    expect(result).not.toHaveProperty('code');
+    expect(adapter.sendVerifyCode).toHaveBeenCalledTimes(1);
   });
 
   it('rejects verify without a valid challenge', async () => {

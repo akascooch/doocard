@@ -47,6 +47,8 @@ export function getErrorMessage(error: ErrorResponse): string {
         return 'این اطلاعات قبلاً ثبت شده است.';
       case 422:
         return 'اطلاعات ورودی نامعتبر است.';
+      case 429:
+        return 'تعداد درخواست بیش از حد مجاز است. کمی بعد دوباره تلاش کنید.';
       case 500:
         return 'خطا در سرور. لطفاً بعداً دوباره تلاش کنید.';
       case 503:

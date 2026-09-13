@@ -16,6 +16,7 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "lint": "eslint \"src/**/*.ts\" --fix",
     "lint:check": "eslint \"src/**/*.ts\"",
+    "type-check": "tsc --noEmit",
     "test": "jest",
     "test:unit": "npm run test:db:setup && jest --testPathPattern=spec.ts",
     "test:integration": "npm run test:db:setup && jest --testPathPattern=integration.spec.ts",

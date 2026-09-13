@@ -36,9 +36,12 @@ export class OtpService {
   async requestOtp(dto: RequestOtpDto): Promise<{ ok: true; expiresInSeconds: number }> {
     const phone = dto.phone;
     const purpose = dto.purpose || 'LOGIN';
+    const canSendLive = this.verifyAdapter.isConfigured() && this.isSmsEnabled();
 
-    if (!this.verifyAdapter.isConfigured()) {
-      this.logger.warn('OTP request rejected: verify provider is not configured');
+    if (!canSendLive && !this.allowDevOtpFallback()) {
+      this.logger.warn(
+        'OTP request rejected: verify provider is not configured or SMS_ENABLED is not true',
+      );
       throw new ServiceUnavailableException({
         message: 'سرویس ارسال کد تأیید پیکربندی نشده است',
         error: 'SERVICE_UNAVAILABLE',
@@ -70,13 +73,20 @@ export class OtpService {
       data: { phone, codeHash, purpose, expiresAt },
     });
 
+    if (!canSendLive) {
+      this.logger.warn(
+        `[OTP-DEV] SMS skipped (SMS_ENABLED/keys). phone=***${phone.slice(-4)} code=${code}`,
+      );
+      return { ok: true, expiresInSeconds: Math.round(ttlMs / 1000) };
+    }
+
     const sent = await this.verifyAdapter.sendVerifyCode(phone, code);
     if (!sent.success) {
       await this.prisma.otpChallenge.update({
         where: { id: challenge.id },
         data: { consumedAt: new Date() },
       });
-      this.logger.warn(`OTP send failed phone=***${phone.slice(-4)}`);
+      this.logger.warn(`OTP send failed phone=***${phone.slice(-4)} error=${sent.error ?? 'n/a'}`);
       throw new ServiceUnavailableException({
         message: 'ارسال پیامک تأیید ناموفق بود. بعداً تلاش کنید.',
         error: 'SERVICE_UNAVAILABLE',
@@ -215,5 +225,19 @@ export class OtpService {
       return seconds * 1000;
     }
     return OTP_TTL_MS;
+  }
+
+  private isSmsEnabled(): boolean {
+    return (this.configService.get<string>('SMS_ENABLED', '') || '').trim() === 'true';
+  }
+
+  /** Local Nest boot only. Test and production stay fail-closed (503) when SMS cannot be sent. */
+  private allowDevOtpFallback(): boolean {
+    const env = (
+      this.configService.get<string>('NODE_ENV', '') ||
+      process.env.NODE_ENV ||
+      ''
+    ).trim();
+    return env === 'development';
   }
 }

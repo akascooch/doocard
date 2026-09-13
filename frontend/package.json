@@ -14,6 +14,7 @@
     "start": "node --max-old-space-size=4096 node_modules/next/dist/bin/next start",
     "sync:standalone": "node scripts/sync-standalone.mjs",
     "lint": "next lint",
+    "type-check": "tsc --noEmit",
     "test:e2e": "cypress run",
     "test:e2e:open": "cypress open",
     "test:e2e:headed": "cypress run --headed",
