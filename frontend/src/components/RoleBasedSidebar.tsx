@@ -57,7 +57,7 @@ const adminMenuItems = [
     title: 'مدیریت قورباغه (تمرکز روز)',
     href: '/dashboard/admin/frog-tasks',
     icon: Target,
-    description: 'قورباغه امروز و تکرار خودکار'
+    description: 'چند تسک روزانه با یادآوری پیامکی'
   },
   {
     title: 'مدیریت صفحه اصلی',

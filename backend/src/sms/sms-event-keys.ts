@@ -20,6 +20,8 @@ export const SMS_EVENT_KEYS = {
   ADMIN_TEST: 'admin.test',
   /** Admin panel custom free-text send (policy-gated; default on) */
   ADMIN_CUSTOM: 'admin.custom',
+  /** Personal frog / to-do reminder 2 hours before scheduledAt */
+  FROG_REMINDER: 'frog.reminder',
   /** New shop card-to-card order (admin alert) */
   SHOP_ORDER_CREATED: 'shop.orderCreated',
   /** Waitlist: product stock moved from 0 to available */
@@ -95,6 +97,11 @@ export const DEFAULT_SMS_POLICY: SmsPolicyDefault[] = [
   {
     eventKey: SMS_EVENT_KEYS.ADMIN_CUSTOM,
     label: 'ارسال سفارشی ادمین',
+    smsEnabled: true,
+  },
+  {
+    eventKey: SMS_EVENT_KEYS.FROG_REMINDER,
+    label: 'یادآور قورباغه (۲ ساعت قبل)',
     smsEnabled: true,
   },
   {

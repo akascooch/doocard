@@ -19,6 +19,7 @@ import {
   CreateFrogRecurrenceDto,
   CreatePersonalExpenseDto,
   FrogHistoryQueryDto,
+  ListFrogsQueryDto,
   ListPersonalExpensesQueryDto,
   ToggleFrogDto,
   UpdateExpenseCategoryDto,
@@ -35,6 +36,15 @@ export class AdminPersonalController {
   @Roles('ADMIN')
   getTodayFrog(@Req() req: { user: { id: number } }) {
     return this.service.getTodayFrog(req.user.id);
+  }
+
+  @Get('frog')
+  @Roles('ADMIN')
+  listFrogs(
+    @Req() req: { user: { id: number } },
+    @Query() query: ListFrogsQueryDto,
+  ) {
+    return this.service.listFrogs(req.user.id, query);
   }
 
   @Get('frog/history')
@@ -97,6 +107,15 @@ export class AdminPersonalController {
     @Body() dto: ToggleFrogDto,
   ) {
     return this.service.toggleFrog(req.user.id, id, dto);
+  }
+
+  @Delete('frog/:id')
+  @Roles('ADMIN')
+  deleteFrog(
+    @Req() req: { user: { id: number } },
+    @Param('id') id: string,
+  ) {
+    return this.service.deleteFrog(req.user.id, id);
   }
 
   @Get('expenses/summary')

@@ -67,6 +67,23 @@ export class UpsertTodayFrogDto {
   @IsString()
   @MaxLength(64)
   rolloverId?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(DATE_KEY_RE, { message: 'dateKey باید YYYY-MM-DD باشد' })
+  dateKey?: string;
+
+  /** Tehran clock, 24h HH:mm. Some browsers submit HH:mm:ss from <input type="time">. */
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => {
+    if (typeof value !== 'string') return value;
+    const trimmed = value.trim();
+    if (/^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/.test(trimmed)) return trimmed.slice(0, 5);
+    return trimmed;
+  })
+  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: 'dueTime باید HH:mm باشد' })
+  dueTime?: string;
 }
 
 export class ToggleFrogDto {
@@ -237,6 +254,13 @@ export class FrogHistoryQueryDto {
   @Min(1)
   @Max(MAX_PAGE_SIZE)
   pageSize?: number;
+}
+
+export class ListFrogsQueryDto {
+  @IsOptional()
+  @IsString()
+  @Matches(DATE_KEY_RE)
+  dateKey?: string;
 }
 
 export class CreateExpenseCategoryDto {

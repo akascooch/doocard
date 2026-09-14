@@ -22,7 +22,7 @@ import { getApiErrorMessage, notifyError, notifySuccess } from "@/lib/notify"
 import { getCurrentUser } from "@/lib/auth"
 import { getDashboardHomePath } from "@/lib/user-roles"
 import api from "@/lib/axios"
-import { CheckCircle2, Circle, Loader2, PlayCircle, Plus, Target, Trash2 } from "lucide-react"
+import { CheckCircle2, Circle, Clock, Loader2, PlayCircle, Plus, Target, Trash2 } from "lucide-react"
 
 type FrogStatus = "PENDING" | "IN_PROGRESS" | "DONE"
 
@@ -33,6 +33,9 @@ type Frog = {
   description: string | null
   status: FrogStatus
   isCompleted: boolean
+  dueTime?: string
+  scheduledAt?: string
+  reminderSent?: boolean
 }
 
 type Recurrence = {
@@ -59,14 +62,22 @@ function StatusIcon({ status }: { status: FrogStatus }) {
   return <Circle className="h-5 w-5 text-muted-foreground" />
 }
 
+function statusBadgeVariant(status: FrogStatus) {
+  if (status === "DONE") return "success" as const
+  if (status === "IN_PROGRESS") return "warning" as const
+  return "outline" as const
+}
+
 export default function AdminFrogTasksPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [todayKey, setTodayKey] = useState("")
-  const [frog, setFrog] = useState<Frog | null>(null)
+  const [calendarToday, setCalendarToday] = useState("")
+  const [selectedDate, setSelectedDate] = useState("")
+  const [items, setItems] = useState<Frog[]>([])
   const [rollover, setRollover] = useState<Frog | null>(null)
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
+  const [dueTime, setDueTime] = useState("09:00")
   const [recurrences, setRecurrences] = useState<Recurrence[]>([])
   const [ruleTitle, setRuleTitle] = useState("")
   const [ruleDescription, setRuleDescription] = useState("")
@@ -75,7 +86,8 @@ export default function AdminFrogTasksPage() {
   const [history, setHistory] = useState<Frog[]>([])
   const [historyPage, setHistoryPage] = useState(1)
   const [historyTotal, setHistoryTotal] = useState(0)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleteRuleId, setDeleteRuleId] = useState<string | null>(null)
+  const [deleteFrogId, setDeleteFrogId] = useState<string | null>(null)
   const pageSize = 10
 
   useEffect(() => {
@@ -85,15 +97,25 @@ export default function AdminFrogTasksPage() {
     }
   }, [])
 
-  const loadToday = useCallback(async () => {
-    const res = await api.get("/admin/personal/frog/today")
-    setTodayKey(res.data.today || "")
-    setFrog(res.data.frog || null)
-    setRollover(res.data.rollover || null)
-    if (res.data.frog) {
-      setTitle(res.data.frog.title)
-      setDescription(res.data.frog.description || "")
-    }
+  const applyDayPayload = (data: {
+    today?: string
+    items?: Frog[]
+    frog?: Frog | null
+    rollover?: Frog | null
+  }, markCalendarToday: boolean) => {
+    const dateKey = data.today || ""
+    if (markCalendarToday) setCalendarToday(dateKey)
+    setSelectedDate(dateKey)
+    const dayItems = data.items || (data.frog ? [data.frog] : [])
+    setItems(dayItems)
+    setRollover(data.rollover || null)
+  }
+
+  const loadDay = useCallback(async (dateKey?: string, markCalendarToday = false) => {
+    const res = dateKey
+      ? await api.get("/admin/personal/frog", { params: { dateKey } })
+      : await api.get("/admin/personal/frog/today")
+    applyDayPayload(res.data, markCalendarToday || !dateKey)
   }, [])
 
   const loadRecurrences = useCallback(async () => {
@@ -111,26 +133,39 @@ export default function AdminFrogTasksPage() {
   const loadAll = useCallback(async () => {
     setLoading(true)
     try {
-      await Promise.all([loadToday(), loadRecurrences(), loadHistory(1)])
+      await Promise.all([loadDay(undefined, true), loadRecurrences(), loadHistory(1)])
     } catch (error) {
       notifyError("قورباغه", getApiErrorMessage(error, "بارگذاری ناموفق بود"))
     } finally {
       setLoading(false)
     }
-  }, [loadToday, loadRecurrences, loadHistory])
+  }, [loadDay, loadRecurrences, loadHistory])
 
   useEffect(() => {
     void loadAll()
   }, [loadAll])
 
-  const saveToday = async (fromRollover = false) => {
+  const isViewingToday = Boolean(selectedDate) && selectedDate === calendarToday
+
+  const saveTask = async (fromRollover = false) => {
+    if (!fromRollover && title.trim().length < 2) return
     setSaving(true)
     try {
       await api.post("/admin/personal/frog", fromRollover && rollover
         ? { rolloverId: rollover.id }
-        : { title: title.trim(), description: description.trim() || undefined })
-      notifySuccess("قورباغه امروز ذخیره شد")
-      await loadToday()
+        : {
+            title: title.trim(),
+            description: description.trim() || undefined,
+            dateKey: selectedDate || undefined,
+            dueTime,
+          })
+      notifySuccess(fromRollover ? "قورباغه دیروز به امروز منتقل شد" : "قورباغه ثبت شد")
+      if (!fromRollover) {
+        setTitle("")
+        setDescription("")
+      }
+      await loadDay(selectedDate || undefined, false)
+      await loadHistory(historyPage)
     } catch (error) {
       notifyError("قورباغه", getApiErrorMessage(error, "ذخیره ناموفق بود"))
     } finally {
@@ -138,17 +173,30 @@ export default function AdminFrogTasksPage() {
     }
   }
 
-  const toggleToday = async () => {
-    if (!frog || frog.status === "DONE") return
+  const toggleTask = async (frog: Frog) => {
+    if (frog.status === "DONE") return
     setSaving(true)
     try {
-      const res = await api.patch(`/admin/personal/frog/${frog.id}/toggle`, {})
-      setFrog(res.data)
+      await api.patch(`/admin/personal/frog/${frog.id}/toggle`, {})
       notifySuccess("وضعیت به‌روز شد")
+      await loadDay(selectedDate || undefined, false)
     } catch (error) {
       notifyError("قورباغه", getApiErrorMessage(error, "تغییر وضعیت ناموفق بود"))
     } finally {
       setSaving(false)
+    }
+  }
+
+  const removeTask = async () => {
+    if (!deleteFrogId) return
+    try {
+      await api.delete(`/admin/personal/frog/${deleteFrogId}`)
+      setDeleteFrogId(null)
+      notifySuccess("قورباغه حذف شد")
+      await loadDay(selectedDate || undefined, false)
+      await loadHistory(historyPage)
+    } catch (error) {
+      notifyError("قورباغه", getApiErrorMessage(error, "حذف ناموفق بود"))
     }
   }
 
@@ -183,10 +231,10 @@ export default function AdminFrogTasksPage() {
   }
 
   const removeRule = async () => {
-    if (!deleteId) return
+    if (!deleteRuleId) return
     try {
-      await api.delete(`/admin/personal/frog/recurrences/${deleteId}`)
-      setDeleteId(null)
+      await api.delete(`/admin/personal/frog/recurrences/${deleteRuleId}`)
+      setDeleteRuleId(null)
       notifySuccess("الگو حذف شد")
       await loadRecurrences()
     } catch (error) {
@@ -195,6 +243,7 @@ export default function AdminFrogTasksPage() {
   }
 
   const historyPages = Math.max(1, Math.ceil(historyTotal / pageSize))
+  const pendingCount = items.filter((item) => !item.isCompleted).length
 
   if (loading) {
     return (
@@ -209,10 +258,10 @@ export default function AdminFrogTasksPage() {
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <Target className="h-7 w-7" />
-          مدیریت قورباغه (تمرکز روز)
+          مدیریت قورباغه
         </h1>
         <p className="text-muted-foreground mt-1">
-          حداکثر یک قورباغه در هر روز تقویم تهران. الگوهای تکرار فقط وقتی ردیف امروز خالی باشد ایجاد می‌شوند.
+          چند تسک در هر روز، با ساعت مشخص. پیامک یادآوری حدود ۲ ساعت قبل از موعد به شماره مدیر ارسال می‌شود.
         </p>
         <Link href="/dashboard/admin" className="text-sm text-primary mt-2 inline-block">
           بازگشت به داشبورد
@@ -220,49 +269,111 @@ export default function AdminFrogTasksPage() {
       </div>
 
       <Card className="border-primary/30">
-        <CardHeader>
-          <CardTitle>قورباغه امروز</CardTitle>
-          <CardDescription>تاریخ تهران: {todayKey || "—"}</CardDescription>
+        <CardHeader className="space-y-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle>لیست قورباغه‌ها</CardTitle>
+              <CardDescription>
+                {isViewingToday ? "امروز تهران" : "روز انتخاب‌شده"}: {selectedDate || "—"}
+                {items.length > 0 ? ` · ${pendingCount} مورد باز از ${items.length}` : ""}
+              </CardDescription>
+            </div>
+            <div className="space-y-1 w-full sm:w-auto">
+              <Label htmlFor="frog-date">تاریخ</Label>
+              <Input
+                id="frog-date"
+                type="date"
+                dir="ltr"
+                className="sm:w-44"
+                value={selectedDate}
+                onChange={(e) => {
+                  const next = e.target.value
+                  setSelectedDate(next)
+                  if (next) void loadDay(next, false)
+                }}
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {rollover && !frog ? (
+          {rollover && items.length === 0 ? (
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-3">
               <p className="text-sm">قورباغه دیروز تمام نشده: <strong>{rollover.title}</strong></p>
-              <Button type="button" variant="outline" disabled={saving} onClick={() => void saveToday(true)}>
+              <Button type="button" variant="outline" disabled={saving} onClick={() => void saveTask(true)}>
                 انتقال به امروز
               </Button>
             </div>
           ) : null}
 
-          {frog ? (
-            <div className="flex flex-col gap-3 rounded-xl border border-border p-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="space-y-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <StatusIcon status={frog.status} />
-                  <p className={`font-semibold break-words ${frog.isCompleted ? "line-through text-muted-foreground" : ""}`}>
-                    {frog.title}
-                  </p>
-                </div>
-                {frog.description ? <p className="text-sm text-muted-foreground break-words">{frog.description}</p> : null}
-                <Badge variant={frog.status === "DONE" ? "success" : frog.status === "IN_PROGRESS" ? "warning" : "outline"} className="normal-case tracking-normal">
-                  {STATUS_LABEL[frog.status]}
-                </Badge>
-              </div>
-              <Button type="button" disabled={saving || frog.status === "DONE"} onClick={() => void toggleToday()}>
-                {frog.status === "DONE" ? "انجام شد" : "وضعیت بعدی"}
-              </Button>
-            </div>
+          {items.length === 0 ? (
+            <p className="text-sm text-muted-foreground">برای این روز هنوز قورباغه‌ای ثبت نشده است.</p>
           ) : (
-            <p className="text-sm text-muted-foreground">هنوز قورباغه‌ای برای امروز ثبت نشده است.</p>
+            <ul className="space-y-2">
+              {items.map((item) => (
+                <li
+                  key={item.id}
+                  className="flex flex-col gap-3 rounded-xl border border-border p-4 sm:flex-row sm:items-start sm:justify-between"
+                >
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <StatusIcon status={item.status} />
+                      <p className={`font-semibold break-words ${item.isCompleted ? "line-through text-muted-foreground" : ""}`}>
+                        {item.title}
+                      </p>
+                    </div>
+                    {item.description ? <p className="text-sm text-muted-foreground break-words">{item.description}</p> : null}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={statusBadgeVariant(item.status)} className="normal-case tracking-normal">
+                        {STATUS_LABEL[item.status]}
+                      </Badge>
+                      <Badge variant="outline" className="normal-case tracking-normal gap-1">
+                        <Clock className="h-3 w-3" />
+                        {item.dueTime || "—"}
+                      </Badge>
+                      {item.reminderSent ? (
+                        <Badge variant="secondary" className="normal-case tracking-normal">یادآوری ارسال شد</Badge>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button type="button" disabled={saving || item.status === "DONE"} onClick={() => void toggleTask(item)}>
+                      {item.status === "DONE" ? "انجام شد" : "وضعیت بعدی"}
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => setDeleteFrogId(item.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
 
-          <div className="space-y-2">
-            <Label>عنوان</Label>
-            <Input placeholder="مهم‌ترین کار امروز چیست؟" value={title} onChange={(e) => setTitle(e.target.value)} />
-            <Textarea placeholder="توضیح کوتاه (اختیاری)" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
-            <Button type="button" disabled={saving || title.trim().length < 2} onClick={() => void saveToday(false)}>
-              {frog ? "به‌روزرسانی قورباغه امروز" : "ثبت قورباغه امروز"}
-            </Button>
+          <div className="grid gap-3 md:grid-cols-2 rounded-xl border border-dashed border-primary/30 p-4">
+            <div className="space-y-2 md:col-span-2">
+              <Label>عنوان تسک جدید</Label>
+              <Input placeholder="مثلاً تماس با تامین‌کننده" value={title} onChange={(e) => setTitle(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="frog-due-time">ساعت انجام</Label>
+              <Input
+                id="frog-due-time"
+                type="time"
+                dir="ltr"
+                className="text-center"
+                value={dueTime}
+                onChange={(e) => setDueTime(e.target.value.slice(0, 5))}
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>توضیح (اختیاری)</Label>
+              <Textarea placeholder="جزئیات کوتاه" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
+            </div>
+            <div className="md:col-span-2">
+              <Button type="button" disabled={saving || title.trim().length < 2 || !dueTime} onClick={() => void saveTask(false)}>
+                <Plus className="h-4 w-4 ml-1" />
+                افزودن قورباغه
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -270,7 +381,9 @@ export default function AdminFrogTasksPage() {
       <Card>
         <CardHeader>
           <CardTitle>تکرار خودکار (الگوها)</CardTitle>
-          <CardDescription>کرون ساعت ۰۴:۰۰ تهران؛ اگر قورباغه امروز وجود داشته باشد چیزی اضافه نمی‌شود.</CardDescription>
+          <CardDescription>
+            کرون ساعت ۰۴:۰۰ تهران برای هر الگوی فعال یک تسک با ساعت ۰۹:۰۰ می‌سازد؛ وجود تسک‌های دیگر مانع ایجاد نمی‌شود.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 md:grid-cols-2">
@@ -333,7 +446,7 @@ export default function AdminFrogTasksPage() {
                     <Button type="button" variant="outline" size="sm" onClick={() => void toggleRule(item)}>
                       {item.isActive ? "غیرفعال" : "فعال"}
                     </Button>
-                    <Button type="button" variant="ghost" size="icon" onClick={() => setDeleteId(item.id)}>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => setDeleteRuleId(item.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -358,7 +471,7 @@ export default function AdminFrogTasksPage() {
                 <li key={item.id} className="flex items-center justify-between gap-2 text-sm rounded-xl border border-border p-3">
                   <span className="truncate">{item.title}</span>
                   <Badge variant="outline" className="shrink-0 normal-case tracking-normal">
-                    {STATUS_LABEL[item.status]} · {item.dateKey}
+                    {STATUS_LABEL[item.status]} · {item.dateKey}{item.dueTime ? ` · ${item.dueTime}` : ""}
                   </Badge>
                 </li>
               ))}
@@ -377,7 +490,7 @@ export default function AdminFrogTasksPage() {
         </CardContent>
       </Card>
 
-      <AlertDialog open={Boolean(deleteId)} onOpenChange={(open) => { if (!open) setDeleteId(null) }}>
+      <AlertDialog open={Boolean(deleteRuleId)} onOpenChange={(open) => { if (!open) setDeleteRuleId(null) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>حذف الگوی تکرار؟</AlertDialogTitle>
@@ -386,6 +499,19 @@ export default function AdminFrogTasksPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>انصراف</AlertDialogCancel>
             <AlertDialogAction onClick={() => void removeRule()}>حذف</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={Boolean(deleteFrogId)} onOpenChange={(open) => { if (!open) setDeleteFrogId(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>حذف این قورباغه؟</AlertDialogTitle>
+            <AlertDialogDescription>این تسک از لیست حذف می‌شود و یادآوری پیامکی برای آن ارسال نخواهد شد.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>انصراف</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void removeTask()}>حذف</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

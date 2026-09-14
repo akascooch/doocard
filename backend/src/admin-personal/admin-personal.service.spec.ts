@@ -8,6 +8,7 @@ import {
   FrogHistoryQueryDto,
   ListPersonalExpensesQueryDto,
   MAX_AMOUNT_RIAL,
+  UpsertTodayFrogDto,
   isValidDateKey,
   parseAmountRial,
 } from './dto/admin-personal.dto';
@@ -80,6 +81,13 @@ describe('CreatePersonalExpenseDto', () => {
     expect(decimalErrors.some((err) => err.property === 'amount')).toBe(true);
   });
 
+  it('normalizes HTML time input HH:mm:ss down to HH:mm', async () => {
+    const dto = plainToInstance(UpsertTodayFrogDto, { title: 'کار', dueTime: '14:30:00' });
+    const errors = await validate(dto);
+    expect(errors.filter((err) => err.property === 'dueTime')).toHaveLength(0);
+    expect(dto.dueTime).toBe('14:30');
+  });
+
   it('rejects invalid page, pageSize, and dates on list/history query DTOs', async () => {
     const history = plainToInstance(FrogHistoryQueryDto, { page: 0, pageSize: 999 });
     const historyErrors = await validate(history);
@@ -107,6 +115,7 @@ describe('AdminPersonalService', () => {
       upsert: jest.fn(),
       update: jest.fn(),
       create: jest.fn(),
+      delete: jest.fn(),
     },
     adminPersonalExpense: {
       create: jest.fn(),
@@ -144,12 +153,31 @@ describe('AdminPersonalService', () => {
 
   const service = new AdminPersonalService(prisma as never);
 
+  const noonTehran = () => new Date(`${tehranDateKey()}T12:00:00+03:30`);
+
+  const frogRow = (overrides: Record<string, unknown> = {}) => ({
+    id: 'f1',
+    userId: 1,
+    dateKey: tehranDateKey(),
+    title: 'کار',
+    description: null,
+    status: AdminFrogStatus.PENDING,
+    isCompleted: false,
+    completedAt: null,
+    scheduledAt: noonTehran(),
+    reminderSent: false,
+    reminderSentAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it('GET today is read-only and does not create rows', async () => {
-    prisma.adminDailyFrog.findUnique.mockResolvedValue(null);
+    prisma.adminDailyFrog.findMany.mockResolvedValue([]);
     prisma.adminDailyFrog.findFirst.mockResolvedValue(null);
     await service.getTodayFrog(1);
     expect(prisma.adminDailyFrog.create).not.toHaveBeenCalled();
@@ -157,7 +185,7 @@ describe('AdminPersonalService', () => {
   });
 
   it('rapid GET today across Tehran midnight never writes rows', async () => {
-    prisma.adminDailyFrog.findUnique.mockResolvedValue(null);
+    prisma.adminDailyFrog.findMany.mockResolvedValue([]);
     prisma.adminDailyFrog.findFirst.mockResolvedValue(null);
     jest.useFakeTimers();
     try {
@@ -178,7 +206,7 @@ describe('AdminPersonalService', () => {
   });
 
   it('does not offer a completed yesterday frog as rollover', async () => {
-    prisma.adminDailyFrog.findUnique.mockResolvedValue(null);
+    prisma.adminDailyFrog.findMany.mockResolvedValue([]);
     prisma.adminDailyFrog.findFirst.mockResolvedValue(null);
     const result = await service.getTodayFrog(7);
     expect(result.rollover).toBeNull();
@@ -193,103 +221,113 @@ describe('AdminPersonalService', () => {
   });
 
   it('returns yesterday incomplete frog as rollover when today is empty', async () => {
-    prisma.adminDailyFrog.findUnique.mockResolvedValue(null);
-    prisma.adminDailyFrog.findFirst.mockResolvedValue({
-      id: 'old',
-      userId: 1,
-      dateKey: '2026-09-12',
-      title: 'تماس با تامین‌کننده',
-      description: null,
-      status: AdminFrogStatus.IN_PROGRESS,
-      isCompleted: false,
-      completedAt: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+    prisma.adminDailyFrog.findMany.mockResolvedValue([]);
+    prisma.adminDailyFrog.findFirst.mockResolvedValue(
+      frogRow({
+        id: 'old',
+        dateKey: '2026-09-12',
+        title: 'تماس با تامین‌کننده',
+        status: AdminFrogStatus.IN_PROGRESS,
+      }),
+    );
 
     const result = await service.getTodayFrog(1);
     expect(result.frog).toBeNull();
+    expect(result.items).toEqual([]);
     expect(result.rollover?.id).toBe('old');
   });
 
   it('rejects rollover of another owner or a completed frog', async () => {
-    prisma.adminDailyFrog.findUnique
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ id: 'old', userId: 2, isCompleted: false, status: 'PENDING', dateKey: 'x' });
+    prisma.adminDailyFrog.findUnique.mockResolvedValueOnce({
+      id: 'old',
+      userId: 2,
+      isCompleted: false,
+      status: 'PENDING',
+      dateKey: 'x',
+      scheduledAt: noonTehran(),
+    });
     await expect(service.upsertTodayFrog(1, { rolloverId: 'old' })).rejects.toBeInstanceOf(
       NotFoundException,
     );
 
-    prisma.adminDailyFrog.findUnique
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: 'old',
-        userId: 1,
-        isCompleted: true,
-        status: AdminFrogStatus.DONE,
-        dateKey: shiftDateKey(tehranDateKey(), -1),
-        title: 'done',
-      });
+    prisma.adminDailyFrog.findUnique.mockResolvedValueOnce({
+      id: 'old',
+      userId: 1,
+      isCompleted: true,
+      status: AdminFrogStatus.DONE,
+      dateKey: shiftDateKey(tehranDateKey(), -1),
+      title: 'done',
+      scheduledAt: noonTehran(),
+    });
     await expect(service.upsertTodayFrog(1, { rolloverId: 'old' })).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });
 
-  it('upserts today frog from yesterday rollover without a second create path', async () => {
+  it('creates a new today frog from yesterday rollover even if today already has tasks', async () => {
     const yesterday = shiftDateKey(tehranDateKey(), -1);
-    prisma.adminDailyFrog.findUnique
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
+    prisma.adminDailyFrog.findUnique.mockResolvedValueOnce(
+      frogRow({
         id: 'old',
-        userId: 1,
         title: 'قورباغه دیروز',
         description: 'جزئیات',
-        isCompleted: false,
-        status: AdminFrogStatus.PENDING,
         dateKey: yesterday,
-      });
-    prisma.adminDailyFrog.upsert.mockResolvedValue({
-      id: 'new',
-      userId: 1,
-      dateKey: tehranDateKey(),
-      title: 'قورباغه دیروز',
-      description: 'جزئیات',
-      status: AdminFrogStatus.PENDING,
-      isCompleted: false,
-      completedAt: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+      }),
+    );
+    prisma.adminDailyFrog.create.mockResolvedValue(
+      frogRow({
+        id: 'new',
+        title: 'قورباغه دیروز',
+        description: 'جزئیات',
+      }),
+    );
 
     const row = await service.upsertTodayFrog(1, { rolloverId: 'old' });
     expect(row.title).toBe('قورباغه دیروز');
-    expect(prisma.adminDailyFrog.upsert).toHaveBeenCalledTimes(1);
-    expect(prisma.adminDailyFrog.create).not.toHaveBeenCalled();
+    expect(prisma.adminDailyFrog.create).toHaveBeenCalledTimes(1);
+    expect(prisma.adminDailyFrog.upsert).not.toHaveBeenCalled();
   });
 
-  it('upserts only the authenticated owner\'s today row', async () => {
-    prisma.adminDailyFrog.upsert.mockResolvedValue({
-      id: 'new',
-      userId: 8,
-      dateKey: tehranDateKey(),
-      title: 'کار امروز',
-      description: null,
-      status: AdminFrogStatus.PENDING,
-      isCompleted: false,
-      completedAt: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-    await service.upsertTodayFrog(8, { title: 'کار امروز' });
-    expect(prisma.adminDailyFrog.upsert).toHaveBeenCalledWith(
+  it('creates a new frog for the authenticated owner (multiple per day allowed)', async () => {
+    prisma.adminDailyFrog.create.mockResolvedValue(
+      frogRow({ id: 'new', userId: 8, title: 'کار امروز' }),
+    );
+    await service.upsertTodayFrog(8, { title: 'کار امروز', dueTime: '14:30' });
+    expect(prisma.adminDailyFrog.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { userId_dateKey: { userId: 8, dateKey: tehranDateKey() } },
-        create: expect.objectContaining({ userId: 8, dateKey: tehranDateKey() }),
-        update: expect.objectContaining({ title: 'کار امروز' }),
+        data: expect.objectContaining({
+          userId: 8,
+          dateKey: tehranDateKey(),
+          title: 'کار امروز',
+          scheduledAt: new Date(`${tehranDateKey()}T14:30:00+03:30`),
+        }),
       }),
     );
-    expect(prisma.adminDailyFrog.upsert.mock.calls[0][0].update.dateKey).toBeUndefined();
-    expect(prisma.adminDailyFrog.upsert.mock.calls[0][0].update.userId).toBeUndefined();
+    expect(prisma.adminDailyFrog.upsert).not.toHaveBeenCalled();
+  });
+
+  it('deletes only the authenticated owner frog', async () => {
+    prisma.adminDailyFrog.findUnique.mockResolvedValueOnce(frogRow({ id: 'f1', userId: 1 }));
+    prisma.adminDailyFrog.delete.mockResolvedValueOnce({});
+    await expect(service.deleteFrog(1, 'f1')).resolves.toEqual({ ok: true, id: 'f1' });
+    expect(prisma.adminDailyFrog.delete).toHaveBeenCalledWith({ where: { id: 'f1' } });
+
+    prisma.adminDailyFrog.findUnique.mockResolvedValueOnce(frogRow({ id: 'f2', userId: 99 }));
+    await expect(service.deleteFrog(1, 'f2')).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.adminDailyFrog.delete).toHaveBeenCalledTimes(1);
+  });
+
+  it('lists every frog for the requested date, not a single unique row', async () => {
+    prisma.adminDailyFrog.findMany.mockResolvedValue([
+      frogRow({ id: 'a', title: 'اول', scheduledAt: new Date(`${tehranDateKey()}T09:00:00+03:30`) }),
+      frogRow({ id: 'b', title: 'دوم', scheduledAt: new Date(`${tehranDateKey()}T14:30:00+03:30`) }),
+    ]);
+    const result = await service.getTodayFrog(1);
+    expect(result.items).toHaveLength(2);
+    expect(result.items.map((row) => row.title)).toEqual(['اول', 'دوم']);
+    expect(result.frog?.id).toBe('a');
+    expect(result.items[1].dueTime).toBe('14:30');
+    expect(prisma.adminDailyFrog.findFirst).not.toHaveBeenCalled();
   });
 
   it('rejects invalid expense dates and caps page size', async () => {
@@ -338,34 +376,31 @@ describe('AdminPersonalService', () => {
       userId: 1,
       status: AdminFrogStatus.PENDING,
       completedAt: null,
+      scheduledAt: noonTehran(),
+      reminderSent: false,
+      reminderSentAt: null,
     });
-    prisma.adminDailyFrog.update.mockResolvedValue({
-      id: 'f1',
-      userId: 1,
-      dateKey: '2026-09-13',
-      title: 'x',
-      description: null,
-      status: AdminFrogStatus.IN_PROGRESS,
-      isCompleted: false,
-      completedAt: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+    prisma.adminDailyFrog.update.mockResolvedValue(
+      frogRow({
+        id: 'f1',
+        dateKey: '2026-09-13',
+        title: 'x',
+        status: AdminFrogStatus.IN_PROGRESS,
+      }),
+    );
     const progressed = await service.toggleFrog(1, 'f1', {});
     expect(progressed.status).toBe('IN_PROGRESS');
 
-    prisma.adminDailyFrog.findUnique.mockResolvedValue({
-      id: 'f1',
-      userId: 1,
-      status: AdminFrogStatus.DONE,
-      isCompleted: true,
-      completedAt: new Date('2026-09-13T10:00:00.000Z'),
-      dateKey: '2026-09-13',
-      title: 'x',
-      description: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+    prisma.adminDailyFrog.findUnique.mockResolvedValue(
+      frogRow({
+        id: 'f1',
+        status: AdminFrogStatus.DONE,
+        isCompleted: true,
+        completedAt: new Date('2026-09-13T10:00:00.000Z'),
+        dateKey: '2026-09-13',
+        title: 'x',
+      }),
+    );
     const done = await service.toggleFrog(1, 'f1', {});
     expect(done.status).toBe('DONE');
     expect(prisma.adminDailyFrog.update).toHaveBeenCalledTimes(1);
@@ -485,7 +520,7 @@ describe('AdminPersonalService', () => {
     expect(prisma.adminExpenseCategory.update).toHaveBeenCalledTimes(1);
   });
 
-  it('creates at most one frog per admin when a daily recurrence is due', async () => {
+  it('creates one frog per due recurrence for the same admin on the same day', async () => {
     prisma.adminFrogRecurrence.findMany.mockResolvedValue([
       {
         id: 'r1',
@@ -495,6 +530,7 @@ describe('AdminPersonalService', () => {
         frequency: 'DAILY',
         dayOfWeek: null,
         isActive: true,
+        lastRunAt: null,
         createdAt: new Date('2026-01-01'),
       },
       {
@@ -505,24 +541,23 @@ describe('AdminPersonalService', () => {
         frequency: 'DAILY',
         dayOfWeek: null,
         isActive: true,
+        lastRunAt: null,
         createdAt: new Date('2026-01-02'),
       },
     ]);
-    prisma.adminDailyFrog.findUnique.mockResolvedValue(null);
     prisma.adminDailyFrog.create.mockResolvedValue({});
-    prisma.adminFrogRecurrence.updateMany.mockResolvedValue({ count: 2 });
+    prisma.adminFrogRecurrence.updateMany.mockResolvedValue({ count: 1 });
     prisma.$transaction.mockImplementation(async (ops: Promise<unknown>[]) => Promise.all(ops));
     const at = new Date('2026-09-14T12:00:00.000+03:30');
     const result = await service.applyDueRecurrences(at);
-    expect(result.created).toBe(1);
+    expect(result.created).toBe(2);
     expect(result.skipped).toBe(0);
-    expect(prisma.adminDailyFrog.create).toHaveBeenCalledTimes(1);
-    expect(prisma.adminDailyFrog.create.mock.calls[0][0].data.userId).toBe(4);
-    expect(prisma.adminDailyFrog.create.mock.calls[0][0].data.dateKey).toBe('2026-09-14');
+    expect(prisma.adminDailyFrog.create).toHaveBeenCalledTimes(2);
     expect(prisma.adminDailyFrog.create.mock.calls[0][0].data.title).toBe('تمرکز صبح');
+    expect(prisma.adminDailyFrog.create.mock.calls[1][0].data.title).toBe('دومین الگو');
   });
 
-  it('does not create a second frog when today already has one', async () => {
+  it('skips a recurrence that already ran today even if other frogs exist', async () => {
     prisma.adminFrogRecurrence.findMany.mockResolvedValue([
       {
         id: 'r1',
@@ -532,11 +567,10 @@ describe('AdminPersonalService', () => {
         frequency: 'DAILY',
         dayOfWeek: null,
         isActive: true,
+        lastRunAt: new Date('2026-09-14T04:00:00.000+03:30'),
         createdAt: new Date(),
       },
     ]);
-    prisma.adminDailyFrog.findUnique.mockResolvedValue({ id: 'existing' });
-    prisma.adminFrogRecurrence.updateMany.mockResolvedValue({ count: 1 });
     const result = await service.applyDueRecurrences(new Date('2026-09-14T12:00:00.000+03:30'));
     expect(result.created).toBe(0);
     expect(result.skipped).toBe(1);

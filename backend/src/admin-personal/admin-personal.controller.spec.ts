@@ -7,9 +7,11 @@ import { AdminPersonalController } from './admin-personal.controller';
 
 const METHODS = [
   'getTodayFrog',
+  'listFrogs',
   'frogHistory',
   'upsertFrog',
   'toggleFrog',
+  'deleteFrog',
   'expenseSummary',
   'listExpenses',
   'createExpense',

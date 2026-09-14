@@ -13,6 +13,7 @@ import {
   enumForCategoryName,
   FrogHistoryQueryDto,
   isValidDateKey,
+  ListFrogsQueryDto,
   ListPersonalExpensesQueryDto,
   MAX_PAGE_SIZE,
   parseAmountRial,
@@ -24,6 +25,7 @@ import {
   type FrogFrequency,
   type FrogStatus,
 } from './dto/admin-personal.dto';
+import { tehranDueTime, tehranScheduledAt } from './frog-schedule.util';
 
 export function tehranDateKey(at = new Date()): string {
   return at.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
@@ -79,6 +81,9 @@ function serializeFrog(row: {
   status: AdminFrogStatus;
   isCompleted: boolean;
   completedAt: Date | null;
+  scheduledAt: Date;
+  reminderSent: boolean;
+  reminderSentAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }) {
@@ -91,6 +96,10 @@ function serializeFrog(row: {
     status: row.status,
     isCompleted: row.isCompleted,
     completedAt: row.completedAt,
+    scheduledAt: row.scheduledAt,
+    dueTime: tehranDueTime(row.scheduledAt),
+    reminderSent: row.reminderSent,
+    reminderSentAt: row.reminderSentAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -198,40 +207,56 @@ export class AdminPersonalService {
 
   async getTodayFrog(userId: number) {
     const today = tehranDateKey();
+    return this.listFrogsForDate(userId, today);
+  }
+
+  async listFrogs(userId: number, query: ListFrogsQueryDto) {
+    const dateKey = query.dateKey || tehranDateKey();
+    if (!isValidDateKey(dateKey)) {
+      throw new BadRequestException('تاریخ نامعتبر است');
+    }
+    return this.listFrogsForDate(userId, dateKey);
+  }
+
+  private async listFrogsForDate(userId: number, dateKey: string) {
+    const today = tehranDateKey();
     const yesterday = shiftDateKey(today, -1);
-    const frog = await this.prisma.adminDailyFrog.findUnique({
-      where: { userId_dateKey: { userId, dateKey: today } },
+    const items = await this.prisma.adminDailyFrog.findMany({
+      where: { userId, dateKey },
+      orderBy: [{ scheduledAt: 'asc' }, { createdAt: 'asc' }],
     });
-    const pendingRollover = frog
-      ? null
-      : await this.prisma.adminDailyFrog.findFirst({
-          where: {
-            userId,
-            dateKey: yesterday,
-            isCompleted: false,
-            status: { not: AdminFrogStatus.DONE },
-          },
-        });
+    const pendingRollover =
+      dateKey === today && items.length === 0
+        ? await this.prisma.adminDailyFrog.findFirst({
+            where: {
+              userId,
+              dateKey: yesterday,
+              isCompleted: false,
+              status: { not: AdminFrogStatus.DONE },
+            },
+            orderBy: { scheduledAt: 'asc' },
+          })
+        : null;
     return {
-      today,
-      frog: frog ? serializeFrog(frog) : null,
+      today: dateKey,
+      items: items.map(serializeFrog),
+      frog: items[0] ? serializeFrog(items[0]) : null,
       rollover: pendingRollover ? serializeFrog(pendingRollover) : null,
     };
   }
 
   async upsertTodayFrog(userId: number, dto: UpsertTodayFrogDto) {
     const today = tehranDateKey();
+    const dateKey = dto.dateKey || today;
+    if (!isValidDateKey(dateKey)) {
+      throw new BadRequestException('تاریخ نامعتبر است');
+    }
     const yesterday = shiftDateKey(today, -1);
     let title = dto.title?.trim();
     let description = dto.description?.trim() || null;
+    let dueTime = dto.dueTime || '09:00';
 
     if (dto.rolloverId) {
-      const existingToday = await this.prisma.adminDailyFrog.findUnique({
-        where: { userId_dateKey: { userId, dateKey: today } },
-      });
-      if (existingToday) {
-        throw new BadRequestException('قورباغه امروز از قبل ثبت شده است');
-      }
       const source = await this.prisma.adminDailyFrog.findUnique({
         where: { id: dto.rolloverId },
       });
@@ -246,28 +271,43 @@ export class AdminPersonalService {
       }
       title = title || source.title;
       description = description ?? source.description;
+      if (!dto.dueTime) {
+        dueTime = tehranDueTime(source.scheduledAt);
+      }
     }
 
     if (!title || title.length < 2) {
-      throw new BadRequestException('عنوان قورباغه امروز الزامی است');
+      throw new BadRequestException('عنوان قورباغه الزامی است');
     }
 
-    const row = await this.prisma.adminDailyFrog.upsert({
-      where: { userId_dateKey: { userId, dateKey: today } },
-      create: {
+    let scheduledAt: Date;
+    try {
+      scheduledAt = tehranScheduledAt(dateKey, dueTime);
+    } catch {
+      throw new BadRequestException('ساعت انجام نامعتبر است');
+    }
+
+    const row = await this.prisma.adminDailyFrog.create({
+      data: {
         userId,
-        dateKey: today,
+        dateKey,
         title,
         description,
+        scheduledAt,
         status: AdminFrogStatus.PENDING,
         ...completionFields(AdminFrogStatus.PENDING),
       },
-      update: {
-        title,
-        description,
-      },
     });
     return serializeFrog(row);
+  }
+
+  async deleteFrog(userId: number, id: string) {
+    const row = await this.prisma.adminDailyFrog.findUnique({ where: { id } });
+    if (!row || row.userId !== userId) {
+      throw new NotFoundException('قورباغه یافت نشد');
+    }
+    await this.prisma.adminDailyFrog.delete({ where: { id } });
+    return { ok: true, id };
   }
 
   async toggleFrog(userId: number, id: string, dto: ToggleFrogDto) {
@@ -304,7 +344,7 @@ export class AdminPersonalService {
       this.prisma.adminDailyFrog.count({ where }),
       this.prisma.adminDailyFrog.findMany({
         where,
-        orderBy: { dateKey: 'desc' },
+        orderBy: [{ dateKey: 'desc' }, { scheduledAt: 'asc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -598,8 +638,8 @@ export class AdminPersonalService {
   }
 
   /**
-   * Creates at most one AdminDailyFrog per admin per Tehran day.
-   * Unique (userId, dateKey) is the hard lock; this method skips when a row exists.
+   * One generated frog per due recurrence per Tehran day (lastRunAt date).
+   * Other frogs on the same day do not block creation.
    */
   async applyDueRecurrences(at = new Date()) {
     const today = tehranDateKey(at);
@@ -608,63 +648,36 @@ export class AdminPersonalService {
       where: { isActive: true },
       orderBy: { createdAt: 'asc' },
     });
-    const byUser = new Map<number, typeof recurrences>();
-    for (const rec of recurrences) {
-      if (!recurrenceMatchesToday(rec, weekday)) continue;
-      const list = byUser.get(rec.userId) ?? [];
-      list.push(rec);
-      byUser.set(rec.userId, list);
-    }
 
     let created = 0;
     let skipped = 0;
     const now = new Date();
-    for (const [userId, due] of byUser) {
-      const existing = await this.prisma.adminDailyFrog.findUnique({
-        where: { userId_dateKey: { userId, dateKey: today } },
-      });
-      const ids = due.map((item) => item.id);
-      if (existing) {
+    const scheduledAt = tehranScheduledAt(today, '09:00');
+
+    for (const rec of recurrences) {
+      if (!recurrenceMatchesToday(rec, weekday)) continue;
+      if (rec.lastRunAt && tehranDateKey(rec.lastRunAt) === today) {
         skipped += 1;
-        await this.prisma.adminFrogRecurrence.updateMany({
-          where: { id: { in: ids } },
-          data: { lastRunAt: now },
-        });
         continue;
       }
-      const source = due[0];
-      try {
-        await this.prisma.$transaction([
-          this.prisma.adminDailyFrog.create({
-            data: {
-              userId,
-              dateKey: today,
-              title: source.title,
-              description: source.description,
-              status: AdminFrogStatus.PENDING,
-              ...completionFields(AdminFrogStatus.PENDING),
-            },
-          }),
-          this.prisma.adminFrogRecurrence.updateMany({
-            where: { id: { in: ids } },
-            data: { lastRunAt: now },
-          }),
-        ]);
-        created += 1;
-      } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === 'P2002'
-        ) {
-          skipped += 1;
-          await this.prisma.adminFrogRecurrence.updateMany({
-            where: { id: { in: ids } },
-            data: { lastRunAt: now },
-          });
-          continue;
-        }
-        throw error;
-      }
+      await this.prisma.$transaction([
+        this.prisma.adminDailyFrog.create({
+          data: {
+            userId: rec.userId,
+            dateKey: today,
+            title: rec.title,
+            description: rec.description,
+            scheduledAt,
+            status: AdminFrogStatus.PENDING,
+            ...completionFields(AdminFrogStatus.PENDING),
+          },
+        }),
+        this.prisma.adminFrogRecurrence.updateMany({
+          where: { id: rec.id },
+          data: { lastRunAt: now },
+        }),
+      ]);
+      created += 1;
     }
     return { today, weekday, considered: recurrences.length, created, skipped };
   }
