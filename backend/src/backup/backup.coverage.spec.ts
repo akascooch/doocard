@@ -62,7 +62,14 @@ const SCHEMA_PRISMA_DELEGATES = [
   'orderItem',
   'productStockSubscription',
   'adminDailyFrog',
+  'adminFrogRecurrence',
+  'adminExpenseCategory',
   'adminPersonalExpense',
+  'servicePackageTemplate',
+  'customerServicePackage',
+  'customerPackageConsumption',
+  'loyaltyPointTransaction',
+  'customerWalletLedger',
 ] as const;
 
 describe('backup coverage vs Prisma schema', () => {

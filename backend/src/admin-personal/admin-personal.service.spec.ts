@@ -2,7 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { AdminFrogStatus } from '@prisma/client';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { AdminPersonalService, shiftDateKey, tehranDateKey } from './admin-personal.service';
+import { AdminPersonalService, recurrenceMatchesToday, shiftDateKey, tehranDateKey, tehranWeekday } from './admin-personal.service';
 import {
   CreatePersonalExpenseDto,
   FrogHistoryQueryDto,
@@ -27,6 +27,18 @@ describe('tehran date helpers', () => {
     expect(isValidDateKey('2026-09-13')).toBe(true);
     expect(isValidDateKey('2026-02-30')).toBe(false);
     expect(isValidDateKey('2026-13-01')).toBe(false);
+  });
+
+  it('maps Tehran weekday 0=Sun..6=Sat', () => {
+    expect(tehranWeekday(new Date('2026-09-13T12:00:00.000+03:30'))).toBe(0);
+    expect(tehranWeekday(new Date('2026-09-14T12:00:00.000+03:30'))).toBe(1);
+  });
+
+  it('matches DAILY always and WEEKLY only on dayOfWeek', () => {
+    expect(recurrenceMatchesToday({ frequency: 'DAILY', dayOfWeek: null, isActive: true }, 3)).toBe(true);
+    expect(recurrenceMatchesToday({ frequency: 'WEEKLY', dayOfWeek: 1, isActive: true }, 1)).toBe(true);
+    expect(recurrenceMatchesToday({ frequency: 'WEEKLY', dayOfWeek: 1, isActive: true }, 2)).toBe(false);
+    expect(recurrenceMatchesToday({ frequency: 'DAILY', dayOfWeek: null, isActive: false }, 1)).toBe(false);
   });
 });
 
@@ -105,6 +117,23 @@ describe('AdminPersonalService', () => {
       delete: jest.fn(),
       update: jest.fn(),
       aggregate: jest.fn(),
+    },
+    adminExpenseCategory: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      count: jest.fn(),
+      create: jest.fn(),
+      createMany: jest.fn(),
+      update: jest.fn(),
+    },
+    adminFrogRecurrence: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      delete: jest.fn(),
     },
     transaction: { create: jest.fn(), update: jest.fn() },
     order: { create: jest.fn(), update: jest.fn() },
@@ -415,5 +444,129 @@ describe('AdminPersonalService', () => {
     prisma.adminPersonalExpense.findFirst.mockResolvedValue({ id: 'e2', userId: 2, deletedAt: null });
     await expect(service.deleteExpense(1, 'e2')).rejects.toBeInstanceOf(NotFoundException);
     expect(prisma.adminPersonalExpense.delete).not.toHaveBeenCalled();
+  });
+
+  it('seeds default categories once per owner and rejects another owner\'s categoryId', async () => {
+    prisma.adminExpenseCategory.count.mockResolvedValue(0);
+    prisma.adminExpenseCategory.createMany.mockResolvedValue({ count: 4 });
+    prisma.adminExpenseCategory.findMany.mockResolvedValue([
+      { id: 'c1', userId: 7, name: 'خوراک', isDefault: true, archivedAt: null, createdAt: new Date(), updatedAt: new Date() },
+    ]);
+    const listed = await service.listCategories(7);
+    expect(prisma.adminExpenseCategory.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.arrayContaining([expect.objectContaining({ userId: 7, name: 'خوراک' })]) }),
+    );
+    expect(listed.items[0].name).toBe('خوراک');
+
+    prisma.adminExpenseCategory.findFirst.mockResolvedValue(null);
+    await expect(
+      service.createExpense(7, { amount: '1000', title: 'چای', categoryId: 'other-owner' } as never),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.adminPersonalExpense.create).not.toHaveBeenCalled();
+  });
+
+  it('archives only the owner category', async () => {
+    prisma.adminExpenseCategory.findFirst
+      .mockResolvedValueOnce({
+        id: 'c9',
+        userId: 3,
+        name: 'سفارشی',
+        isDefault: false,
+        archivedAt: null,
+      })
+      .mockResolvedValueOnce(null);
+    prisma.adminExpenseCategory.update.mockResolvedValue({});
+    await expect(service.archiveCategory(3, 'c9')).resolves.toEqual({ ok: true, id: 'c9' });
+    await expect(service.archiveCategory(3, 'c8')).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.adminExpenseCategory.findFirst).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ where: expect.objectContaining({ id: 'c8', userId: 3, archivedAt: null }) }),
+    );
+    expect(prisma.adminExpenseCategory.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('creates at most one frog per admin when a daily recurrence is due', async () => {
+    prisma.adminFrogRecurrence.findMany.mockResolvedValue([
+      {
+        id: 'r1',
+        userId: 4,
+        title: 'تمرکز صبح',
+        description: null,
+        frequency: 'DAILY',
+        dayOfWeek: null,
+        isActive: true,
+        createdAt: new Date('2026-01-01'),
+      },
+      {
+        id: 'r2',
+        userId: 4,
+        title: 'دومین الگو',
+        description: null,
+        frequency: 'DAILY',
+        dayOfWeek: null,
+        isActive: true,
+        createdAt: new Date('2026-01-02'),
+      },
+    ]);
+    prisma.adminDailyFrog.findUnique.mockResolvedValue(null);
+    prisma.adminDailyFrog.create.mockResolvedValue({});
+    prisma.adminFrogRecurrence.updateMany.mockResolvedValue({ count: 2 });
+    prisma.$transaction.mockImplementation(async (ops: Promise<unknown>[]) => Promise.all(ops));
+    const at = new Date('2026-09-14T12:00:00.000+03:30');
+    const result = await service.applyDueRecurrences(at);
+    expect(result.created).toBe(1);
+    expect(result.skipped).toBe(0);
+    expect(prisma.adminDailyFrog.create).toHaveBeenCalledTimes(1);
+    expect(prisma.adminDailyFrog.create.mock.calls[0][0].data.userId).toBe(4);
+    expect(prisma.adminDailyFrog.create.mock.calls[0][0].data.dateKey).toBe('2026-09-14');
+    expect(prisma.adminDailyFrog.create.mock.calls[0][0].data.title).toBe('تمرکز صبح');
+  });
+
+  it('does not create a second frog when today already has one', async () => {
+    prisma.adminFrogRecurrence.findMany.mockResolvedValue([
+      {
+        id: 'r1',
+        userId: 4,
+        title: 'تمرکز صبح',
+        description: null,
+        frequency: 'DAILY',
+        dayOfWeek: null,
+        isActive: true,
+        createdAt: new Date(),
+      },
+    ]);
+    prisma.adminDailyFrog.findUnique.mockResolvedValue({ id: 'existing' });
+    prisma.adminFrogRecurrence.updateMany.mockResolvedValue({ count: 1 });
+    const result = await service.applyDueRecurrences(new Date('2026-09-14T12:00:00.000+03:30'));
+    expect(result.created).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(prisma.adminDailyFrog.create).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('skips weekly recurrences on a non-matching Tehran weekday', async () => {
+    prisma.adminFrogRecurrence.findMany.mockResolvedValue([
+      {
+        id: 'r-w',
+        userId: 9,
+        title: 'فقط دوشنبه',
+        description: null,
+        frequency: 'WEEKLY',
+        dayOfWeek: 1,
+        isActive: true,
+        createdAt: new Date(),
+      },
+    ]);
+    const sunday = new Date('2026-09-13T12:00:00.000+03:30');
+    const result = await service.applyDueRecurrences(sunday);
+    expect(tehranWeekday(sunday)).toBe(0);
+    expect(result.created).toBe(0);
+    expect(prisma.adminDailyFrog.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects another owner recurrence on delete', async () => {
+    prisma.adminFrogRecurrence.findFirst.mockResolvedValue(null);
+    await expect(service.deleteRecurrence(1, 'r-x')).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.adminFrogRecurrence.delete).not.toHaveBeenCalled();
   });
 });

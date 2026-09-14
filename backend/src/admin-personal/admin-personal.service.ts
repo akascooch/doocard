@@ -6,19 +6,58 @@ import {
 import { AdminFrogStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  CreateExpenseCategoryDto,
+  CreateFrogRecurrenceDto,
   CreatePersonalExpenseDto,
+  DEFAULT_EXPENSE_CATEGORY_NAMES,
+  enumForCategoryName,
   FrogHistoryQueryDto,
   isValidDateKey,
   ListPersonalExpensesQueryDto,
   MAX_PAGE_SIZE,
   parseAmountRial,
   ToggleFrogDto,
+  UpdateExpenseCategoryDto,
+  UpdateFrogRecurrenceDto,
   UpsertTodayFrogDto,
+  type ExpenseCategory,
+  type FrogFrequency,
   type FrogStatus,
 } from './dto/admin-personal.dto';
 
 export function tehranDateKey(at = new Date()): string {
   return at.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
+}
+
+const TEHRAN_WEEKDAY: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
+/** JS weekday: 0 Sunday … 6 Saturday, in Asia/Tehran. */
+export function tehranWeekday(at = new Date()): number {
+  const label = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Tehran',
+    weekday: 'short',
+  }).format(at);
+  return TEHRAN_WEEKDAY[label] ?? 0;
+}
+
+export function recurrenceMatchesToday(
+  rec: { frequency: string; dayOfWeek: number | null; isActive: boolean },
+  weekday: number,
+): boolean {
+  if (!rec.isActive) return false;
+  if (rec.frequency === 'DAILY') return true;
+  if (rec.frequency === 'WEEKLY') {
+    return rec.dayOfWeek === weekday;
+  }
+  return false;
 }
 
 export function shiftDateKey(dateKey: string, days: number): string {
@@ -62,6 +101,7 @@ function serializeExpense(row: {
   userId: number;
   amount: bigint;
   category: string;
+  categoryId?: string | null;
   title: string;
   description: string | null;
   dateKey: string;
@@ -69,16 +109,65 @@ function serializeExpense(row: {
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null;
+  categoryRel?: { id: string; name: string } | null;
 }) {
   return {
     id: row.id,
     userId: row.userId,
     amount: row.amount.toString(),
     category: row.category,
+    categoryId: row.categoryId ?? null,
+    categoryName: row.categoryRel?.name ?? null,
     title: row.title,
     description: row.description,
     dateKey: row.dateKey,
     occurredAt: row.occurredAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function serializeRecurrence(row: {
+  id: string;
+  userId: number;
+  title: string;
+  description: string | null;
+  frequency: string;
+  dayOfWeek: number | null;
+  isActive: boolean;
+  lastRunAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  return {
+    id: row.id,
+    userId: row.userId,
+    title: row.title,
+    description: row.description,
+    frequency: row.frequency,
+    dayOfWeek: row.dayOfWeek,
+    isActive: row.isActive,
+    lastRunAt: row.lastRunAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function serializeCategory(row: {
+  id: string;
+  userId: number;
+  name: string;
+  isDefault: boolean;
+  archivedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  return {
+    id: row.id,
+    userId: row.userId,
+    name: row.name,
+    isDefault: row.isDefault,
+    archivedAt: row.archivedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -241,16 +330,34 @@ export class AdminPersonalService {
       throw new BadRequestException('تاریخ نامعتبر است');
     }
 
+    let category: ExpenseCategory | undefined = dto.category;
+    let categoryId: string | null = null;
+    if (dto.categoryId) {
+      const owned = await this.prisma.adminExpenseCategory.findFirst({
+        where: { id: dto.categoryId, userId, archivedAt: null },
+      });
+      if (!owned) {
+        throw new NotFoundException('دسته یافت نشد');
+      }
+      categoryId = owned.id;
+      category = enumForCategoryName(owned.name);
+    }
+    if (!category) {
+      throw new BadRequestException('دسته‌بندی الزامی است');
+    }
+
     const row = await this.prisma.adminPersonalExpense.create({
       data: {
         userId,
         amount,
-        category: dto.category,
+        category,
+        categoryId,
         title: dto.title.trim(),
         description: dto.description?.trim() || null,
         dateKey,
         occurredAt: new Date(`${dateKey}T12:00:00.000+03:30`),
       },
+      include: { categoryRel: { select: { id: true, name: true } } },
     });
     return serializeExpense(row);
   }
@@ -273,6 +380,7 @@ export class AdminPersonalService {
       deletedAt: null,
     };
     if (query.category) where.category = query.category;
+    if (query.categoryId) where.categoryId = query.categoryId;
     if (query.from || query.to) {
       where.dateKey = {};
       if (query.from) where.dateKey.gte = query.from;
@@ -285,6 +393,7 @@ export class AdminPersonalService {
         orderBy: [{ dateKey: 'desc' }, { createdAt: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
+        include: { categoryRel: { select: { id: true, name: true } } },
       }),
     ]);
     return {
@@ -307,6 +416,90 @@ export class AdminPersonalService {
       data: { deletedAt: new Date() },
     });
     return { ok: true, id };
+  }
+
+  async listCategories(userId: number) {
+    await this.ensureDefaultCategories(userId);
+    const rows = await this.prisma.adminExpenseCategory.findMany({
+      where: { userId, archivedAt: null },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+    });
+    return { items: rows.map(serializeCategory) };
+  }
+
+  async createCategory(userId: number, dto: CreateExpenseCategoryDto) {
+    await this.ensureDefaultCategories(userId);
+    const name = dto.name.trim();
+    if (name.length < 2) {
+      throw new BadRequestException('نام دسته الزامی است');
+    }
+    const existing = await this.prisma.adminExpenseCategory.findUnique({
+      where: { userId_name: { userId, name } },
+    });
+    if (existing) {
+      if (existing.archivedAt) {
+        const restored = await this.prisma.adminExpenseCategory.update({
+          where: { id: existing.id },
+          data: { archivedAt: null },
+        });
+        return serializeCategory(restored);
+      }
+      throw new BadRequestException('این نام دسته از قبل وجود دارد');
+    }
+    const row = await this.prisma.adminExpenseCategory.create({
+      data: { userId, name, isDefault: false },
+    });
+    return serializeCategory(row);
+  }
+
+  async updateCategory(userId: number, id: string, dto: UpdateExpenseCategoryDto) {
+    const row = await this.prisma.adminExpenseCategory.findFirst({
+      where: { id, userId, archivedAt: null },
+    });
+    if (!row) {
+      throw new NotFoundException('دسته یافت نشد');
+    }
+    const name = dto.name.trim();
+    if (name.length < 2) {
+      throw new BadRequestException('نام دسته الزامی است');
+    }
+    const clash = await this.prisma.adminExpenseCategory.findFirst({
+      where: { userId, name, NOT: { id } },
+    });
+    if (clash) {
+      throw new BadRequestException('این نام دسته از قبل وجود دارد');
+    }
+    const updated = await this.prisma.adminExpenseCategory.update({
+      where: { id },
+      data: { name },
+    });
+    return serializeCategory(updated);
+  }
+
+  async archiveCategory(userId: number, id: string) {
+    const row = await this.prisma.adminExpenseCategory.findFirst({
+      where: { id, userId, archivedAt: null },
+    });
+    if (!row) {
+      throw new NotFoundException('دسته یافت نشد');
+    }
+    await this.prisma.adminExpenseCategory.update({
+      where: { id },
+      data: { archivedAt: new Date() },
+    });
+    return { ok: true, id };
+  }
+
+  async ensureDefaultCategories(userId: number) {
+    const count = await this.prisma.adminExpenseCategory.count({ where: { userId } });
+    if (count > 0) return;
+    await this.prisma.adminExpenseCategory.createMany({
+      data: DEFAULT_EXPENSE_CATEGORY_NAMES.map((name) => ({
+        userId,
+        name,
+        isDefault: true,
+      })),
+    });
   }
 
   async expenseSummary(userId: number) {
@@ -336,6 +529,152 @@ export class AdminPersonalService {
       month: (monthSum._sum.amount ?? 0n).toString(),
       todayKey: today,
     };
+  }
+
+  async listRecurrences(userId: number) {
+    const rows = await this.prisma.adminFrogRecurrence.findMany({
+      where: { userId },
+      orderBy: [{ isActive: 'desc' }, { createdAt: 'asc' }],
+    });
+    return { items: rows.map(serializeRecurrence) };
+  }
+
+  async createRecurrence(userId: number, dto: CreateFrogRecurrenceDto) {
+    const frequency = dto.frequency as FrogFrequency;
+    const dayOfWeek = this.normalizeDayOfWeek(frequency, dto.dayOfWeek);
+    const row = await this.prisma.adminFrogRecurrence.create({
+      data: {
+        userId,
+        title: dto.title.trim(),
+        description: dto.description?.trim() || null,
+        frequency,
+        dayOfWeek,
+        isActive: true,
+      },
+    });
+    return serializeRecurrence(row);
+  }
+
+  async updateRecurrence(userId: number, id: string, dto: UpdateFrogRecurrenceDto) {
+    const row = await this.prisma.adminFrogRecurrence.findFirst({
+      where: { id, userId },
+    });
+    if (!row) {
+      throw new NotFoundException('الگوی تکرار یافت نشد');
+    }
+    const frequency = (dto.frequency ?? row.frequency) as FrogFrequency;
+    if (frequency !== 'DAILY' && frequency !== 'WEEKLY') {
+      throw new BadRequestException('نوع تکرار نامعتبر است');
+    }
+    const dayOfWeek =
+      dto.frequency === 'DAILY'
+        ? null
+        : this.normalizeDayOfWeek(
+            frequency,
+            dto.dayOfWeek === undefined ? row.dayOfWeek : dto.dayOfWeek,
+          );
+    const updated = await this.prisma.adminFrogRecurrence.update({
+      where: { id },
+      data: {
+        ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
+        ...(dto.description !== undefined ? { description: dto.description.trim() || null } : {}),
+        ...(dto.frequency !== undefined ? { frequency } : {}),
+        ...(dto.dayOfWeek !== undefined || dto.frequency !== undefined ? { dayOfWeek } : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+      },
+    });
+    return serializeRecurrence(updated);
+  }
+
+  async deleteRecurrence(userId: number, id: string) {
+    const row = await this.prisma.adminFrogRecurrence.findFirst({
+      where: { id, userId },
+    });
+    if (!row) {
+      throw new NotFoundException('الگوی تکرار یافت نشد');
+    }
+    await this.prisma.adminFrogRecurrence.delete({ where: { id } });
+    return { ok: true, id };
+  }
+
+  /**
+   * Creates at most one AdminDailyFrog per admin per Tehran day.
+   * Unique (userId, dateKey) is the hard lock; this method skips when a row exists.
+   */
+  async applyDueRecurrences(at = new Date()) {
+    const today = tehranDateKey(at);
+    const weekday = tehranWeekday(at);
+    const recurrences = await this.prisma.adminFrogRecurrence.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const byUser = new Map<number, typeof recurrences>();
+    for (const rec of recurrences) {
+      if (!recurrenceMatchesToday(rec, weekday)) continue;
+      const list = byUser.get(rec.userId) ?? [];
+      list.push(rec);
+      byUser.set(rec.userId, list);
+    }
+
+    let created = 0;
+    let skipped = 0;
+    const now = new Date();
+    for (const [userId, due] of byUser) {
+      const existing = await this.prisma.adminDailyFrog.findUnique({
+        where: { userId_dateKey: { userId, dateKey: today } },
+      });
+      const ids = due.map((item) => item.id);
+      if (existing) {
+        skipped += 1;
+        await this.prisma.adminFrogRecurrence.updateMany({
+          where: { id: { in: ids } },
+          data: { lastRunAt: now },
+        });
+        continue;
+      }
+      const source = due[0];
+      try {
+        await this.prisma.$transaction([
+          this.prisma.adminDailyFrog.create({
+            data: {
+              userId,
+              dateKey: today,
+              title: source.title,
+              description: source.description,
+              status: AdminFrogStatus.PENDING,
+              ...completionFields(AdminFrogStatus.PENDING),
+            },
+          }),
+          this.prisma.adminFrogRecurrence.updateMany({
+            where: { id: { in: ids } },
+            data: { lastRunAt: now },
+          }),
+        ]);
+        created += 1;
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          skipped += 1;
+          await this.prisma.adminFrogRecurrence.updateMany({
+            where: { id: { in: ids } },
+            data: { lastRunAt: now },
+          });
+          continue;
+        }
+        throw error;
+      }
+    }
+    return { today, weekday, considered: recurrences.length, created, skipped };
+  }
+
+  private normalizeDayOfWeek(frequency: FrogFrequency, dayOfWeek?: number | null): number | null {
+    if (frequency === 'DAILY') return null;
+    if (typeof dayOfWeek !== 'number' || dayOfWeek < 0 || dayOfWeek > 6) {
+      throw new BadRequestException('روز هفته برای تکرار هفتگی الزامی است');
+    }
+    return dayOfWeek;
   }
 
   private nextStatus(current: FrogStatus): FrogStatus {

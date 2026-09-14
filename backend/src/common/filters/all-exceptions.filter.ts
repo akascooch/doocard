@@ -40,7 +40,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return;
     }
 
-    const correlationId = request.headers['x-request-id'] as string || this.generateId();
+    const correlationId = resolveCorrelationId(request);
     const structuredError = this.buildStructuredError(
       exception,
       request,
@@ -262,8 +262,25 @@ export class AllExceptionsFilter implements ExceptionFilter {
     return names[status] || 'UNKNOWN_ERROR';
   }
 
-  private generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+type RequestWithCorrelation = Request & { correlationId?: string };
+
+function firstHeader(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return String(value[0] ?? '').trim();
+  return String(value ?? '').trim();
+}
+
+/** Prefer middleware id, then client headers, then a fresh id. Always non-empty. */
+export function resolveCorrelationId(request: Request): string {
+  const req = request as RequestWithCorrelation;
+  const fromMiddleware = typeof req.correlationId === 'string' ? req.correlationId.trim() : '';
+  const fromCorrelationHeader = firstHeader(request.headers['x-correlation-id']);
+  const fromRequestHeader = firstHeader(request.headers['x-request-id']);
+  const candidate = fromMiddleware || fromCorrelationHeader || fromRequestHeader;
+  if (candidate && candidate.length <= 128) {
+    return candidate;
   }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 

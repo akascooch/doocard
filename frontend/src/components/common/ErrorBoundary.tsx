@@ -60,15 +60,16 @@ export class ErrorBoundary extends Component<Props, State> {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Correlation-Id': correlationId,
         },
         body: JSON.stringify({
-          message: error.message,
-          stack: error.stack,
-          componentStack: errorInfo.componentStack,
+          message: String(error.message || 'unknown').slice(0, 500),
+          stack: error.stack ? String(error.stack).slice(0, 2000) : undefined,
+          componentStack: errorInfo.componentStack
+            ? String(errorInfo.componentStack).slice(0, 2000)
+            : undefined,
           correlationId,
-          url: typeof window !== 'undefined' ? window.location.href : '',
-          userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : '',
-          timestamp: new Date().toISOString(),
+          url: typeof window !== 'undefined' ? window.location.href.slice(0, 500) : '',
         }),
       });
     } catch (logError) {

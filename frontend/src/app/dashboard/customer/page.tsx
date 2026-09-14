@@ -14,7 +14,8 @@ import {
   History,
   Star,
   CalendarPlus,
-  Sparkles
+  Sparkles,
+  Gift
 } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { getDashboardHomePath } from '@/lib/user-roles'
@@ -268,6 +269,21 @@ export default function CustomerDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-primary/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Gift className="h-5 w-5" />
+            پکیج و امتیاز وفاداری
+          </CardTitle>
+          <CardDescription>جلسات باقی‌مانده و تبدیل امتیاز به اعتبار کیف پول</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" onClick={() => router.push('/dashboard/customer/packages')}>
+            مشاهده پکیج‌ها و امتیاز
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* My Hairdresser */}
       <Card className="border-primary/20">

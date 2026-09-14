@@ -1,13 +1,16 @@
 import {
+  IsBoolean,
   IsIn,
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   Max,
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 
@@ -81,6 +84,28 @@ export const EXPENSE_CATEGORIES = [
 ] as const;
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 
+export const DEFAULT_EXPENSE_CATEGORY_NAMES = [
+  'خوراک',
+  'رفت و آمد',
+  'تجهیزات شخصی',
+  'متفرقه',
+] as const;
+
+export function enumForCategoryName(name: string): ExpenseCategory {
+  switch (name.trim()) {
+    case 'خوراک':
+      return 'FOOD_REFRESHMENT';
+    case 'رفت و آمد':
+      return 'UTILITY';
+    case 'تجهیزات شخصی':
+      return 'SALON_SUPPLIES';
+    case 'متفرقه':
+      return 'PETTY_CASH';
+    default:
+      return 'PERSONAL';
+  }
+}
+
 export class CreatePersonalExpenseDto {
   @Transform(({ value }) => (typeof value === 'number' ? String(value) : String(value ?? '').trim()))
   @IsString()
@@ -88,8 +113,13 @@ export class CreatePersonalExpenseDto {
   @MaxLength(14)
   amount: string;
 
+  @ValidateIf((o: CreatePersonalExpenseDto) => !o.categoryId)
   @IsIn(EXPENSE_CATEGORIES)
-  category: ExpenseCategory;
+  category?: ExpenseCategory;
+
+  @ValidateIf((o: CreatePersonalExpenseDto) => !o.category)
+  @IsUUID(undefined, { message: 'شناسه دسته نامعتبر است' })
+  categoryId?: string;
 
   @IsString()
   @MinLength(2)
@@ -123,6 +153,10 @@ export class ListPersonalExpensesQueryDto {
   category?: ExpenseCategory;
 
   @IsOptional()
+  @IsUUID()
+  categoryId?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
@@ -134,6 +168,60 @@ export class ListPersonalExpensesQueryDto {
   @Min(1)
   @Max(MAX_PAGE_SIZE)
   pageSize?: number;
+}
+
+export const FROG_FREQUENCIES = ['DAILY', 'WEEKLY'] as const;
+export type FrogFrequency = (typeof FROG_FREQUENCIES)[number];
+
+export class CreateFrogRecurrenceDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(200)
+  title: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  description?: string;
+
+  @IsIn(FROG_FREQUENCIES)
+  frequency: FrogFrequency;
+
+  @ValidateIf((o: CreateFrogRecurrenceDto) => o.frequency === 'WEEKLY')
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(6)
+  dayOfWeek?: number;
+}
+
+export class UpdateFrogRecurrenceDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(200)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  description?: string;
+
+  @IsOptional()
+  @IsIn(FROG_FREQUENCIES)
+  frequency?: FrogFrequency;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(6)
+  dayOfWeek?: number | null;
+
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  isActive?: boolean;
 }
 
 export class FrogHistoryQueryDto {
@@ -149,4 +237,18 @@ export class FrogHistoryQueryDto {
   @Min(1)
   @Max(MAX_PAGE_SIZE)
   pageSize?: number;
+}
+
+export class CreateExpenseCategoryDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(80)
+  name: string;
+}
+
+export class UpdateExpenseCategoryDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(80)
+  name: string;
 }

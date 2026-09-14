@@ -49,7 +49,13 @@ async function bootstrap() {
       'X-Correlation-Id',
       'X-Financial-Access-Token',
     ],
-    exposedHeaders: ['Content-Disposition', 'Content-Length', 'X-Response-Time'],
+    exposedHeaders: [
+      'Content-Disposition',
+      'Content-Length',
+      'X-Response-Time',
+      'X-Correlation-Id',
+      'X-Request-Id',
+    ],
     credentials: true,
     maxAge: 3600,
   };

@@ -14,6 +14,14 @@ const METHODS = [
   'listExpenses',
   'createExpense',
   'deleteExpense',
+  'listCategories',
+  'createCategory',
+  'updateCategory',
+  'archiveCategory',
+  'listRecurrences',
+  'createRecurrence',
+  'updateRecurrence',
+  'deleteRecurrence',
 ] as const;
 
 describe('AdminPersonalController auth', () => {

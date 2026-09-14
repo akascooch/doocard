@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Edit, Trash2, DollarSign, CheckCircle, XCircle, Clock, RotateCcw } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Edit, Trash2, DollarSign, CheckCircle, XCircle, Clock, RotateCcw, Gift } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -25,6 +25,7 @@ import {
 import PaymentModal from './PaymentModal';
 import { api } from '@/lib/axios';
 import { useToast } from '@/components/ui/use-toast';
+import { getApiErrorMessage, notifyError, notifySuccess } from '@/lib/notify';
 import { formatAppointmentWhenTehran } from '@/lib/date';
 import { toTomans } from '@/lib/money';
 import {
@@ -41,6 +42,13 @@ interface AppointmentListProps {
   onRefresh: () => void;
 }
 
+type EligiblePackage = {
+  id: string
+  title: string | null
+  remainingSessions: number
+  totalSessions: number
+}
+
 export default function AppointmentList({
   appointments,
   userRole,
@@ -50,6 +58,87 @@ export default function AppointmentList({
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [settleId, setSettleId] = useState<number | null>(null);
   const [settleAppointment, setSettleAppointment] = useState<Appointment | null>(null);
+  const [eligibleById, setEligibleById] = useState<Record<string, EligiblePackage[]>>({});
+  const [consumingId, setConsumingId] = useState<string | null>(null);
+
+  const appointmentIdsKey = appointments
+    .map((item) => item.id)
+    .filter((id) => Number.isInteger(id) && id > 0)
+    .slice(0, 40)
+    .join(',');
+
+  useEffect(() => {
+    if (userRole === 'CUSTOMER' || !appointmentIdsKey) {
+      setEligibleById({});
+      return;
+    }
+    let cancelled = false;
+    void api
+      .get('/packages/eligible-batch', { params: { ids: appointmentIdsKey } })
+      .then((res) => {
+        if (!cancelled) setEligibleById(res.data.byAppointmentId || {});
+      })
+      .catch(() => {
+        if (!cancelled) setEligibleById({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [appointmentIdsKey, userRole]);
+
+  const consumePackage = async (appointmentId: number, packageId: string) => {
+    setConsumingId(packageId);
+    try {
+      const res = await api.post(`/packages/${packageId}/consume`, { appointmentId });
+      notifySuccess('یک جلسه از پکیج کسر شد');
+      setEligibleById((current) => {
+        const next = { ...(current || {}) };
+        const remaining = res.data.remainingSessions as number;
+        const status = res.data.status as string;
+        const list = (next[String(appointmentId)] || []).map((item) =>
+          item.id === packageId ? { ...item, remainingSessions: remaining } : item,
+        );
+        next[String(appointmentId)] =
+          status === 'EXHAUSTED' || remaining <= 0
+            ? list.filter((item) => item.id !== packageId)
+            : list;
+        return next;
+      });
+    } catch (error) {
+      notifyError('پکیج', getApiErrorMessage(error, 'کسر جلسه ناموفق بود'));
+    } finally {
+      setConsumingId(null);
+    }
+  };
+
+  const renderPackageHint = (appointment: Appointment) => {
+    if (userRole === 'CUSTOMER') return null;
+    const items = eligibleById[String(appointment.id)] || [];
+    if (items.length === 0) return null;
+    const remaining = items.reduce((sum, item) => sum + item.remainingSessions, 0);
+    return (
+      <div className="space-y-2 mt-2">
+        <Badge variant="success" className="normal-case tracking-normal">
+          دارای پکیج فعال ({remaining} جلسه باقی‌مانده)
+        </Badge>
+        {items.map((item) => (
+          <Button
+            key={item.id}
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={consumingId === item.id || appointment.status === 'CANCELLED'}
+            onClick={() => void consumePackage(appointment.id, item.id)}
+            className="min-h-9"
+          >
+            <Gift className="h-4 w-4 ml-1" />
+            کسر جلسه از پکیج
+            {item.title ? ` (${item.title})` : ''}
+          </Button>
+        ))}
+      </div>
+    );
+  };
 
   const getStatusBadge = (status: string) => {
     const configs: Record<string, { label: string; className: string }> = {
@@ -298,6 +387,7 @@ export default function AppointmentList({
                 </div>
               ) : null}
               {renderNotes(appointment.notes)}
+              {renderPackageHint(appointment)}
             </div>
             {renderActions(appointment)}
           </div>
@@ -333,6 +423,7 @@ export default function AppointmentList({
                   <div>
                     <div>{appointment.customerName}</div>
                     {renderNotes(appointment.notes)}
+                    {renderPackageHint(appointment)}
                   </div>
                 </TableCell>
                 <TableCell>{appointment.employeeName || 'نامشخص'}</TableCell>

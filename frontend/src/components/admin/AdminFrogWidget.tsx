@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { getApiErrorMessage, notifyError, notifySuccess } from "@/lib/notify"
 import api from "@/lib/axios"
 import { CheckCircle2, Circle, Loader2, PlayCircle } from "lucide-react"
+import Link from "next/link"
 
 type FrogStatus = "PENDING" | "IN_PROGRESS" | "DONE"
 
@@ -157,6 +158,10 @@ export function AdminFrogWidget() {
         <CardTitle className="text-2xl">قورباغه امروز</CardTitle>
         <CardDescription>
           یک کار حیاتی برای امروز. وضعیت فقط جلو می‌رود: در انتظار، در حال انجام، انجام شد.
+          {" "}
+          <Link href="/dashboard/admin/frog-tasks" className="text-primary underline-offset-4 hover:underline">
+            مدیریت کامل و تکرار خودکار
+          </Link>
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

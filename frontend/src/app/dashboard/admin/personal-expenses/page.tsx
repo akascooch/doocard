@@ -24,17 +24,21 @@ import { getTehranTodayJalali, jalaliToGregorian, persianToEnglishDigits } from 
 import { getCurrentUser } from "@/lib/auth"
 import { getDashboardHomePath } from "@/lib/user-roles"
 import api from "@/lib/axios"
-import { Loader2, Trash2, Wallet } from "lucide-react"
+import { Loader2, Pencil, Plus, Trash2, Wallet } from "lucide-react"
 
-const CATEGORIES = [
-  { id: "SALON_SUPPLIES", label: "ملزومات سالن" },
-  { id: "FOOD_REFRESHMENT", label: "پذیرایی و خوراک" },
-  { id: "PETTY_CASH", label: "تنخواه" },
-  { id: "UTILITY", label: "قبوض و خدمات" },
-  { id: "PERSONAL", label: "شخصی مدیر" },
-] as const
+type DynamicCategory = {
+  id: string
+  name: string
+  isDefault: boolean
+}
 
-type CategoryId = (typeof CATEGORIES)[number]["id"]
+const ENUM_LABELS: Record<string, string> = {
+  SALON_SUPPLIES: "ملزومات سالن",
+  FOOD_REFRESHMENT: "پذیرایی و خوراک",
+  PETTY_CASH: "تنخواه",
+  UTILITY: "قبوض و خدمات",
+  PERSONAL: "شخصی مدیر",
+}
 
 /** Same cap as backend MAX_AMOUNT_RIAL — integer rials only. */
 const MAX_AMOUNT_RIAL = 99_999_999_999_999
@@ -42,7 +46,9 @@ const MAX_AMOUNT_RIAL = 99_999_999_999_999
 type Expense = {
   id: string
   amount: string
-  category: CategoryId
+  category: string
+  categoryId?: string | null
+  categoryName?: string | null
   title: string
   description: string | null
   dateKey: string
@@ -75,7 +81,12 @@ function formatAmountRial(amount: string): string {
 
 export default function AdminPersonalExpensesPage() {
   const [amount, setAmount] = useState("")
-  const [category, setCategory] = useState<CategoryId>("PETTY_CASH")
+  const [categoryId, setCategoryId] = useState("")
+  const [categories, setCategories] = useState<DynamicCategory[]>([])
+  const [newCategoryName, setNewCategoryName] = useState("")
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState("")
+  const [managingCategories, setManagingCategories] = useState(false)
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [dateJalali, setDateJalali] = useState(getTehranTodayJalali())
@@ -96,6 +107,13 @@ export default function AdminPersonalExpensesPage() {
     if (!currentUser || currentUser.role !== "ADMIN") {
       window.location.replace(getDashboardHomePath(currentUser?.role))
     }
+  }, [])
+
+  const loadCategories = useCallback(async () => {
+    const res = await api.get("/admin/personal/categories")
+    const items = (res.data.items || []) as DynamicCategory[]
+    setCategories(items)
+    setCategoryId((current) => current || items[0]?.id || "")
   }, [])
 
   const load = useCallback(async (nextPage = 1) => {
@@ -123,6 +141,16 @@ export default function AdminPersonalExpensesPage() {
   }, [fromJalali, toJalali])
 
   useEffect(() => {
+    void (async () => {
+      try {
+        await loadCategories()
+      } catch (error) {
+        notifyError("دسته‌ها", getApiErrorMessage(error, "بارگذاری دسته‌ها ناموفق بود"))
+      }
+    })()
+  }, [loadCategories])
+
+  useEffect(() => {
     void load(1)
   }, [load])
 
@@ -136,12 +164,16 @@ export default function AdminPersonalExpensesPage() {
       notifyError("عنوان الزامی است", "عنوان هزینه را بنویسید")
       return
     }
+    if (!categoryId) {
+      notifyError("دسته الزامی است", "یک دسته‌بندی انتخاب کنید")
+      return
+    }
     const dateKey = jalaliToDateKey(dateJalali)
     setSaving(true)
     try {
       await api.post("/admin/personal/expenses", {
         amount: parsed.value,
-        category,
+        categoryId,
         title: title.trim(),
         description: description.trim() || undefined,
         dateKey: dateKey || undefined,
@@ -167,6 +199,47 @@ export default function AdminPersonalExpensesPage() {
       await load(page)
     } catch (error) {
       notifyError("حذف ناموفق", getApiErrorMessage(error))
+    }
+  }
+
+  const createCategory = async () => {
+    const name = newCategoryName.trim()
+    if (name.length < 2) {
+      notifyError("نام دسته", "حداقل دو حرف بنویسید")
+      return
+    }
+    try {
+      await api.post("/admin/personal/categories", { name })
+      setNewCategoryName("")
+      notifySuccess("دسته ثبت شد")
+      await loadCategories()
+    } catch (error) {
+      notifyError("ثبت دسته ناموفق", getApiErrorMessage(error))
+    }
+  }
+
+  const saveCategoryName = async () => {
+    if (!editingCategoryId) return
+    const name = editingName.trim()
+    if (name.length < 2) return
+    try {
+      await api.patch(`/admin/personal/categories/${editingCategoryId}`, { name })
+      setEditingCategoryId(null)
+      notifySuccess("دسته به‌روز شد")
+      await loadCategories()
+    } catch (error) {
+      notifyError("ویرایش ناموفق", getApiErrorMessage(error))
+    }
+  }
+
+  const archiveCategory = async (id: string) => {
+    try {
+      await api.delete(`/admin/personal/categories/${id}`)
+      if (categoryId === id) setCategoryId("")
+      notifySuccess("دسته آرشیو شد")
+      await loadCategories()
+    } catch (error) {
+      notifyError("آرشیو ناموفق", getApiErrorMessage(error))
     }
   }
 
@@ -230,23 +303,71 @@ export default function AdminPersonalExpensesPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label>دسته‌بندی</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label>دسته‌بندی</Label>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setManagingCategories((v) => !v)}>
+                {managingCategories ? "بستن مدیریت دسته" : "مدیریت دسته‌ها"}
+              </Button>
+            </div>
             <div className="flex flex-wrap gap-2">
-              {CATEGORIES.map((item) => (
+              {categories.map((item) => (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setCategory(item.id)}
+                  data-cy="expense-category"
+                  onClick={() => setCategoryId(item.id)}
                   className={`rounded-full border px-3 py-1.5 text-sm ${
-                    category === item.id
+                    categoryId === item.id
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-border bg-background"
                   }`}
                 >
-                  {item.label}
+                  {item.name}
                 </button>
               ))}
             </div>
+            {managingCategories ? (
+              <div className="rounded-xl border border-border p-3 space-y-3" data-cy="expense-category-manager">
+                <div className="flex gap-2">
+                  <Input
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder="دسته جدید"
+                    data-cy="expense-category-name"
+                  />
+                  <Button type="button" onClick={() => void createCategory()}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {categories.map((item) => (
+                  <div key={item.id} className="flex items-center gap-2">
+                    {editingCategoryId === item.id ? (
+                      <Input value={editingName} onChange={(e) => setEditingName(e.target.value)} />
+                    ) : (
+                      <p className="flex-1 text-sm">{item.name}{item.isDefault ? " · پیش‌فرض" : ""}</p>
+                    )}
+                    {editingCategoryId === item.id ? (
+                      <Button type="button" size="sm" onClick={() => void saveCategoryName()}>ذخیره</Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setEditingCategoryId(item.id)
+                          setEditingName(item.name)
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button type="button" variant="ghost" size="icon" onClick={() => void archiveCategory(item.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label>عنوان</Label>
@@ -290,7 +411,7 @@ export default function AdminPersonalExpensesPage() {
                   <div className="min-w-0">
                     <p className="font-medium break-words">{item.title}</p>
                     <p className="text-sm text-muted-foreground">
-                      {formatAmountRial(item.amount)} · {CATEGORIES.find((c) => c.id === item.category)?.label}
+                      {formatAmountRial(item.amount)} · {item.categoryName || ENUM_LABELS[item.category] || item.category}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">

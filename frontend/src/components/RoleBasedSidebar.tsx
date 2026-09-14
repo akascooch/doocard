@@ -23,6 +23,9 @@ import {
   Package,
   ShoppingBag,
   Wallet,
+  Target,
+  Activity,
+  Gift,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { LogoutButton } from './LogoutButton'
@@ -49,6 +52,12 @@ const adminMenuItems = [
     href: '/dashboard/admin/personal-expenses',
     icon: Wallet,
     description: 'هزینه‌های روزمره مدیر'
+  },
+  {
+    title: 'مدیریت قورباغه (تمرکز روز)',
+    href: '/dashboard/admin/frog-tasks',
+    icon: Target,
+    description: 'قورباغه امروز و تکرار خودکار'
   },
   {
     title: 'مدیریت صفحه اصلی',
@@ -99,6 +108,12 @@ const adminMenuItems = [
     description: 'کاتالوگ و موجودی فروشگاه'
   },
   {
+    title: 'مدیریت پکیج‌ها و طرح‌ها',
+    href: '/dashboard/admin/packages',
+    icon: Gift,
+    description: 'پکیج جلسات و امتیاز وفاداری'
+  },
+  {
     title: 'سفارشات',
     href: '/dashboard/admin/orders',
     icon: ShoppingBag,
@@ -145,6 +160,12 @@ const adminMenuItems = [
     href: '/dashboard/admin/sms',
     icon: MessageSquare,
     description: 'ارسال، قالب‌ها و گزارش SMS'
+  },
+  {
+    title: 'مانیتورینگ سرور',
+    href: '/dashboard/admin/monitoring',
+    icon: Activity,
+    description: 'سلامت سرور، دیتابیس و Redis'
   },
   {
     title: 'تنظیمات',
@@ -291,6 +312,12 @@ const customerMenuItems = [
     href: '/dashboard/customer/history',
     icon: BarChart3,
     description: 'تاریخچه خدمات'
+  },
+  {
+    title: 'پکیج و امتیاز',
+    href: '/dashboard/customer/packages',
+    icon: Gift,
+    description: 'جلسات باقی‌مانده و وفاداری'
   },
   {
     title: 'تنظیمات',

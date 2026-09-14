@@ -75,6 +75,7 @@ web_modules/
 .parcel-cache
 
 # Next.js build output
+.next/
 .next
 out
 
@@ -137,6 +138,11 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Local overlay/debug artifacts — never commit
+_overlay_otp/
+backend/_pr21_reset_today_frog.js
+frontend/cypress/downloads/
 
 # Cypress artifacts and local secrets
 cypress/videos/

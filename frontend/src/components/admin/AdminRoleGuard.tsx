@@ -19,7 +19,13 @@ export function AdminRoleGuard({ children }: { children: React.ReactNode }) {
       window.location.replace(getDashboardHomePath(user.role))
       return
     }
-    if (pathname?.includes("/personal-expenses") && user.role !== "ADMIN") {
+    if (
+      (pathname?.includes("/personal-expenses") ||
+        pathname?.includes("/frog-tasks") ||
+        pathname?.includes("/monitoring") ||
+        pathname?.includes("/packages")) &&
+      user.role !== "ADMIN"
+    ) {
       window.location.replace(getDashboardHomePath(user.role))
       return
     }

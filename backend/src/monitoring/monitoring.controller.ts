@@ -20,7 +20,7 @@ export class MonitoringController {
     return this.monitoringService.getMetrics();
   }
 
-  @Get('health')
+  @Get(['health', 'system-health'])
   @Roles('ADMIN')
   getSystemHealth() {
     return this.monitoringService.getSystemHealth();

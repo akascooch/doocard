@@ -5,9 +5,10 @@ import { Request, Response, NextFunction } from 'express';
 export class CorrelationIdMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
     // Get correlation ID from header or generate new one
-    const correlationId = (req.headers['x-request-id'] as string) || 
-                          (req.headers['x-correlation-id'] as string) ||
-                          this.generateId();
+    const headerId =
+      firstHeader(req.headers['x-correlation-id']) ||
+      firstHeader(req.headers['x-request-id']);
+    const correlationId = headerId || this.generateId();
 
     // Attach to request
     (req as any).correlationId = correlationId;
@@ -20,7 +21,12 @@ export class CorrelationIdMiddleware implements NestMiddleware {
   }
 
   private generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
   }
+}
+
+function firstHeader(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return String(value[0] ?? '').trim();
+  return String(value ?? '').trim();
 }
 
