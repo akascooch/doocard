@@ -144,6 +144,9 @@ _overlay_otp/
 backend/_pr21_reset_today_frog.js
 frontend/cypress/downloads/
 
+# Local-only smoke / JWT mint helpers — never commit
+backend/scripts/local-*.ts
+
 # Cypress artifacts and local secrets
 cypress/videos/
 cypress/screenshots/
