@@ -11,6 +11,8 @@ import { getApiErrorMessage, notifyError, notifySuccess } from "@/lib/notify"
 import api from "@/lib/axios"
 import { CheckCircle2, Circle, Clock, Loader2, PlayCircle, Plus, Trash2 } from "lucide-react"
 import Link from "next/link"
+import PersianDatePicker from "@/components/ui/PersianDatePicker"
+import { getTehranTodayJalali, persianToEnglishDigits } from "@/lib/date"
 
 type FrogStatus = "PENDING" | "IN_PROGRESS" | "DONE"
 
@@ -56,18 +58,26 @@ export function AdminFrogWidget() {
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [dueTime, setDueTime] = useState("09:00")
+  const [selectedDate, setSelectedDate] = useState("")
+  const [calendarToday, setCalendarToday] = useState("")
 
-  const load = useCallback(async (page = 1) => {
+  const load = useCallback(async (page = 1, dateKey?: string) => {
     setError(null)
     setUnauthorized(false)
     try {
+      const dayReq = dateKey
+        ? api.get("/admin/personal/frog", { params: { dateKey } })
+        : api.get("/admin/personal/frog/today")
       const [todayRes, historyRes] = await Promise.all([
-        api.get("/admin/personal/frog/today"),
+        dayReq,
         api.get("/admin/personal/frog/history", { params: { page, pageSize: 5 } }),
       ])
       const dayItems: Frog[] = todayRes.data.items || (todayRes.data.frog ? [todayRes.data.frog] : [])
       setItems(dayItems)
       setRollover(todayRes.data.rollover)
+      const resolvedDate = String(todayRes.data.today || dateKey || "")
+      setSelectedDate(resolvedDate)
+      if (!dateKey) setCalendarToday(resolvedDate)
       setHistory(historyRes.data.items || [])
       setHistoryTotal(historyRes.data.total || 0)
       setHistoryPage(historyRes.data.page || page)
@@ -98,13 +108,13 @@ export function AdminFrogWidget() {
     try {
       await api.post("/admin/personal/frog", fromRollover && rollover
         ? { rolloverId: rollover.id }
-        : { title: title.trim(), description: description.trim() || undefined, dueTime })
+        : { title: title.trim(), description: description.trim() || undefined, dueTime, dateKey: selectedDate || undefined })
       if (!fromRollover) {
         setTitle("")
         setDescription("")
       }
       notifySuccess("ذخیره شد", "قورباغه ثبت شد")
-      await load(historyPage)
+      await load(historyPage, selectedDate || undefined)
     } catch (err) {
       notifyError("ذخیره ناموفق", getApiErrorMessage(err))
     } finally {
@@ -118,7 +128,7 @@ export function AdminFrogWidget() {
     try {
       await api.patch(`/admin/personal/frog/${frog.id}/toggle`, {})
       notifySuccess("وضعیت به‌روز شد", STATUS_LABEL[frog.status === "PENDING" ? "IN_PROGRESS" : "DONE"])
-      await load(historyPage)
+      await load(historyPage, selectedDate || undefined)
     } catch (err) {
       notifyError("تغییر وضعیت ناموفق", getApiErrorMessage(err))
     } finally {
@@ -131,7 +141,7 @@ export function AdminFrogWidget() {
     try {
       await api.delete(`/admin/personal/frog/${id}`)
       notifySuccess("حذف شد", "قورباغه از لیست امروز برداشته شد")
-      await load(historyPage)
+      await load(historyPage, selectedDate || undefined)
     } catch (err) {
       notifyError("حذف ناموفق", getApiErrorMessage(err))
     } finally {
@@ -176,17 +186,32 @@ export function AdminFrogWidget() {
         <Badge variant="warning" className="w-fit normal-case tracking-normal">
           قورباغه امروزت رو قورت بده!
         </Badge>
-        <CardTitle className="text-2xl">قورباغه امروز</CardTitle>
+        <CardTitle className="text-2xl">
+          {selectedDate && calendarToday && selectedDate !== calendarToday ? "قورباغه‌های روز انتخاب‌شده" : "قورباغه امروز"}
+        </CardTitle>
         <CardDescription>
-          چند کار حیاتی برای امروز، با ساعت انجام. یادآوری پیامکی حدود ۲ ساعت قبل از موعد ارسال می‌شود.
+          چند کار حیاتی برای امروز یا تاریخ آینده، با ساعت انجام. یادآوری پیامکی حدود ۲ ساعت قبل از موعد ارسال می‌شود.
           {" "}
           <Link href="/dashboard/admin/frog-tasks" className="text-primary underline-offset-4 hover:underline">
             مدیریت کامل و تکرار خودکار
           </Link>
         </CardDescription>
+        <PersianDatePicker
+          label="تاریخ انجام"
+          value={selectedDate ? selectedDate.replace(/-/g, "/") : ""}
+          minDate={getTehranTodayJalali() || undefined}
+          onChange={(date) => {
+            const next = persianToEnglishDigits(date).replace(/\//g, "-")
+            setSelectedDate(next)
+            if (/^\d{4}-\d{2}-\d{2}$/.test(next)) {
+              setLoading(true)
+              void load(historyPage, next)
+            }
+          }}
+        />
       </CardHeader>
       <CardContent className="space-y-4">
-        {rollover && items.length === 0 ? (
+        {rollover && items.length === 0 && selectedDate === calendarToday ? (
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-3">
             <p className="text-sm text-foreground">
               قورباغه دیروز تمام نشده: <strong>{rollover.title}</strong>
@@ -198,7 +223,7 @@ export function AdminFrogWidget() {
         ) : null}
 
         {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">هنوز قورباغه‌ای برای امروز ثبت نشده است.</p>
+          <p className="text-sm text-muted-foreground">هنوز قورباغه‌ای برای این روز ثبت نشده است.</p>
         ) : (
           <ul className="space-y-2 max-h-72 overflow-y-auto">
             {items.map((item) => {

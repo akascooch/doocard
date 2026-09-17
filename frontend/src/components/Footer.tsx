@@ -1,5 +1,4 @@
 import React from 'react';
-import { Instagram } from 'lucide-react';
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || ''
 
@@ -9,15 +8,9 @@ const Footer: React.FC = () => {
               <div className="max-w-7xl mx-auto">
                 <div className="flex items-center justify-center">
                   <p className="text-sm text-muted-foreground flex items-center gap-2">
-                    <a
-                      href="https://www.instagram.com/techooch"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-gray-500 hover:text-gray-600 hover:underline transition-colors duration-200 font-medium cursor-pointer group"
-                    >
-                      <Instagram className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-                      Powered by Techooch
-                    </a>
+                    <span dir="ltr" className="font-medium text-gray-500">
+                      Powered by TECHOOCH
+                    </span>
                     {APP_VERSION ? (
                       <span className="text-xs text-muted-foreground/80" dir="ltr">
                         v{APP_VERSION}

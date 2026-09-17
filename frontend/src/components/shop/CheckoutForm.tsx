@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState, type FormEvent } from "react"
-import { Loader2, Minus, Plus, Trash2, Copy, Check } from "lucide-react"
+import { Loader2, Minus, Plus, Trash2, Copy, Check, Truck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -242,6 +242,16 @@ export function CheckoutForm({
                 <p className="mt-3 leading-7 text-zinc-300">{SHOP_CARD_TO_CARD.instructions}</p>
               </div>
             )}
+
+            <div className="flex items-start gap-2 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
+              <Truck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              <div>
+                <p className="font-medium">ارسال در محدوده سام‌سنتر رایگان است</p>
+                <p className="mt-1 text-xs leading-6 text-emerald-100/80">
+                  این اطلاعیه فقط برای محدوده مجتمع سام است و هزینه ارسال سایر مناطق را مشخص نمی‌کند.
+                </p>
+              </div>
+            </div>
 
             <div className="space-y-2">
               {items.length === 0 ? (

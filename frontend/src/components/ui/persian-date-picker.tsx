@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 import { faIR } from "date-fns/locale"
-import * as jalaali from "jalaali-js"
+import { safeToJalaali } from "@/lib/date"
 
 interface PersianDatePickerProps {
   value?: Date
@@ -38,7 +38,9 @@ export function PersianDatePicker({
   const [open, setOpen] = useState(false)
 
   const formatPersianDate = (date: Date) => {
-    const jalali = jalaali.toJalaali(date.getFullYear(), date.getMonth() + 1, date.getDate())
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return ''
+    const jalali = safeToJalaali(date.getFullYear(), date.getMonth() + 1, date.getDate())
+    if (!jalali) return ''
     return `${jalali.jy}/${jalali.jm.toString().padStart(2, '0')}/${jalali.jd.toString().padStart(2, '0')}`
   }
 

@@ -11,6 +11,110 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.extend(customParseFormat);
 
+export type GregorianDateParts = { gy: number; gm: number; gd: number };
+export type JalaliDateParts = { jy: number; jm: number; jd: number };
+
+const TEHRAN_OFFSET_MS = (3 * 60 + 30) * 60 * 1000;
+
+const TEHRAN_GREGORIAN_YMD = new Intl.DateTimeFormat('en-CA-u-ca-gregory-nu-latn', {
+  timeZone: 'Asia/Tehran',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+function pad2(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+function isFiniteInt(n: number): boolean {
+  return typeof n === 'number' && Number.isInteger(n) && Number.isFinite(n);
+}
+
+export function isValidGregorianYmd(gy: number, gm: number, gd: number): boolean {
+  if (!isFiniteInt(gy) || !isFiniteInt(gm) || !isFiniteInt(gd)) return false;
+  if (gy < 1600 || gy > 2500 || gm < 1 || gm > 12 || gd < 1 || gd > 31) return false;
+  const probe = new Date(Date.UTC(gy, gm - 1, gd));
+  return (
+    probe.getUTCFullYear() === gy &&
+    probe.getUTCMonth() + 1 === gm &&
+    probe.getUTCDate() === gd
+  );
+}
+
+export function formatGregorianYmd(parts: GregorianDateParts): string {
+  return `${parts.gy}-${pad2(parts.gm)}-${pad2(parts.gd)}`;
+}
+
+export function formatJalaliParts(parts: JalaliDateParts, separator: '/' | '-' = '/'): string {
+  return `${parts.jy}${separator}${pad2(parts.jm)}${separator}${pad2(parts.jd)}`;
+}
+
+/** Offset fallback when Intl calendar/numbering is unavailable. Tehran has no DST. */
+function tehranGregorianPartsFromOffset(date: Date): GregorianDateParts | null {
+  const shifted = new Date(date.getTime() + TEHRAN_OFFSET_MS);
+  const gy = shifted.getUTCFullYear();
+  const gm = shifted.getUTCMonth() + 1;
+  const gd = shifted.getUTCDate();
+  if (!isValidGregorianYmd(gy, gm, gd)) return null;
+  return { gy, gm, gd };
+}
+
+export function getTehranGregorianDateParts(date?: Date): GregorianDateParts | null {
+  const source = date ?? new Date();
+  if (!(source instanceof Date) || Number.isNaN(source.getTime())) return null;
+  try {
+    const parts = TEHRAN_GREGORIAN_YMD.formatToParts(source);
+    const gy = Number(parts.find((part) => part.type === 'year')?.value);
+    const gm = Number(parts.find((part) => part.type === 'month')?.value);
+    const gd = Number(parts.find((part) => part.type === 'day')?.value);
+    if (isValidGregorianYmd(gy, gm, gd)) return { gy, gm, gd };
+  } catch {
+    // fall through to offset arithmetic
+  }
+  return tehranGregorianPartsFromOffset(source);
+}
+
+export function safeToJalaali(gy: number, gm: number, gd: number): JalaliDateParts | null {
+  if (!isValidGregorianYmd(gy, gm, gd)) return null;
+  try {
+    const converted = jalaali.toJalaali(gy, gm, gd);
+    if (!converted || !isFiniteInt(converted.jy) || !isFiniteInt(converted.jm) || !isFiniteInt(converted.jd)) {
+      return null;
+    }
+    if (typeof jalaali.isValidJalaaliDate === 'function') {
+      if (!jalaali.isValidJalaaliDate(converted.jy, converted.jm, converted.jd)) return null;
+    } else if (converted.jy < 1200 || converted.jy > 1700 || converted.jm < 1 || converted.jm > 12) {
+      return null;
+    }
+    return converted;
+  } catch {
+    return null;
+  }
+}
+
+export function safeToGregorian(jy: number, jm: number, jd: number): GregorianDateParts | null {
+  if (!isFiniteInt(jy) || !isFiniteInt(jm) || !isFiniteInt(jd)) return null;
+  if (typeof jalaali.isValidJalaaliDate === 'function' && !jalaali.isValidJalaaliDate(jy, jm, jd)) {
+    return null;
+  }
+  try {
+    const converted = jalaali.toGregorian(jy, jm, jd);
+    if (!converted || !isValidGregorianYmd(converted.gy, converted.gm, converted.gd)) return null;
+    return converted;
+  } catch {
+    return null;
+  }
+}
+
+function parseJalaliYmdParts(jalaliDate: string): JalaliDateParts | null {
+  if (!jalaliDate) return null;
+  const normalized = persianToEnglishDigits(jalaliDate).replace(/\//g, '-');
+  const [jy, jm, jd] = normalized.split('-').map(Number);
+  if (!safeToGregorian(jy, jm, jd)) return null;
+  return { jy, jm, jd };
+}
+
 /**
  * Format a Gregorian date to Jalali (Persian) date string
  * Uses jalaali-js for accurate conversion (dayjs jalaliday has bugs with dates)
@@ -43,12 +147,13 @@ export const formatToJalali = (
       dateObj = new Date(date);
     }
     
-    // Convert to Jalali using jalaali-js (accurate)
-    const { jy, jm, jd } = jalaali.toJalaali(
+    const jalaliParts = safeToJalaali(
       dateObj.getFullYear(),
       dateObj.getMonth() + 1,
-      dateObj.getDate()
+      dateObj.getDate(),
     );
+    if (!jalaliParts) return '';
+    const { jy, jm, jd } = jalaliParts;
     
     // Format simple date formats directly
     if (format === 'YYYY/MM/DD') {
@@ -64,11 +169,21 @@ export const formatToJalali = (
       const parsed = dayjs(dateObj);
       return parsed.calendar('jalali').locale('fa').format(format);
     }
-  } catch (error) {
-    console.error('Error formatting to Jalali:', error);
+  } catch {
     return '';
   }
 };
+
+export function isValidJalaliValue(value: unknown): boolean {
+  return typeof value === 'string' && parseJalaliYmdParts(value) !== null;
+}
+
+export function formatTehranJalaliValue(value: unknown, format: string = 'YYYY/MM/DD'): string {
+  if (value instanceof Date || typeof value === 'string' || typeof value === 'number') {
+    return formatToJalali(value, format);
+  }
+  return '';
+}
 
 /**
  * Parse a Jalali date string to Gregorian Date object
@@ -89,21 +204,10 @@ export const parseFromJalali = (
     const normalized = persianToEnglishDigits(jalaliDate).replace(/\//g, '-');
     const [jy, jm, jd] = normalized.split('-').map(Number);
     
-    // Validate
-    if (!jy || !jm || !jd) {
-      console.error('Invalid Jalali date format:', jalaliDate);
-      return null;
-    }
-    
-    // Convert using jalaali-js (more accurate than dayjs)
-    const { gy, gm, gd } = jalaali.toGregorian(jy, jm, jd);
-    
-    // Create UTC date at midnight
-    const date = new Date(Date.UTC(gy, gm - 1, gd, 0, 0, 0, 0));
-    
-    console.log(`🔄 parseFromJalali: ${jalaliDate} → ${jy}-${jm}-${jd} (J) → ${gy}-${gm}-${gd} (G) → ${date.toISOString().split('T')[0]}`);
-    
-    return date;
+    const gregorian = safeToGregorian(jy, jm, jd);
+    if (!gregorian) return null;
+    const { gy, gm, gd } = gregorian;
+    return new Date(Date.UTC(gy, gm - 1, gd, 0, 0, 0, 0));
   } catch (error) {
     console.error('Error parsing Jalali date:', error);
     return null;
@@ -143,13 +247,9 @@ export const jalaliToGregorian = (jalaliDate: string): string | null => {
     const normalized = persianToEnglishDigits(jalaliDate).replace(/\//g, '-');
     const [jy, jm, jd] = normalized.split('-').map(Number);
     
-    // Validate
-    if (!jy || !jm || !jd) return null;
-    
-    // Convert using jalaali-js
-    const { gy, gm, gd } = jalaali.toGregorian(jy, jm, jd);
-    
-    return `${gy}-${String(gm).padStart(2, '0')}-${String(gd).padStart(2, '0')}`;
+    const gregorian = safeToGregorian(jy, jm, jd);
+    if (!gregorian) return null;
+    return formatGregorianYmd(gregorian);
   } catch (error) {
     console.error('Error converting Jalali to Gregorian:', error);
     return null;
@@ -163,23 +263,17 @@ export const jalaliToGregorian = (jalaliDate: string): string | null => {
  * @returns Current Jalali date string
  */
 export const getCurrentJalaliDate = (format: string = 'YYYY/MM/DD'): string => {
-  // Use jalaali-js for accurate conversion (same as backend)
-  const now = new Date();
-  const { jy, jm, jd } = jalaali.toJalaali(
-    now.getFullYear(),
-    now.getMonth() + 1,
-    now.getDate()
-  );
-  
-  // Format according to requested format
-  if (format === 'YYYY/MM/DD') {
-    return `${jy}/${jm.toString().padStart(2, '0')}/${jd.toString().padStart(2, '0')}`;
-  } else if (format === 'YYYY-MM-DD') {
-    return `${jy}-${jm.toString().padStart(2, '0')}-${jd.toString().padStart(2, '0')}`;
-  } else {
-    // Fallback to dayjs for complex formats
-    const localDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const parts = getTehranGregorianDateParts();
+  const jalaliParts = parts ? safeToJalaali(parts.gy, parts.gm, parts.gd) : null;
+  if (!jalaliParts) return '';
+  const { jy, jm, jd } = jalaliParts;
+  if (format === 'YYYY/MM/DD') return formatJalaliParts(jalaliParts, '/');
+  if (format === 'YYYY-MM-DD') return formatJalaliParts(jalaliParts, '-');
+  try {
+    const localDate = new Date(parts!.gy, parts!.gm - 1, parts!.gd);
     return dayjs(localDate).calendar('jalali').locale('fa').format(format);
+  } catch {
+    return `${jy}/${pad2(jm)}/${pad2(jd)}`;
   }
 };
 
@@ -244,16 +338,7 @@ export const englishToPersianDigits = (str: string): string => {
  * @returns true if valid
  */
 export const isValidJalaliDate = (jalaliDate: string): boolean => {
-  if (!jalaliDate) return false;
-  
-  try {
-    // Normalize digits first
-    const normalized = persianToEnglishDigits(jalaliDate);
-    const parsed = dayjs(normalized, { format: 'YYYY/MM/DD', jalali: true });
-    return parsed.isValid();
-  } catch {
-    return false;
-  }
+  return parseJalaliYmdParts(jalaliDate) != null;
 };
 
 /**
@@ -371,7 +456,8 @@ export const isJalaliDateBefore = (a: string, b: string): boolean => {
 
 /** Gregorian YYYY-MM-DD for "today" in Asia/Tehran */
 export const getTehranTodayGregorian = (): string => {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
+  const parts = getTehranGregorianDateParts();
+  return parts ? formatGregorianYmd(parts) : '';
 };
 
 /**
@@ -379,21 +465,19 @@ export const getTehranTodayGregorian = (): string => {
  * Prefer this over getCurrentJalaliDate() for filter defaults.
  */
 export const getTehranTodayJalali = (format: string = 'YYYY/MM/DD'): string => {
-  const todayG = getTehranTodayGregorian();
-  const [gy, gm, gd] = todayG.split('-').map(Number);
-  const { jy, jm, jd } = jalaali.toJalaali(gy, gm, gd);
-  const y = String(jy);
-  const m = String(jm).padStart(2, '0');
-  const d = String(jd).padStart(2, '0');
-  if (format === 'YYYY-MM-DD') return `${y}-${m}-${d}`;
-  return `${y}/${m}/${d}`;
+  const parts = getTehranGregorianDateParts();
+  const jalaliParts = parts ? safeToJalaali(parts.gy, parts.gm, parts.gd) : null;
+  if (!jalaliParts) return '';
+  if (format === 'YYYY-MM-DD') return formatJalaliParts(jalaliParts, '-');
+  return formatJalaliParts(jalaliParts, '/');
 };
 
 /** Jalali first-of-month → today (Asia/Tehran). For salary withdrawal filters. */
 export const getTehranCurrentJalaliMonthRange = (): { from: string; to: string } => {
   const today = getTehranTodayJalali('YYYY/MM/DD');
-  const [jy, jm] = today.split('/');
-  return { from: `${jy}/${jm}/01`, to: today };
+  const parsed = parseJalaliYmdParts(today);
+  if (!parsed) return { from: '', to: '' };
+  return { from: `${parsed.jy}/${pad2(parsed.jm)}/01`, to: today };
 };
 
 /** Add calendar days to a Gregorian YYYY-MM-DD in Asia/Tehran. */
@@ -402,8 +486,10 @@ export const addDaysGregorianTehran = (
   days: number,
 ): string => {
   const d = new Date(`${gregorianDate}T12:00:00+03:30`);
+  if (Number.isNaN(d.getTime())) return '';
   d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
-  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
+  const parts = getTehranGregorianDateParts(d);
+  return parts ? formatGregorianYmd(parts) : '';
 };
 
 /**
@@ -498,11 +584,11 @@ export const snapToThirtyMinuteClock = (hhmm: string): string | null => {
 export const formatAppointmentWhenTehran = (iso: string | Date): string => {
   const date = typeof iso === 'string' ? new Date(iso) : iso;
   if (!date || Number.isNaN(date.getTime())) return '';
-  const gregorian = date.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
-  const [gy, gm, gd] = gregorian.split('-').map(Number);
-  const { jy, jm, jd } = jalaali.toJalaali(gy, gm, gd);
+  const parts = getTehranGregorianDateParts(date);
+  const jalaliParts = parts ? safeToJalaali(parts.gy, parts.gm, parts.gd) : null;
+  if (!jalaliParts) return '';
   const time = tehranHHmmFromIso(date.toISOString()) || '';
-  return `${jy}/${String(jm).padStart(2, '0')}/${String(jd).padStart(2, '0')}${time ? ` ${time}` : ''}`;
+  return `${formatJalaliParts(jalaliParts, '/')}${time ? ` ${time}` : ''}`;
 };
 
 /** Jalali picker value → API jalaliDate YYYY-MM-DD */
@@ -586,11 +672,12 @@ export const getTehranJalaliMonthToTodayBounds = (
 ): { from: string; to: string } => {
   const todayG = referenceGregorian || getTehranTodayGregorian();
   const [gy, gm, gd] = todayG.split('-').map(Number);
-  const { jy, jm } = jalaali.toJalaali(gy, gm, gd);
-  const { gy: startGy, gm: startGm, gd: startGd } = jalaali.toGregorian(jy, jm, 1);
-  const monthStartG = `${startGy}-${String(startGm).padStart(2, '0')}-${String(startGd).padStart(2, '0')}`;
+  const jalaliParts = safeToJalaali(gy, gm, gd);
+  if (!jalaliParts || !todayG) return { from: '', to: '' };
+  const monthStart = safeToGregorian(jalaliParts.jy, jalaliParts.jm, 1);
+  if (!monthStart) return { from: '', to: '' };
   return {
-    from: tehranIsoFromGregorianDate(monthStartG, '00:00:00'),
+    from: tehranIsoFromGregorianDate(formatGregorianYmd(monthStart), '00:00:00'),
     to: tehranIsoFromGregorianDate(todayG, '23:59:59'),
   };
 };
@@ -608,6 +695,7 @@ export const getTehranAppointmentPresetRange = (
   filter: TehranAppointmentPreset,
 ): { from?: string; to?: string } => {
   const todayStr = getTehranTodayGregorian();
+  if (!todayStr) return {};
   const tomorrowStr = addDaysGregorianTehran(todayStr, 1);
 
   switch (filter) {
@@ -676,6 +764,11 @@ const dateHelpers = {
   formatAppointmentWhenTehran,
   jalaliToApiDate,
   slotsApiDateFromPicker,
+  getTehranGregorianDateParts,
+  safeToJalaali,
+  safeToGregorian,
+  isValidJalaliValue,
+  formatTehranJalaliValue,
 };
 
 export default dateHelpers;

@@ -54,8 +54,10 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   async logErrorToBackend(error: Error, errorInfo: ErrorInfo, correlationId: string) {
+    if (!this.shouldReport(this.errorFingerprint(error, errorInfo))) {
+      return;
+    }
     try {
-      // Use relative URL to respect CSP and current protocol (HTTPS)
       await fetch('/api/monitoring/client-errors', {
         method: 'POST',
         headers: {
@@ -81,7 +83,32 @@ export class ErrorBoundary extends Component<Props, State> {
     return `fe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
+  private errorFingerprint(error: Error, errorInfo?: ErrorInfo | null): string {
+    const stackHead = (errorInfo?.componentStack || error.stack || '').slice(0, 240);
+    return `${error.name}:${error.message}:${stackHead}`;
+  }
+
+  private shouldReport(fingerprint: string): boolean {
+    if (typeof window === 'undefined') return true;
+    try {
+      const raw = sessionStorage.getItem('doocard-client-error-fps');
+      const seen: string[] = raw ? JSON.parse(raw) : [];
+      if (seen.includes(fingerprint)) return false;
+      sessionStorage.setItem(
+        'doocard-client-error-fps',
+        JSON.stringify([...seen, fingerprint].slice(-20)),
+      );
+      return true;
+    } catch {
+      return true;
+    }
+  }
+
   handleReset = () => {
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+      return;
+    }
     this.setState({
       hasError: false,
       error: null,

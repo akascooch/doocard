@@ -1041,6 +1041,7 @@ model Product {
   updatedAt      DateTime  @updatedAt
   category       ProductCategory? @relation(fields: [categoryId], references: [id])
   movements      InventoryMovement[]
+  packagings     ProductPackaging[]
   appointmentProducts AppointmentProduct[]
   orders         OrderItem[]
   stockSubscriptions ProductStockSubscription[]
@@ -1048,6 +1049,25 @@ model Product {
   @@index([categoryId])
   @@index([isActive])
   @@map("products")
+}
+
+model ProductPackaging {
+  id              Int       @id @default(autoincrement())
+  productId       Int
+  name            String
+  unitLabel       String
+  unitsPerPackage Int
+  isActive        Boolean   @default(true)
+  archivedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  movements       InventoryMovement[]
+  appointmentProducts AppointmentProduct[]
+  orderItems      OrderItem[]
+
+  @@index([productId, isActive])
+  @@map("product_packagings")
 }
 
 model InventoryMovement {
@@ -1063,6 +1083,11 @@ model InventoryMovement {
   createdAt     DateTime              @default(now())
   product       Product               @relation(fields: [productId], references: [id])
   performedBy   User?                 @relation("InventoryMovementPerformedBy", fields: [performedById], references: [id])
+  packagingId     Int?
+  packagingName   String?
+  packagingUnit   String?
+  unitsPerPackage Int?
+  packaging       ProductPackaging? @relation(fields: [packagingId], references: [id])
 
   @@index([productId, createdAt])
   @@index([referenceType, referenceId])
@@ -1077,8 +1102,13 @@ model AppointmentProduct {
   unitPriceRial BigInt
   lineTotalRial BigInt
   createdAt     DateTime    @default(now())
+  packagingId   Int?
+  packagingName String?
+  packagingUnit String?
+  unitsPerPackage Int?
   appointment   Appointment @relation(fields: [appointmentId], references: [id])
   product       Product     @relation(fields: [productId], references: [id])
+  packaging     ProductPackaging? @relation(fields: [packagingId], references: [id])
 
   @@index([appointmentId])
   @@map("appointment_products")
@@ -1127,8 +1157,13 @@ model OrderItem {
   quantity      Int
   lineTotalRial BigInt
   createdAt     DateTime @default(now())
+  packagingId   Int?
+  packagingName String?
+  packagingUnit String?
+  unitsPerPackage Int?
   order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product       Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  packaging     ProductPackaging? @relation(fields: [packagingId], references: [id])
 
   @@index([orderId])
   @@index([productId])

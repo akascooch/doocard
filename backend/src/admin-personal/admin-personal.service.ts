@@ -25,10 +25,12 @@ import {
   type FrogFrequency,
   type FrogStatus,
 } from './dto/admin-personal.dto';
-import { tehranDueTime, tehranScheduledAt } from './frog-schedule.util';
+import { tehranDueTime, tehranJalaliDateKey, tehranScheduledAt, isJalaliDateKey, jalaliDateKeyToGregorianYmd } from './frog-schedule.util';
+import { getTehranGregorianYmd } from '../common/utils/tehran-business-day';
+import * as jalaali from 'jalaali-js';
 
 export function tehranDateKey(at = new Date()): string {
-  return at.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
+  return getTehranGregorianYmd(at);
 }
 
 const TEHRAN_WEEKDAY: Record<string, number> = {
@@ -64,8 +66,27 @@ export function recurrenceMatchesToday(
 
 export function shiftDateKey(dateKey: string, days: number): string {
   const [y, m, d] = dateKey.split('-').map(Number);
-  const next = new Date(Date.UTC(y, m - 1, d + days));
-  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
+  if (y >= 1700) {
+    const next = new Date(Date.UTC(y, m - 1, d + days));
+    return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
+  }
+  const gregorian = jalaliDateKeyToGregorianYmd(dateKey);
+  if (!gregorian) return dateKey;
+  const [gy, gm, gd] = gregorian.split('-').map(Number);
+  const shifted = new Date(Date.UTC(gy, gm - 1, gd + days));
+  const j = jalaali.toJalaali(
+    shifted.getUTCFullYear(),
+    shifted.getUTCMonth() + 1,
+    shifted.getUTCDate(),
+  );
+  return `${j.jy}-${String(j.jm).padStart(2, '0')}-${String(j.jd).padStart(2, '0')}`;
+}
+
+function gregorianToJalaliOrSame(dateKey: string): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  if (y < 1700) return dateKey;
+  const j = jalaali.toJalaali(y, m, d);
+  return `${j.jy}-${String(j.jm).padStart(2, '0')}-${String(j.jd).padStart(2, '0')}`;
 }
 
 function monthStartKey(dateKey: string): string {
@@ -206,31 +227,39 @@ export class AdminPersonalService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getTodayFrog(userId: number) {
-    const today = tehranDateKey();
-    return this.listFrogsForDate(userId, today);
+    return this.listFrogsForDate(userId, tehranJalaliDateKey());
   }
 
   async listFrogs(userId: number, query: ListFrogsQueryDto) {
-    const dateKey = query.dateKey || tehranDateKey();
-    if (!isValidDateKey(dateKey)) {
+    const dateKey = query.dateKey || tehranJalaliDateKey();
+    if (!isJalaliDateKey(dateKey) && !isValidDateKey(dateKey)) {
       throw new BadRequestException('تاریخ نامعتبر است');
     }
-    return this.listFrogsForDate(userId, dateKey);
+    return this.listFrogsForDate(userId, isJalaliDateKey(dateKey) ? dateKey : gregorianToJalaliOrSame(dateKey));
+  }
+
+  private frogDateAliases(dateKey: string): string[] {
+    const aliases = new Set<string>([dateKey]);
+    const gregorian = jalaliDateKeyToGregorianYmd(dateKey);
+    if (gregorian) aliases.add(gregorian);
+    aliases.add(gregorianToJalaliOrSame(dateKey));
+    return [...aliases];
   }
 
   private async listFrogsForDate(userId: number, dateKey: string) {
-    const today = tehranDateKey();
+    const today = tehranJalaliDateKey();
+    const canonical = isJalaliDateKey(dateKey) ? dateKey : gregorianToJalaliOrSame(dateKey);
     const yesterday = shiftDateKey(today, -1);
     const items = await this.prisma.adminDailyFrog.findMany({
-      where: { userId, dateKey },
+      where: { userId, dateKey: { in: this.frogDateAliases(canonical) } },
       orderBy: [{ scheduledAt: 'asc' }, { createdAt: 'asc' }],
     });
     const pendingRollover =
-      dateKey === today && items.length === 0
+      canonical === today && items.length === 0
         ? await this.prisma.adminDailyFrog.findFirst({
             where: {
               userId,
-              dateKey: yesterday,
+              dateKey: { in: this.frogDateAliases(yesterday) },
               isCompleted: false,
               status: { not: AdminFrogStatus.DONE },
             },
@@ -238,7 +267,7 @@ export class AdminPersonalService {
           })
         : null;
     return {
-      today: dateKey,
+      today: canonical,
       items: items.map(serializeFrog),
       frog: items[0] ? serializeFrog(items[0]) : null,
       rollover: pendingRollover ? serializeFrog(pendingRollover) : null,
@@ -246,10 +275,13 @@ export class AdminPersonalService {
   }
 
   async upsertTodayFrog(userId: number, dto: UpsertTodayFrogDto) {
-    const today = tehranDateKey();
+    const today = tehranJalaliDateKey();
     const dateKey = dto.dateKey || today;
-    if (!isValidDateKey(dateKey)) {
-      throw new BadRequestException('تاریخ نامعتبر است');
+    if (!isJalaliDateKey(dateKey)) {
+      throw new BadRequestException('تاریخ باید شمسی معتبر و به صورت YYYY-MM-DD باشد');
+    }
+    if (dateKey < today) {
+      throw new BadRequestException('تاریخ گذشته مجاز نیست');
     }
     const yesterday = shiftDateKey(today, -1);
     let title = dto.title?.trim();
@@ -266,7 +298,7 @@ export class AdminPersonalService {
       if (source.isCompleted || source.status === AdminFrogStatus.DONE) {
         throw new BadRequestException('قورباغه انجام‌شده منتقل نمی‌شود');
       }
-      if (source.dateKey !== yesterday) {
+      if (!this.frogDateAliases(yesterday).includes(source.dateKey)) {
         throw new BadRequestException('فقط قورباغه دیروز قابل انتقال است');
       }
       title = title || source.title;
@@ -338,8 +370,8 @@ export class AdminPersonalService {
   async listFrogHistory(userId: number, query: FrogHistoryQueryDto) {
     const page = query.page ?? 1;
     const pageSize = Math.min(query.pageSize ?? 20, MAX_PAGE_SIZE);
-    const today = tehranDateKey();
-    const where = { userId, dateKey: { lt: today } };
+    const todayStart = tehranScheduledAt(tehranJalaliDateKey(), '00:00');
+    const where = { userId, scheduledAt: { lt: todayStart } };
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.adminDailyFrog.count({ where }),
       this.prisma.adminDailyFrog.findMany({
@@ -642,7 +674,7 @@ export class AdminPersonalService {
    * Other frogs on the same day do not block creation.
    */
   async applyDueRecurrences(at = new Date()) {
-    const today = tehranDateKey(at);
+    const today = tehranJalaliDateKey(at);
     const weekday = tehranWeekday(at);
     const recurrences = await this.prisma.adminFrogRecurrence.findMany({
       where: { isActive: true },
@@ -656,7 +688,7 @@ export class AdminPersonalService {
 
     for (const rec of recurrences) {
       if (!recurrenceMatchesToday(rec, weekday)) continue;
-      if (rec.lastRunAt && tehranDateKey(rec.lastRunAt) === today) {
+      if (rec.lastRunAt && tehranJalaliDateKey(rec.lastRunAt) === today) {
         skipped += 1;
         continue;
       }

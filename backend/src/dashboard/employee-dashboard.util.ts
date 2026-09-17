@@ -2,6 +2,7 @@ import { AppointmentStatus } from '@prisma/client';
 import { getJalaliMonthRanges } from '../common/utils/date-utils';
 import {
   formatJalaliFromUtcInstant,
+  getTehranGregorianYmd,
   gregorianYmdToTehranHalfOpenDay,
 } from '../common/utils/tehran-business-day';
 
@@ -28,7 +29,7 @@ export function resolveAuthUserId(
 }
 
 export function getTehranTodayYmd(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
+  return getTehranGregorianYmd();
 }
 
 export function getTehranDayRange(ymd: string): { start: Date; endExclusive: Date } {

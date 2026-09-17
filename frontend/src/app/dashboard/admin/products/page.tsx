@@ -22,7 +22,9 @@ import { getCurrentUser } from "@/lib/auth"
 import { getDashboardHomePath } from "@/lib/user-roles"
 import { api } from "@/lib/axios"
 import { formatTomansFromRial } from "@/lib/money"
-import { Edit, Package, Plus, Search, Trash2, Warehouse } from "lucide-react"
+import { Edit, Package, Plus, Search, Trash2, Warehouse, ScrollText } from "lucide-react"
+import { ProductPackagingManager } from "@/components/products/ProductPackagingManager"
+import { ProductKardexDialog } from "@/components/products/ProductKardexDialog"
 
 interface ProductCategory {
   id: number
@@ -79,6 +81,7 @@ export default function AdminProductsPage() {
   const [formData, setFormData] = useState(emptyForm)
   const [uploading, setUploading] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState("")
+  const [kardexProduct, setKardexProduct] = useState<ProductRow | null>(null)
 
   useEffect(() => {
     const currentUser = getCurrentUser()
@@ -339,6 +342,16 @@ export default function AdminProductsPage() {
                         <Button variant="outline" size="sm" onClick={() => openEdit(product)}>
                           <Edit className="h-4 w-4" />
                         </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          aria-label={`کاردکس ${product.name}`}
+                          title="کاردکس کالا"
+                          onClick={() => setKardexProduct(product)}
+                        >
+                          <ScrollText className="h-4 w-4" />
+                          کاردکس
+                        </Button>
                         {product.isActive && (
                           <Button
                             variant="outline"
@@ -446,6 +459,11 @@ export default function AdminProductsPage() {
               />
               <Label>نمایش قیمت در کاتالوگ عمومی</Label>
             </div>
+            {editing ? <ProductPackagingManager productId={editing.id} /> : (
+              <p className="text-xs text-muted-foreground md:col-span-2">
+                پس از ثبت محصول می‌توانید بسته‌بندی‌های آن را تعریف کنید.
+              </p>
+            )}
             <div className="space-y-2 md:col-span-2">
               <Label>تصاویر</Label>
               <Input
@@ -503,6 +521,17 @@ export default function AdminProductsPage() {
           </div>
         </DialogContent>
       </Dialog>
+      {kardexProduct ? (
+        <ProductKardexDialog
+          productId={kardexProduct.id}
+          productName={kardexProduct.name}
+          stock={kardexProduct.stock}
+          open={Boolean(kardexProduct)}
+          onOpenChange={(open) => {
+            if (!open) setKardexProduct(null)
+          }}
+        />
+      ) : null}
     </div>
   )
 }

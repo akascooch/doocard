@@ -26,4 +26,10 @@ export class CreateInventoryMovementDto {
   @IsString()
   @MaxLength(500)
   reason?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  packagingId?: number;
 }

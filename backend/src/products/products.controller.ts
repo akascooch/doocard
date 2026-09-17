@@ -25,10 +25,13 @@ import {
   CreateInventoryMovementDto,
   CreateProductCategoryDto,
   CreateProductDto,
+  CreateProductPackagingDto,
+  QueryKardexDto,
   QueryMovementsDto,
   QueryProductsDto,
   UpdateProductCategoryDto,
   UpdateProductDto,
+  UpdateProductPackagingDto,
 } from './dto';
 
 @Controller('products')
@@ -109,6 +112,41 @@ export class ProductsController {
     @Req() req: { user?: { id?: number } },
   ) {
     return this.productsService.createMovement(id, dto, req.user?.id);
+  }
+
+  @Get(':id/kardex')
+  getKardex(@Param('id', ParseIntPipe) id: number, @Query() query: QueryKardexDto) {
+    return this.productsService.getKardex(id, query);
+  }
+
+  @Get(':id/packagings')
+  listPackagings(@Param('id', ParseIntPipe) id: number) {
+    return this.productsService.listPackagings(id);
+  }
+
+  @Post(':id/packagings')
+  createPackaging(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CreateProductPackagingDto,
+  ) {
+    return this.productsService.createPackaging(id, dto);
+  }
+
+  @Patch(':id/packagings/:packagingId')
+  updatePackaging(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('packagingId', ParseIntPipe) packagingId: number,
+    @Body() dto: UpdateProductPackagingDto,
+  ) {
+    return this.productsService.updatePackaging(id, packagingId, dto);
+  }
+
+  @Delete(':id/packagings/:packagingId')
+  deletePackaging(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('packagingId', ParseIntPipe) packagingId: number,
+  ) {
+    return this.productsService.deletePackaging(id, packagingId);
   }
 
   @Get(':id')

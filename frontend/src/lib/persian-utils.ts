@@ -1,4 +1,4 @@
-import * as jalaali from "jalaali-js"
+import { formatToJalali, parseFromJalali, safeToJalaali } from "@/lib/date"
 
 // Persian number conversion utilities
 export const toPersianDigits = (str: string): string => {
@@ -21,37 +21,28 @@ export const persianWeekDays = [
 
 // Jalali date formatting
 export const formatJalaliDate = (date: Date, format: string = "YYYY/MM/DD"): string => {
-  const jalali = jalaali.toJalaali(date.getFullYear(), date.getMonth() + 1, date.getDate())
-  
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return ""
+  if (format === "YYYY/MM/DD") {
+    return formatToJalali(date, "YYYY/MM/DD")
+  }
+  const jalali = safeToJalaali(date.getFullYear(), date.getMonth() + 1, date.getDate())
+  if (!jalali) return ""
   return format
     .replace("YYYY", jalali.jy.toString())
-    .replace("MM", jalali.jm.toString().padStart(2, '0'))
-    .replace("DD", jalali.jd.toString().padStart(2, '0'))
-    .replace("MMMM", persianMonths[jalali.jm - 1])
-    .replace("dddd", persianWeekDays[date.getDay()])
+    .replace("MM", jalali.jm.toString().padStart(2, "0"))
+    .replace("DD", jalali.jd.toString().padStart(2, "0"))
+    .replace("MMMM", persianMonths[jalali.jm - 1] ?? "")
+    .replace("dddd", persianWeekDays[date.getDay()] ?? "")
 }
 
-// Convert Jalali string to Date
 export const jalaliToDate = (jalaliStr: string): Date => {
-  const englishStr = toEnglishDigits(jalaliStr)
-  const parts = englishStr.split('/')
-  
-  if (parts.length !== 3) {
-    throw new Error("Invalid Jalali date format")
-  }
-  
-  const year = parseInt(parts[0])
-  const month = parseInt(parts[1])
-  const day = parseInt(parts[2])
-  
-  const gregorian = jalaali.toGregorian(year, month, day)
-  return new Date(gregorian.gy, gregorian.gm - 1, gregorian.gd)
+  const parsed = parseFromJalali(jalaliStr)
+  if (parsed) return parsed
+  throw new Error("Invalid Jalali date format")
 }
 
-// Convert Date to Jalali string
 export const dateToJalali = (date: Date): string => {
-  const jalali = jalaali.toJalaali(date.getFullYear(), date.getMonth() + 1, date.getDate())
-  return `${jalali.jy}/${jalali.jm.toString().padStart(2, '0')}/${jalali.jd.toString().padStart(2, '0')}`
+  return formatToJalali(date, "YYYY/MM/DD")
 }
 
 // Persian number formatting

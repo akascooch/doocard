@@ -25,7 +25,7 @@ import {
   AlertCircle
 } from 'lucide-react'
 import axios from '@/lib/axios'
-import { parseFromJalali, persianToEnglishDigits, getCurrentJalaliDate, getJalaliWeekdayName, addDaysToJalali, isJalaliDateBefore, englishToPersianDigits, tehranHHmmFromIso } from '@/lib/date'
+import { parseFromJalali, persianToEnglishDigits, getCurrentJalaliDate, getJalaliWeekdayName, addDaysToJalali, isJalaliDateBefore, englishToPersianDigits, tehranHHmmFromIso, slotsApiDateFromPicker } from '@/lib/date'
 import { getCurrentUser } from '@/lib/auth'
 import PersianDatePicker from '@/components/ui/PersianDatePicker'
 
@@ -263,8 +263,8 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
     setLoadingSlots(true)
     try {
       // Convert Jalali to Gregorian
-      const gregorianDate = parseFromJalali(formData.appointmentDate)
-      if (!gregorianDate) {
+      const dateStr = slotsApiDateFromPicker(formData.appointmentDate)
+      if (!dateStr) {
         toast({
           variant: 'destructive',
           title: 'خطا',
@@ -273,14 +273,6 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
         return
       }
 
-      // Timezone-safe: format selected day in Asia/Tehran so API receives correct calendar day (avoids min_2h on tomorrow in late evening)
-      const formatter = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Tehran',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      })
-      const dateStr = formatter.format(gregorianDate)
       const selectedService = services.find(s => s.id === parseInt(formData.serviceId))
       const durationMin = 60
       

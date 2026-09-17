@@ -23,6 +23,8 @@ import { getCurrentUser } from "@/lib/auth"
 import { getDashboardHomePath } from "@/lib/user-roles"
 import api from "@/lib/axios"
 import { CheckCircle2, Circle, Clock, Loader2, PlayCircle, Plus, Target, Trash2 } from "lucide-react"
+import PersianDatePicker from "@/components/ui/PersianDatePicker"
+import { getTehranTodayJalali, persianToEnglishDigits } from "@/lib/date"
 
 type FrogStatus = "PENDING" | "IN_PROGRESS" | "DONE"
 
@@ -279,18 +281,16 @@ export default function AdminFrogTasksPage() {
               </CardDescription>
             </div>
             <div className="space-y-1 w-full sm:w-auto">
-              <Label htmlFor="frog-date">تاریخ</Label>
-              <Input
-                id="frog-date"
-                type="date"
-                dir="ltr"
-                className="sm:w-44"
-                value={selectedDate}
-                onChange={(e) => {
-                  const next = e.target.value
+              <PersianDatePicker
+                label="تاریخ"
+                value={selectedDate ? selectedDate.replace(/-/g, "/") : ""}
+                minDate={getTehranTodayJalali() || undefined}
+                onChange={(date) => {
+                  const next = persianToEnglishDigits(date).replace(/\//g, "-")
                   setSelectedDate(next)
-                  if (next) void loadDay(next, false)
+                  if (/^\d{4}-\d{2}-\d{2}$/.test(next)) void loadDay(next, false)
                 }}
+                placeholder="انتخاب تاریخ شمسی"
               />
             </div>
           </div>

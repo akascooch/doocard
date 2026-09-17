@@ -3,6 +3,29 @@ import * as jalaali from 'jalaali-js';
 /** Asia/Tehran fixed offset UTC+03:30 (no DST). */
 export const TEHRAN_OFFSET_MS = (3 * 60 + 30) * 60 * 1000;
 
+const TEHRAN_GREGORIAN_YMD = new Intl.DateTimeFormat('en-CA-u-ca-gregory-nu-latn', {
+  timeZone: 'Asia/Tehran',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+export function getTehranGregorianYmd(at = new Date()): string {
+  try {
+    const parts = TEHRAN_GREGORIAN_YMD.formatToParts(at);
+    const gy = Number(parts.find((part) => part.type === 'year')?.value);
+    const gm = Number(parts.find((part) => part.type === 'month')?.value);
+    const gd = Number(parts.find((part) => part.type === 'day')?.value);
+    if (Number.isInteger(gy) && Number.isInteger(gm) && Number.isInteger(gd) && gm >= 1 && gm <= 12 && gd >= 1 && gd <= 31) {
+      return `${gy}-${String(gm).padStart(2, '0')}-${String(gd).padStart(2, '0')}`;
+    }
+  } catch {
+    // fall through
+  }
+  const shifted = new Date(at.getTime() + TEHRAN_OFFSET_MS);
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}-${String(shifted.getUTCDate()).padStart(2, '0')}`;
+}
+
 export function normalizeJalaliDigits(input: string): string {
   const persian = '۰۱۲۳۴۵۶۷۸۹';
   const english = '0123456789';

@@ -15,6 +15,7 @@
     "sync:standalone": "node scripts/sync-standalone.mjs",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
+    "test:unit": "node ../backend/node_modules/jest/bin/jest.js --config jest.config.js --runInBand --watchAll=false",
     "test:e2e": "cypress run",
     "test:e2e:open": "cypress open",
     "test:e2e:headed": "cypress run --headed",

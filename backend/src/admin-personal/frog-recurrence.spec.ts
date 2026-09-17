@@ -1,5 +1,6 @@
 import { AdminPersonalService } from './admin-personal.service';
 import { FrogRecurrenceScheduler } from './frog-recurrence.scheduler';
+import { tehranJalaliDateKey } from './frog-schedule.util';
 
 function dailyRec(overrides: Record<string, unknown> = {}) {
   return {
@@ -44,8 +45,9 @@ describe('frog-recurrence scheduler (multi-task)', () => {
     ]);
 
     const first = await service.applyDueRecurrences(at);
-    expect(first).toMatchObject({ today: '2026-09-14', created: 2, skipped: 0 });
+    expect(first).toMatchObject({ today: tehranJalaliDateKey(at), created: 2, skipped: 0 });
     expect(prisma.adminDailyFrog.create).toHaveBeenCalledTimes(2);
+    expect(prisma.adminDailyFrog.create.mock.calls[0][0].data.dateKey).toBe(tehranJalaliDateKey(at));
     expect(prisma.adminDailyFrog.create.mock.calls.map((call) => call[0].data.title)).toEqual([
       'تمرکز صبح',
       'الگوی دوم',

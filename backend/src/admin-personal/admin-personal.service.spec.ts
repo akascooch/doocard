@@ -3,6 +3,7 @@ import { AdminFrogStatus } from '@prisma/client';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { AdminPersonalService, recurrenceMatchesToday, shiftDateKey, tehranDateKey, tehranWeekday } from './admin-personal.service';
+import { tehranJalaliDateKey, tehranScheduledAt } from './frog-schedule.util';
 import {
   CreatePersonalExpenseDto,
   FrogHistoryQueryDto,
@@ -297,13 +298,18 @@ describe('AdminPersonalService', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           userId: 8,
-          dateKey: tehranDateKey(),
+          dateKey: tehranJalaliDateKey(),
           title: 'کار امروز',
-          scheduledAt: new Date(`${tehranDateKey()}T14:30:00+03:30`),
         }),
       }),
     );
     expect(prisma.adminDailyFrog.upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects past Jalali dates', async () => {
+    await expect(
+      service.upsertTodayFrog(8, { title: 'دیر', dateKey: '1400-01-01', dueTime: '09:00' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('deletes only the authenticated owner frog', async () => {
@@ -424,7 +430,7 @@ describe('AdminPersonalService', () => {
     prisma.$transaction.mockResolvedValue([0, []]);
     await service.listFrogHistory(3, { page: 1, pageSize: 20 });
     expect(prisma.adminDailyFrog.count).toHaveBeenCalledWith({
-      where: { userId: 3, dateKey: { lt: tehranDateKey() } },
+      where: { userId: 3, scheduledAt: { lt: tehranScheduledAt(tehranJalaliDateKey(), '00:00') } },
     });
   });
 

@@ -5,3 +5,4 @@ export * from './update-product.dto';
 export * from './query-products.dto';
 export * from './query-public-products.dto';
 export * from './create-inventory-movement.dto';
+export * from './product-packaging.dto';

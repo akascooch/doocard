@@ -520,8 +520,8 @@ export default function PaymentModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[min(90dvh,40rem)] w-[calc(100vw-1.5rem)] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-[550px]">
+        <DialogHeader className="shrink-0 px-6 pt-6">
           <DialogTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5 text-main-orange" />
             تسویه نوبت
@@ -536,7 +536,8 @@ export default function PaymentModal({
             <Loader2 className="h-8 w-8 animate-spin text-main-orange" />
           </div>
         ) : appointment ? (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-4">
             {serverOffline && isOfflineModeEnabled() && (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
@@ -621,28 +622,33 @@ export default function PaymentModal({
                 value={productSearch}
                 onChange={(e) => setProductSearch(e.target.value)}
               />
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <select
-                  className="h-10 flex-1 rounded-md border bg-background px-3 text-sm"
-                  value={selectedProductId}
-                  onChange={(e) =>
-                    setSelectedProductId(e.target.value ? Number(e.target.value) : '')
+              <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row">
+                <Select
+                  value={selectedProductId === '' ? undefined : String(selectedProductId)}
+                  onValueChange={(value) =>
+                    setSelectedProductId(value ? Number(value) : '')
                   }
                 >
-                  <option value="">انتخاب محصول</option>
-                  {filteredCatalog.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} — {formatTomansFromRial(p.priceRial)} (موجودی {p.stock})
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="h-10 min-w-0 flex-1">
+                    <SelectValue placeholder={filteredCatalog.length ? "انتخاب محصول" : "محصولی یافت نشد"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredCatalog.map((p) => (
+                      <SelectItem key={p.id} value={String(p.id)}>
+                        {p.name} — {formatTomansFromRial(p.priceRial)} (موجودی {p.stock})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Input
                   type="number"
                   min={1}
                   className="sm:w-24"
                   value={selectedQty}
                   onChange={(e) => setSelectedQty(Math.max(1, Number(e.target.value) || 1))}
+                  aria-label="تعداد"
                 />
+                <span className="self-center text-xs text-muted-foreground">عدد</span>
                 <Button type="button" variant="outline" onClick={addStoreLine}>
                   <Plus className="h-4 w-4 ml-1" />
                   افزودن
@@ -955,9 +961,10 @@ export default function PaymentModal({
                 rows={2}
               />
             </div>
+            </div>
 
             {/* Actions */}
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex shrink-0 justify-end gap-2 border-t bg-background px-6 py-4">
               <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                 انصراف
               </Button>

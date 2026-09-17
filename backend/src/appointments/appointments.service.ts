@@ -27,6 +27,7 @@ import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { PushNotificationsService } from '../push-notifications/push-notifications.service';
 import { CalendarService } from '../calendar/calendar.service';
 import { tehranIsoFromUtcMidnightAndTime } from '../calendar/tehran-civil-datetime.util';
+import { getTehranGregorianYmd } from '../common/utils/tehran-business-day';
 import {
   normalizeBookingClockTime,
   SLOT_INTERVAL_MIN,
@@ -293,8 +294,8 @@ export class AppointmentsService {
 
     // Min 2h rule (deterministic): same calendar day in Tehran; comparison in UTC.
     const nowUtc = new Date();
-    const todayTehran = nowUtc.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
-    const bookingDateTehran = scheduledAt.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
+    const todayTehran = getTehranGregorianYmd(nowUtc);
+    const bookingDateTehran = getTehranGregorianYmd(scheduledAt);
 
     const _isCustomer = currentUser?.role === 'CUSTOMER';
     const isStaff = currentUser?.role === 'ADMIN' || currentUser?.role === 'EMPLOYEE';
@@ -2336,6 +2337,9 @@ export class AppointmentsService {
           quantity: item.quantity,
           unitPriceRial: product.priceRial,
           lineTotalRial,
+          packagingName: null,
+          packagingUnit: 'عدد',
+          unitsPerPackage: 1,
         },
       });
 
@@ -2348,6 +2352,9 @@ export class AppointmentsService {
           referenceType: 'APPOINTMENT',
           referenceId: appointmentId,
           performedById: performedById ?? null,
+          packagingName: null,
+          packagingUnit: 'عدد',
+          unitsPerPackage: 1,
         },
       });
     }
@@ -2405,6 +2412,10 @@ export class AppointmentsService {
           referenceType: 'APPOINTMENT',
           referenceId: appointmentId,
           performedById: performedById ?? null,
+          packagingId: line.packagingId,
+          packagingName: line.packagingName,
+          packagingUnit: line.packagingUnit || 'عدد',
+          unitsPerPackage: line.unitsPerPackage,
         },
       });
     }

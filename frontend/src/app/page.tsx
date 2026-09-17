@@ -351,6 +351,12 @@ export default function HomePage() {
             </button>
           </div>
         </div>
+        <p
+          className="mx-auto mt-8 max-w-7xl text-center text-xs tracking-[0.18em] text-zinc-500"
+          dir="ltr"
+        >
+          Powered by TECHOOCH
+        </p>
       </footer>
     </div>
   )

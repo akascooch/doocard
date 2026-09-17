@@ -111,10 +111,13 @@ export function Header({ onToggleSidebar, isSidebarOpen }: HeaderProps) {
           {/* Mobile Menu Button */}
           {onToggleSidebar && (
             <Button
-              variant="ghost"
+              variant="primary"
               size="icon"
+              type="button"
               onClick={onToggleSidebar}
-              className="lg:hidden rounded-xl hover:bg-accent/10"
+              aria-label={isSidebarOpen ? "بستن منو" : "باز کردن منو"}
+              title={isSidebarOpen ? "بستن منو" : "باز کردن منو"}
+              className="lg:hidden h-11 w-11 min-h-11 min-w-11 rounded-xl border-2 border-gray-900 bg-gray-900 text-white hover:bg-black dark:border-white dark:bg-white dark:text-gray-900"
             >
               {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>

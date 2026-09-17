@@ -11,7 +11,7 @@ import PersianDatePicker from '@/components/ui/PersianDatePicker'
 import { PhoneOtpAuth } from '@/components/auth/PhoneOtpAuth'
 import { getCurrentUser, isAuthenticated } from '@/lib/auth'
 import { getErrorMessage } from '@/lib/error-handler'
-import { getCurrentJalaliDate, parseFromJalali, persianToEnglishDigits, tehranHHmmFromIso } from '@/lib/date'
+import { getCurrentJalaliDate, parseFromJalali, persianToEnglishDigits, tehranHHmmFromIso, slotsApiDateFromPicker } from '@/lib/date'
 import {
   clearBookingDraft,
   readBookingDraft,
@@ -117,16 +117,8 @@ export default function BookAppointmentPage() {
 
   useEffect(() => {
     if (formData.appointmentDate && formData.employeeId) {
-      const gregorianDate = parseFromJalali(formData.appointmentDate)
-      if (!gregorianDate) return
-
-      const formatter = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Tehran',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      })
-      const dateStr = formatter.format(gregorianDate)
+      const dateStr = slotsApiDateFromPicker(formData.appointmentDate)
+      if (!dateStr) return
 
       void (async () => {
         try {

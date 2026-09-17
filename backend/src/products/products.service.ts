@@ -14,12 +14,15 @@ import {
   CreateInventoryMovementDto,
   CreateProductCategoryDto,
   CreateProductDto,
+  CreateProductPackagingDto,
   ManualInventoryMovementType,
+  QueryKardexDto,
   QueryMovementsDto,
   QueryProductsDto,
   QueryPublicProductsDto,
   UpdateProductCategoryDto,
   UpdateProductDto,
+  UpdateProductPackagingDto,
 } from './dto';
 import { toPublicCatalogProduct } from './public-product.util';
 import { StockNotificationService } from '../waitlist/stock-notification.service';
@@ -61,6 +64,17 @@ function uniqueConflict(error: Prisma.PrismaClientKnownRequestError): never {
 }
 
 const PUBLIC_IMAGE = /^\/uploads\/products\/[A-Za-z0-9._-]+$/;
+
+function parseIsoBound(value: string | undefined, endOfDay: boolean): Date | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return new Date(`${trimmed}T${endOfDay ? '23:59:59.999' : '00:00:00'}+03:30`);
+  }
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
 
 function publicImages(images: Prisma.JsonValue | null): string[] {
   if (!Array.isArray(images)) return [];
@@ -231,7 +245,7 @@ export class ProductsService {
   async getProduct(id: number) {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      include: { category: true },
+      include: { category: true, packagings: { where: { isActive: true }, orderBy: { id: 'asc' } } },
     });
     if (!product) {
       throw new NotFoundException('محصول یافت نشد');
@@ -383,6 +397,27 @@ export class ProductsService {
         movementQty = delta;
       }
 
+      let packagingSnap: {
+        packagingId: number;
+        packagingName: string;
+        packagingUnit: string;
+        unitsPerPackage: number;
+      } | null = null;
+      if (dto.packagingId) {
+        const packaging = await tx.productPackaging.findFirst({
+          where: { id: dto.packagingId, productId, isActive: true },
+        });
+        if (!packaging) {
+          throw new NotFoundException('بسته‌بندی این محصول یافت نشد');
+        }
+        packagingSnap = {
+          packagingId: packaging.id,
+          packagingName: packaging.name,
+          packagingUnit: packaging.unitLabel,
+          unitsPerPackage: packaging.unitsPerPackage,
+        };
+      }
+
       const movement = await tx.inventoryMovement.create({
         data: {
           productId,
@@ -392,6 +427,7 @@ export class ProductsService {
           reason: dto.reason?.trim() || null,
           performedById: userId ?? null,
           referenceType: 'MANUAL',
+          ...(packagingSnap ?? {}),
         },
         include: {
           performedBy: { select: { id: true, name: true } },
@@ -488,6 +524,135 @@ export class ProductsService {
     const name = `${randomUUID()}${ext}`;
     writeFileSync(join(PRODUCT_UPLOAD_DIR, name), file.buffer);
     return { url: `/uploads/products/${name}` };
+  }
+
+  async listPackagings(productId: number) {
+    await this.requireProduct(productId);
+    return this.prisma.productPackaging.findMany({
+      where: { productId },
+      orderBy: [{ isActive: 'desc' }, { id: 'asc' }],
+    });
+  }
+
+  async createPackaging(productId: number, dto: CreateProductPackagingDto) {
+    await this.requireProduct(productId);
+    return this.prisma.productPackaging.create({
+      data: {
+        productId,
+        name: dto.name.trim(),
+        unitLabel: dto.unitLabel.trim(),
+        unitsPerPackage: dto.unitsPerPackage,
+      },
+    });
+  }
+
+  async updatePackaging(productId: number, packagingId: number, dto: UpdateProductPackagingDto) {
+    await this.requireOwnedPackaging(productId, packagingId);
+    return this.prisma.productPackaging.update({
+      where: { id: packagingId },
+      data: {
+        ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+        ...(dto.unitLabel !== undefined ? { unitLabel: dto.unitLabel.trim() } : {}),
+        ...(dto.unitsPerPackage !== undefined ? { unitsPerPackage: dto.unitsPerPackage } : {}),
+      },
+    });
+  }
+
+  async deletePackaging(productId: number, packagingId: number) {
+    const packaging = await this.requireOwnedPackaging(productId, packagingId);
+    const [movements, appointmentLines, orderLines] = await this.prisma.$transaction([
+      this.prisma.inventoryMovement.count({ where: { packagingId } }),
+      this.prisma.appointmentProduct.count({ where: { packagingId } }),
+      this.prisma.orderItem.count({ where: { packagingId } }),
+    ]);
+    const referenced = movements + appointmentLines + orderLines;
+    if (referenced > 0) {
+      const archived = await this.prisma.productPackaging.update({
+        where: { id: packagingId },
+        data: { isActive: false, archivedAt: new Date() },
+      });
+      return { ok: true, deleted: false, archived: true, packaging: archived };
+    }
+    await this.prisma.productPackaging.delete({ where: { id: packaging.id } });
+    return { ok: true, deleted: true, id: packagingId };
+  }
+
+  async getKardex(productId: number, query: QueryKardexDto) {
+    const product = await this.requireProduct(productId);
+    const from = parseIsoBound(query.from, false);
+    const to = parseIsoBound(query.to, true);
+    if (query.from && !from) {
+      throw new BadRequestException('تاریخ شروع نامعتبر است');
+    }
+    if (query.to && !to) {
+      throw new BadRequestException('تاریخ پایان نامعتبر است');
+    }
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 50;
+    const movements = await this.prisma.inventoryMovement.findMany({
+      where: {
+        productId,
+        ...(to ? { createdAt: { lte: to } } : {}),
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      include: { performedBy: { select: { id: true, name: true } } },
+    });
+
+    let running = 0;
+    const withBalance = movements.map((row) => {
+      running += row.quantity;
+      return {
+        id: row.id,
+        occurredAt: row.createdAt.toISOString(),
+        type: row.type,
+        quantity: row.quantity,
+        quantityIn: row.quantity > 0 ? row.quantity : 0,
+        quantityOut: row.quantity < 0 ? -row.quantity : 0,
+        balanceAfter: running,
+        unitLabel: row.packagingUnit || 'عدد',
+        packagingName: row.packagingName,
+        unitsPerPackage: row.unitsPerPackage,
+        reason: row.reason,
+        referenceType: row.referenceType,
+        referenceId: row.referenceId,
+        performedByName: row.performedBy?.name ?? null,
+      };
+    });
+
+    const filtered = from
+      ? withBalance.filter((row) => new Date(row.occurredAt).getTime() >= from.getTime())
+      : withBalance;
+    const total = filtered.length;
+    const start = (page - 1) * limit;
+    const data = filtered.slice(start, start + limit);
+    const beforeFrom = from
+      ? withBalance.filter((row) => new Date(row.occurredAt).getTime() < from.getTime())
+      : [];
+    const openingBalance = beforeFrom.length
+      ? beforeFrom[beforeFrom.length - 1].balanceAfter
+      : 0;
+
+    return {
+      product: {
+        id: product.id,
+        name: product.name,
+        stock: product.stock,
+      },
+      openingBalance,
+      page,
+      limit,
+      total,
+      data,
+    };
+  }
+
+  private async requireOwnedPackaging(productId: number, packagingId: number) {
+    await this.requireProduct(productId);
+    const packaging = await this.prisma.productPackaging.findUnique({ where: { id: packagingId } });
+    if (!packaging || packaging.productId !== productId) {
+      throw new NotFoundException('بسته‌بندی این محصول یافت نشد');
+    }
+    return packaging;
   }
 
   private async requireProduct(id: number) {

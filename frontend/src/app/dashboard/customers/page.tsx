@@ -54,7 +54,7 @@ import api from '@/lib/axios'
 import { useRouter } from "next/navigation"
 import Cookies from 'js-cookie'
 import { PersianDatePicker, isValidJalali } from "@/components/ui/persian-date-picker"
-import { toGregorian, toJalaali } from "jalaali-js"
+import { formatToJalali, jalaliToGregorian } from "@/lib/date"
 import { getCurrentUser } from '@/lib/auth'
 
 // Schema for form validation
@@ -168,11 +168,12 @@ export default function CustomersPage() {
       if (!values.birthDate || !isValidJalali(values.birthDate)) {
         delete values.birthDate;
       } else {
-        // اگر birthDate شمسی است، به میلادی تبدیل کن
-        const [jy, jm, jd] = values.birthDate.split("/").map(Number);
-        const { gy, gm, gd } = toGregorian(jy, jm, jd);
-        // فرمت YYYY-MM-DD
-        values.birthDate = `${gy}-${String(gm).padStart(2, "0")}-${String(gd).padStart(2, "0")}`;
+        const gregorian = jalaliToGregorian(values.birthDate);
+        if (!gregorian) {
+          delete values.birthDate;
+        } else {
+          values.birthDate = gregorian;
+        }
       }
       if (editingCustomer) {
         await api.patch(`/customers/${editingCustomer.id}`, values)
@@ -217,13 +218,7 @@ export default function CustomersPage() {
     // تبدیل تاریخ میلادی به شمسی برای نمایش در فرم
     let birthDateJalali = "";
     if (customer.birthDate) {
-      const [gy, gm, gd] = customer.birthDate.split("-").map(Number);
-      if (!isNaN(gy) && !isNaN(gm) && !isNaN(gd)) {
-        const { jy, jm, jd } = toJalaali(gy, gm, gd);
-        birthDateJalali = `${jy}/${String(jm).padStart(2, "0")}/${String(jd).padStart(2, "0")}`;
-      } else {
-        birthDateJalali = customer.birthDate;
-      }
+      birthDateJalali = formatToJalali(customer.birthDate) || "";
     }
     form.reset({
       firstName: customer.firstName,
@@ -583,7 +578,7 @@ export default function CustomersPage() {
                     <TableCell>{customer.firstName}</TableCell>
                     <TableCell>{customer.lastName}</TableCell>
                     <TableCell>{customer.phoneNumber}</TableCell>
-                    <TableCell>{customer.birthDate ? new Date(customer.birthDate).toLocaleDateString('fa-IR') : '-'}</TableCell>
+                    <TableCell>{customer.birthDate ? formatToJalali(customer.birthDate) || '-' : '-'}</TableCell>
                     <TableCell>{customer.rating ? '⭐'.repeat(customer.rating) + ' ' + customer.rating : '-'}</TableCell>
                     <TableCell>{customer.gender === 'MALE' ? 'مرد' : customer.gender === 'FEMALE' ? 'زن' : 'نامشخص'}</TableCell>
                                          <TableCell>
