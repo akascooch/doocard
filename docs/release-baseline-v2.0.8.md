@@ -1,6 +1,6 @@
 # Doocard production release baseline — v2.0.8
 
-**Status:** RELEASE CLOSED — DEVICE QA PENDING  
+**Status:** RELEASE OFFICIALLY CLOSED  
 **Authoritative for:** production runtime identity after 2026-09-17 overlay deploy  
 **Do not git-pull** `/var/www/doocard`. Overlay source, build on Ubuntu. Never unmask apache2. Never `rsync --delete`.
 
@@ -15,7 +15,7 @@
 | Working branch | `release/v2.0.7` (may include later docs-only commits; tag stays on `21f407b`) |
 | Deployment date | 2026-09-17 |
 | Previous baseline | `v2.0.7-hardened` plus frog overlay tag `v2.0.7-frog-patch` (`9c35aff`) |
-| Tag publication | **local only** — do not push until device QA is accepted and push is separately authorized |
+| Tag publication | `origin` — `v2.0.8` and `release/v2.0.8` published 2026-09-17 after DEVICE QA PASS |
 
 ## Production runtime
 
@@ -44,7 +44,7 @@ Post-deploy BUILD_ID pair (2026-09-17): `RzQl9JH-p0hoPReNOfWOg`
 - Local JWT/smoke helpers: `backend/scripts/local-*.ts` — **gitignored**, do not commit
 - Connection: `C:\scooch\ip.txt` (SSH `doocard-prod`, port 3031, key-only). Network/UFW facts in that file are unchanged by this release.
 
-## Still pending
+## Closure
 
-- Physical iPhone Safari QA: `/dashboard/employee/salary-request` + hamburger menu (see Phase 7 checklist).
-- Push of `release/v2.0.7` commit `21f407b` and tag `v2.0.8` — **not authorized**.
+- Physical iPhone Safari QA: **PASS** (operator 2026-09-17).
+- Origin: `release/v2.0.7`, `release/v2.0.8`, tag `v2.0.8` published after DEVICE QA PASS.
