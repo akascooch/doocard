@@ -162,3 +162,6 @@ backend/backups/pre-restore/
 
 # Product/landing uploads generated at runtime — never commit.
 backend/uploads/
+
+# Local archived historical sprint scripts — never commit
+.archive-sprints/
