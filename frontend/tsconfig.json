@@ -33,6 +33,8 @@
     "src/**/*.service.ts",
     "src/**/*.module.ts",
     "src/**/*.guard.ts",
-    "src/**/*.strategy.ts"
+    "src/**/*.strategy.ts",
+    "src/**/*.spec.ts",
+    "src/**/__tests__/**"
   ]
 }

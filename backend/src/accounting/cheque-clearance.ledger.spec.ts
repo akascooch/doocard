@@ -7,6 +7,7 @@ describe('AccountingService cheque clearance ledger', () => {
     chequeLeaf: {
       findFirst: jest.fn(),
       findFirstOrThrow: jest.fn(),
+      findMany: jest.fn(),
       update: jest.fn(),
       create: jest.fn(),
     },
@@ -395,5 +396,73 @@ describe('AccountingService cheque clearance ledger', () => {
     });
     expect(out.status).toBe(ChequeLeafStatus.ISSUED);
     expect(out.transactionId).toBe(601);
+  });
+
+  it('dry-run backfill skips STAFF_SALARY query and does not duplicate existing ledger refs', async () => {
+    prisma.chequeLeaf.findMany.mockResolvedValue([
+      {
+        id: 10,
+        leafNumber: '10',
+        amount: 100000n,
+        payee: 'حقوق',
+        category: ChequeLeafCategory.NORMAL,
+        payeeKind: ChequePayeeKind.STAFF_SALARY,
+        transactionId: null,
+        chequebook: { id: 1, serialNumber: 'A', bankAccountId: 9 },
+      },
+      {
+        id: 11,
+        leafNumber: '11',
+        amount: 200000n,
+        payee: 'اجاره',
+        category: ChequeLeafCategory.NORMAL,
+        payeeKind: ChequePayeeKind.SUPPLIER,
+        transactionId: null,
+        chequebook: { id: 1, serialNumber: 'A', bankAccountId: 9 },
+      },
+      {
+        id: 12,
+        leafNumber: '12',
+        amount: 300000n,
+        payee: 'قبوض',
+        category: ChequeLeafCategory.NORMAL,
+        payeeKind: ChequePayeeKind.SUPPLIER,
+        transactionId: null,
+        chequebook: { id: 1, serialNumber: 'A', bankAccountId: 9 },
+      },
+    ]);
+    prisma.transaction.findFirst.mockImplementation(async (args: { where?: any }) => {
+      const sourceId = args?.where?.sourceId;
+      const externalRef = args?.where?.meta?.path?.[0] === 'externalRef' ? args.where.meta.equals : null;
+      if (sourceId === 10) return { id: 501 };
+      if (externalRef === AccountingService.chequeClearedExternalRef(11)) return { id: 502 };
+      return null;
+    });
+
+    const out = await service.backfillClearedChequeExpenses({ dryRun: true });
+
+    expect(prisma.chequeLeaf.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: ChequeLeafStatus.CLEARED,
+          transactionId: null,
+          NOT: { payeeKind: ChequePayeeKind.STAFF_SALARY },
+        }),
+      }),
+    );
+    expect(prisma.transaction.create).not.toHaveBeenCalled();
+    expect(prisma.chequeLeaf.update).not.toHaveBeenCalled();
+    expect(out).toMatchObject({
+      dryRun: true,
+      considered: 3,
+      createdCount: 1,
+      createdIds: [12],
+    });
+    expect(out.skipped).toEqual(
+      expect.arrayContaining([
+        { id: 10, reason: 'staff-payroll-exists' },
+        { id: 11, reason: 'clearance-ref-exists' },
+      ]),
+    );
   });
 });

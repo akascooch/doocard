@@ -178,6 +178,18 @@ export class AppointmentsService {
   }
 
   /**
+   * Run SMS after the HTTP response path continues. Never rejects into callers.
+   * Deduped SmsOutboundService still records smsEvent; failures are logged only.
+   */
+  private enqueueAppointmentSms(label: string, work: () => Promise<void>) {
+    void Promise.resolve()
+      .then(work)
+      .catch((e: any) => {
+        console.warn(`[SMS] ${label} failed after enqueue:`, e?.message || e);
+      });
+  }
+
+  /**
    * Shared helper: get "now" in UTC plus Tehran date/time strings.
    * Ensures getAvailableSlots and getEarliestAvailableSlot use the same time base.
    */
@@ -546,11 +558,7 @@ export class AppointmentsService {
     } catch (e) {
       console.warn('[NOTIFY] Appointment created notify failed:', (e as any)?.message || e);
     }
-    try {
-      await this.sendAppointmentCreatedSms(appointment);
-    } catch (e) {
-      console.warn('[SMS] Created SMS failed but flow continues:', (e as any)?.message || e);
-    }
+    this.enqueueAppointmentSms('Created', () => this.sendAppointmentCreatedSms(appointment));
 
     return this.formatAppointment(appointment);
   }
@@ -1854,12 +1862,7 @@ export class AppointmentsService {
     // Send notification
     await this.notifyAppointmentCancelled(updated);
 
-    // SMS (non-blocking)
-    try {
-      await this.sendAppointmentCancelledSms(updated);
-    } catch (e) {
-      console.warn('[SMS] Cancelled SMS failed but flow continues:', e?.message || e);
-    }
+    this.enqueueAppointmentSms('Cancelled', () => this.sendAppointmentCancelledSms(updated));
 
     return this.formatAppointment(updated);
   }
@@ -1954,11 +1957,7 @@ export class AppointmentsService {
     } catch (e) {
       console.warn('[NOTIFY] Confirm notify failed:', (e as any)?.message || e);
     }
-    try {
-      await this.sendAppointmentConfirmedSms(updated);
-    } catch (e) {
-      console.warn('[SMS] Confirm SMS failed but flow continues:', (e as any)?.message || e);
-    }
+    this.enqueueAppointmentSms('Confirm', () => this.sendAppointmentConfirmedSms(updated));
 
     return this.formatAppointment(updated);
   }

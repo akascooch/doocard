@@ -7,6 +7,8 @@ import { TipAlertModule } from '../sms/tip-alert.module';
 import { CustomersModule } from '../customers/customers.module';
 import { AdminFinancialController } from './admin-financial.controller';
 import { AdminFinancialService } from './admin-financial.service';
+import { AdminAnalyticsController } from './admin-analytics.controller';
+import { AdminAnalyticsService } from './admin-analytics.service';
 import { EmployeeSalaryController } from './employee-salary.controller';
 import { EmployeeSalaryService } from './employee-salary.service';
 import { EmployeeSalaryRequestService } from './employee-salary-request.service';
@@ -25,12 +27,14 @@ import { AdminDebtorsController } from './admin-debtors.controller';
   ],
   controllers: [
     AdminFinancialController,
+    AdminAnalyticsController,
     EmployeeSalaryController,
     AdminTipsController,
     AdminDebtorsController,
   ],
   providers: [
     AdminFinancialService,
+    AdminAnalyticsService,
     EmployeeSalaryService,
     EmployeeSalaryRequestService,
     AdminTipsService,

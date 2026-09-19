@@ -226,20 +226,6 @@ export default function DashboardLayout({
       >
         {/* Page Content */}
         <main className="p-6 lg:p-8 min-h-screen flex flex-col">
-          <div className="sticky top-0 z-30 -mx-6 mb-4 flex items-center bg-background/95 px-6 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:hidden">
-            <Button
-              variant="primary"
-              size="icon"
-              type="button"
-              onClick={toggleSidebar}
-              aria-label={isSidebarOpen ? "بستن منو" : "باز کردن منو"}
-              aria-expanded={isSidebarOpen}
-              title={isSidebarOpen ? "بستن منو" : "باز کردن منو"}
-              className="h-11 w-11 min-h-11 min-w-11 border-2 border-gray-900 bg-gray-900 text-white shadow-md hover:bg-black dark:border-white dark:bg-white dark:text-gray-900"
-            >
-              {isSidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </Button>
-          </div>
           <motion.div
             key={pathname}
             initial={{ opacity: 0, y: 12 }}
@@ -254,6 +240,24 @@ export default function DashboardLayout({
       
       {/* Push Notification Prompt (modal handles its own positioning) */}
       <NotificationPrompt />
+
+      <Button
+        variant="primary"
+        size="icon"
+        type="button"
+        onClick={toggleSidebar}
+        aria-label={isSidebarOpen ? "بستن منو" : "باز کردن منو"}
+        aria-expanded={isSidebarOpen}
+        title={isSidebarOpen ? "بستن منو" : "باز کردن منو"}
+        className={`fixed bottom-6 z-[45] h-14 w-14 min-h-14 min-w-14 rounded-full border-2 border-gray-900 bg-gray-900 text-white shadow-xl shadow-black/30 hover:bg-black active:scale-95 dark:border-white dark:bg-white dark:text-gray-900 ${
+          isSidebarOpen && !isMobile ? "right-[19.5rem]" : "right-6"
+        }`}
+        style={{ marginBottom: "env(safe-area-inset-bottom)" }}
+      >
+        {isMobile ? (isSidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />) : (
+          isSidebarCollapsed ? <Menu className="h-6 w-6" /> : <X className="h-6 w-6" />
+        )}
+      </Button>
       
       <Footer />
         </div>

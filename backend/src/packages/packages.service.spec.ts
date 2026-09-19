@@ -13,6 +13,7 @@ describe('PackagesService', () => {
       update: jest.fn(),
     },
     customer: { findUnique: jest.fn() },
+    loyaltyPointTransaction: { aggregate: jest.fn() },
     customerServicePackage: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
@@ -123,6 +124,79 @@ describe('PackagesService', () => {
       paymentMethod: 'CASH',
     });
     expect(prisma.customerWalletLedger.create).not.toHaveBeenCalled();
+  });
+
+  it('returns no loyalty packages when points are below threshold', async () => {
+    prisma.customer.findUnique.mockResolvedValue({ id: 7 });
+    prisma.loyaltyPointTransaction.aggregate.mockResolvedValue({ _sum: { points: 40 } });
+    prisma.servicePackageTemplate.findMany.mockResolvedValue([
+      {
+        id: 't1',
+        title: 'رنگ',
+        description: null,
+        priceRial: 5000n,
+        validityDays: 30,
+        totalSessions: 5,
+        serviceId: 3,
+        pointsRequired: 100,
+        isActive: true,
+        archivedAt: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        service: { id: 3, name: 'رنگ' },
+      },
+    ]);
+    await expect(service.loyaltyEligibleForCustomer(7)).resolves.toEqual({
+      customerId: 7,
+      points: 40,
+      items: [],
+    });
+  });
+
+  it('returns qualifying packages when points meet or exceed threshold', async () => {
+    prisma.customer.findUnique.mockResolvedValue({ id: 7 });
+    prisma.loyaltyPointTransaction.aggregate.mockResolvedValue({ _sum: { points: 120 } });
+    prisma.servicePackageTemplate.findMany.mockResolvedValue([
+      {
+        id: 't1',
+        title: 'رنگ',
+        description: null,
+        priceRial: 5000n,
+        validityDays: 30,
+        totalSessions: 5,
+        serviceId: 3,
+        pointsRequired: 100,
+        isActive: true,
+        archivedAt: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        service: { id: 3, name: 'رنگ' },
+      },
+      {
+        id: 't2',
+        title: 'کراتین',
+        description: null,
+        priceRial: 9000n,
+        validityDays: 30,
+        totalSessions: 3,
+        serviceId: 4,
+        pointsRequired: 200,
+        isActive: true,
+        archivedAt: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        service: { id: 4, name: 'کراتین' },
+      },
+    ]);
+    const result = await service.loyaltyEligibleForCustomer(7);
+    expect(result.points).toBe(120);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      id: 't1',
+      title: 'رنگ',
+      pointsRequired: 100,
+      qualified: true,
+    });
   });
 
   it('rejects wallet assign when store-credit is insufficient', async () => {

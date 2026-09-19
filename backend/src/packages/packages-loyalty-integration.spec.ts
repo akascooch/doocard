@@ -9,6 +9,7 @@ describe('packages-loyalty-integration (v2.0.7)', () => {
     servicePackageTemplate: {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
+      findMany: jest.fn(),
       create: jest.fn(),
     },
     customer: { findUnique: jest.fn() },
@@ -38,6 +39,7 @@ describe('packages-loyalty-integration (v2.0.7)', () => {
     validityDays: 90,
     totalSessions: 5,
     serviceId: 3,
+    pointsRequired: null,
     isActive: true,
     archivedAt: null,
     createdAt: new Date(),

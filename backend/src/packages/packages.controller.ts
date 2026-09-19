@@ -69,6 +69,16 @@ export class PackagesController {
     return this.service.eligibleForAppointments(parsed);
   }
 
+  @Get('loyalty-eligible/:customerId')
+  @Roles('ADMIN', 'EMPLOYEE', 'SERVICE')
+  loyaltyEligible(@Param('customerId') customerId?: string) {
+    const id = Number(customerId);
+    if (!Number.isInteger(id) || id < 1) {
+      throw new BadRequestException('شناسه مشتری نامعتبر است');
+    }
+    return this.service.loyaltyEligibleForCustomer(id);
+  }
+
   @Post('assign')
   @Roles('ADMIN', 'EMPLOYEE', 'SERVICE')
   assign(@Body() dto: AssignPackageDto) {

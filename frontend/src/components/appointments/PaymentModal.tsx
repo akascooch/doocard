@@ -134,6 +134,11 @@ export default function PaymentModal({
   const [selectedProductId, setSelectedProductId] = useState<number | ''>('');
   const [selectedQty, setSelectedQty] = useState(1);
   const [storeSectionOpen, setStoreSectionOpen] = useState(false);
+  const [loyaltyAlert, setLoyaltyAlert] = useState<{
+    points: number;
+    items: Array<{ id: string; title: string; pointsRequired: number | null }>;
+  } | null>(null);
+  const [assigningPackageId, setAssigningPackageId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && appointmentId) {
@@ -200,17 +205,21 @@ export default function PaymentModal({
       setSelectedProductId('');
       setSelectedQty(1);
       setStoreSectionOpen(false);
+      setLoyaltyAlert(null);
 
       // Load bank accounts + open debts warning
       if (reachable) {
         const customerId = (apptData as Appointment).customerId;
-        const [accountsResponse, staffResponse, debtsResponse, productsResponse] = await Promise.all([
+        const [accountsResponse, staffResponse, debtsResponse, productsResponse, loyaltyResponse] = await Promise.all([
           api.get('/accounting/accounts'),
           api.get('/employees/service-staff/active').catch(() => ({ data: [] })),
           customerId
             ? api.get(`/customers/${customerId}/open-debts`).catch(() => null)
             : Promise.resolve(null),
           api.get('/products', { params: { isActive: true, limit: 100 } }).catch(() => ({ data: { data: [] } })),
+          customerId
+            ? api.get(`/packages/loyalty-eligible/${customerId}`).catch(() => null)
+            : Promise.resolve(null),
         ]);
         await cacheFromResponse(REFERENCE_KEYS.accounts, accountsResponse.data);
         setAccounts(accountsResponse.data);
@@ -218,6 +227,12 @@ export default function PaymentModal({
         setCatalogProducts(productsResponse.data?.data || []);
         if (debtsResponse?.data) {
           setOpenDebts(debtsResponse.data as OpenDebtsSummary);
+        }
+        if (loyaltyResponse?.data?.items?.length) {
+          setLoyaltyAlert({
+            points: loyaltyResponse.data.points ?? 0,
+            items: loyaltyResponse.data.items,
+          });
         }
 
         const defaultAccount = accountsResponse.data.find((a: BankAccount) => a.id === 1);
@@ -246,6 +261,41 @@ export default function PaymentModal({
       });
     } finally {
       setLoadingData(false);
+    }
+  };
+
+  const assignEligiblePackage = async (pkg: { id: string; title: string; pointsRequired: number | null }) => {
+    if (!appointment?.customerId) return;
+    if (
+      !confirm(
+        `پکیج «${pkg.title}» به‌صورت هدیه برای این مشتری ثبت شود؟ امتیاز فعلی: ${loyaltyAlert?.points ?? 0}`,
+      )
+    ) {
+      return;
+    }
+    setAssigningPackageId(pkg.id);
+    try {
+      await api.post('/packages/assign', {
+        customerId: appointment.customerId,
+        packageTemplateId: pkg.id,
+        paymentMethod: 'COMPLIMENTARY',
+        notes: `checkout-loyalty:${loyaltyAlert?.points ?? 0}`,
+      });
+      toast({ title: 'موفق', description: `پکیج «${pkg.title}» ثبت شد` });
+      setLoyaltyAlert((current) =>
+        current
+          ? { ...current, items: current.items.filter((item) => item.id !== pkg.id) }
+          : null,
+      );
+    } catch (error) {
+      toast({
+        title: 'خطا',
+        description: (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+          || 'ثبت پکیج ناموفق بود',
+        variant: 'destructive',
+      });
+    } finally {
+      setAssigningPackageId(null);
     }
   };
 
@@ -565,6 +615,29 @@ export default function PaymentModal({
                       </li>
                     ))}
                   </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+            {loyaltyAlert && loyaltyAlert.items.length > 0 && (
+              <Alert className="border-amber-400 bg-amber-50 text-amber-950 dark:bg-amber-950/40 dark:text-amber-50">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="space-y-2">
+                  {loyaltyAlert.items.map((pkg) => (
+                    <div key={pkg.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="font-semibold">
+                        ⭐ مشتری واجد شرایط دریافت پکیج {pkg.title} با {loyaltyAlert.points} امتیاز می‌باشد!
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={assigningPackageId === pkg.id}
+                        onClick={() => void assignEligiblePackage(pkg)}
+                      >
+                        {assigningPackageId === pkg.id ? 'در حال ثبت...' : 'ثبت پکیج'}
+                      </Button>
+                    </div>
+                  ))}
                 </AlertDescription>
               </Alert>
             )}

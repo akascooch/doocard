@@ -1,6 +1,6 @@
 {
   "name": "doocard-backend",
-  "version": "2.0.7",
+  "version": "2.0.9",
   "description": "Backend for Doocard Beauty Salon Management System",
   "main": "dist/main.js",
   "prisma": {
@@ -54,6 +54,7 @@
     "prisma:studio": "prisma studio --port 5555",
     "import:historical:dry": "ts-node -r tsconfig-paths/register scripts/import-historical.ts --dry",
     "import:historical": "ts-node -r tsconfig-paths/register scripts/import-historical.ts",
+    "script:backfill-cleared-cheque-expenses": "ts-node -r tsconfig-paths/register scripts/backfill-cleared-cheque-expenses.ts",
     "ledger:backfill:dry": "ts-node -r tsconfig-paths/register scripts/backfill-employee-ledger.ts",
     "ledger:backfill:apply": "ts-node -r tsconfig-paths/register scripts/backfill-employee-ledger.ts --apply",
     "ledger:backfill:apply-inactive": "ts-node -r tsconfig-paths/register scripts/backfill-employee-ledger.ts --apply --create-inactive",

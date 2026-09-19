@@ -523,6 +523,7 @@ export class DashboardService {
       _sum: { amount: true },
       where: {
         type: 'EXPENSE',
+        deletedAt: null,
         createdAt: {
           gte: startDate,
           lte: endDate,
@@ -1056,13 +1057,14 @@ export class DashboardService {
       // هزینه‌ها - کل
       this.prisma.transaction.aggregate({
         _sum: { amount: true },
-        where: { type: 'EXPENSE' }
+        where: { type: 'EXPENSE', deletedAt: null }
       }),
       // هزینه‌ها - این ماه
       this.prisma.transaction.aggregate({
         _sum: { amount: true },
         where: {
           type: 'EXPENSE',
+          deletedAt: null,
           createdAt: { gte: startOfMonth }
         }
       }),
@@ -1071,6 +1073,7 @@ export class DashboardService {
         _sum: { amount: true },
         where: {
           type: 'EXPENSE',
+          deletedAt: null,
           createdAt: { gte: startOfDay, lt: endOfDay }
         }
       }),

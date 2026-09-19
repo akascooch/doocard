@@ -143,6 +143,12 @@ self.addEventListener('push', (event) => {
   }
 
   const uniqueTag = `doocard-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const isFrog = payload?.data?.type === 'frog' || String(payload.title || '').includes('قورباغه');
+  const title = isFrog
+    ? payload.title && String(payload.title).includes('🐸')
+      ? payload.title
+      : `🐸 [قورباغه مهم] ${payload.title || ''}`.trim()
+    : payload.title || 'Doocard';
   const notificationOptions = {
     body: payload.body || 'یک اعلان جدید دریافت شد',
     icon: payload.icon || DEFAULT_ICON,
@@ -152,6 +158,7 @@ self.addEventListener('push', (event) => {
     requireInteraction: false,
     renotify: true,
     silent: false,
+    vibrate: [200, 100, 200],
     dir: 'rtl',
     lang: 'fa',
     timestamp: Date.now(),
@@ -163,7 +170,7 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     self.registration
-      .showNotification(payload.title || 'Doocard', notificationOptions)
+      .showNotification(title, notificationOptions)
       .catch((error) => {
         console.error('[SW] showNotification failed', error);
         return self.registration.showNotification('Doocard', {

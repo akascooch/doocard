@@ -1337,6 +1337,91 @@ export class AccountingService {
     return created.id;
   }
 
+  /**
+   * Create missing EXPENSE ledger rows for CLEARED cheques that never got a transaction.
+   * Skips STAFF_SALARY (payroll is booked on ISSUED). Dry-run by default.
+   */
+  async backfillClearedChequeExpenses(options: { dryRun?: boolean; userId?: number } = {}) {
+    const dryRun = options.dryRun !== false;
+    const leaves = await this.prisma.chequeLeaf.findMany({
+      where: {
+        status: ChequeLeafStatus.CLEARED,
+        deletedAt: null,
+        transactionId: null,
+        amount: { gt: 0 },
+        NOT: { payeeKind: ChequePayeeKind.STAFF_SALARY },
+      },
+      include: {
+        chequebook: {
+          select: {
+            id: true,
+            serialNumber: true,
+            bankAccountId: true,
+          },
+        },
+      },
+      orderBy: { id: 'asc' },
+      take: 500,
+    });
+
+    const created: number[] = [];
+    const skipped: Array<{ id: number; reason: string }> = [];
+    for (const leaf of leaves) {
+      const payroll = await this.prisma.transaction.findFirst({
+        where: {
+          deletedAt: null,
+          sourceType: CHEQUE_LEAF_PAYROLL_SOURCE_TYPE,
+          sourceId: leaf.id,
+        },
+        select: { id: true },
+      });
+      if (payroll) {
+        skipped.push({ id: leaf.id, reason: 'staff-payroll-exists' });
+        continue;
+      }
+      const existingRef = await this.prisma.transaction.findFirst({
+        where: {
+          deletedAt: null,
+          meta: { path: ['externalRef'], equals: AccountingService.chequeClearedExternalRef(leaf.id) },
+        },
+        select: { id: true },
+      });
+      if (existingRef) {
+        skipped.push({ id: leaf.id, reason: 'clearance-ref-exists' });
+        continue;
+      }
+      if (dryRun) {
+        created.push(leaf.id);
+        continue;
+      }
+      const txnId = await this.ensureClearedChequeLedgerTransaction(
+        {
+          id: leaf.id,
+          leafNumber: leaf.leafNumber,
+          amount: leaf.amount,
+          payee: leaf.payee,
+          category: leaf.category,
+          transactionId: null,
+          chequebook: leaf.chequebook,
+        },
+        options.userId,
+      );
+      await this.prisma.chequeLeaf.update({
+        where: { id: leaf.id },
+        data: { transactionId: txnId },
+      });
+      created.push(leaf.id);
+    }
+
+    return {
+      dryRun,
+      considered: leaves.length,
+      createdCount: created.length,
+      createdIds: created,
+      skipped,
+    };
+  }
+
   // ==================== CHEQUEBOOKS ====================
 
   private serializeChequeLeaf<T extends { amount?: bigint | null }>(leaf: T) {

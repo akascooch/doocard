@@ -82,6 +82,9 @@ export default function AdminProductsPage() {
   const [uploading, setUploading] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState("")
   const [kardexProduct, setKardexProduct] = useState<ProductRow | null>(null)
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false)
+  const [editingCategory, setEditingCategory] = useState<ProductCategory | null>(null)
+  const [editingCategoryName, setEditingCategoryName] = useState("")
 
   useEffect(() => {
     const currentUser = getCurrentUser()
@@ -224,6 +227,42 @@ export default function AdminProductsPage() {
     }
   }
 
+  const handleUpdateCategory = async () => {
+    if (!editingCategory || !editingCategoryName.trim()) return
+    try {
+      const res = await api.patch(`/products/categories/${editingCategory.id}`, {
+        name: editingCategoryName.trim(),
+      })
+      setCategories((prev) => prev.map((c) => (c.id === editingCategory.id ? { ...c, ...res.data } : c)))
+      setEditingCategory(null)
+      setEditingCategoryName("")
+      toast({ title: "موفق", description: "نام دسته به‌روزرسانی شد" })
+    } catch (error) {
+      toast({
+        title: "خطا",
+        description: apiErrorMessage(error, "خطا در ویرایش دسته"),
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDeleteCategory = async (category: ProductCategory) => {
+    if (!confirm(`دسته‌بندی «${category.name}» غیرفعال شود؟ اگر محصولی به آن وصل باشد، حذف ممکن نیست.`)) {
+      return
+    }
+    try {
+      await api.delete(`/products/categories/${category.id}`)
+      setCategories((prev) => prev.map((c) => (c.id === category.id ? { ...c, isActive: false } : c)))
+      toast({ title: "موفق", description: "دسته غیرفعال شد" })
+    } catch (error) {
+      toast({
+        title: "خطا",
+        description: apiErrorMessage(error, "امکان حذف این دسته وجود ندارد"),
+        variant: "destructive",
+      })
+    }
+  }
+
   const filtered = products.filter((p) => {
     const q = searchTerm.trim().toLowerCase()
     const matchesSearch =
@@ -257,6 +296,9 @@ export default function AdminProductsPage() {
               موجودی
             </Button>
           </Link>
+          <Button variant="outline" onClick={() => setCategoryManagerOpen(true)}>
+            دسته‌بندی‌ها
+          </Button>
           <Button className="doocard-gradient hover:opacity-90" onClick={openCreate}>
             <Plus className="ml-2 h-4 w-4" />
             محصول جدید
@@ -518,6 +560,83 @@ export default function AdminProductsPage() {
             <Button className="doocard-gradient hover:opacity-90" onClick={() => void handleSave()}>
               {editing ? "به‌روزرسانی" : "افزودن"}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={categoryManagerOpen} onOpenChange={setCategoryManagerOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>مدیریت دسته‌بندی محصولات</DialogTitle>
+            <DialogDescription>
+              ویرایش نام یا غیرفعال‌سازی. اگر محصولی به دسته وصل باشد، حذف رد می‌شود.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {categories.map((category) => (
+              <div
+                key={category.id}
+                className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                {editingCategory?.id === category.id ? (
+                  <div className="flex flex-1 gap-2">
+                    <Input
+                      value={editingCategoryName}
+                      onChange={(e) => setEditingCategoryName(e.target.value)}
+                    />
+                    <Button type="button" size="sm" onClick={() => void handleUpdateCategory()}>
+                      ذخیره
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEditingCategory(null)
+                        setEditingCategoryName("")
+                      }}
+                    >
+                      لغو
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <p className="font-medium">{category.name}</p>
+                      {!category.isActive ? (
+                        <p className="text-xs text-muted-foreground">غیرفعال</p>
+                      ) : null}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingCategory(category)
+                          setEditingCategoryName(category.name)
+                        }}
+                      >
+                        ویرایش
+                      </Button>
+                      {category.isActive ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive"
+                          onClick={() => void handleDeleteCategory(category)}
+                        >
+                          حذف
+                        </Button>
+                      ) : null}
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+            {categories.length === 0 ? (
+              <p className="text-sm text-muted-foreground">دسته‌ای ثبت نشده است.</p>
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>

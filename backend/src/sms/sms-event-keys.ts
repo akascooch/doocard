@@ -22,6 +22,8 @@ export const SMS_EVENT_KEYS = {
   ADMIN_CUSTOM: 'admin.custom',
   /** Personal frog / to-do reminder 2 hours before scheduledAt */
   FROG_REMINDER: 'frog.reminder',
+  /** Personal frog reminder 15 minutes before scheduledAt */
+  FROG_REMINDER_15M: 'frog.reminder15m',
   /** New shop card-to-card order (admin alert) */
   SHOP_ORDER_CREATED: 'shop.orderCreated',
   /** Waitlist: product stock moved from 0 to available */
@@ -102,6 +104,11 @@ export const DEFAULT_SMS_POLICY: SmsPolicyDefault[] = [
   {
     eventKey: SMS_EVENT_KEYS.FROG_REMINDER,
     label: 'یادآور قورباغه (۲ ساعت قبل)',
+    smsEnabled: true,
+  },
+  {
+    eventKey: SMS_EVENT_KEYS.FROG_REMINDER_15M,
+    label: 'یادآور قورباغه (۱۵ دقیقه قبل)',
     smsEnabled: true,
   },
   {

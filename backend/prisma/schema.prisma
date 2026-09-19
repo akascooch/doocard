@@ -8,35 +8,35 @@ datasource db {
 }
 
 model User {
-  email               String?
-  password            String
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  id                  Int                @id @default(autoincrement())
-  name                String
-  phone               String             @unique
-  role                UserRole           @default(CUSTOMER)
-  permissions         Permission[]
-  paidAppointments    Appointment[]      @relation("AppointmentPaidBy")
-  settledDebts        CustomerDebt[]     @relation("DebtSettledBy")
-  customer            Customer?
-  dayClosings         DayClosing[]
-  employee            Employee?
-  importJobs          ImportJob[]        @relation("ImportJobs")
-  notifications       Notification[]     @relation("UserNotifications")
-  pushSubscriptions   PushSubscription[] @relation("UserPushSubscriptions")
-  refreshTokens       RefreshToken[]     @relation("UserRefreshTokens")
-  smsLogs             SmsLog[]
-  createdTransactions Transaction[]      @relation("TransactionCreator")
-  financialReportsAccessUpdates FinancialReportsAccess[] @relation("FinancialReportsAccessUpdatedBy")
-  createdTipSources   TipSource[]        @relation("TipSourceCreatedBy")
-  voidedTipSources    TipSource[]        @relation("TipSourceVoidedBy")
-  inventoryMovements  InventoryMovement[] @relation("InventoryMovementPerformedBy")
-  productStockSubscriptions ProductStockSubscription[]
-  adminDailyFrogs     AdminDailyFrog[]
-  adminFrogRecurrences AdminFrogRecurrence[]
-  adminPersonalExpenses AdminPersonalExpense[]
-  adminExpenseCategories AdminExpenseCategory[]
+  email                         String?
+  password                      String
+  createdAt                     DateTime                   @default(now())
+  updatedAt                     DateTime                   @updatedAt
+  id                            Int                        @id @default(autoincrement())
+  name                          String
+  phone                         String                     @unique
+  role                          UserRole                   @default(CUSTOMER)
+  permissions                   Permission[]
+  paidAppointments              Appointment[]              @relation("AppointmentPaidBy")
+  settledDebts                  CustomerDebt[]             @relation("DebtSettledBy")
+  customer                      Customer?
+  dayClosings                   DayClosing[]
+  employee                      Employee?
+  importJobs                    ImportJob[]                @relation("ImportJobs")
+  notifications                 Notification[]             @relation("UserNotifications")
+  pushSubscriptions             PushSubscription[]         @relation("UserPushSubscriptions")
+  refreshTokens                 RefreshToken[]             @relation("UserRefreshTokens")
+  smsLogs                       SmsLog[]
+  createdTransactions           Transaction[]              @relation("TransactionCreator")
+  financialReportsAccessUpdates FinancialReportsAccess[]   @relation("FinancialReportsAccessUpdatedBy")
+  createdTipSources             TipSource[]                @relation("TipSourceCreatedBy")
+  voidedTipSources              TipSource[]                @relation("TipSourceVoidedBy")
+  inventoryMovements            InventoryMovement[]        @relation("InventoryMovementPerformedBy")
+  productStockSubscriptions     ProductStockSubscription[]
+  adminDailyFrogs               AdminDailyFrog[]
+  adminFrogRecurrences          AdminFrogRecurrence[]
+  adminPersonalExpenses         AdminPersonalExpense[]
+  adminExpenseCategories        AdminExpenseCategory[]
 
   @@map("users")
 }
@@ -89,38 +89,38 @@ model PushSubscription {
 }
 
 model Employee {
-  id                         Int                           @id @default(autoincrement())
-  userId                     Int                           @unique
+  id                         Int                            @id @default(autoincrement())
+  userId                     Int                            @unique
   specialty                  String?
-  baseSalary                 Float                         @default(0)
-  commissionRate             Float                         @default(0)
+  baseSalary                 Float                          @default(0)
+  commissionRate             Float                          @default(0)
   lastCommissionSettlementAt DateTime?
-  createdAt                  DateTime                      @default(now())
-  updatedAt                  DateTime                      @updatedAt
-  isActive                   Boolean                       @default(true)
-  isDefault                  Boolean                       @default(false)
+  createdAt                  DateTime                       @default(now())
+  updatedAt                  DateTime                       @updatedAt
+  isActive                   Boolean                        @default(true)
+  isDefault                  Boolean                        @default(false)
   /// When true, payroll uses SPECIAL_COMMISSION_POLICY (tax-first then split).
-  isSpecialCommission        Boolean                       @default(false)
+  isSpecialCommission        Boolean                        @default(false)
   /// Public landing showcase (CMS). Payroll fields above are unrelated.
   avatarUrl                  String?
   bio                        String?
   displayTitle               String?
-  showOnLanding              Boolean                       @default(false)
-  landingSortOrder           Int                           @default(0)
+  showOnLanding              Boolean                        @default(false)
+  landingSortOrder           Int                            @default(0)
   appointments               Appointment[]
   blockedTimes               BlockedTime[]
   customers                  Customer[]
   employeeServices           EmployeeService[]
-  user                       User                          @relation(fields: [userId], references: [id])
+  user                       User                           @relation(fields: [userId], references: [id])
   salaries                   Salary[]
   tips                       Tip[]
   workSchedules              WorkSchedule[]
   transactions               Transaction[]
   commissionSettlements      EmployeeCommissionSettlement[]
-  tipRecipientAppointments   Appointment[]                @relation("AppointmentTipRecipient")
+  tipRecipientAppointments   Appointment[]                  @relation("AppointmentTipRecipient")
   appointmentTipAllocations  AppointmentTipAllocation[]
   salaryRequests             EmployeeSalaryRequest[]
-  manualTipRecipientSources  TipSource[]                  @relation("TipSourceIndividualRecipient")
+  manualTipRecipientSources  TipSource[]                    @relation("TipSourceIndividualRecipient")
   manualTipAllocations       ManualTipAllocation[]
   chequeLeaves               ChequeLeaf[]
 
@@ -128,12 +128,12 @@ model Employee {
 }
 
 model Customer {
-  id                  Int            @id @default(autoincrement())
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
+  id                  Int                       @id @default(autoincrement())
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
   notes               String?
   birthdate           DateTime?
-  userId              Int            @unique
+  userId              Int                       @unique
   preferredEmployeeId Int?
   preferredDate       DateTime?
   appointments        Appointment[]
@@ -141,8 +141,8 @@ model Customer {
   servicePackages     CustomerServicePackage[]
   loyaltyTransactions LoyaltyPointTransaction[]
   walletLedger        CustomerWalletLedger[]
-  preferredEmployee   Employee?      @relation(fields: [preferredEmployeeId], references: [id])
-  user                User           @relation(fields: [userId], references: [id])
+  preferredEmployee   Employee?                 @relation(fields: [preferredEmployeeId], references: [id])
+  user                User                      @relation(fields: [userId], references: [id])
 
   @@map("customers")
 }
@@ -150,9 +150,9 @@ model Customer {
 model Service {
   name                String
   price               Float
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  id                  Int                  @id @default(autoincrement())
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  id                  Int                      @id @default(autoincrement())
   durationMinutes     Int
   description         String?
   appointmentServices AppointmentService[]
@@ -188,50 +188,50 @@ model CalendarDate {
 }
 
 model Appointment {
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  id                  Int                  @id @default(autoincrement())
-  customerId          Int
-  status              AppointmentStatus    @default(PENDING)
-  employeeId          Int?
-  serviceId           Int?
-  accountId           Int?
-  amount              BigInt?
-  barberPayoutGrossAmount BigInt?
-  settlementDeductionAmount BigInt?
-  barberPayoutNetAmount BigInt?
-  deductionPerAppointmentAmount BigInt?
-  deletedAt           DateTime?
-  durationMin         Int
-  notes               String?
-  paidAt              DateTime?
-  paidBy              Int?
-  paymentMethod       PaymentMethod?
-  scheduledAt         DateTime
-  services            Json
-  tipAmount           BigInt?
-  financiallyLockedAt DateTime?
-  calendarDateId      Int?
-  clientOpId          String?              @unique
-  appointmentServices AppointmentService[]
+  createdAt                        DateTime                                  @default(now())
+  updatedAt                        DateTime                                  @updatedAt
+  id                               Int                                       @id @default(autoincrement())
+  customerId                       Int
+  status                           AppointmentStatus                         @default(PENDING)
+  employeeId                       Int?
+  serviceId                        Int?
+  accountId                        Int?
+  amount                           BigInt?
+  barberPayoutGrossAmount          BigInt?
+  settlementDeductionAmount        BigInt?
+  barberPayoutNetAmount            BigInt?
+  deductionPerAppointmentAmount    BigInt?
+  deletedAt                        DateTime?
+  durationMin                      Int
+  notes                            String?
+  paidAt                           DateTime?
+  paidBy                           Int?
+  paymentMethod                    PaymentMethod?
+  scheduledAt                      DateTime
+  services                         Json
+  tipAmount                        BigInt?
+  financiallyLockedAt              DateTime?
+  calendarDateId                   Int?
+  clientOpId                       String?                                   @unique
+  appointmentServices              AppointmentService[]
   commissionSettlementAppointments EmployeeCommissionSettlementAppointment[]
-  tipRecipientType    TipRecipientType?
-  tipRecipientEmployeeId Int?
-  tipStaffShareRial   BigInt?
-  tipSalonShareRial   BigInt?
-  tipTeamMemberIds    Json?
-  tipAllocations      AppointmentTipAllocation[]
-  tipRecipientEmployee Employee?           @relation("AppointmentTipRecipient", fields: [tipRecipientEmployeeId], references: [id])
-  calendarDate        CalendarDate?        @relation(fields: [calendarDateId], references: [id])
-  customer            Customer             @relation(fields: [customerId], references: [id])
-  employee            Employee?            @relation(fields: [employeeId], references: [id])
-  paidByUser          User?                @relation("AppointmentPaidBy", fields: [paidBy], references: [id])
-  service             Service?             @relation(fields: [serviceId], references: [id])
-  tips                Tip[]
-  transactions        Transaction[]
-  debts               CustomerDebt[]
-  appointmentProducts AppointmentProduct[]
-  packageConsumptions CustomerPackageConsumption[]
+  tipRecipientType                 TipRecipientType?
+  tipRecipientEmployeeId           Int?
+  tipStaffShareRial                BigInt?
+  tipSalonShareRial                BigInt?
+  tipTeamMemberIds                 Json?
+  tipAllocations                   AppointmentTipAllocation[]
+  tipRecipientEmployee             Employee?                                 @relation("AppointmentTipRecipient", fields: [tipRecipientEmployeeId], references: [id])
+  calendarDate                     CalendarDate?                             @relation(fields: [calendarDateId], references: [id])
+  customer                         Customer                                  @relation(fields: [customerId], references: [id])
+  employee                         Employee?                                 @relation(fields: [employeeId], references: [id])
+  paidByUser                       User?                                     @relation("AppointmentPaidBy", fields: [paidBy], references: [id])
+  service                          Service?                                  @relation(fields: [serviceId], references: [id])
+  tips                             Tip[]
+  transactions                     Transaction[]
+  debts                            CustomerDebt[]
+  appointmentProducts              AppointmentProduct[]
+  packageConsumptions              CustomerPackageConsumption[]
 
   @@index([customerId])
   @@index([employeeId])
@@ -271,35 +271,35 @@ model EmployeeService {
 }
 
 model Transaction {
-  amount               BigInt
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
-  id                   Int                  @id @default(autoincrement())
-  type                 TransactionType
-  relatedId            Int?
-  accountId            Int?
-  categoryId           Int?
-  employeeId           Int?
-  createdBy            Int?
-  currency             String               @default("IRR")
-  deletedAt            DateTime?
-  description          String?
-  meta                 Json?
-  occurredAt           DateTime             @default(now())
-  paymentMethod        PaymentMethod?
-  sourceId             Int?
-  sourceType           String?
-  destinationAccountId Int?
-  account              BankAccount?         @relation("TransactionAccount", fields: [accountId], references: [id])
-  category             TransactionCategory? @relation(fields: [categoryId], references: [id])
-  employee             Employee?            @relation(fields: [employeeId], references: [id])
-  createdByUser        User?                @relation("TransactionCreator", fields: [createdBy], references: [id])
-  destinationAccount   BankAccount?         @relation("TransactionDestination", fields: [destinationAccountId], references: [id])
-  appointment          Appointment?         @relation(fields: [relatedId], references: [id])
-  chequeLeaves         ChequeLeaf[]
+  amount                    BigInt
+  createdAt                 DateTime                                  @default(now())
+  updatedAt                 DateTime                                  @updatedAt
+  id                        Int                                       @id @default(autoincrement())
+  type                      TransactionType
+  relatedId                 Int?
+  accountId                 Int?
+  categoryId                Int?
+  employeeId                Int?
+  createdBy                 Int?
+  currency                  String                                    @default("IRR")
+  deletedAt                 DateTime?
+  description               String?
+  meta                      Json?
+  occurredAt                DateTime                                  @default(now())
+  paymentMethod             PaymentMethod?
+  sourceId                  Int?
+  sourceType                String?
+  destinationAccountId      Int?
+  account                   BankAccount?                              @relation("TransactionAccount", fields: [accountId], references: [id])
+  category                  TransactionCategory?                      @relation(fields: [categoryId], references: [id])
+  employee                  Employee?                                 @relation(fields: [employeeId], references: [id])
+  createdByUser             User?                                     @relation("TransactionCreator", fields: [createdBy], references: [id])
+  destinationAccount        BankAccount?                              @relation("TransactionDestination", fields: [destinationAccountId], references: [id])
+  appointment               Appointment?                              @relation(fields: [relatedId], references: [id])
+  chequeLeaves              ChequeLeaf[]
   commissionSettlementLinks EmployeeCommissionSettlementTransaction[]
-  finalCommissionSettlement EmployeeCommissionSettlement? @relation("SettlementFinalTransaction")
-  salaryRequestPayment      EmployeeSalaryRequest? @relation("SalaryRequestPayment")
+  finalCommissionSettlement EmployeeCommissionSettlement?             @relation("SettlementFinalTransaction")
+  salaryRequestPayment      EmployeeSalaryRequest?                    @relation("SalaryRequestPayment")
 
   @@index([sourceType, sourceId])
   @@index([type, occurredAt])
@@ -332,7 +332,7 @@ model TransactionCategory {
 }
 
 model EmployeeCommissionSettlement {
-  id                            Int                                    @id @default(autoincrement())
+  id                            Int                                       @id @default(autoincrement())
   employeeId                    Int
   periodStartAt                 DateTime
   periodEndAt                   DateTime
@@ -346,17 +346,17 @@ model EmployeeCommissionSettlement {
   totalAppointmentDeductionRial BigInt
   priorWithdrawalsTotalRial     BigInt
   netPayableRial                BigInt
-  settlementTransactionId       Int?                                   @unique
-  settledAt                     DateTime                               @default(now())
+  settlementTransactionId       Int?                                      @unique
+  settledAt                     DateTime                                  @default(now())
   createdByUserId               Int?
-  status                        EmployeeCommissionSettlementStatus     @default(ACTIVE)
+  status                        EmployeeCommissionSettlementStatus        @default(ACTIVE)
   reversedAt                    DateTime?
   reversedByUserId              Int?
   notes                         String?
-  createdAt                     DateTime                               @default(now())
-  updatedAt                     DateTime                               @updatedAt
-  employee                      Employee                               @relation(fields: [employeeId], references: [id])
-  settlementTransaction         Transaction?                           @relation("SettlementFinalTransaction", fields: [settlementTransactionId], references: [id])
+  createdAt                     DateTime                                  @default(now())
+  updatedAt                     DateTime                                  @updatedAt
+  employee                      Employee                                  @relation(fields: [employeeId], references: [id])
+  settlementTransaction         Transaction?                              @relation("SettlementFinalTransaction", fields: [settlementTransactionId], references: [id])
   appointments                  EmployeeCommissionSettlementAppointment[]
   priorTransactions             EmployeeCommissionSettlementTransaction[]
   paidTipAllocations            AppointmentTipAllocation[]
@@ -385,30 +385,30 @@ model EmployeeCommissionSettlementTransaction {
   transactionId Int
   amountRial    BigInt
   role          EmployeeCommissionSettlementTransactionRole
-  settlement    EmployeeCommissionSettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
-  transaction   Transaction                @relation(fields: [transactionId], references: [id])
+  settlement    EmployeeCommissionSettlement                @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  transaction   Transaction                                 @relation(fields: [transactionId], references: [id])
 
   @@id([settlementId, transactionId])
   @@map("employee_commission_settlement_transactions")
 }
 
 model BankAccount {
-  id                      Int           @id @default(autoincrement())
+  id                      Int                     @id @default(autoincrement())
   name                    String
   provider                String?
   accountNo               String?
   cardNo                  String?
   iban                    String?
-  isDefault               Boolean       @default(false)
-  isActive                Boolean       @default(true)
-  balance                 BigInt        @default(0)
-  currency                String        @default("IRR")
+  isDefault               Boolean                 @default(false)
+  isActive                Boolean                 @default(true)
+  balance                 BigInt                  @default(0)
+  currency                String                  @default("IRR")
   description             String?
-  createdAt               DateTime      @default(now())
-  updatedAt               DateTime      @updatedAt
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
   deletedAt               DateTime?
-  transactions            Transaction[] @relation("TransactionAccount")
-  destinationTransactions Transaction[] @relation("TransactionDestination")
+  transactions            Transaction[]           @relation("TransactionAccount")
+  destinationTransactions Transaction[]           @relation("TransactionDestination")
   chequebooks             Chequebook[]
   salaryRequestPayments   EmployeeSalaryRequest[]
 
@@ -441,7 +441,9 @@ model ChequeLeaf {
   chequebookId  Int
   leafNumber    Int
   status        ChequeLeafStatus   @default(BLANK)
-  /** NORMAL = ordinary cheque; GUARANTEE = ضمانت */
+  /**
+   * NORMAL = ordinary cheque; GUARANTEE = ضمانت
+   */
   category      ChequeLeafCategory @default(NORMAL)
   amount        BigInt?
   payee         String?
@@ -494,14 +496,14 @@ model Tip {
 }
 
 model AppointmentTipAllocation {
-  id                 Int                         @id @default(autoincrement())
+  id                 Int                           @id @default(autoincrement())
   appointmentId      Int
   employeeId         Int
   amountRial         BigInt
   paidInSettlementId Int?
-  createdAt          DateTime                    @default(now())
-  appointment        Appointment                 @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-  employee           Employee                    @relation(fields: [employeeId], references: [id])
+  createdAt          DateTime                      @default(now())
+  appointment        Appointment                   @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  employee           Employee                      @relation(fields: [employeeId], references: [id])
   paidInSettlement   EmployeeCommissionSettlement? @relation(fields: [paidInSettlementId], references: [id])
 
   @@index([appointmentId])
@@ -521,25 +523,25 @@ enum TipSourceStatus {
 }
 
 model TipSource {
-  id                  Int               @id @default(autoincrement())
-  origin              TipSourceOrigin   @default(MANUAL)
+  id                  Int                   @id @default(autoincrement())
+  origin              TipSourceOrigin       @default(MANUAL)
   tipType             TipRecipientType
   amountRial          BigInt
   effectiveBusinessAt DateTime
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
   createdByUserId     Int
   note                String?
-  idempotencyKey      String            @unique
-  status              TipSourceStatus   @default(ACTIVE)
+  idempotencyKey      String                @unique
+  status              TipSourceStatus       @default(ACTIVE)
   voidedAt            DateTime?
   voidedByUserId      Int?
   voidReason          String?
   recipientEmployeeId Int?
   teamMemberIds       Json?
-  createdBy           User              @relation("TipSourceCreatedBy", fields: [createdByUserId], references: [id])
-  voidedBy            User?             @relation("TipSourceVoidedBy", fields: [voidedByUserId], references: [id])
-  recipientEmployee   Employee?         @relation("TipSourceIndividualRecipient", fields: [recipientEmployeeId], references: [id])
+  createdBy           User                  @relation("TipSourceCreatedBy", fields: [createdByUserId], references: [id])
+  voidedBy            User?                 @relation("TipSourceVoidedBy", fields: [voidedByUserId], references: [id])
+  recipientEmployee   Employee?             @relation("TipSourceIndividualRecipient", fields: [recipientEmployeeId], references: [id])
   allocations         ManualTipAllocation[]
 
   @@index([effectiveBusinessAt])
@@ -549,14 +551,14 @@ model TipSource {
 }
 
 model ManualTipAllocation {
-  id                 Int                          @id @default(autoincrement())
+  id                 Int                           @id @default(autoincrement())
   tipSourceId        Int
   employeeId         Int
   amountRial         BigInt
   paidInSettlementId Int?
-  createdAt          DateTime                     @default(now())
-  tipSource          TipSource                    @relation(fields: [tipSourceId], references: [id], onDelete: Cascade)
-  employee           Employee                     @relation(fields: [employeeId], references: [id])
+  createdAt          DateTime                      @default(now())
+  tipSource          TipSource                     @relation(fields: [tipSourceId], references: [id], onDelete: Cascade)
+  employee           Employee                      @relation(fields: [employeeId], references: [id])
   paidInSettlement   EmployeeCommissionSettlement? @relation(fields: [paidInSettlementId], references: [id])
 
   @@unique([tipSourceId, employeeId])
@@ -580,7 +582,7 @@ model Salary {
 }
 
 model EmployeeSalaryRequest {
-  id                     Int                        @id @default(autoincrement())
+  id                     Int                         @id @default(autoincrement())
   employeeId             Int
   requestType            EmployeeSalaryRequestType
   status                 EmployeeSalaryRequestStatus @default(PENDING)
@@ -590,20 +592,20 @@ model EmployeeSalaryRequest {
   availableAtRequestRial BigInt
   snapshotJson           Json
   destinationNote        String?
-  allowNegative          Boolean                    @default(false)
+  allowNegative          Boolean                     @default(false)
   reviewedByUserId       Int?
   reviewedAt             DateTime?
   paidByUserId           Int?
   paidAt                 DateTime?
   paidBankAccountId      Int?
-  paymentTransactionId   Int?                       @unique
+  paymentTransactionId   Int?                        @unique
   settlementId           Int?
   rejectionReason        String?
-  createdAt              DateTime                   @default(now())
-  updatedAt              DateTime                   @updatedAt
-  employee               Employee                   @relation(fields: [employeeId], references: [id])
-  paymentTransaction     Transaction?               @relation("SalaryRequestPayment", fields: [paymentTransactionId], references: [id])
-  paidBankAccount        BankAccount?               @relation(fields: [paidBankAccountId], references: [id])
+  createdAt              DateTime                    @default(now())
+  updatedAt              DateTime                    @updatedAt
+  employee               Employee                    @relation(fields: [employeeId], references: [id])
+  paymentTransaction     Transaction?                @relation("SalaryRequestPayment", fields: [paymentTransactionId], references: [id])
+  paidBankAccount        BankAccount?                @relation(fields: [paidBankAccountId], references: [id])
 
   @@index([employeeId, status, createdAt])
   @@index([status, createdAt])
@@ -707,21 +709,21 @@ model SmsNotificationRule {
 }
 
 model HomepageDetails {
-  id            Int      @id @default(autoincrement())
-  about         String?
-  team          String?
-  products      String?
-  trainings     String?
-  testimonials  String?
-  contact       String?
-  heroTitle     String?
-  heroSubtitle  String?
-  phone         String?
-  address       String?
-  instagramUrl  String?
-  workingHours  String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  about        String?
+  team         String?
+  products     String?
+  trainings    String?
+  testimonials String?
+  contact      String?
+  heroTitle    String?
+  heroSubtitle String?
+  phone        String?
+  address      String?
+  instagramUrl String?
+  workingHours String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@map("homepage_details")
 }
@@ -760,7 +762,9 @@ model DayClosing {
 model CustomerDebt {
   id            Int          @id @default(autoincrement())
   customerId    Int
-  /** Optional FK for appointment-sourced debts (preferred over soft sourceId alone). */
+  /**
+   * Optional FK for appointment-sourced debts (preferred over soft sourceId alone).
+   */
   appointmentId Int?
   amount        BigInt
   sourceType    String?
@@ -991,15 +995,15 @@ model FinancialReportsAccess {
 }
 
 model SystemSettings {
-  id                       Int       @id @default(1)
-  autoBackupEnabled        Boolean   @default(false)
-  backupIntervalDays       Int       @default(7)
-  backupPath               String?
-  lastBackupDate           DateTime?
-  loyaltyRateRialPerPoint  Int       @default(1000)
-  loyaltyMinRedeemPoints   Int       @default(100)
-  createdAt                DateTime  @default(now())
-  updatedAt                DateTime  @updatedAt
+  id                      Int       @id @default(1)
+  autoBackupEnabled       Boolean   @default(false)
+  backupIntervalDays      Int       @default(7)
+  backupPath              String?
+  lastBackupDate          DateTime?
+  loyaltyRateRialPerPoint Int       @default(1000)
+  loyaltyMinRedeemPoints  Int       @default(100)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   @@map("system_settings")
 }
@@ -1025,26 +1029,26 @@ model ProductCategory {
 }
 
 model Product {
-  id             Int       @id @default(autoincrement())
-  name           String
-  sku            String?   @unique
-  barcode        String?   @unique
-  description    String?
-  priceRial      BigInt
-  isPriceVisible Boolean   @default(false)
-  stock          Int       @default(0)
-  lowStockAlert  Int?
-  categoryId     Int?
-  isActive       Boolean   @default(true)
-  images         Json?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  category       ProductCategory? @relation(fields: [categoryId], references: [id])
-  movements      InventoryMovement[]
-  packagings     ProductPackaging[]
+  id                  Int                        @id @default(autoincrement())
+  name                String
+  sku                 String?                    @unique
+  barcode             String?                    @unique
+  description         String?
+  priceRial           BigInt
+  isPriceVisible      Boolean                    @default(false)
+  stock               Int                        @default(0)
+  lowStockAlert       Int?
+  categoryId          Int?
+  isActive            Boolean                    @default(true)
+  images              Json?
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+  category            ProductCategory?           @relation(fields: [categoryId], references: [id])
+  movements           InventoryMovement[]
+  packagings          ProductPackaging[]
   appointmentProducts AppointmentProduct[]
-  orders         OrderItem[]
-  stockSubscriptions ProductStockSubscription[]
+  orders              OrderItem[]
+  stockSubscriptions  ProductStockSubscription[]
 
   @@index([categoryId])
   @@index([isActive])
@@ -1052,42 +1056,42 @@ model Product {
 }
 
 model ProductPackaging {
-  id              Int       @id @default(autoincrement())
-  productId       Int
-  name            String
-  unitLabel       String
-  unitsPerPackage Int
-  isActive        Boolean   @default(true)
-  archivedAt      DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  movements       InventoryMovement[]
+  id                  Int                  @id @default(autoincrement())
+  productId           Int
+  name                String
+  unitLabel           String
+  unitsPerPackage     Int
+  isActive            Boolean              @default(true)
+  archivedAt          DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  product             Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  movements           InventoryMovement[]
   appointmentProducts AppointmentProduct[]
-  orderItems      OrderItem[]
+  orderItems          OrderItem[]
 
   @@index([productId, isActive])
   @@map("product_packagings")
 }
 
 model InventoryMovement {
-  id            Int                   @id @default(autoincrement())
-  productId     Int
-  type          InventoryMovementType
-  quantity      Int
-  unitCostRial  BigInt?
-  reason        String?
-  referenceType String?
-  referenceId   Int?
-  performedById Int?
-  createdAt     DateTime              @default(now())
-  product       Product               @relation(fields: [productId], references: [id])
-  performedBy   User?                 @relation("InventoryMovementPerformedBy", fields: [performedById], references: [id])
+  id              Int                   @id @default(autoincrement())
+  productId       Int
+  type            InventoryMovementType
+  quantity        Int
+  unitCostRial    BigInt?
+  reason          String?
+  referenceType   String?
+  referenceId     Int?
+  performedById   Int?
+  createdAt       DateTime              @default(now())
+  product         Product               @relation(fields: [productId], references: [id])
+  performedBy     User?                 @relation("InventoryMovementPerformedBy", fields: [performedById], references: [id])
   packagingId     Int?
   packagingName   String?
   packagingUnit   String?
   unitsPerPackage Int?
-  packaging       ProductPackaging? @relation(fields: [packagingId], references: [id])
+  packaging       ProductPackaging?     @relation(fields: [packagingId], references: [id])
 
   @@index([productId, createdAt])
   @@index([referenceType, referenceId])
@@ -1095,20 +1099,20 @@ model InventoryMovement {
 }
 
 model AppointmentProduct {
-  id            Int         @id @default(autoincrement())
-  appointmentId Int
-  productId     Int
-  quantity      Int
-  unitPriceRial BigInt
-  lineTotalRial BigInt
-  createdAt     DateTime    @default(now())
-  packagingId   Int?
-  packagingName String?
-  packagingUnit String?
+  id              Int               @id @default(autoincrement())
+  appointmentId   Int
+  productId       Int
+  quantity        Int
+  unitPriceRial   BigInt
+  lineTotalRial   BigInt
+  createdAt       DateTime          @default(now())
+  packagingId     Int?
+  packagingName   String?
+  packagingUnit   String?
   unitsPerPackage Int?
-  appointment   Appointment @relation(fields: [appointmentId], references: [id])
-  product       Product     @relation(fields: [productId], references: [id])
-  packaging     ProductPackaging? @relation(fields: [packagingId], references: [id])
+  appointment     Appointment       @relation(fields: [appointmentId], references: [id])
+  product         Product           @relation(fields: [productId], references: [id])
+  packaging       ProductPackaging? @relation(fields: [packagingId], references: [id])
 
   @@index([appointmentId])
   @@map("appointment_products")
@@ -1126,21 +1130,21 @@ enum OrderStatus {
 
 /// Shop card-to-card orders. Isolated from salon Transaction / AppointmentProduct.
 model Order {
-  id               String      @id @default(uuid())
-  orderNumber      String      @unique
-  customerName     String
-  customerPhone    String
-  customerAddress  String?
-  customerNotes    String?
-  totalAmountRial  BigInt
-  status           OrderStatus @default(PENDING_VERIFICATION)
-  receiptImageUrl  String?
-  trackingCode     String?
-  adminNotes       String?
-  verifiedAt       DateTime?
-  items            OrderItem[]
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  id              String      @id @default(uuid())
+  orderNumber     String      @unique
+  customerName    String
+  customerPhone   String
+  customerAddress String?
+  customerNotes   String?
+  totalAmountRial BigInt
+  status          OrderStatus @default(PENDING_VERIFICATION)
+  receiptImageUrl String?
+  trackingCode    String?
+  adminNotes      String?
+  verifiedAt      DateTime?
+  items           OrderItem[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
   @@index([status, createdAt])
   @@index([createdAt])
@@ -1149,21 +1153,21 @@ model Order {
 }
 
 model OrderItem {
-  id            Int      @id @default(autoincrement())
-  orderId       String
-  productId     Int
-  productTitle  String
-  unitPriceRial BigInt
-  quantity      Int
-  lineTotalRial BigInt
-  createdAt     DateTime @default(now())
-  packagingId   Int?
-  packagingName String?
-  packagingUnit String?
+  id              Int               @id @default(autoincrement())
+  orderId         String
+  productId       Int
+  productTitle    String
+  unitPriceRial   BigInt
+  quantity        Int
+  lineTotalRial   BigInt
+  createdAt       DateTime          @default(now())
+  packagingId     Int?
+  packagingName   String?
+  packagingUnit   String?
   unitsPerPackage Int?
-  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product       Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
-  packaging     ProductPackaging? @relation(fields: [packagingId], references: [id])
+  order           Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product         Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  packaging       ProductPackaging? @relation(fields: [packagingId], references: [id])
 
   @@index([orderId])
   @@index([productId])
@@ -1220,25 +1224,31 @@ enum AdminPersonalExpenseCategory {
 
 /// Admin personal frog / to-do items. Multiple tasks per Tehran civil day are allowed.
 model AdminDailyFrog {
-  id             String          @id @default(uuid())
-  userId         Int
-  dateKey        String
-  title          String
-  description    String?
-  status         AdminFrogStatus @default(PENDING)
-  isCompleted    Boolean         @default(false)
-  completedAt    DateTime?
+  id                String          @id @default(uuid())
+  userId            Int
+  dateKey           String
+  title             String
+  description       String?
+  status            AdminFrogStatus @default(PENDING)
+  isCompleted       Boolean         @default(false)
+  completedAt       DateTime?
   /// Instant the task is due (UTC). Combined from Tehran dateKey + HH:mm.
-  scheduledAt    DateTime
-  reminderSent   Boolean         @default(false)
-  reminderSentAt DateTime?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scheduledAt       DateTime
+  reminderSent      Boolean         @default(false)
+  reminderSentAt    DateTime?
+  reminder2hSent    Boolean         @default(false)
+  reminder2hSentAt  DateTime?
+  reminder15mSent   Boolean         @default(false)
+  reminder15mSentAt DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, dateKey])
   @@index([userId, isCompleted])
   @@index([isCompleted, reminderSent, scheduledAt])
+  @@index([isCompleted, reminder2hSent, scheduledAt])
+  @@index([isCompleted, reminder15mSent, scheduledAt])
   @@map("admin_daily_frogs")
 }
 
@@ -1262,14 +1272,14 @@ model AdminFrogRecurrence {
 
 /// Admin-owned petty-cash category labels. Additive; enum `category` stays on expenses.
 model AdminExpenseCategory {
-  id         String    @id @default(uuid())
+  id         String                 @id @default(uuid())
   userId     Int
   name       String
-  isDefault  Boolean   @default(false)
+  isDefault  Boolean                @default(false)
   archivedAt DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   expenses   AdminPersonalExpense[]
 
   @@unique([userId, name])
@@ -1279,7 +1289,7 @@ model AdminExpenseCategory {
 
 /// Admin petty-cash / personal spend — not linked to customer invoices.
 model AdminPersonalExpense {
-  id          String                         @id @default(uuid())
+  id          String                       @id @default(uuid())
   userId      Int
   amount      BigInt
   category    AdminPersonalExpenseCategory
@@ -1287,12 +1297,12 @@ model AdminPersonalExpense {
   title       String
   description String?
   dateKey     String
-  occurredAt  DateTime                       @default(now())
-  createdAt   DateTime                       @default(now())
-  updatedAt   DateTime                       @updatedAt
+  occurredAt  DateTime                     @default(now())
+  createdAt   DateTime                     @default(now())
+  updatedAt   DateTime                     @updatedAt
   deletedAt   DateTime?
-  user        User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  categoryRel AdminExpenseCategory?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  user        User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryRel AdminExpenseCategory?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   @@index([userId, dateKey])
   @@index([userId, category])
@@ -1318,6 +1328,8 @@ model ServicePackageTemplate {
   validityDays   Int
   totalSessions  Int
   serviceId      Int
+  /// Loyalty points needed to qualify; null means not in the points catalog.
+  pointsRequired Int?
   isActive       Boolean                  @default(true)
   archivedAt     DateTime?
   createdAt      DateTime                 @default(now())
@@ -1332,32 +1344,32 @@ model ServicePackageTemplate {
 
 /// A customer's owned copy of a package. customerId is Customer.id, not User.id.
 model CustomerServicePackage {
-  id                 String                       @id @default(uuid())
-  customerId         Int
-  packageTemplateId  String
-  totalSessions      Int
-  remainingSessions  Int
-  expiresAt          DateTime
-  status             CustomerPackageStatus        @default(ACTIVE)
-  paymentMethod      String
-  notes              String?
-  createdAt          DateTime                     @default(now())
-  updatedAt          DateTime                     @updatedAt
-  customer           Customer                     @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  template           ServicePackageTemplate       @relation(fields: [packageTemplateId], references: [id], onDelete: Restrict)
-  consumptions       CustomerPackageConsumption[]
+  id                String                       @id @default(uuid())
+  customerId        Int
+  packageTemplateId String
+  totalSessions     Int
+  remainingSessions Int
+  expiresAt         DateTime
+  status            CustomerPackageStatus        @default(ACTIVE)
+  paymentMethod     String
+  notes             String?
+  createdAt         DateTime                     @default(now())
+  updatedAt         DateTime                     @updatedAt
+  customer          Customer                     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  template          ServicePackageTemplate       @relation(fields: [packageTemplateId], references: [id], onDelete: Restrict)
+  consumptions      CustomerPackageConsumption[]
 
   @@index([customerId, status])
   @@map("customer_service_packages")
 }
 
 model CustomerPackageConsumption {
-  id                 String                 @id @default(uuid())
-  customerPackageId  String
-  appointmentId      Int
-  createdAt          DateTime               @default(now())
-  customerPackage    CustomerServicePackage @relation(fields: [customerPackageId], references: [id], onDelete: Cascade)
-  appointment        Appointment            @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  id                String                 @id @default(uuid())
+  customerPackageId String
+  appointmentId     Int
+  createdAt         DateTime               @default(now())
+  customerPackage   CustomerServicePackage @relation(fields: [customerPackageId], references: [id], onDelete: Cascade)
+  appointment       Appointment            @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
 
   @@unique([appointmentId])
   @@unique([customerPackageId, appointmentId])
@@ -1393,4 +1405,3 @@ model CustomerWalletLedger {
   @@index([customerId, createdAt])
   @@map("customer_wallet_ledger")
 }
-

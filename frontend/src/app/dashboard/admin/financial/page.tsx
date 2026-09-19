@@ -47,10 +47,24 @@ interface YearlyReport {
   employeeRanking: Array<{ name: string; count: number; amount: string }>
 }
 
+interface TopCustomerRow {
+  customerId: number
+  name: string
+  visitCount: number
+  spendRial: string
+  points: number
+}
+
 const DEFAULT_YEAR = 1404
 
 export default function AdminFinancialPage() {
   const [yearlyReport, setYearlyReport] = useState<YearlyReport | null>(null)
+  const [topCustomers, setTopCustomers] = useState<{
+    spend: TopCustomerRow[]
+    visits: TopCustomerRow[]
+    points: TopCustomerRow[]
+  } | null>(null)
+  const [topMetric, setTopMetric] = useState<'spend' | 'visits' | 'points'>('spend')
   const [year, setYear] = useState(DEFAULT_YEAR)
   const [yearlyLoading, setYearlyLoading] = useState(false)
   const [isUnlocked, setIsUnlocked] = useState(false)
@@ -76,8 +90,18 @@ export default function AdminFinancialPage() {
     if (!isFinancialAccessValid()) return
     try {
       setYearlyLoading(true)
-      const res = await axios.get(`/admin/financial/yearly-report?year=${year}`)
-      setYearlyReport(res.data)
+      const [reportRes, customersRes] = await Promise.all([
+        axios.get(`/admin/financial/yearly-report?year=${year}`),
+        axios.get(`/admin/analytics/top-customers`, { params: { year, limit: 10 } }).catch(() => null),
+      ])
+      setYearlyReport(reportRes.data)
+      if (customersRes?.data) {
+        setTopCustomers({
+          spend: customersRes.data.spend || [],
+          visits: customersRes.data.visits || [],
+          points: customersRes.data.points || [],
+        })
+      }
     } catch (err) {
       console.error('Error fetching yearly report:', err)
       handleFinancialApiError(err)
@@ -483,6 +507,85 @@ export default function AdminFinancialPage() {
                   داده‌ای برای این سال وجود ندارد
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-main-orange" />
+                مشتریان برتر (سال {year})
+              </CardTitle>
+              <CardDescription>مرتب‌سازی بر اساس مبلغ کل، تعداد مراجعه یا امتیاز وفاداری</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    { id: 'spend', label: 'مبلغ کل' },
+                    { id: 'visits', label: 'تعداد مراجعه' },
+                    { id: 'points', label: 'امتیاز' },
+                  ] as const
+                ).map((item) => (
+                  <Button
+                    key={item.id}
+                    type="button"
+                    size="sm"
+                    variant={topMetric === item.id ? 'default' : 'outline'}
+                    onClick={() => setTopMetric(item.id)}
+                  >
+                    {item.label}
+                  </Button>
+                ))}
+              </div>
+              {(() => {
+                const rows = topCustomers?.[topMetric] ?? []
+                const chartRows = rows.map((row) => ({
+                  name: row.name,
+                  value:
+                    topMetric === 'spend'
+                      ? Number(row.spendRial)
+                      : topMetric === 'visits'
+                        ? row.visitCount
+                        : row.points,
+                }))
+                return chartRows.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={320}>
+                    <BarChart
+                      layout="vertical"
+                      data={chartRows}
+                      margin={{ top: 8, right: 24, left: 80, bottom: 8 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis type="number" tick={{ fontSize: 12 }} />
+                      <YAxis type="category" dataKey="name" width={72} tick={{ fontSize: 11 }} />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null
+                          const p = payload[0].payload as { name: string; value: number }
+                          return (
+                            <div className="rounded-lg border bg-background p-3 shadow-md">
+                              <p className="font-medium">{p.name}</p>
+                              <p className="text-sm text-foreground/80">
+                                {topMetric === 'spend'
+                                  ? formatTomansFromRial(p.value)
+                                  : topMetric === 'visits'
+                                    ? `${p.value} مراجعه`
+                                    : `${p.value} امتیاز`}
+                              </p>
+                            </div>
+                          )
+                        }}
+                      />
+                      <Bar dataKey="value" radius={[0, 4, 4, 0]} fill="hsl(var(--primary))" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-40 flex items-center justify-center text-foreground/80">
+                    داده‌ای برای این سال وجود ندارد
+                  </div>
+                )
+              })()}
             </CardContent>
           </Card>
         </>

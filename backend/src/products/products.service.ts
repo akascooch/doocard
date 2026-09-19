@@ -145,6 +145,14 @@ export class ProductsService {
 
   async deactivateCategory(id: number) {
     await this.requireCategory(id);
+    const productCount = await this.prisma.product.count({
+      where: { categoryId: id },
+    });
+    if (productCount > 0) {
+      throw new BadRequestException(
+        'امکان حذف دسته‌بندی دارای محصول وجود ندارد. ابتدا محصولات را منتقل یا حذف کنید.',
+      );
+    }
     return this.prisma.productCategory.update({
       where: { id },
       data: { isActive: false },
@@ -598,9 +606,39 @@ export class ProductsService {
       include: { performedBy: { select: { id: true, name: true } } },
     });
 
+    const appointmentIds = [
+      ...new Set(
+        movements
+          .filter((row) => row.referenceType === 'APPOINTMENT' && row.referenceId != null)
+          .map((row) => row.referenceId as number),
+      ),
+    ];
+    const appointmentNames = new Map<
+      number,
+      { barberName: string | null; customerName: string | null }
+    >();
+    if (appointmentIds.length > 0) {
+      const appointments = await this.prisma.appointment.findMany({
+        where: { id: { in: appointmentIds } },
+        select: {
+          id: true,
+          employee: { select: { user: { select: { name: true } } } },
+          customer: { select: { user: { select: { name: true } } } },
+        },
+      });
+      for (const appointment of appointments) {
+        appointmentNames.set(appointment.id, {
+          barberName: appointment.employee?.user?.name ?? null,
+          customerName: appointment.customer?.user?.name ?? null,
+        });
+      }
+    }
+
     let running = 0;
     const withBalance = movements.map((row) => {
       running += row.quantity;
+      const isAppointment = row.referenceType === 'APPOINTMENT' && row.referenceId != null;
+      const names = isAppointment ? appointmentNames.get(row.referenceId!) : undefined;
       return {
         id: row.id,
         occurredAt: row.createdAt.toISOString(),
@@ -616,6 +654,9 @@ export class ProductsService {
         referenceType: row.referenceType,
         referenceId: row.referenceId,
         performedByName: row.performedBy?.name ?? null,
+        barberName: names?.barberName ?? null,
+        customerName: names?.customerName ?? null,
+        appointmentId: isAppointment ? String(row.referenceId) : null,
       };
     });
 

@@ -24,6 +24,7 @@ type Template = {
   totalSessions: number
   serviceId: number
   serviceName: string | null
+  pointsRequired: number | null
   isActive: boolean
 }
 
@@ -48,6 +49,7 @@ export default function AdminPackagesPage() {
   const [validityDays, setValidityDays] = useState("90")
   const [totalSessions, setTotalSessions] = useState("5")
   const [serviceId, setServiceId] = useState("")
+  const [pointsRequired, setPointsRequired] = useState("")
   const [editingId, setEditingId] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [hits, setHits] = useState<CustomerHit[]>([])
@@ -101,6 +103,7 @@ export default function AdminPackagesPage() {
     setPrice("")
     setValidityDays("90")
     setTotalSessions("5")
+    setPointsRequired("")
   }
 
   const saveTemplate = async () => {
@@ -115,6 +118,9 @@ export default function AdminPackagesPage() {
         validityDays: Number(validityDays),
         totalSessions: Number(totalSessions),
         serviceId: Number(serviceId),
+        pointsRequired: pointsRequired.trim()
+          ? Number(persianToEnglishDigits(pointsRequired))
+          : undefined,
       }
       if (editingId) {
         await api.patch(`/packages/templates/${editingId}`, payload)
@@ -285,6 +291,10 @@ export default function AdminPackagesPage() {
             <Label>اعتبار (روز)</Label>
             <Input dir="ltr" value={validityDays} onChange={(e) => setValidityDays(e.target.value)} />
           </div>
+          <div className="space-y-2">
+            <Label>امتیاز لازم برای واجد شرایط شدن (اختیاری)</Label>
+            <Input dir="ltr" value={pointsRequired} onChange={(e) => setPointsRequired(e.target.value)} placeholder="خالی = فقط فروش نقدی" />
+          </div>
           <div className="space-y-2 md:col-span-2">
             <Label>توضیح</Label>
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
@@ -312,6 +322,7 @@ export default function AdminPackagesPage() {
                 <p className="font-medium">{item.title}</p>
                 <p className="text-sm text-muted-foreground">
                   {item.serviceName} · {item.totalSessions} جلسه · {item.validityDays} روز · {formatRials(Number(item.priceRial))}
+                  {item.pointsRequired ? ` · ${item.pointsRequired} امتیاز` : ""}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -326,6 +337,7 @@ export default function AdminPackagesPage() {
                   setValidityDays(String(item.validityDays))
                   setTotalSessions(String(item.totalSessions))
                   setServiceId(String(item.serviceId))
+                  setPointsRequired(item.pointsRequired ? String(item.pointsRequired) : "")
                 }}>ویرایش</Button>
                 {item.isActive ? (
                   <Button type="button" size="sm" variant="ghost" onClick={() => void deactivate(item.id)}>غیرفعال</Button>

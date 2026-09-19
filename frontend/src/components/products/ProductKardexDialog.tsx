@@ -27,6 +27,9 @@ type KardexRow = {
   reason: string | null
   referenceType: string | null
   referenceId: number | null
+  barberName: string | null
+  customerName: string | null
+  appointmentId: string | null
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -146,6 +149,7 @@ export function ProductKardexDialog({
                   <th className="p-2 font-medium">ورود</th>
                   <th className="p-2 font-medium">خروج</th>
                   <th className="p-2 font-medium">مانده</th>
+                  <th className="p-2 font-medium">نوبت / آرایشگر / مشتری</th>
                   <th className="p-2 font-medium">شرح</th>
                 </tr>
               </thead>
@@ -157,6 +161,17 @@ export function ProductKardexDialog({
                     <td className="p-2">{row.quantityIn || "—"}</td>
                     <td className="p-2">{row.quantityOut || "—"}</td>
                     <td className="p-2 font-medium">{row.balanceAfter}</td>
+                    <td className="p-2">
+                      {row.appointmentId ? (
+                        <span className="block text-xs">
+                          نوبت #{row.appointmentId}
+                          {row.barberName ? ` · ${row.barberName}` : ""}
+                          {row.customerName ? ` · ${row.customerName}` : ""}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="p-2">
                       <span>{row.reason || "—"}</span>
                       {row.packagingName ? (

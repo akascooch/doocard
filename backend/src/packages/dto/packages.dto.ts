@@ -52,6 +52,13 @@ export class CreatePackageTemplateDto {
   @IsInt()
   @Min(1)
   serviceId: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(1_000_000)
+  pointsRequired?: number | null;
 }
 
 export class UpdatePackageTemplateDto {
@@ -92,6 +99,13 @@ export class UpdatePackageTemplateDto {
   @IsInt()
   @Min(1)
   serviceId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(1_000_000)
+  pointsRequired?: number | null;
 
   @IsOptional()
   @Transform(({ value }) => value === true || value === 'true')

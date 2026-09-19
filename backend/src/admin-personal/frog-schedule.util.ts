@@ -4,12 +4,16 @@ import { getTehranGregorianYmd } from '../common/utils/tehran-business-day';
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 export const FROG_REMINDER_LEAD_MIN = 120;
+export const FROG_REMINDER_15M_LEAD_MIN = 15;
 export const FROG_REMINDER_WINDOW_MIN = 5;
 
-/** Inclusive window around "2 hours before due": now+115 … now+125 minutes. */
-export function frogReminderWindow(now = new Date()): { from: Date; to: Date } {
-  const from = new Date(now.getTime() + (FROG_REMINDER_LEAD_MIN - FROG_REMINDER_WINDOW_MIN) * 60_000);
-  const to = new Date(now.getTime() + (FROG_REMINDER_LEAD_MIN + FROG_REMINDER_WINDOW_MIN) * 60_000);
+/** Inclusive window around `leadMin` before due (default 2 hours): now+lead-5 … now+lead+5. */
+export function frogReminderWindow(
+  now = new Date(),
+  leadMin = FROG_REMINDER_LEAD_MIN,
+): { from: Date; to: Date } {
+  const from = new Date(now.getTime() + (leadMin - FROG_REMINDER_WINDOW_MIN) * 60_000);
+  const to = new Date(now.getTime() + (leadMin + FROG_REMINDER_WINDOW_MIN) * 60_000);
   return { from, to };
 }
 
@@ -95,7 +99,14 @@ export function tehranDueTime(at: Date): string {
   return `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
 }
 
-export function buildFrogReminderMessage(title: string, dueTime: string): string {
+export function buildFrogReminderMessage(
+  title: string,
+  dueTime: string,
+  leadMin: number = FROG_REMINDER_LEAD_MIN,
+): string {
   const clipped = title.trim().slice(0, 80);
+  if (leadMin <= FROG_REMINDER_15M_LEAD_MIN) {
+    return `یادآوری قورباغه دوکارد: ${clipped} تا ۱۵ دقیقه دیگر (ساعت ${dueTime}) موعد انجام است.`;
+  }
   return `یادآوری قورباغه دوکارد: ${clipped} در ساعت ${dueTime} موعد انجام است.`;
 }

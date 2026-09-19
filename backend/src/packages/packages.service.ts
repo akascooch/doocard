@@ -16,6 +16,7 @@ function serializeTemplate(row: {
   validityDays: number;
   totalSessions: number;
   serviceId: number;
+  pointsRequired: number | null;
   isActive: boolean;
   archivedAt: Date | null;
   createdAt: Date;
@@ -31,6 +32,7 @@ function serializeTemplate(row: {
     totalSessions: row.totalSessions,
     serviceId: row.serviceId,
     serviceName: row.service?.name ?? null,
+    pointsRequired: row.pointsRequired,
     isActive: row.isActive,
     archivedAt: row.archivedAt,
     createdAt: row.createdAt,
@@ -98,6 +100,7 @@ export class PackagesService {
         validityDays: dto.validityDays,
         totalSessions: dto.totalSessions,
         serviceId: dto.serviceId,
+        pointsRequired: dto.pointsRequired ?? null,
       },
       include: { service: { select: { id: true, name: true } } },
     });
@@ -128,6 +131,7 @@ export class PackagesService {
         ...(dto.validityDays !== undefined ? { validityDays: dto.validityDays } : {}),
         ...(dto.totalSessions !== undefined ? { totalSessions: dto.totalSessions } : {}),
         ...(dto.serviceId !== undefined ? { serviceId: dto.serviceId } : {}),
+        ...(dto.pointsRequired !== undefined ? { pointsRequired: dto.pointsRequired } : {}),
         ...(dto.isActive !== undefined
           ? { isActive: dto.isActive, archivedAt: dto.isActive ? null : existing.archivedAt ?? new Date() }
           : {}),
@@ -344,6 +348,34 @@ export class PackagesService {
       orderBy: { expiresAt: 'asc' },
     });
     return rows.map(serializeOwned);
+  }
+
+  async loyaltyEligibleForCustomer(customerId: number) {
+    const customer = await this.prisma.customer.findUnique({ where: { id: customerId } });
+    if (!customer) throw new NotFoundException('مشتری یافت نشد');
+    const [pointsSum, templates] = await Promise.all([
+      this.prisma.loyaltyPointTransaction.aggregate({
+        where: { customerId },
+        _sum: { points: true },
+      }),
+      this.prisma.servicePackageTemplate.findMany({
+        where: {
+          isActive: true,
+          archivedAt: null,
+          pointsRequired: { not: null, gt: 0 },
+        },
+        include: { service: { select: { id: true, name: true } } },
+        orderBy: { pointsRequired: 'asc' },
+      }),
+    ]);
+    const points = pointsSum._sum.points ?? 0;
+    const items = templates
+      .filter((row) => row.pointsRequired != null && points >= row.pointsRequired)
+      .map((row) => ({
+        ...serializeTemplate(row),
+        qualified: true,
+      }));
+    return { customerId, points, items };
   }
 
   private async expireOverdue(customerId: number) {

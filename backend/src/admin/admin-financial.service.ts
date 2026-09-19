@@ -98,7 +98,6 @@ export class AdminFinancialService {
         type: 'EXPENSE',
         deletedAt: null,
         occurredAt: { gte: start, lte: end },
-        categoryId: { not: null },
       },
       _sum: { amount: true },
     });
@@ -112,7 +111,7 @@ export class AdminFinancialService {
     const byId = new Map(categories.map((c) => [c.id, c.name]));
 
     const result = groups.map((g) => ({
-      name: byId.get(g.categoryId!) ?? 'بدون دسته',
+      name: g.categoryId == null ? 'وصول چک / بدون دسته' : byId.get(g.categoryId) ?? 'بدون دسته',
       total: String(g._sum.amount ?? 0),
     }));
     result.sort((a, b) => {

@@ -51,6 +51,7 @@ describe('AppointmentsService', () => {
     },
     customer: {
       findUnique: jest.fn(),
+      updateMany: jest.fn(),
     },
     employee: {
       findUnique: jest.fn(),
@@ -69,18 +70,41 @@ describe('AppointmentsService', () => {
     getByGregorian: jest.fn(),
   };
 
+  const mockSmsOutbound = {
+    sendTemplated: jest.fn(),
+    sendIfAllowed: jest.fn().mockResolvedValue({ success: true }),
+  };
+
+  const mockSmsTemplates = {
+    getByKey: jest.fn(),
+    renderByKey: jest.fn().mockResolvedValue('sms-body'),
+  };
+
+  const mockNotificationsService = {
+    create: jest.fn().mockResolvedValue({ id: 1 }),
+  };
+
+  const mockNotificationsGateway = {
+    sendToRole: jest.fn(),
+    sendToUser: jest.fn(),
+  };
+
+  const mockPushNotifications = {
+    sendToRole: jest.fn().mockResolvedValue({ sent: 0, failed: 0 }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AppointmentsService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: AccountingService, useValue: {} },
-        { provide: NotificationsService, useValue: {} },
-        { provide: NotificationsGateway, useValue: {} },
-        { provide: PushNotificationsService, useValue: {} },
+        { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: NotificationsGateway, useValue: mockNotificationsGateway },
+        { provide: PushNotificationsService, useValue: mockPushNotifications },
         { provide: CalendarService, useValue: mockCalendarService },
-        { provide: SmsOutboundService, useValue: { sendTemplated: jest.fn() } },
-        { provide: SmsTemplateService, useValue: { getByKey: jest.fn() } },
+        { provide: SmsOutboundService, useValue: mockSmsOutbound },
+        { provide: SmsTemplateService, useValue: mockSmsTemplates },
         { provide: TipAlertService, useValue: { notify: jest.fn() } },
       ],
     }).compile();
@@ -180,6 +204,69 @@ describe('AppointmentsService', () => {
         ),
       ).rejects.toThrow('لطفاً زمان شروع نوبت را از اسلات‌های موجود انتخاب کنید.');
     });
+
+    it('returns create without waiting for SMS provider response', async () => {
+      let resolveSms: ((value: { success: boolean }) => void) | undefined;
+      mockSmsOutbound.sendIfAllowed.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveSms = resolve;
+          }),
+      );
+      mockCalendarService.toGregorian.mockReturnValue(new Date(Date.UTC(2021, 2, 21)));
+      mockCalendarService.toJalali.mockReturnValue('1400-01-01');
+      mockCalendarService.ensureExists.mockResolvedValue({ id: 9 });
+      mockPrismaService.customer.findUnique.mockResolvedValue({
+        id: 1,
+        user: { id: 1, name: 'John Doe', phone: '09123456789', email: 'john@example.com', role: 'CUSTOMER' },
+      });
+      mockPrismaService.employee.findUnique.mockResolvedValue({
+        id: 1,
+        isActive: true,
+        user: { id: 2, name: 'Jane Smith', phone: '09987654321', role: 'EMPLOYEE' },
+        employeeServices: [{ serviceId: 1 }],
+      });
+      mockPrismaService.service.findUnique.mockResolvedValue({
+        id: 1,
+        name: 'Haircut',
+        price: 50000,
+        durationMinutes: 30,
+      });
+      mockPrismaService.customer.updateMany.mockResolvedValue({ count: 0 });
+      mockPrismaService.$transaction.mockImplementation(async (fn: (tx: any) => unknown) => {
+        const tx = {
+          $executeRaw: jest.fn().mockResolvedValue(undefined),
+          appointment: {
+            findFirst: jest.fn().mockResolvedValue(null),
+            create: jest.fn().mockResolvedValue({
+              ...appointmentRow,
+              status: 'PENDING',
+            }),
+          },
+          blockedTime: { findFirst: jest.fn().mockResolvedValue(null) },
+        };
+        return fn(tx);
+      });
+
+      const started = Date.now();
+      const result = await service.create(
+        {
+          customerId: 1,
+          employeeId: 1,
+          services: [{ serviceId: 1 }],
+          jalaliDate: '1400-01-01',
+          time: '14:00',
+        } as any,
+        { id: 1, role: 'ADMIN' },
+      );
+      expect(Date.now() - started).toBeLessThan(500);
+      expect(result.id).toBe(1);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(mockSmsOutbound.sendIfAllowed).toHaveBeenCalled();
+      expect(resolveSms).toBeDefined();
+      resolveSms?.({ success: true });
+    });
   });
 
   describe('update', () => {
@@ -254,6 +341,32 @@ describe('AppointmentsService', () => {
       });
 
       await expect(service.cancel(1, { id: 1, role: 'ADMIN' })).rejects.toThrow(BadRequestException);
+    });
+
+    it('returns cancel without waiting for SMS provider response', async () => {
+      let resolveSms: ((value: { success: boolean }) => void) | undefined;
+      mockSmsOutbound.sendIfAllowed.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveSms = resolve;
+          }),
+      );
+      mockPrismaService.appointment.findFirst.mockResolvedValue(appointmentRow);
+      mockPrismaService.appointment.update.mockResolvedValue({
+        ...appointmentRow,
+        status: 'CANCELLED',
+        calendarDate: { jalaliDate: '1402-10-25' },
+      });
+
+      const started = Date.now();
+      const result = await service.cancel(1, { id: 1, role: 'ADMIN' });
+      expect(Date.now() - started).toBeLessThan(500);
+      expect(result.status).toBe('CANCELLED');
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(mockSmsOutbound.sendIfAllowed).toHaveBeenCalled();
+      expect(resolveSms).toBeDefined();
+      resolveSms?.({ success: true });
     });
   });
 
