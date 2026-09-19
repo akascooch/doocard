@@ -1466,18 +1466,29 @@ export class AppointmentsService {
       paidRial > 0n ? dto.paymentMethod : ('DEBT' as const);
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      // Row lock held until this interactive transaction commits or rolls back.
+      // Concurrent settle waits here, then re-reads the winner's committed status.
+      await tx.$queryRaw`SELECT id FROM "appointments" WHERE id = ${id} FOR UPDATE`;
+
       const lockedAppointment = await tx.appointment.findUnique({ where: { id } });
+      if (!lockedAppointment || lockedAppointment.deletedAt) {
+        throw new NotFoundException(APPOINTMENT_NOT_FOUND_FA);
+      }
       if (
-        lockedAppointment?.status === 'SETTLED' ||
-        lockedAppointment?.status === 'PAID'
+        lockedAppointment.status === 'SETTLED' ||
+        lockedAppointment.status === 'PAID'
       ) {
         throw new ConflictException('این نوبت قبلاً تسویه شده است');
       }
 
-      if (lockedAppointment?.financiallyLockedAt) {
+      if (lockedAppointment.financiallyLockedAt) {
         throw new ConflictException(
           'این نوبت قفل مالی شده و قابل تسویه مجدد نیست',
         );
+      }
+
+      if (lockedAppointment.status === 'CANCELLED') {
+        throw new BadRequestException('نمی‌توان نوبت لغو شده را تسویه کرد');
       }
 
       const settlementIncome = await tx.transaction.findFirst({
