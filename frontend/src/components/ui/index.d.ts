@@ -28,12 +28,15 @@ declare module "@/components/ui/button" {
 declare module "@/components/ui/card" {
   interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
     children: React.ReactNode;
+    variant?: "default" | "elevated" | "glass" | "outline" | "gradient" | "success" | "warning" | "surface";
+    padding?: "none" | "sm" | "default" | "lg" | "xl";
   }
   export function Card(props: CardProps): JSX.Element;
   export function CardHeader(props: CardProps): JSX.Element;
   export function CardTitle(props: CardProps): JSX.Element;
   export function CardDescription(props: CardProps): JSX.Element;
   export function CardContent(props: CardProps): JSX.Element;
+  export function CardFooter(props: CardProps): JSX.Element;
 }
 
 declare module "@/components/ui/dialog" {
@@ -148,6 +151,7 @@ declare module "@/components/ui/select" {
   }
   interface SelectContentProps {
     children: React.ReactNode;
+    className?: string;
   }
   interface SelectItemProps {
     children: React.ReactNode;
@@ -206,8 +210,4 @@ declare module "@/components/ui/use-toast" {
   export function useToast(): {
     toast: (props: ToastProps) => void;
   };
-}
-
-declare module "@/components/header" {
-  export function Header(): JSX.Element;
 } 

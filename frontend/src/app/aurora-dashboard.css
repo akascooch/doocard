@@ -1,0 +1,253 @@
+/* Aurora dashboard cascade is scoped to .aurora-dashboard-canvas.
+   Auth island/input/CTA rules are scoped to .aurora-auth-shell.
+   Landing (/) and storefront stay outside both wrappers. */
+
+.aurora-dashboard-canvas {
+  color: #f4f4f5;
+}
+
+.aurora-dashboard-canvas h1,
+.aurora-dashboard-canvas h2,
+.aurora-dashboard-canvas h3,
+.aurora-dashboard-canvas h4,
+.aurora-dashboard-canvas h5,
+.aurora-dashboard-canvas h6 {
+  color: #f4f4f5;
+}
+
+.aurora-dashboard-canvas .text-gray-900,
+.aurora-dashboard-canvas .text-gray-800,
+.aurora-dashboard-canvas .text-gray-700,
+.aurora-dashboard-canvas .text-slate-900,
+.aurora-dashboard-canvas .text-slate-800 {
+  color: #f4f4f5 !important;
+}
+
+.aurora-dashboard-canvas .text-gray-600,
+.aurora-dashboard-canvas .text-gray-500 {
+  color: #e4e4e7 !important;
+}
+
+.aurora-dashboard-canvas .bg-white:not(button):not([type="submit"]):not([type="button"]):not(.text-black):not(.text-gray-900),
+.aurora-dashboard-canvas .bg-gray-50,
+.aurora-dashboard-canvas .bg-gray-100,
+.aurora-dashboard-canvas .bg-slate-50 {
+  background-color: rgb(24 24 27 / 0.6) !important;
+  color: #f4f4f5 !important;
+}
+
+.aurora-dashboard-canvas button.bg-white:not([role="combobox"]),
+.aurora-dashboard-canvas button[class*="dark:bg-white"]:not([class*="bg-white/"]):not([role="combobox"]),
+.aurora-dashboard-canvas a.bg-white.text-black,
+.aurora-dashboard-canvas .bg-white.text-black {
+  background-color: #ffffff !important;
+  color: #09090b !important;
+}
+
+/* Auth shell — Obsidian glass. Beats contrast-fix input remap and
+   leftover white-island rules so staff/OTP/register stay dark and readable. */
+.aurora-auth-shell,
+.aurora-auth-shell [class*="backdrop-blur"] {
+  color: #f4f4f5;
+}
+
+.aurora-auth-shell label,
+.aurora-auth-shell .text-muted-foreground {
+  color: #e4e4e7 !important;
+}
+
+.aurora-auth-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+.aurora-auth-shell textarea {
+  background-color: rgb(9 9 11 / 0.6) !important;
+  color: #ffffff !important;
+  border-color: #27272a !important;
+}
+
+.aurora-auth-shell input::placeholder,
+.aurora-auth-shell textarea::placeholder {
+  color: #71717a !important;
+}
+
+.aurora-auth-shell input:hover:not([type="checkbox"]):not([type="radio"]),
+.aurora-auth-shell textarea:hover {
+  border-color: #3f3f46 !important;
+}
+
+.aurora-auth-shell input:focus:not([type="checkbox"]):not([type="radio"]),
+.aurora-auth-shell input:focus-visible:not([type="checkbox"]):not([type="radio"]),
+.aurora-auth-shell textarea:focus,
+.aurora-auth-shell textarea:focus-visible {
+  border-color: #a1a1aa !important;
+  box-shadow: 0 0 0 1px #a1a1aa;
+  outline: none;
+}
+
+.aurora-auth-shell input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0.375rem;
+  border: 1px solid #3f3f46;
+  background-color: #18181b !important;
+  accent-color: #ffffff;
+  color: #ffffff !important;
+}
+
+.aurora-auth-shell .relative > button[type="button"] {
+  inset-inline-end: 0.5rem;
+  inset-inline-start: auto;
+  border-color: transparent;
+  background-color: transparent;
+  color: #a1a1aa;
+}
+
+.aurora-auth-shell .relative > button[type="button"]:hover {
+  color: #ffffff;
+  background-color: transparent;
+}
+
+.aurora-auth-shell form button[type="submit"],
+.aurora-auth-shell button.w-full:not(.aurora-auth-ghost) {
+  background-color: #ffffff !important;
+  color: #09090b !important;
+}
+
+.aurora-auth-shell .aurora-auth-ghost {
+  background-color: transparent !important;
+  color: #a1a1aa !important;
+  box-shadow: none !important;
+}
+
+.aurora-auth-shell .aurora-auth-ghost:hover {
+  color: #ffffff !important;
+}
+
+.aurora-dashboard-canvas input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.aurora-dashboard-canvas textarea,
+.aurora-dashboard-canvas select {
+  background-color: rgb(24 24 27 / 0.8) !important;
+  color: #f4f4f5 !important;
+  border-color: rgb(255 255 255 / 0.1) !important;
+}
+
+.aurora-dashboard-canvas input::placeholder,
+.aurora-dashboard-canvas textarea::placeholder {
+  color: #71717a !important;
+}
+
+.aurora-dashboard-canvas input:focus,
+.aurora-dashboard-canvas input:focus-visible,
+.aurora-dashboard-canvas textarea:focus,
+.aurora-dashboard-canvas textarea:focus-visible,
+.aurora-dashboard-canvas select:focus,
+.aurora-dashboard-canvas select:focus-visible {
+  border-color: rgb(99 102 241 / 0.5) !important;
+  box-shadow: 0 0 0 1px rgb(99 102 241 / 0.5);
+  outline: none;
+}
+
+.aurora-dashboard-canvas table {
+  background-color: transparent !important;
+  color: #f4f4f5;
+}
+
+.aurora-dashboard-canvas thead,
+.aurora-dashboard-canvas th {
+  background-color: rgb(255 255 255 / 0.02) !important;
+  color: #a1a1aa !important;
+  font-weight: 500;
+  border-bottom-color: rgb(255 255 255 / 0.05) !important;
+}
+
+.aurora-dashboard-canvas tbody tr,
+.aurora-dashboard-canvas td {
+  background-color: transparent !important;
+  border-bottom-color: rgb(255 255 255 / 0.05) !important;
+  color: #f4f4f5;
+}
+
+.aurora-dashboard-canvas tbody tr:hover,
+.aurora-dashboard-canvas tbody tr:hover td {
+  background-color: rgb(255 255 255 / 0.03) !important;
+}
+
+.aurora-dashboard-canvas {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.1) transparent;
+}
+
+.aurora-dashboard-canvas ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.aurora-dashboard-canvas ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.aurora-dashboard-canvas ::-webkit-scrollbar-thumb {
+  background-color: rgb(255 255 255 / 0.1);
+  border-radius: 999px;
+}
+
+.aurora-dashboard-canvas ::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(255 255 255 / 0.2);
+}
+
+/* Radix select dropdowns portal to body — scrollbar only; fill/type live on the primitive. */
+[data-radix-popper-content-wrapper] [data-radix-select-viewport],
+[data-radix-select-content] {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.1) transparent;
+}
+
+/* Public booking island — html.dark + default Card/Select dark tokens must not
+   paint dashboard glass onto /book-appointment. Portal content is tagged
+   .aurora-public-select because Radix mounts it on document.body. */
+.aurora-public-booking {
+  color: inherit;
+}
+
+.aurora-public-booking [class*="rounded-2xl"] h3,
+.aurora-public-booking [class*="rounded-2xl"] h4,
+.aurora-public-booking [class*="rounded-2xl"] .text-white\/90,
+.aurora-public-booking label {
+  color: #111827 !important;
+}
+
+.aurora-public-booking [class*="rounded-2xl"] .text-muted-foreground,
+.aurora-public-booking [class*="rounded-2xl"] .text-zinc-400 {
+  color: #4b5563 !important;
+}
+
+.aurora-public-booking [class*="rounded-2xl"],
+.aurora-public-booking [class*="backdrop-blur"] {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: #e5e7eb !important;
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.18);
+}
+
+.aurora-public-booking [class*="border-white\/5"],
+.aurora-public-booking [class*="border-b"] {
+  border-color: #e5e7eb !important;
+}
+
+.aurora-public-booking button[role="combobox"],
+.aurora-public-booking .aurora-public-select-trigger {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: #d1d5db !important;
+}
+
+.aurora-public-select,
+[data-radix-select-content].aurora-public-select {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: #e5e7eb !important;
+  scrollbar-color: rgb(17 24 39 / 0.2) transparent;
+}
+
+.aurora-public-select [data-radix-select-item],
+.aurora-public-select [role="option"] {
+  color: #111827 !important;
+}

@@ -24,21 +24,22 @@ const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
           ref={ref}
           type={showPassword ? "text" : "password"}
           className={cn(
-            "pr-10",
+            "pe-10",
             className
           )}
           {...props}
         />
         <button
           type="button"
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-accent/10 rounded z-10 border border-border bg-card"
+          className="absolute end-2 top-1/2 z-10 -translate-y-1/2 rounded p-1 text-zinc-400 transition-colors hover:text-white"
           onClick={handleTogglePassword}
+          aria-label={showPassword ? "مخفی کردن رمز" : "نمایش رمز"}
           style={{ zIndex: 20 }}
         >
           {showPassword ? (
-            <EyeOff className="h-4 w-4 text-muted-foreground" />
+            <EyeOff className="h-4 w-4" />
           ) : (
-            <Eye className="h-4 w-4 text-muted-foreground" />
+            <Eye className="h-4 w-4" />
           )}
         </button>
       </div>

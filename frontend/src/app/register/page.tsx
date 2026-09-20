@@ -2,10 +2,9 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AppLogo } from "@/components/common/AppLogo"
+import { Card, CardContent } from "@/components/ui/card"
 import { PhoneOtpAuth } from "@/components/auth/PhoneOtpAuth"
-import Footer from "@/components/Footer"
+import { AuthSplitShell } from "@/components/auth/AuthSplitShell"
 import { isAuthenticated, getCurrentUser } from "@/lib/auth"
 import { resolveCustomerPostAuthHref } from "@/lib/booking-draft"
 
@@ -19,41 +18,36 @@ export default function RegisterPage() {
   }, [router])
 
   return (
-    <div className="min-h-screen flex flex-col relative">
-      <div className="flex-1 flex items-center justify-center relative z-10 rtl p-4">
-        <Card className="w-full max-w-md shadow-2xl bg-white/90 dark:bg-card/80 backdrop-blur-xl">
-          <CardHeader className="space-y-4 text-center flex flex-col items-center">
-            <div className="flex justify-center mb-2 pt-6">
-              <AppLogo size="md" centered animated />
-            </div>
-            <CardTitle className="text-3xl">ثبت‌نام با موبایل</CardTitle>
-            <CardDescription>
-              بدون ایمیل و رمز عبور — فقط شماره موبایل و کد ۵ رقمی پیامک
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <PhoneOtpAuth
-              purpose="LOGIN"
-              intent="register"
-              onAuthenticated={(result) => {
-                router.push(resolveCustomerPostAuthHref(result.user?.role))
-              }}
-            />
-            <div className="mt-6 text-center">
-              <button
-                type="button"
-                className="text-sm text-muted-foreground hover:text-foreground"
-                onClick={() => router.push("/login")}
-              >
-                حساب دارید؟ وارد شوید
-              </button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-      <div className="relative z-10">
-        <Footer />
-      </div>
-    </div>
+    <AuthSplitShell
+      title="ثبت‌نام با موبایل"
+      subtitle="بدون ایمیل و رمز عبور — فقط شماره موبایل و کد ۵ رقمی پیامک"
+      heading="به دوکارد بپیوندید"
+      headingHint="سه مرحله کوتاه برای فعال‌سازی حساب مشتری."
+      activeStep={1}
+    >
+      <Card
+        padding="none"
+        className="w-full rounded-3xl border border-zinc-800/80 bg-zinc-900/70 p-6 text-zinc-100 shadow-[0_20px_50px_rgba(0,0,0,0.7)] backdrop-blur-2xl sm:p-8"
+      >
+        <CardContent className="p-0 pt-0">
+          <PhoneOtpAuth
+            purpose="LOGIN"
+            intent="register"
+            onAuthenticated={(result) => {
+              router.push(resolveCustomerPostAuthHref(result.user?.role))
+            }}
+          />
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              className="aurora-auth-ghost flex w-full items-center justify-center py-2.5 text-sm font-medium text-zinc-400 transition-colors hover:text-white"
+              onClick={() => router.push("/login")}
+            >
+              حساب دارید؟ وارد شوید
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+    </AuthSplitShell>
   )
 }
