@@ -27,11 +27,12 @@ body {
   position: relative;
 }
 
-/* همه صفحات transparent - فقط body background */
+/* Landing / photo pages stay transparent. Do not strip explicit black
+   shells (auth, storefront) or the dashboard canvas. */
 [data-app-wrapper="true"],
 [data-page="login"],
 [data-page="register"],
-.min-h-screen {
+.min-h-screen:not(.aurora-dashboard-canvas):not(.aurora-auth-shell):not(.bg-black) {
   background: transparent !important;
 }
 
@@ -55,5 +56,13 @@ body {
   body {
     background: none !important;
   }
+}
+
+/* Dashboard Aurora canvas must win over .min-h-screen { background: transparent }.
+   Scoped to .aurora-dashboard-canvas so landing/storefront stay on the body photo. */
+.aurora-dashboard-canvas,
+.aurora-dashboard-canvas.min-h-screen {
+  background-color: #09090b !important;
+  color: #f4f4f5;
 }
 

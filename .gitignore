@@ -150,6 +150,8 @@ backend/scripts/local-*.ts
 # Cypress artifacts and local secrets
 cypress/videos/
 cypress/screenshots/
+frontend/cypress/screenshots/
+**/cypress/screenshots/**
 cypress.env.json
 frontend/.cypress-cache/
 **/cypress/videos/**

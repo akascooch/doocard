@@ -1,6 +1,7 @@
 import "./globals.css"
 import "./global-background.css"
 import "./contrast-fix.css"
+import "./aurora-dashboard.css"
 import { ReactNode } from "react"
 import { Metadata } from "next"
 import { Providers } from "../components/providers"

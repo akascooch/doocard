@@ -4,19 +4,19 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl font-bold transition-all duration-md ease-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl font-bold transition-all duration-md ease-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed",
   {
     variants: {
       variant: {
-        default: "bg-gray-600 text-white hover:bg-gray-700 hover:scale-[1.02] hover:shadow-lg hover:shadow-glow-grey active:scale-[0.98]",
-        primary: "bg-gray-900 text-white border border-gray-800 hover:bg-black dark:bg-white dark:text-gray-900 dark:border-white dark:hover:bg-zinc-100 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]",
-        secondary: "bg-brand-green-600 text-white hover:bg-brand-green-700 hover:scale-[1.02] hover:shadow-lg hover:shadow-glow-green active:scale-[0.98]",
+        default: "bg-gray-600 text-white hover:bg-gray-700 hover:scale-[1.02] hover:shadow-lg hover:shadow-glow-grey active:scale-[0.98] dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100 dark:hover:shadow-none",
+        primary: "bg-gray-900 text-white border border-gray-800 hover:bg-black dark:bg-white dark:text-zinc-950 dark:border-white dark:hover:bg-zinc-100 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]",
+        secondary: "bg-brand-green-600 text-white hover:bg-brand-green-700 hover:scale-[1.02] hover:shadow-lg hover:shadow-glow-green active:scale-[0.98] dark:bg-white/10 dark:border dark:border-white/10 dark:text-zinc-100 dark:hover:bg-white/15 dark:hover:shadow-none",
         destructive: "bg-red-600 text-white hover:bg-red-700 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]",
         success: "bg-green-600 text-white hover:bg-green-700 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]",
         warning: "bg-amber-500 text-white hover:bg-amber-600 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]",
-        outline: "border-2 border-gray-600 bg-white dark:bg-transparent text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-900/20 hover:text-gray-900 dark:hover:text-white hover:scale-[1.02] active:scale-[0.98]",
-        ghost: "bg-transparent text-foreground hover:bg-muted hover:text-foreground active:scale-[0.98]",
-        link: "text-gray-600 dark:text-gray-400 underline-offset-4 hover:underline",
+        outline: "border-2 border-gray-600 bg-white dark:bg-transparent text-gray-800 dark:text-zinc-100 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/[0.05] hover:text-gray-900 dark:hover:text-white hover:scale-[1.02] active:scale-[0.98]",
+        ghost: "bg-transparent text-foreground hover:bg-muted hover:text-foreground active:scale-[0.98] dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-100",
+        link: "text-gray-600 dark:text-zinc-400 underline-offset-4 hover:underline",
       },
       size: {
         default: "h-12 px-6 py-3 text-sm md:text-base",

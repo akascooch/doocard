@@ -20,14 +20,14 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex h-12 w-full items-center justify-between rounded-xl border border-gray-300 dark:border-border bg-white dark:bg-input px-4 py-3 text-sm text-gray-900 dark:text-foreground ring-offset-background placeholder:text-gray-500 dark:placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:border-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-gray-100 dark:disabled:bg-muted [&>span]:line-clamp-1 transition-all duration-200 ease-out",
+      "flex h-12 w-full items-center justify-between rounded-xl border border-gray-300 dark:border-white/10 bg-white dark:bg-zinc-900/80 px-4 py-3 text-sm text-gray-900 dark:text-zinc-100 ring-offset-background dark:ring-offset-zinc-950 placeholder:text-gray-500 dark:placeholder:text-zinc-500 focus:outline-none focus-visible:ring-1 focus-visible:ring-indigo-500/50 focus:border-indigo-500/50 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-gray-100 dark:disabled:bg-white/[0.04] [&>span]:line-clamp-1 transition-all duration-200 ease-out",
       className
     )}
     {...props}
   >
     {children}
     <SelectPrimitive.Icon asChild>
-      <ChevronDown className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+      <ChevronDown className="h-4 w-4 text-gray-600 dark:text-zinc-400" />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ))
@@ -76,7 +76,7 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-xl border border-gray-200 dark:border-border bg-white dark:bg-popover text-gray-900 dark:text-popover-foreground shadow-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+        "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-zinc-950/95 text-gray-900 dark:text-zinc-100 shadow-xl backdrop-blur-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
         position === "popper" &&
           "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
         className
@@ -119,14 +119,14 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex w-full cursor-default select-none items-center rounded-lg py-2.5 pl-8 pr-2 text-sm text-gray-900 dark:text-foreground outline-none hover:bg-gray-100 dark:hover:bg-accent/20 focus:bg-gray-200 dark:focus:bg-accent/30 focus:text-gray-900 dark:focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 transition-colors duration-200",
+      "relative flex w-full cursor-default select-none items-center rounded-lg py-2.5 pl-8 pr-2 text-sm text-gray-900 dark:text-zinc-100 outline-none hover:bg-gray-100 dark:hover:bg-white/[0.05] focus:bg-gray-200 dark:focus:bg-white/[0.08] focus:text-gray-900 dark:focus:text-zinc-100 focus-visible:ring-1 focus-visible:ring-indigo-500/50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 transition-colors duration-200",
       className
     )}
     {...props}
   >
     <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
             <SelectPrimitive.ItemIndicator>
-              <Check className="h-4 w-4 text-gray-700 dark:text-accent" />
+              <Check className="h-4 w-4 text-gray-700 dark:text-zinc-100" />
             </SelectPrimitive.ItemIndicator>
     </span>
 

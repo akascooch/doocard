@@ -259,7 +259,7 @@ export default function BookAppointmentPage() {
         : identitySkipped
 
   return (
-    <div className="min-h-screen py-8">
+    <div className="aurora-public-booking min-h-screen py-8" data-theme="light">
       <div className="max-w-4xl mx-auto px-4">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-4">رزرو نوبت آنلاین</h1>
@@ -305,10 +305,10 @@ export default function BookAppointmentPage() {
                     value={formData.serviceId || undefined}
                     onValueChange={(value) => handleInputChange('serviceId', value)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="aurora-public-select-trigger">
                       <SelectValue placeholder="خدمت مورد نظر را انتخاب کنید" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="aurora-public-select">
                       {services.map((service) => (
                         <SelectItem key={service.id} value={service.id.toString()}>
                           {service.name}
@@ -323,10 +323,10 @@ export default function BookAppointmentPage() {
                     value={formData.employeeId || undefined}
                     onValueChange={(value) => handleInputChange('employeeId', value)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="aurora-public-select-trigger">
                       <SelectValue placeholder="آرایشگر مورد نظر را انتخاب کنید" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="aurora-public-select">
                       {employees.map((employee) => (
                         <SelectItem key={employee.id} value={employee.id.toString()}>
                           {employee?.user?.name || employee?.name || 'آرایشگر نامشخص'}

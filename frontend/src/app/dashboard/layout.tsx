@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { motion, AnimatePresence } from "framer-motion"
 import { RoleBasedSidebar } from "@/components/RoleBasedSidebar"
+import { DashboardShell } from "@/components/layout/DashboardShell"
 import { Button } from "@/components/ui/button"
-import { Menu, X } from "lucide-react"
 import { getCurrentUser } from '@/lib/auth'
 import { subscribeAuthDegraded, isAuthDegraded } from '@/lib/axios'
 import Footer from '@/components/Footer'
@@ -146,7 +145,7 @@ export default function DashboardLayout({
     <ErrorBoundary>
       <NotificationProvider>
         <GlobalErrorHandler />
-        <div className="min-h-screen bg-background">
+        <div className="aurora-dashboard-canvas min-h-screen bg-[#09090b] text-zinc-100">
           {/* Auth degraded banner (session-only, non-destructive) */}
           {authDegraded && (
             <div className="fixed top-0 inset-x-0 z-40 flex justify-center px-4 pt-4">
@@ -179,87 +178,29 @@ export default function DashboardLayout({
               </div>
             </div>
           )}
-          {/* Mobile Overlay */}
-          <AnimatePresence>
-        {isMobile && isSidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
-            onClick={closeMobileSidebar}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Sidebar */}
-      <AnimatePresence>
-        {isSidebarOpen && (
-          <motion.div
-            initial={{ x: isMobile ? 320 : 0 }}
-            animate={{ x: 0 }}
-            exit={{ x: isMobile ? 320 : 0 }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className={`
-              fixed right-0 top-0 z-50 h-full
-              ${isMobile ? 'w-80' : 'w-72'}
-              ${!isSidebarOpen && !isMobile ? 'hidden' : ''}
-            `}
-          >
-            <RoleBasedSidebar 
-              isCollapsed={isSidebarCollapsed} 
-              onToggle={closeMobileSidebar}
-              isMobile={isMobile}
-              userRole={user?.role}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Main Content */}
-      <div
-        className={`
-          transition-all duration-300 ease-out
-          ${isSidebarOpen && !isMobile ? 'lg:mr-72' : 'lg:mr-0'}
-        `}
-      >
-        {/* Page Content */}
-        <main className="p-6 lg:p-8 min-h-screen flex flex-col">
-          <motion.div
-            key={pathname}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="flex-1"
+          <DashboardShell
+            pathname={pathname}
+            isMobile={isMobile}
+            isSidebarOpen={isSidebarOpen}
+            isSidebarCollapsed={isSidebarCollapsed}
+            onOverlayClick={closeMobileSidebar}
+            onToggleSidebar={toggleSidebar}
+            userName={user?.name}
+            userRole={user?.role}
+            sidebar={
+              <RoleBasedSidebar
+                isCollapsed={isSidebarCollapsed}
+                onToggle={closeMobileSidebar}
+                isMobile={isMobile}
+                userRole={user?.role}
+              />
+            }
           >
             {children}
-          </motion.div>
-        </main>
-      </div>
-      
-      {/* Push Notification Prompt (modal handles its own positioning) */}
-      <NotificationPrompt />
+          </DashboardShell>
 
-      <Button
-        variant="primary"
-        size="icon"
-        type="button"
-        onClick={toggleSidebar}
-        aria-label={isSidebarOpen ? "بستن منو" : "باز کردن منو"}
-        aria-expanded={isSidebarOpen}
-        title={isSidebarOpen ? "بستن منو" : "باز کردن منو"}
-        className={`fixed bottom-6 z-[45] h-14 w-14 min-h-14 min-w-14 rounded-full border-2 border-gray-900 bg-gray-900 text-white shadow-xl shadow-black/30 hover:bg-black active:scale-95 dark:border-white dark:bg-white dark:text-gray-900 ${
-          isSidebarOpen && !isMobile ? "right-[19.5rem]" : "right-6"
-        }`}
-        style={{ marginBottom: "env(safe-area-inset-bottom)" }}
-      >
-        {isMobile ? (isSidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />) : (
-          isSidebarCollapsed ? <Menu className="h-6 w-6" /> : <X className="h-6 w-6" />
-        )}
-      </Button>
-      
-      <Footer />
+          <NotificationPrompt />
+          <Footer />
         </div>
       </NotificationProvider>
     </ErrorBoundary>

@@ -14,8 +14,8 @@ const badgeVariants = cva(
         success: "border-transparent bg-green-600 text-white shadow-sm",
         warning: "border-transparent bg-amber-500 text-white shadow-sm",
         info: "border-transparent bg-blue-600 text-white shadow-sm",
-        outline: "border-2 border-gray-300 dark:border-border bg-white dark:bg-transparent text-gray-900 dark:text-foreground",
-        glass: "bg-white/90 dark:bg-card/80 backdrop-blur-sm border border-gray-200 dark:border-border text-gray-900 dark:text-foreground shadow-md",
+        outline: "border border-white/20 bg-white/5 text-zinc-200",
+        glass: "bg-white/[0.04] backdrop-blur-md border border-white/10 text-zinc-100 shadow-md",
       },
     },
     defaultVariants: {

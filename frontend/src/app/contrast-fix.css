@@ -28,12 +28,12 @@ button[class*="bg-secondary"]:not([class*="bg-secondary/"]) {
 
 /* Override any conflicting classes */
 [class*="bg-brand-grey-"],
-[class*="bg-gray-6"],
-[class*="bg-gray-7"] {
+[class*="bg-gray-6"]:not([class*="bg-white"]),
+[class*="bg-gray-7"]:not([class*="bg-white"]) {
   color: white !important;
 }
 
-[class*="bg-brand-green-"] {
+[class*="bg-brand-green-"]:not([class*="bg-white"]) {
   color: white !important;
 }
 
@@ -86,7 +86,12 @@ html, #__next {
   color-scheme: dark !important;
 }
 
-.bg-white, .bg-gray-50, .bg-gray-100, .bg-slate-50 {
+/* Intentional inverted surfaces (auth card, landing book CTA, sidebar active)
+   and Radix select content keep author tokens. */
+.bg-white:not(button):not([type="submit"]):not([type="button"]):not([role="button"]):not(.text-black):not(.text-gray-900):not([data-radix-select-content]),
+.bg-gray-50:not(button),
+.bg-gray-100:not(button),
+.bg-slate-50:not(button) {
   background-color: hsl(var(--card)) !important;
   color: hsl(var(--primary)) !important;
 }
@@ -100,22 +105,23 @@ html, #__next {
   color: hsl(var(--primary)) !important;
 }
 
-input, textarea, select {
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+textarea,
+select {
   background-color: hsl(var(--card)) !important;
   color: hsl(var(--primary)) !important;
   border-color: rgba(161, 209, 177, 0.3) !important;
 }
 
-/* Ensure cards over background image are readable */
-.bg-white\/90,
-.bg-card\/80,
-[class*="backdrop-blur"] {
-  color: hsl(var(--card-foreground)) !important;
+/* Do not force inherited light type onto inverted white CTAs or glass portals. */
+[class*="backdrop-blur"]:not(button):not([class*="bg-white"]) {
+  color: hsl(var(--card-foreground));
 }
 
-/* Fix any low-opacity text that became invisible */
-[class*="text-"][class*="/"] {
-  /* If opacity makes it invisible, remove opacity */
-  filter: contrast(1.2);
+/* Inverted CTAs only. Radix SelectTrigger is a button[role=combobox] with bg-white. */
+button.bg-white:not([role="combobox"]),
+button[class*="dark:bg-white"]:not([class*="bg-white/"]):not([role="combobox"]) {
+  background-color: #ffffff !important;
+  color: #09090b !important;
 }
 

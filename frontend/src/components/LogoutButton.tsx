@@ -20,22 +20,17 @@ export function LogoutButton({ isCollapsed = false, isHovered = false, isMobile 
 
   return (
     <button
+      type="button"
       onClick={handleLogout}
       className={cn(
-        'group flex w-full items-center gap-4 rounded-xl px-4 py-3 text-sm font-extrabold bg-red-500 hover:bg-red-600 transition-all duration-200 hover:shadow-lg shadow-md',
+        'group flex w-full items-center gap-4 rounded-xl border border-transparent px-4 py-3 text-sm font-medium text-zinc-400 transition-all hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50',
         isCollapsed && !isHovered && !isMobile && 'justify-center px-2'
       )}
       title={isCollapsed && !isHovered && !isMobile ? 'خروج' : undefined}
     >
-      <LogOut 
-        className="h-6 w-6 flex-shrink-0 transition-all duration-200 group-hover:scale-110" 
-        style={{ color: '#111827', stroke: '#111827' }} 
-      />
+      <LogOut className="h-6 w-6 flex-shrink-0 transition-colors" />
       {isVisible && (
-        <span 
-          className="transition-all duration-200 font-extrabold" 
-          style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
-        >
+        <span className="font-medium transition-colors">
           خروج
         </span>
       )}

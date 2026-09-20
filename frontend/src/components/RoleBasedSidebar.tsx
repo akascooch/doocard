@@ -353,7 +353,7 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
   return (
     <div 
       className={cn(
-        "flex h-full flex-col gap-4 bg-gray-900 dark:bg-card border-l border-gray-700 dark:border-border transition-all duration-300 ease-out shadow-xl",
+        "flex h-full flex-col gap-4 bg-black border-l border-white/10 transition-all duration-300 ease-out shadow-2xl selection:bg-white/30",
         isCollapsed && !isHovered ? "w-20" : "w-72",
         isMobile && "w-80"
       )}
@@ -361,21 +361,21 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
       onMouseLeave={() => !isCollapsed && setIsHovered(false)}
     >
       {/* Header */}
-      <div className="flex h-16 items-center justify-between border-b border-gray-700 dark:border-border px-4">
-        <Link href="/" className="flex items-center gap-3 font-semibold text-gray-400 transition-all duration-300 hover:text-gray-300">
+      <div className="flex h-16 items-center justify-between border-b border-white/10 px-4">
+        <Link href="/" className="flex items-center gap-3 font-semibold text-white/60 transition-colors duration-200 hover:text-white">
           <div className="w-10 h-10">
             <AppLogo size="sm" animated={false} />
           </div>
           {(!isCollapsed || isHovered) && !isMobile && (
-            <span className="text-xl font-bold">Doocard</span>
+            <span className="text-xl font-semibold tracking-tight">Doocard</span>
           )}
         </Link>
         {isMobile && onToggle && (
           <button
             onClick={onToggle}
-            className="p-2 rounded-xl hover:bg-gray-800 dark:hover:bg-primary/10 transition-all duration-300"
+            className="p-2 rounded-xl hover:bg-white/10 transition-colors duration-200"
           >
-            <X className="h-6 w-6 text-gray-300" />
+            <X className="h-6 w-6 text-white/70" />
           </button>
         )}
       </div>
@@ -385,7 +385,7 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
         <div className="px-4 animate-fade-in">
           <div 
             className={cn(
-              "inline-flex items-center px-3 py-1.5 rounded-full text-xs font-extrabold shadow-lg",
+              "inline-flex items-center px-3 py-1.5 rounded-full text-xs font-extrabold shadow-lg ring-1 ring-white/20",
               userRole === 'ADMIN' && "bg-gradient-to-r from-purple-400 to-pink-400",
               userRole === 'ACCOUNTANT' && "bg-gradient-to-r from-amber-400 to-orange-400",
               userRole === 'EMPLOYEE' && "bg-gradient-to-r from-blue-400 to-cyan-400",
@@ -422,23 +422,29 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
                 href={item.href}
                 data-cy={`nav-${item.href}`}
                 className={cn(
-                  'group flex items-center gap-4 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-300 ease-out',
+                  'group relative flex items-center gap-4 rounded-2xl px-4 py-3 text-sm font-medium transition-colors duration-200',
                   isActive 
-                    ? 'bg-gray-600 text-white shadow-md shadow-gray-600/30' 
-                    : 'text-white hover:bg-gray-800 dark:hover:bg-primary/10 hover:text-white dark:hover:text-primary-foreground hover:scale-[1.02]',
+                    ? 'border border-white bg-white text-black shadow-sm' 
+                    : 'border border-transparent bg-transparent text-white/80 hover:border-white/10 hover:bg-[#1A1A1A] hover:text-white',
                   isCollapsed && !isHovered && !isMobile && 'justify-center px-2'
                 )}
                 title={isCollapsed && !isHovered && !isMobile ? item.title : undefined}
               >
+                {isActive && (
+                  <span className="absolute inset-y-2 right-1 w-0.5 rounded-full bg-black" aria-hidden />
+                )}
                 <Icon className={cn(
-                  "h-5 w-5 flex-shrink-0 transition-all duration-300",
-                  isActive ? "text-white" : "text-white group-hover:scale-110"
+                  "h-5 w-5 flex-shrink-0 transition-colors duration-200",
+                  isActive ? "text-black" : "text-white/70 group-hover:text-white"
                 )} />
                 {isVisible && (
                   <div className="flex-1 min-w-0">
-                    <span className="block font-semibold">{item.title}</span>
+                    <span className="block font-semibold tracking-tight">{item.title}</span>
                     {(!isCollapsed || isHovered) && !isMobile && (
-                      <span className="text-xs text-gray-300 mt-0.5 block leading-relaxed">
+                      <span className={cn(
+                        "mt-0.5 block text-xs leading-relaxed",
+                        isActive ? "text-black/50" : "text-white/40"
+                      )}>
                         {item.description}
                       </span>
                     )}
@@ -451,7 +457,7 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
       </div>
 
       {/* Footer */}
-      <div className="mt-auto p-4 border-t border-border">
+      <div className="mt-auto border-t border-white/10 p-4">
         <LogoutButton isCollapsed={isCollapsed} isHovered={isHovered} isMobile={isMobile} />
       </div>
     </div>
