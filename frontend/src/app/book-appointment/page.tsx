@@ -19,6 +19,10 @@ import {
 } from '@/lib/booking-draft'
 import api from '@/lib/axios'
 import {
+  PUBLIC_BOOKING_LEAD_HINT_FA,
+  isPublicLeadBlockedSlot,
+} from '@/lib/booking-lead-time'
+import {
   ArrowRight,
   ArrowLeft
 } from 'lucide-react'
@@ -46,6 +50,7 @@ interface TimeSlot {
   time: string
   displayTime: string
   available?: boolean
+  reason?: string
 }
 
 export default function BookAppointmentPage() {
@@ -359,13 +364,17 @@ export default function BookAppointmentPage() {
                 />
                 <div className="space-y-2">
                   <Label>انتخاب زمان *</Label>
+                  <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-200">
+                    {PUBLIC_BOOKING_LEAD_HINT_FA}
+                  </p>
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                    {timeSlots.map((slot) => (
+                    {timeSlots
+                      .filter((slot) => slot.available !== false && !isPublicLeadBlockedSlot(slot))
+                      .map((slot) => (
                       <Button
                         key={slot.time}
                         type="button"
                         variant={formData.appointmentTime === slot.time ? "default" : "outline"}
-                        disabled={slot.available === false}
                         onClick={() => handleInputChange('appointmentTime', slot.time)}
                         className="text-sm min-h-11"
                       >
@@ -373,7 +382,7 @@ export default function BookAppointmentPage() {
                       </Button>
                     ))}
                   </div>
-                  {timeSlots.length === 0 && (
+                  {timeSlots.filter((slot) => slot.available !== false && !isPublicLeadBlockedSlot(slot)).length === 0 && (
                     <p className="text-sm text-muted-foreground">
                       برای این تاریخ و آرایشگر، زمان خالی موجود نیست.
                     </p>

@@ -27,6 +27,10 @@ import {
 import axios from '@/lib/axios'
 import { parseFromJalali, persianToEnglishDigits, getCurrentJalaliDate, getJalaliWeekdayName, addDaysToJalali, isJalaliDateBefore, englishToPersianDigits, tehranHHmmFromIso, slotsApiDateFromPicker } from '@/lib/date'
 import { getCurrentUser } from '@/lib/auth'
+import {
+  PUBLIC_BOOKING_LEAD_HINT_FA,
+  isPublicLeadBlockedSlot,
+} from '@/lib/booking-lead-time'
 import PersianDatePicker from '@/components/ui/PersianDatePicker'
 
 interface Service {
@@ -120,10 +124,8 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
       const customerRes = await axios.get('/customers/me')
       if (customerRes.data && customerRes.data.preferredEmployee) {
         setPreferredEmployeeId(customerRes.data.preferredEmployee?.id)
-        console.log('👤 Customer preferred employee:', customerRes.data.preferredEmployee?.user?.name ?? customerRes.data.preferredEmployee?.name, '(ID:', customerRes.data.preferredEmployee?.id, ')')
       }
     } catch (error) {
-      console.log('ℹ️ Could not fetch preferred employee')
     }
   }
 
@@ -149,24 +151,15 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
 
   const fetchServices = async () => {
     try {
-      console.log('🔍 Fetching services from /api/services/public...')
       const res = await fetch('/api/services/public')
-      console.log('📡 Services response status:', res.status)
       
       if (res.ok) {
         const data = await res.json()
-        console.log('✅ Services data:', data)
         const servicesList = Array.isArray(data) ? data : []
         
         // Backend already sorts by usage count (most used first)
         // No need to sort here - use backend order
         setServices(servicesList)
-        console.log(`📋 ${servicesList.length} services loaded (sorted by usage count from backend)`)
-        
-        // Log usage counts for debugging
-        if (servicesList.length > 0 && servicesList[0].usageCount !== undefined) {
-          console.log('📊 Top 3 services:', servicesList.slice(0, 3).map(s => `${s.name} (${s.usageCount} uses)`))
-        }
       } else {
         console.error('❌ Services fetch failed:', res.status, res.statusText)
         const errorText = await res.text()
@@ -190,13 +183,10 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
   const fetchEmployeesByService = async (serviceId: number) => {
     setLoadingEmployees(true)
     try {
-      console.log(`🔍 Fetching employees for service ${serviceId}...`)
       const res = await fetch(`/api/employees/by-service/${serviceId}`)
-      console.log('📡 Employees response status:', res.status)
       
       if (res.ok) {
         const data = await res.json()
-        console.log('✅ Employees data:', data)
         let employeeList = Array.isArray(data) ? data : []
         
         // Custom sort: Preferred employee first, then by appointment count
@@ -204,34 +194,19 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
           const preferredIndex = employeeList.findIndex(e => e.id === preferredEmployeeId)
           
           if (preferredIndex > 0) {
-            // Move preferred employee to first position
             const preferredEmployee = employeeList[preferredIndex]
             employeeList = [
               preferredEmployee,
               ...employeeList.filter(e => e.id !== preferredEmployeeId)
             ]
-            console.log('👤 Preferred employee moved to top:', preferredEmployee.user?.name)
-          } else if (preferredIndex === 0) {
-            console.log('👤 Preferred employee already first:', employeeList[0].user?.name)
           }
         }
         
         setEmployees(employeeList)
-        console.log(`📋 ${employeeList.length} employees loaded (preferred first, then by appointment count)`)
         
-        // Log top employees for debugging
-        if (employeeList.length > 0) {
-          console.log('📊 Employee order:', employeeList.slice(0, 3).map((e, i) => 
-            `${i+1}. ${e.user?.name ?? 'نامشخص'}${e.id === preferredEmployeeId ? ' ⭐PREFERRED' : ''}`
-          ))
-        }
-        
-        // Auto-select first employee (preferred or most booked)
         if (employeeList.length > 0) {
           const selectedEmployee = employeeList[0]
           setFormData(prev => ({ ...prev, employeeId: String(selectedEmployee.id) }))
-          console.log('⭐ Auto-selected employee:', selectedEmployee.user?.name, 
-            selectedEmployee.id === preferredEmployeeId ? '(preferred employee)' : '(sorted by popularity)')
         } else {
           console.warn('⚠️ No employees found for this service')
         }
@@ -276,7 +251,6 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
       const selectedService = services.find(s => s.id === parseInt(formData.serviceId))
       const durationMin = 60
       
-      console.log(`🔄 Fetching slots for Jalali: ${formData.appointmentDate} → Gregorian: ${dateStr}`)
       
       const res = await fetch(
         `/api/appointments/slots?date=${dateStr}&employeeId=${formData.employeeId}&durationMin=${durationMin}&slotIntervalMin=30`
@@ -288,10 +262,9 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
         const allSlots: TimeSlot[] = data.slots || []
         setTimeSlots(allSlots)
         
-        const availableCount = allSlots.filter(s => s.available !== false).length
-        const busyCount = allSlots.length - availableCount
-        
-        console.log(`🕐 Loaded ${allSlots.length} time slots (${availableCount} available, ${busyCount} busy)`)
+        const availableCount = allSlots.filter(
+          (s) => s.available !== false && !isPublicLeadBlockedSlot(s),
+        ).length
 
         if (availableCount === 0) {
           toast({
@@ -440,15 +413,7 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
         notes: formData.notes || undefined,
       }
 
-      console.log('📤 Submitting appointment (BookingModal):', payload)
-      console.log('   - jalaliDate:', payload.jalaliDate)
-      console.log('   - time:', payload.time, `(extracted from: ${formData.appointmentTime})`)
-      console.log('   - services:', payload.services)
-      console.log('   - employeeId:', payload.employeeId)
-      console.log('   - customerId:', payload.customerId)
-
       const response = await axios.post('/appointments', payload)
-      console.log('✅ Appointment created:', response.data)
 
       toast({
         title: '✅ موفقیت',
@@ -474,11 +439,6 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                               errorMessage.toLowerCase().includes('conflict') ||
                               error.response?.status === 409
       
-      console.log('🔍 Error details:', {
-        message: errorMessage,
-        status: error.response?.status,
-        isSlotConflict
-      })
       
       // Show appropriate error message
       toast({
@@ -491,7 +451,6 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
       
       // If slot conflict, refresh time slots to show updated availability
       if (isSlotConflict) {
-        console.log('🔄 Refreshing time slots after conflict...')
         await fetchTimeSlots()
       }
     } finally {
@@ -590,7 +549,6 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                           : 'hover:ring-2 hover:ring-gray-300'
                       }`}
                       onClick={() => {
-                        console.log('🎯 Service selected:', service.name)
                         setFormData({ ...formData, serviceId: String(service.id), employeeId: '' })
                       }}
                     >
@@ -659,7 +617,6 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                           : 'hover:ring-2 hover:ring-gray-300'
                       }`}
                       onClick={() => {
-                        console.log('🎯 Employee selected:', employee.user?.name)
                         setFormData({ ...formData, employeeId: String(employee.id) })
                       }}
                     >
@@ -811,6 +768,9 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                 <Clock className="w-4 h-4 text-teal" />
                 ساعت مناسب را انتخاب کنید
               </label>
+              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-800 dark:text-amber-200">
+                {PUBLIC_BOOKING_LEAD_HINT_FA}
+              </p>
               {loadingSlots ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal mx-auto"></div>
@@ -833,21 +793,15 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
               ) : (
                 <div className="space-y-4">
                   {/* Available Slots (slots &lt; now+2h disabled when date is today; backend enforces) */}
-                  {timeSlots.filter(s => s.available !== false).length > 0 && (
+                  {timeSlots.filter(s => s.available !== false && !isPublicLeadBlockedSlot(s)).length > 0 && (
                     <div>
                       <p className="text-xs text-gray-500 mb-2 flex items-center">
                         <div className="w-2 h-2 rounded-full bg-green-500 ml-2"></div>
-                        زمان‌های خالی ({timeSlots.filter(s => {
-                          const tooEarly = formData.appointmentDate === getCurrentJalaliDate() && new Date(s.time) < new Date(Date.now() + 2 * 60 * 60 * 1000)
-                          return s.available !== false && !tooEarly
-                        }).length} ساعت)
+                        زمان‌های خالی ({timeSlots.filter(s => s.available !== false && !isPublicLeadBlockedSlot(s)).length} ساعت)
                       </p>
                       <div className="grid grid-cols-3 gap-3">
                         {timeSlots
-                          .filter(s => {
-                            const tooEarly = formData.appointmentDate === getCurrentJalaliDate() && new Date(s.time) < new Date(Date.now() + 2 * 60 * 60 * 1000)
-                            return s.available !== false && !tooEarly
-                          })
+                          .filter(s => s.available !== false && !isPublicLeadBlockedSlot(s))
                           .map((slot) => (
                             <Card
                               key={slot.time}

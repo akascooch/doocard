@@ -181,7 +181,7 @@ export function PhoneOtpAuth({
         </div>
         <Button
           type="button"
-          className="w-full"
+          className="h-auto min-h-11 w-full"
           disabled={savingName || name.trim().length < 2}
           onClick={() => void saveNameAndFinish()}
         >
@@ -200,16 +200,17 @@ export function PhoneOtpAuth({
       </p>
       <div className="space-y-2">
         <Label htmlFor="otp-phone">شماره موبایل</Label>
-        <Input
-          id="otp-phone"
-          dir="ltr"
-          inputMode="numeric"
-          autoComplete="tel"
-          placeholder="09123456789"
-          value={phone}
-          disabled={otpSent}
-          onChange={(e) => setPhone(e.target.value)}
-        />
+          <Input
+            id="otp-phone"
+            dir="ltr"
+            inputMode="numeric"
+            autoComplete="tel"
+            placeholder="09123456789"
+            className="min-h-11"
+            value={phone}
+            disabled={otpSent}
+            onChange={(e) => setPhone(e.target.value)}
+          />
       </div>
       {otpSent ? (
         <>
@@ -222,7 +223,7 @@ export function PhoneOtpAuth({
           />
           <Button
             type="button"
-            className="w-full"
+            className="h-auto min-h-11 w-full"
             disabled={verifying || code.length !== OTP_LENGTH}
             onClick={() => void verifyCode()}
           >
@@ -254,7 +255,7 @@ export function PhoneOtpAuth({
       ) : (
         <Button
           type="button"
-          className="w-full"
+          className="h-auto min-h-11 w-full"
           disabled={sending}
           onClick={() => void sendCode()}
         >

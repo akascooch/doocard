@@ -9,6 +9,7 @@ import { CalendarModule } from '../calendar/calendar.module';
 import { SmsSendModule } from '../sms/sms-send.module';
 import { TipAlertModule } from '../sms/tip-alert.module';
 import { WaitlistModule } from '../waitlist/waitlist.module';
+import { AppThrottlerModule } from '../throttler/throttler.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { WaitlistModule } from '../waitlist/waitlist.module';
     SmsSendModule, // Appointment SMS: SmsOutboundService (policy + dedupe); no Bull queue
     TipAlertModule,
     WaitlistModule,
+    AppThrottlerModule,
   ],
   controllers: [AppointmentsController],
   providers: [AppointmentsService],

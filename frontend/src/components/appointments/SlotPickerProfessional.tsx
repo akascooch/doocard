@@ -55,19 +55,15 @@ export default function SlotPickerProfessional({
             throw new Error('Invalid date format');
           }
 
-          console.log(`🔄 Converting: ${date} → ${gregorianDate}`);
-
           const response = await api.get('/appointments/slots', {
             params: {
               employeeId,
-              date: gregorianDate, // Send Gregorian date (YYYY-MM-DD)
+              date: gregorianDate,
               durationMin,
               bufferMin: 5,
               slotIntervalMin: 30,
             },
           });
-
-          console.log('🕐 Available slots:', response.data);
           setSlots(response.data.slots || []);
           setFirstAvailableSlot(response.data.firstAvailableSlot ?? null);
         } catch (error: any) {

@@ -114,17 +114,21 @@ export const DEFAULT_SMS_TEMPLATES: SmsTemplateSeed[] = [
   {
     name: SMS_TEMPLATE_KEYS.CHEQUE_DUE_REMINDER,
     label: 'یادآور سررسید چک',
-    description: 'یادآور T-3 تا همان‌روز برای سررسید چک‌های صادرشده، با نام و شماره حساب.',
+    description: 'یادآور T-2 تا همان‌روز برای سررسید چک‌های صادرشده، با بانک، شعبه، سریال دسته و مبلغ ریال.',
     content:
-      'دوکارد — چک {offsetLabel}\n#{leafNumber} {payee}\n{amount}\n{dueDate}\n{bankName} {accountNumber}',
+      'دوکارد — یادآوری موعد چک ({stageLabel})\nبانک: {bankName}\nشعبه: {branch}\nدسته چک: {chequeBookSerial}\nشماره برگ: {leafNumber}\nمبلغ: {amount}\nسررسید: {jalaliDueDate}',
     variables: [
+      'stageLabel',
       'offsetLabel',
       'leafNumber',
       'payee',
       'amount',
       'dueDate',
+      'jalaliDueDate',
       'bankName',
+      'branch',
       'accountNumber',
+      'chequeBookSerial',
     ],
   },
   {

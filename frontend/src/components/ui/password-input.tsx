@@ -13,9 +13,7 @@ const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
     const [showPassword, setShowPassword] = React.useState(false)
 
     const handleTogglePassword = () => {
-      console.log('Toggle password clicked, current state:', showPassword)
       setShowPassword(!showPassword)
-      console.log('New state will be:', !showPassword)
     }
 
     return (

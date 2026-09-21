@@ -57,9 +57,12 @@ describe('SMS catalog — settlement + tip', () => {
       (t) => t.name === SMS_TEMPLATE_KEYS.CHEQUE_DUE_REMINDER,
     );
     expect(tpl?.variables).toEqual(
-      expect.arrayContaining(['bankName', 'accountNumber', 'dueDate']),
+      expect.arrayContaining(['bankName', 'branch', 'chequeBookSerial', 'jalaliDueDate', 'stageLabel']),
     );
-    expect(tpl?.content).toContain('{bankName}');
+    expect(tpl?.content).toContain('{stageLabel}');
+    expect(tpl?.content).toContain('{branch}');
+    expect(tpl?.content).toContain('{chequeBookSerial}');
+    expect(tpl?.content).toContain('{jalaliDueDate}');
   });
 
   it('registers back-in-stock waitlist template and policy', () => {

@@ -78,7 +78,6 @@ export class AuthController {
       result.refreshCookieMaxAgeMs,
     );
     
-    console.log('✅ Login successful, tokens set in cookies');
     
     return { 
       user: result.user,
@@ -109,7 +108,6 @@ export class AuthController {
       result.refreshCookieMaxAgeMs,
     );
     
-    console.log('✅ Token refreshed successfully');
     
     return { 
       access_token: result.access_token,
@@ -131,7 +129,6 @@ export class AuthController {
     res.clearCookie('refresh_token', { path: '/' });
     res.clearCookie('token', { path: '/' });
     
-    console.log('✅ Logout successful');
     
     return { 
       success: true,

@@ -68,7 +68,6 @@ export default function SlotPicker({
             },
           });
 
-          console.log('🕐 Available slots:', response.data);
           setSlots(response.data.slots || []);
         } catch (error) {
           console.error('Error loading slots:', error);

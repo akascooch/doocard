@@ -27,7 +27,7 @@ export default function RegisterPage() {
     >
       <Card
         padding="none"
-        className="w-full rounded-3xl border border-zinc-800/80 bg-zinc-900/70 p-6 text-zinc-100 shadow-[0_20px_50px_rgba(0,0,0,0.7)] backdrop-blur-2xl sm:p-8"
+        className="w-full rounded-3xl border border-zinc-800/80 bg-zinc-900/70 p-5 text-zinc-100 shadow-[0_20px_50px_rgba(0,0,0,0.7)] backdrop-blur-2xl sm:p-8"
       >
         <CardContent className="p-0 pt-0">
           <PhoneOtpAuth

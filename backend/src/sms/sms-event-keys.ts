@@ -10,7 +10,7 @@ export const SMS_EVENT_KEYS = {
   APPOINTMENT_CANCELLED: 'appointment.cancelled',
   /** Barber settlement after checkout — in-app + Web Push only (SMS off by default + force-off on boot) */
   APPOINTMENT_SETTLED: 'appointment.settled',
-  /** Cheque due-date reminders (T-3 / T-2 / T-1 / T-0) */
+  /** Cheque due-date reminders (T-2 / T-1 / T-0) */
   CHEQUE_DUE_REMINDER: 'cheque.dueReminder',
   /** Tip received by SERVICE staff — SMS off by default (in-app + push only) */
   TIP_RECEIVED: 'tip.received',

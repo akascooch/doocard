@@ -27,12 +27,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { PermissionGuard } from '../common/guards/permission.guard';
-
-function actorLog(user: any): string {
-  const id = user?.sub ?? user?.id ?? user?.userId ?? '?';
-  const role = user?.role ?? '?';
-  return `userId=${id} role=${role}`;
-}
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 
 @Controller('appointments')
 export class AppointmentsController {
@@ -42,10 +37,10 @@ export class AppointmentsController {
    * Create new appointment
    */
   @Post()
-  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, PermissionGuard, ThrottlerGuard)
   @Roles('ADMIN', 'EMPLOYEE', 'CUSTOMER')
+  @Throttle({ short: { limit: 12, ttl: 60_000 } })
   create(@Body() dto: CreateAppointmentDto, @Req() req: any) {
-    console.log('📝 POST /appointments -', actorLog(req.user), 'services=', dto?.services?.length);
     return this.service.create(dto, req.user);
   }
 
@@ -56,7 +51,6 @@ export class AppointmentsController {
   @UseGuards(JwtAuthGuard, PermissionGuard)
   @Roles('ADMIN', 'EMPLOYEE', 'CUSTOMER')
   findAll(@Query() query: QueryAppointmentsDto, @Req() req: any) {
-    console.log('🔍 GET /appointments -', actorLog(req.user));
     return this.service.findAll(query, req.user);
   }
 
@@ -66,7 +60,6 @@ export class AppointmentsController {
   @Get('slots')
   @UseGuards(OptionalJwtAuthGuard)
   getSlots(@Query() dto: GetSlotsDto, @Req() req: any) {
-    console.log('🕐 GET /appointments/slots - role:', req.user?.role ?? 'anonymous');
     return this.service.getAvailableSlots(dto, req.user);
   }
 
@@ -76,7 +69,6 @@ export class AppointmentsController {
    */
   @Get('earliest')
   getEarliest(@Query() dto: GetEarliestDto) {
-    console.log('🕐 GET /appointments/earliest (PUBLIC)');
     return this.service.getEarliestAvailableSlot(dto.employeeId, dto.serviceId);
   }
 
@@ -110,7 +102,6 @@ export class AppointmentsController {
   @UseGuards(JwtAuthGuard, PermissionGuard)
   @Roles('ADMIN', 'EMPLOYEE', 'CUSTOMER')
   getSummary(@Query() query: QueryAppointmentsDto, @Req() req: any) {
-    console.log('📊 GET /appointments/summary -', actorLog(req.user));
     return this.service.getSummary(query, req.user);
   }
 
@@ -121,7 +112,6 @@ export class AppointmentsController {
   @UseGuards(JwtAuthGuard, PermissionGuard)
   @Roles('ADMIN', 'EMPLOYEE', 'CUSTOMER')
   findOne(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
-    console.log('🔍 GET /appointments/:id -', actorLog(req.user), 'id=', id);
     return this.service.findOne(id, req.user);
   }
 
@@ -136,7 +126,6 @@ export class AppointmentsController {
     @Body() dto: UpdateAppointmentDto,
     @Req() req: any
   ) {
-    console.log('✏️  PATCH /appointments/:id -', actorLog(req.user), 'id=', id);
     return this.service.update(id, dto, req.user);
   }
 
@@ -152,7 +141,6 @@ export class AppointmentsController {
     @Body() dto: SettleAppointmentDto,
     @Req() req: any
   ) {
-    console.log('💰 POST /appointments/:id/settle -', actorLog(req.user), 'id=', id);
     return this.service.settle(id, dto, req.user);
   }
 
@@ -164,7 +152,6 @@ export class AppointmentsController {
   @Roles('ADMIN')
   @HttpCode(HttpStatus.OK)
   revertSettlement(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
-    console.log('↩️ POST /appointments/:id/revert-settlement -', actorLog(req.user), 'id=', id);
     return this.service.revertSettlement(id, req.user);
   }
 
@@ -176,7 +163,6 @@ export class AppointmentsController {
   @Roles('ADMIN', 'EMPLOYEE', 'CUSTOMER')
   @HttpCode(HttpStatus.OK)
   cancel(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
-    console.log('🚫 POST /appointments/:id/cancel -', actorLog(req.user), 'id=', id);
     return this.service.cancel(id, req.user);
   }
 
@@ -188,7 +174,6 @@ export class AppointmentsController {
   @Roles('ADMIN', 'EMPLOYEE')
   @HttpCode(HttpStatus.OK)
   confirm(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
-    console.log('✅ POST /appointments/:id/confirm -', actorLog(req.user), 'id=', id);
     return this.service.confirm(id, req.user);
   }
 
@@ -200,7 +185,6 @@ export class AppointmentsController {
   @Roles('ADMIN', 'EMPLOYEE')
   @HttpCode(HttpStatus.OK)
   remove(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
-    console.log('🗑️ DELETE /appointments/:id -', actorLog(req.user), 'id=', id);
     return this.service.remove(id, req.user);
   }
 }

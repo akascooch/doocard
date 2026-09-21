@@ -46,7 +46,7 @@ export class SmsTemplateService implements OnModuleInit {
         });
       } else if (
         seed.name === SMS_TEMPLATE_KEYS.CHEQUE_DUE_REMINDER &&
-        !existing.content.includes('{bankName}')
+        !existing.content.includes('{stageLabel}')
       ) {
         await this.prisma.smsTemplate.update({
           where: { id: existing.id },

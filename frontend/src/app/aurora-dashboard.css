@@ -121,6 +121,33 @@
   color: #ffffff !important;
 }
 
+.aurora-auth-shell {
+  overflow-x: hidden;
+}
+
+.aurora-auth-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+.aurora-auth-shell textarea {
+  min-height: 2.75rem;
+  text-align: right;
+}
+
+.aurora-auth-shell input[dir="ltr"] {
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.aurora-auth-shell form button[type="submit"],
+.aurora-auth-shell button.w-full:not(.aurora-auth-ghost) {
+  min-height: 2.75rem;
+}
+
+@media (max-width: 430px) {
+  .aurora-auth-shell {
+    padding: 0.5rem;
+  }
+}
+
 .aurora-dashboard-canvas input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 .aurora-dashboard-canvas textarea,
 .aurora-dashboard-canvas select {

@@ -1,8 +1,8 @@
 'use client'
 
 import { ReactNode } from 'react'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { Circle } from 'lucide-react'
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '2.0.9'
 
@@ -32,6 +32,31 @@ const heroStagger = {
 const heroItem = {
   hidden: { opacity: 0, y: 10 },
   show: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+}
+
+function BrandMark({ compact = false }: { compact?: boolean }) {
+  const px = compact ? 40 : 48
+  return (
+    <div className="flex items-center gap-3">
+      <div
+        className={`relative overflow-hidden rounded-2xl bg-white/5 p-1 shadow-[0_8px_32px_rgba(255,255,255,0.08)] ring-1 ring-white/20 ${
+          compact ? 'h-10 w-10' : 'h-12 w-12'
+        }`}
+      >
+        <Image
+          src="/logo/logo-512.png"
+          alt="Doocard"
+          width={px}
+          height={px}
+          className="h-full w-full object-contain"
+          priority
+        />
+      </div>
+      <span className="text-lg font-semibold tracking-tight text-white sm:text-xl">
+        Doocard
+      </span>
+    </div>
+  )
 }
 
 function StepItem({
@@ -76,12 +101,20 @@ export function AuthSplitShell({
   return (
     <main
       dir="ltr"
-      className="aurora-auth-shell flex min-h-screen w-full bg-black p-2 selection:bg-white/30 transition-all duration-500 lg:h-screen lg:overflow-hidden lg:p-4"
+      className="aurora-auth-shell flex min-h-dvh w-full max-w-[100vw] overflow-x-hidden bg-black p-2 selection:bg-white/30 transition-all duration-500 lg:h-dvh lg:overflow-hidden lg:p-4"
     >
-      <aside className="relative hidden h-full w-[52%] flex-col items-center justify-end overflow-hidden rounded-3xl px-12 pb-32 shadow-2xl lg:flex">
+      <aside className="relative hidden h-full w-[52%] flex-col overflow-hidden rounded-3xl px-10 py-10 shadow-2xl lg:flex xl:px-12">
         <div
           aria-hidden
           className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,_#3a3a3a_0%,_#0a0a0a_55%,_#000_100%)]"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -left-10 top-8 h-64 w-64 rounded-full bg-amber-200/10 blur-3xl"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute bottom-10 right-0 h-72 w-72 rounded-full bg-white/5 blur-3xl"
         />
         <div
           aria-hidden
@@ -92,16 +125,15 @@ export function AuthSplitShell({
             backgroundSize: '48px 48px',
           }}
         />
+        <div className="relative z-10">
+          <BrandMark />
+        </div>
         <motion.div
-          className="z-10 w-full max-w-xs space-y-8"
+          className="relative z-10 mt-auto w-full max-w-sm space-y-8 pb-4"
           variants={heroStagger}
           initial="hidden"
           animate="show"
         >
-          <motion.div variants={heroItem} className="flex items-center gap-2">
-            <Circle className="h-5 w-5 fill-white text-white" aria-hidden />
-            <span className="text-xl font-semibold tracking-tight text-white">Doocard</span>
-          </motion.div>
           <motion.div variants={heroItem} className="space-y-3" dir="rtl">
             <h2 className="text-4xl font-medium tracking-tight text-white">
               {heading}
@@ -121,28 +153,27 @@ export function AuthSplitShell({
         </motion.div>
       </aside>
 
-      <section className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-12 sm:px-12 lg:overflow-hidden lg:px-16 lg:py-6 xl:px-24">
+      <section className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto overflow-x-hidden px-3 py-6 sm:px-8 sm:py-8 lg:justify-center lg:overflow-hidden lg:px-16 lg:py-6 xl:px-24">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, ease: 'easeOut' }}
-          className="w-full max-w-xl space-y-8 sm:space-y-10 lg:space-y-6"
+          className="w-full max-w-md space-y-5 sm:max-w-xl sm:space-y-7 lg:space-y-6"
         >
           <div className="lg:hidden">
-            <div className="mb-6 flex items-center gap-2">
-              <Circle className="h-5 w-5 fill-white text-white" aria-hidden />
-              <span className="text-xl font-semibold tracking-tight text-white">Doocard</span>
-            </div>
+            <BrandMark compact />
           </div>
           <div dir="rtl" className="space-y-2 text-right">
-            <h1 className="text-3xl font-medium tracking-tight text-white">{title}</h1>
+            <h1 className="text-[1.65rem] font-medium tracking-tight text-white sm:text-3xl">
+              {title}
+            </h1>
             <p className="text-sm leading-relaxed text-zinc-400">{subtitle}</p>
           </div>
           <div dir="rtl">{children}</div>
         </motion.div>
         <p
           dir="ltr"
-          className="mt-8 py-6 text-center text-xs font-mono tracking-wider text-zinc-500 select-none lg:mt-6"
+          className="mt-6 pb-2 text-center text-[11px] font-mono tracking-wider text-zinc-500 select-none sm:mt-8 lg:mt-6"
         >
           {`Powered by TECHOOCH • v${APP_VERSION}`}
         </p>

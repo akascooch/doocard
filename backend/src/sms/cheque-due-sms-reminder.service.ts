@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
-import { ChequeLeafStatus } from '@prisma/client';
+import { ChequeLeafStatus, NotificationType } from '@prisma/client';
+import * as jalaali from 'jalaali-js';
 import { PrismaService } from '../prisma/prisma.service';
 import { SmsOutboundService } from './sms-outbound.service';
 import { SmsTemplateService } from './sms-template.service';
@@ -11,27 +12,51 @@ import { SMS_EVENT_KEYS } from './sms-event-keys';
 /** Hard-required reminder recipients for cheque due dates. */
 export const CHEQUE_DUE_REMINDER_PHONES = ['09370504588', '09121013686'] as const;
 
-export type ChequeDueOffsetDays = 0 | 1 | 2 | 3;
+export type ChequeDueOffsetDays = 0 | 1 | 2;
+export type ChequeReminderStage = 't_minus_2' | 't_minus_1' | 't_zero';
 
 export type ChequeDueReminderPlanItem = {
   leafId: number;
   leafNumber: number;
   dueDate: string;
+  jalaliDueDate: string;
   offsetDays: ChequeDueOffsetDays;
+  stage: ChequeReminderStage;
   phone: string;
   dedupeKey: string;
+  relatedEntity: string;
   message: string;
 };
 
 type BankAccountSnippet = {
   name: string;
+  provider?: string | null;
   accountNo?: string | null;
   cardNo?: string | null;
   iban?: string | null;
 };
 
+type ChequebookSnippet = {
+  serialNumber?: string | null;
+  startNumber?: number | null;
+  endNumber?: number | null;
+  bankAccount?: BankAccountSnippet | null;
+};
+
+const STAGE_BY_OFFSET: Record<ChequeDueOffsetDays, ChequeReminderStage> = {
+  2: 't_minus_2',
+  1: 't_minus_1',
+  0: 't_zero',
+};
+
+const STAGE_LABEL_FA: Record<ChequeReminderStage, string> = {
+  t_minus_2: '۲ روز آینده',
+  t_minus_1: 'فردا',
+  t_zero: 'امروز',
+};
+
 /**
- * Daily cheque due-date reminders (T-3 through T-0) via SmsOutboundService.
+ * Daily cheque due-date reminders (T-2 through T-0) via SmsOutboundService.
  * Pure planner is exportable for dry-run tests without sending.
  */
 @Injectable()
@@ -48,7 +73,6 @@ export class ChequeDueSmsReminderService {
   /**
    * Independent kill-switch for cheque due SMS only.
    * Enabled solely when the env value is exactly "true".
-   * Undefined, empty, "false", and any other value stay off.
    */
   isChequeDueSmsEnabled(): boolean {
     return this.config.get<string>('CHEQUE_DUE_SMS_ENABLED') === 'true';
@@ -79,16 +103,44 @@ export class ChequeDueSmsReminderService {
     }).format(now);
   }
 
-  static dedupeKey(leafId: number, offsetDays: ChequeDueOffsetDays, dueYmd: string): string {
-    return `cheque.due:${leafId}:T-${offsetDays}:${dueYmd}`;
+  static gregorianYmdToJalali(ymd: string): string {
+    const [y, m, d] = ymd.split('-').map(Number);
+    const j = jalaali.toJalaali(y, m, d);
+    return `${j.jy}/${String(j.jm).padStart(2, '0')}/${String(j.jd).padStart(2, '0')}`;
   }
 
-  /** Prefer account number; otherwise last 4 of IBAN or card. */
+  static stageForOffset(offsetDays: ChequeDueOffsetDays): ChequeReminderStage {
+    return STAGE_BY_OFFSET[offsetDays];
+  }
+
+  static relatedEntityKey(
+    leafId: number,
+    stage: ChequeReminderStage,
+    jalaliDueDate: string,
+  ): string {
+    return `cheque:reminder:${leafId}:${stage}:${jalaliDueDate}`;
+  }
+
+  static dedupeKey(
+    leafId: number,
+    stage: ChequeReminderStage,
+    jalaliDueDate: string,
+    phone: string,
+  ): string {
+    return `${ChequeDueSmsReminderService.relatedEntityKey(leafId, stage, jalaliDueDate)}:${phone.slice(-4)}`;
+  }
+
   static formatBankDetails(account?: BankAccountSnippet | null): {
     bankName: string;
+    branch: string;
     accountNumber: string;
   } {
-    const bankName = account?.name?.trim() || '—';
+    const rawName = account?.name?.trim() || '';
+    const provider = account?.provider?.trim() || '';
+    const branchMatch = rawName.match(/^(.*?)\s*شعبه\s+(.+)$/);
+    const bankName =
+      provider || (branchMatch ? branchMatch[1].trim() : rawName) || '—';
+    const branch = (branchMatch ? branchMatch[2].trim() : '') || '—';
     const full =
       account?.accountNo?.trim() ||
       account?.iban?.trim() ||
@@ -100,30 +152,46 @@ export class ChequeDueSmsReminderService {
         ? `…${compact.slice(-4)}`
         : compact
       : '—';
-    return { bankName, accountNumber };
+    return { bankName, branch, accountNumber };
   }
 
-  /**
-   * Build reminder plan for offsets relative to "today".
-   * offsetDays=3 → due date is today+3, etc.
-   */
+  static formatChequeBookSerial(book?: ChequebookSnippet | null): string {
+    const serial = book?.serialNumber?.trim();
+    if (serial) return serial;
+    if (book?.startNumber != null && book?.endNumber != null) {
+      return `${book.startNumber}–${book.endNumber}`;
+    }
+    return '—';
+  }
+
+  /** Cheque amounts are stored in IRR (ریال). */
+  static formatAmountRial(amount: bigint | number | null | undefined): string {
+    if (amount == null) return '—';
+    const n = typeof amount === 'bigint' ? Number(amount) : amount;
+    if (!Number.isFinite(n)) return '—';
+    return `${n.toLocaleString('fa-IR')} ریال`;
+  }
+
   async buildPlan(options?: {
     now?: Date;
     dryRun?: boolean;
   }): Promise<ChequeDueReminderPlanItem[]> {
     const today = ChequeDueSmsReminderService.todayYmdTehran(options?.now);
-    const offsets: ChequeDueOffsetDays[] = [3, 2, 1, 0];
+    const offsets: ChequeDueOffsetDays[] = [2, 1, 0];
     const plan: ChequeDueReminderPlanItem[] = [];
 
     for (const offsetDays of offsets) {
       const dueYmd = ChequeDueSmsReminderService.addDaysYmd(today, offsetDays);
+      const jalaliDueDate = ChequeDueSmsReminderService.gregorianYmdToJalali(dueYmd);
       const { start, end } = ChequeDueSmsReminderService.dayBoundsTehran(dueYmd);
+      const stage = ChequeDueSmsReminderService.stageForOffset(offsetDays);
 
       const leaves = await this.prisma.chequeLeaf.findMany({
         where: {
           deletedAt: null,
           status: ChequeLeafStatus.ISSUED,
           dueDate: { gte: start, lte: end },
+          chequebook: { deletedAt: null },
         },
         select: {
           id: true,
@@ -134,9 +202,13 @@ export class ChequeDueSmsReminderService {
           category: true,
           chequebook: {
             select: {
+              serialNumber: true,
+              startNumber: true,
+              endNumber: true,
               bankAccount: {
                 select: {
                   name: true,
+                  provider: true,
                   accountNo: true,
                   cardNo: true,
                   iban: true,
@@ -148,30 +220,46 @@ export class ChequeDueSmsReminderService {
       });
 
       for (const leaf of leaves) {
-        const amountLabel =
-          leaf.amount != null
-            ? Number(leaf.amount).toLocaleString('fa-IR')
-            : '—';
-        const payee = leaf.payee || '—';
-        const { bankName, accountNumber } = ChequeDueSmsReminderService.formatBankDetails(
-          leaf.chequebook?.bankAccount,
+        const { bankName, branch, accountNumber } =
+          ChequeDueSmsReminderService.formatBankDetails(leaf.chequebook?.bankAccount);
+        const chequeBookSerial = ChequeDueSmsReminderService.formatChequeBookSerial(
+          leaf.chequebook,
         );
-        const message = await this.smsTemplates.renderByKey(
+        const amountLabel = ChequeDueSmsReminderService.formatAmountRial(leaf.amount);
+        const stageLabel = STAGE_LABEL_FA[stage];
+        const vars = {
+          stageLabel,
+          offsetLabel: stageLabel,
+          leafNumber: String(leaf.leafNumber),
+          payee: leaf.payee || '—',
+          amount: amountLabel,
+          dueDate: jalaliDueDate,
+          jalaliDueDate,
+          bankName,
+          branch,
+          accountNumber,
+          chequeBookSerial,
+        };
+        const rendered = await this.smsTemplates.renderByKey(
           SMS_TEMPLATE_KEYS.CHEQUE_DUE_REMINDER,
-          {
-            offsetLabel:
-              offsetDays === 0
-                ? 'امروز'
-                : offsetDays === 1
-                  ? 'فردا'
-                  : `${offsetDays} روز دیگر`,
-            leafNumber: String(leaf.leafNumber),
-            payee,
-            amount: amountLabel,
-            dueDate: dueYmd,
-            bankName,
-            accountNumber,
-          },
+          vars,
+        );
+        const message =
+          rendered?.trim() ||
+          [
+            `دوکارد — یادآوری موعد چک (${stageLabel})`,
+            `بانک: ${bankName}`,
+            `شعبه: ${branch}`,
+            `دسته چک: ${chequeBookSerial}`,
+            `شماره برگ: ${leaf.leafNumber}`,
+            `مبلغ: ${amountLabel}`,
+            `سررسید: ${jalaliDueDate}`,
+          ].join('\n');
+
+        const relatedEntity = ChequeDueSmsReminderService.relatedEntityKey(
+          leaf.id,
+          stage,
+          jalaliDueDate,
         );
 
         for (const phone of CHEQUE_DUE_REMINDER_PHONES) {
@@ -179,9 +267,17 @@ export class ChequeDueSmsReminderService {
             leafId: leaf.id,
             leafNumber: leaf.leafNumber,
             dueDate: dueYmd,
+            jalaliDueDate,
             offsetDays,
+            stage,
             phone,
-            dedupeKey: `${ChequeDueSmsReminderService.dedupeKey(leaf.id, offsetDays, dueYmd)}:${phone.slice(-4)}`,
+            relatedEntity,
+            dedupeKey: ChequeDueSmsReminderService.dedupeKey(
+              leaf.id,
+              stage,
+              jalaliDueDate,
+              phone,
+            ),
             message,
           });
         }
@@ -196,7 +292,12 @@ export class ChequeDueSmsReminderService {
     sent: number;
     skipped: number;
     dryRun: boolean;
-    items: Array<Pick<ChequeDueReminderPlanItem, 'dedupeKey' | 'phone' | 'leafId' | 'offsetDays'>>;
+    items: Array<
+      Pick<
+        ChequeDueReminderPlanItem,
+        'dedupeKey' | 'phone' | 'leafId' | 'offsetDays' | 'stage'
+      >
+    >;
   }> {
     if (!this.isChequeDueSmsEnabled()) {
       this.logger.log(
@@ -210,8 +311,12 @@ export class ChequeDueSmsReminderService {
     let sent = 0;
     let skipped = 0;
     const items: Array<
-      Pick<ChequeDueReminderPlanItem, 'dedupeKey' | 'phone' | 'leafId' | 'offsetDays'>
+      Pick<
+        ChequeDueReminderPlanItem,
+        'dedupeKey' | 'phone' | 'leafId' | 'offsetDays' | 'stage'
+      >
     > = [];
+    const notifiedEntities = new Set<string>();
 
     for (const item of plan) {
       items.push({
@@ -219,6 +324,7 @@ export class ChequeDueSmsReminderService {
         phone: item.phone.replace(/\d(?=\d{4})/g, '*'),
         leafId: item.leafId,
         offsetDays: item.offsetDays,
+        stage: item.stage,
       });
       if (dryRun) {
         skipped += 1;
@@ -232,8 +338,15 @@ export class ChequeDueSmsReminderService {
         templateKey: SMS_TEMPLATE_KEYS.CHEQUE_DUE_REMINDER,
         skipAlwaysCc: true,
       });
-      if (result.success && !result.skipped) sent += 1;
-      else skipped += 1;
+      if (result.success && !result.skipped) {
+        sent += 1;
+        if (!notifiedEntities.has(item.relatedEntity)) {
+          await this.recordInAppNotice(item);
+          notifiedEntities.add(item.relatedEntity);
+        }
+      } else {
+        skipped += 1;
+      }
     }
 
     this.logger.log(
@@ -243,7 +356,30 @@ export class ChequeDueSmsReminderService {
     return { planned: plan.length, sent, skipped, dryRun, items };
   }
 
-  @Cron('0 8 * * *', { timeZone: 'Asia/Tehran' })
+  private async recordInAppNotice(item: ChequeDueReminderPlanItem): Promise<void> {
+    try {
+      const existing = await this.prisma.notification.findFirst({
+        where: { relatedEntity: item.relatedEntity },
+        select: { id: true },
+      });
+      if (existing) return;
+      await this.prisma.notification.create({
+        data: {
+          title: `یادآوری موعد چک (${STAGE_LABEL_FA[item.stage]})`,
+          message: item.message.slice(0, 500),
+          type: NotificationType.GENERAL,
+          roleTarget: 'ADMIN',
+          relatedEntity: item.relatedEntity,
+        },
+      });
+    } catch (err: any) {
+      this.logger.warn(
+        `Cheque in-app notice skipped leaf=${item.leafId}: ${err?.message || 'unknown'}`,
+      );
+    }
+  }
+
+  @Cron('0 9 * * *', { timeZone: 'Asia/Tehran' })
   async scheduledReminders() {
     try {
       await this.runReminders();

@@ -84,39 +84,41 @@ export default function LoginPage() {
     >
       <Card
         padding="none"
-        className="w-full rounded-3xl border border-zinc-800/80 bg-zinc-900/70 p-6 text-zinc-100 shadow-[0_20px_50px_rgba(0,0,0,0.7)] backdrop-blur-2xl sm:p-8"
+        className="w-full rounded-3xl border border-zinc-800/80 bg-zinc-900/70 p-5 text-zinc-100 shadow-[0_20px_50px_rgba(0,0,0,0.7)] backdrop-blur-2xl sm:p-8"
       >
-        <CardContent className="space-y-6 p-0">
+        <CardContent className="space-y-5 p-0 sm:space-y-6">
           {staffMode ? (
-            <form onSubmit={handleStaffSubmit} className="space-y-5">
-              <div className="space-y-3">
+            <form onSubmit={handleStaffSubmit} className="space-y-5" dir="rtl">
+              <div className="space-y-2">
                 <Label htmlFor="identifier" className="text-sm font-medium leading-relaxed text-zinc-200">ایمیل یا شماره موبایل</Label>
                 <Input
                   id="identifier"
                   type="text"
                   autoComplete="username"
                   required
+                  dir="rtl"
                   placeholder="ایمیل یا شماره موبایل خود را وارد کنید"
                   value={formData.identifier}
                   onChange={(e) =>
                     setFormData({ ...formData, identifier: e.target.value })
                   }
-                  className="rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-white outline-none placeholder:text-zinc-500 transition-all duration-200 hover:border-zinc-700 focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
+                  className="min-h-11 rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-right text-white outline-none placeholder:text-zinc-500 transition-all duration-200 hover:border-zinc-700 focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
                 />
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-medium leading-relaxed text-zinc-200">رمز عبور</Label>
                 <PasswordInput
                   id="password"
                   autoComplete="current-password"
                   required
+                  dir="rtl"
                   placeholder="رمز عبور خود را وارد کنید"
                   value={formData.password}
                   onChange={(e) =>
                     setFormData({ ...formData, password: e.target.value })
                   }
-                  className="rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-white outline-none placeholder:text-zinc-500 transition-all duration-200 hover:border-zinc-700 focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
+                  className="min-h-11 rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-right text-white outline-none placeholder:text-zinc-500 transition-all duration-200 hover:border-zinc-700 focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
                 />
               </div>
 
@@ -137,7 +139,7 @@ export default function LoginPage() {
 
               <Button
                 type="submit"
-                className="mt-4 h-auto w-full rounded-xl bg-white px-6 py-3.5 font-semibold text-black shadow-lg transition-all duration-200 hover:bg-zinc-200 hover:shadow-white/10 active:scale-[0.99]"
+                className="mt-4 h-auto min-h-11 w-full rounded-xl bg-white px-6 py-3.5 font-semibold text-black shadow-lg transition-all duration-200 hover:bg-zinc-200 hover:shadow-white/10 active:scale-[0.99]"
                 disabled={loading}
               >
                 {loading ? "در حال ورود..." : "ورود به سیستم"}

@@ -28,14 +28,11 @@ export class AuthService {
   ) {}
 
   async validateUser(identifier: string, password: string): Promise<any> {
-    console.log('🔍 Validating user');
     
     if (!identifier || !password) {
-      console.log('❌ Missing identifier or password');
       return null;
     }
 
-    console.log('🔍 Finding user in database...');
     
     // Check if identifier is email or phone number
     const isEmail = identifier.includes('@');
@@ -57,16 +54,10 @@ export class AuthService {
     });
 
     if (!user) {
-      console.log('❌ User not found');
       return null;
     }
 
-    console.log('✅ User found:', { 
-      id: user.id, 
-      role: user.role
-    });
 
-    console.log('🔍 Comparing passwords...');
     // Do not log passwordMatch boolean in production logs (timing/info leak risk)
     const passwordMatch = await bcrypt.compare(password, user.password);
 
@@ -161,7 +152,6 @@ export class AuthService {
    * Login with refresh token generation
    */
   async login(loginDto: LoginDto, ipAddress?: string, userAgent?: string) {
-    console.log('🔵 Login attempt');
     
     if (!loginDto.identifier) {
       throw new UnauthorizedException('ایمیل یا شماره موبایل الزامی است');
@@ -169,14 +159,9 @@ export class AuthService {
     
     const user = await this.validateUser(loginDto.identifier, loginDto.password);
     if (!user) {
-      console.log('❌ Login failed: Invalid credentials');
       throw new UnauthorizedException('ایمیل/شماره موبایل یا رمز عبور اشتباه است');
     }
 
-    console.log('✅ Login successful:', { 
-      userId: user.id, 
-      role: user.role 
-    });
     
     const result = await this.issueSession(user, ipAddress, userAgent, loginDto.rememberMe);
     
@@ -293,7 +278,6 @@ export class AuthService {
       },
     });
 
-    console.log(`🧹 Cleaned up ${deleted.count} expired refresh tokens`);
     return deleted;
   }
 
@@ -338,7 +322,6 @@ export class AuthService {
         },
       });
 
-      console.log('User registered:', { id: user.id, role: registerDto.role });
 
       // Create profile based on role
         if (registerDto.role === 'CUSTOMER') {
@@ -361,7 +344,6 @@ export class AuthService {
           }
 
           registeredPreferredEmployeeId = resolvedEmployeeId;
-          console.log('Creating customer profile with employeeId:', resolvedEmployeeId);
           await tx.customer.create({
             data: {
               userId: user.id,

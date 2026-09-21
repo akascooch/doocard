@@ -27,7 +27,6 @@ import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { PushNotificationsService } from '../push-notifications/push-notifications.service';
 import { CalendarService } from '../calendar/calendar.service';
 import { tehranIsoFromUtcMidnightAndTime } from '../calendar/tehran-civil-datetime.util';
-import { getTehranGregorianYmd } from '../common/utils/tehran-business-day';
 import {
   normalizeBookingClockTime,
   SLOT_INTERVAL_MIN,
@@ -238,7 +237,6 @@ export class AppointmentsService {
    * Creates appointment with atomic slot reservation
    */
   async create(dto: CreateAppointmentDto, currentUser?: any) {
-    console.log('📅 Creating appointment (reserving slot):', dto);
 
     if (isEmployeeRole(currentUser)) {
       const actorEmployee = await this.requireEmployeeActor(currentUser);
@@ -254,7 +252,6 @@ export class AppointmentsService {
       });
       if (existing) {
         await this.assertAppointmentReadAccess(existing, currentUser);
-        console.log('♻️ Returning existing appointment for clientOpId:', clientOpId);
         return this.formatAppointment(existing);
       }
     }
@@ -283,7 +280,6 @@ export class AppointmentsService {
       const calendarDate = await this.calendarService.ensureExists({ jalaliDate: dto.jalaliDate });
       calendarDateId = calendarDate.id;
       
-      console.log(`📅 Parsed Jalali: ${dto.jalaliDate} ${clock} (Iran/UTC+3:30) → ${scheduledAt.toISOString()} (UTC) (calendar_date_id: ${calendarDateId})`);
     } else if (dto.scheduledAt) {
       // Parse ISO date-time
       scheduledAt = new Date(dto.scheduledAt);
@@ -299,42 +295,24 @@ export class AppointmentsService {
       const calendarDate = await this.calendarService.ensureExists({ gregorianDate });
       calendarDateId = calendarDate.id;
       
-      console.log(`📅 Parsed ISO: ${dto.scheduledAt} → ${scheduledAt.toISOString()} (calendar_date_id: ${calendarDateId})`);
     } else {
       throw new BadRequestException('Either (jalaliDate + time) or scheduledAt must be provided');
     }
 
-    // Min 2h rule (deterministic): same calendar day in Tehran; comparison in UTC.
+    // Min 2h lead time (UTC comparison against Asia/Tehran "now").
     const nowUtc = new Date();
-    const todayTehran = getTehranGregorianYmd(nowUtc);
-    const bookingDateTehran = getTehranGregorianYmd(scheduledAt);
-
-    const _isCustomer = currentUser?.role === 'CUSTOMER';
     const isStaff = currentUser?.role === 'ADMIN' || currentUser?.role === 'EMPLOYEE';
 
-    // [TZ-VALIDATE STEP 4] Midnight boundary (no logic change)
-    const nowTehranStr = nowUtc.toLocaleString('en-US', { timeZone: 'Asia/Tehran' });
-    const selectedTehranStr = scheduledAt.toLocaleString('en-US', { timeZone: 'Asia/Tehran' });
-    console.log('[TZ-VALIDATE midnight] nowTehran:', nowTehranStr, '| selectedTehran:', selectedTehranStr, '| isToday:', bookingDateTehran === todayTehran);
-
-    /*
-     * Customer bookings require a 2-hour minimum lead time.
-     * Staff (ADMIN / EMPLOYEE) can register past times for operational reasons
-     * such as back-office appointment registration.
-     * Unauthenticated callers are treated like customers.
-     */
-    if (bookingDateTehran === todayTehran && !isStaff) {
+    // Customer / unauthenticated bookings require a 2-hour minimum lead time
+    // in Asia/Tehran (UTC comparison). Staff (ADMIN / EMPLOYEE) may book desk
+    // appointments without this window, including same-day back-office entries.
+    if (!isStaff) {
       const minAllowedAtUtc = new Date(nowUtc.getTime() + 2 * 60 * 60 * 1000);
-      // [TZ-VALIDATE STEP 3] 2h rule (no logic change)
-      console.log('[TZ-VALIDATE 2h] nowUtc:', nowUtc.toISOString());
-      console.log('[TZ-VALIDATE 2h] minAllowedAtUtc:', minAllowedAtUtc.toISOString());
-      console.log('[TZ-VALIDATE 2h] selectedStartUtc (scheduledAt):', scheduledAt.toISOString());
-      console.log('[TZ-VALIDATE 2h] scheduledAt < minAllowedAtUtc:', scheduledAt < minAllowedAtUtc, '→', scheduledAt < minAllowedAtUtc ? 'FAIL' : 'PASS');
       if (scheduledAt < minAllowedAtUtc) {
-        throw new BadRequestException('نوبت باید حداقل ۲ ساعت قبل از زمان نوبت ثبت شود');
+        throw new BadRequestException(
+          'زمان رزرو باید حداقل ۲ ساعت از زمان فعلی جلوتر باشد',
+        );
       }
-    } else if (bookingDateTehran === todayTehran && isStaff) {
-      console.log('[BOOKING] Staff same-day create: 2h lead-time rule skipped for', currentUser?.role);
     }
 
     // Validate customer
@@ -410,7 +388,6 @@ export class AppointmentsService {
 
     const finalDuration = dto.durationMin || totalDuration;
     
-    console.log(`⏱️ Duration calculation: services=${dto.services.length}, totalDuration=${totalDuration}min, finalDuration=${finalDuration}min`);
     const endAt = new Date(scheduledAt.getTime() + finalDuration * 60 * 1000);
 
     // ATOMIC RESERVATION with PostgreSQL advisory lock
@@ -423,7 +400,6 @@ export class AppointmentsService {
           // Acquire advisory lock for this employee (concurrent-safe)
           await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(CONCAT('employee:', ${dto.employeeId}::text)))`;
 
-          console.log(`🔒 Acquired lock for employee ${dto.employeeId}`);
 
           // Check for overlapping appointments
           const overlapping = await tx.appointment.findFirst({
@@ -462,9 +438,6 @@ export class AppointmentsService {
             );
 
             if (hasConflict) {
-              console.log('❌ Overlap detected with appointment:', overlapping.id);
-              console.log(`   - Existing: ${overlapping.scheduledAt.toISOString()} (${overlapping.durationMin}min, ${overlapping.status})`);
-              console.log(`   - Requested: ${scheduledAt.toISOString()} (${dto.services.reduce((sum, s) => sum + s.durationMin, 0)}min)`);
               throw new BadRequestException({
                 statusCode: 409,
                 message: 'تداخل زمانی! این زمان دیگر رزرو شده است',
@@ -496,7 +469,6 @@ export class AppointmentsService {
           });
 
           if (blockedTime) {
-            console.log('❌ Blocked time detected:', blockedTime.reason);
             throw new BadRequestException(
               `این زمان مسدود شده است. دلیل: ${blockedTime.reason || 'نامشخص'}`
             );
@@ -529,7 +501,6 @@ export class AppointmentsService {
           include: APPOINTMENT_DETAIL_INCLUDE,
         });
 
-        console.log('✅ Appointment created (slot reserved):', created.id);
         return created;
       },
       { maxWait: 5_000, timeout: 30_000 },
@@ -766,7 +737,6 @@ export class AppointmentsService {
    * Get appointments with filters
    */
   async findAll(query: QueryAppointmentsDto, currentUser?: any) {
-    console.log('🔍 Finding appointments with query:', query, 'user:', currentUser?.role);
 
     const where = await this.buildAppointmentListWhere(query, currentUser);
     const take = query.take || 200;
@@ -795,7 +765,6 @@ export class AppointmentsService {
    * Settled sales: status IN (SETTLED, PAID), intersected with query.status when set.
    */
   async getSummary(query: QueryAppointmentsDto, currentUser?: any) {
-    console.log('📊 Appointments summary:', query, 'user:', currentUser?.role);
 
     const where = await this.buildAppointmentListWhere(query, currentUser);
     const totalCount = await this.prisma.appointment.count({ where });
@@ -986,10 +955,7 @@ export class AppointmentsService {
       currentUser?.role === 'ADMIN' || currentUser?.role === 'EMPLOYEE';
 
     // [TZ-VALIDATE STEP 1] Server time (no logic change)
-    console.log('[TZ-VALIDATE] Server ISO:', new Date().toISOString());
-    console.log('[TZ-VALIDATE] Server TZ:', Intl.DateTimeFormat().resolvedOptions().timeZone);
 
-    console.log('🕐 Getting available slots (10:00–22:00 Asia/Tehran):', dto);
 
     // Validate employee
     const employee = await this.prisma.employee.findUnique({
@@ -1009,18 +975,7 @@ export class AppointmentsService {
     // Weekday for work_schedules: schema is 0=Sunday, 1=Monday, ..., 6=Saturday (Gregorian).
     // Use UTC weekday of this date so it is deterministic and matches DB convention.
     // Do NOT use calendar.jalaliDayOfWeek here — it can disagree with DB (e.g. server TZ at creation).
-    const dbWeekdayQueried = targetDate.getUTCDay();
-    const calendarEntry = await this.calendarService.getByGregorian(targetDate);
-    const jalaliWeekdayFromCalendar = calendarEntry?.jalaliDayOfWeek ?? null;
-
-    console.log('[WEEKDAY-DEBUG]', {
-      requestedDate: date.slice(0, 10),
-      gregorianWeekdayTehran: dbWeekdayQueried,
-      jalaliWeekday: jalaliWeekdayFromCalendar,
-      dbWeekdayQueried,
-    });
-
-    const weekday = dbWeekdayQueried;
+    const weekday = targetDate.getUTCDay();
 
     // Asia/Tehran: UTC+3:30. Midnight Tehran for this Gregorian day = UTC midnight minus 3.5h.
     const TEHRAN_OFFSET_MS = (3 * 60 + 30) * 60 * 1000;
@@ -1032,7 +987,6 @@ export class AppointmentsService {
     const startOfDay = tehranMidnightUtc;
     const endOfDay = tehranDayEndUtc;
 
-    console.log(`📅 Tehran day range (UTC): ${startOfDay.toISOString()} → ${endOfDay.toISOString()}, weekday (0=Sun..6=Sat): ${weekday}`);
 
     // Get work schedule for this weekday (0=Sunday .. 6=Saturday, matches schema)
     const workSchedules = await this.prisma.workSchedule.findMany({
@@ -1044,13 +998,12 @@ export class AppointmentsService {
       orderBy: { startTime: 'asc' },
     });
 
-    console.log(`📅 Work schedules for weekday ${weekday}:`, workSchedules);
 
     // Runtime fallback when no work_schedules row exists for this weekday (do not insert into DB)
     if (workSchedules.length === 0) {
       console.warn('[WORKSCHEDULE-FALLBACK]', {
         employeeId,
-        weekday: dbWeekdayQueried,
+        weekday,
         fallbackApplied: true,
       });
     }
@@ -1073,10 +1026,6 @@ export class AppointmentsService {
     const win = workingHours[0];
     const windowStartUtc = new Date(tehranMidnightUtc.getTime() + win.start * 60 * 60 * 1000);
     const windowEndUtc = new Date(tehranMidnightUtc.getTime() + win.end * 60 * 60 * 1000);
-    console.log('[TZ-VALIDATE] selectedDate:', date);
-    console.log('[TZ-VALIDATE] tehranMidnightUtc:', tehranMidnightUtc.toISOString());
-    console.log('[TZ-VALIDATE] windowStartUtc:', windowStartUtc.toISOString());
-    console.log('[TZ-VALIDATE] windowEndUtc:', windowEndUtc.toISOString());
 
     // Get existing appointments (on this Tehran day)
     const existingAppointments = await this.prisma.appointment.findMany({
@@ -1100,9 +1049,7 @@ export class AppointmentsService {
       orderBy: { scheduledAt: 'asc' },
     });
     
-    console.log(`📋 Found ${existingAppointments.length} appointments for employee ${employeeId} on ${date}:`);
     existingAppointments.forEach(apt => {
-      console.log(`   - ID ${apt.id}: ${apt.scheduledAt.toISOString()} (${apt.durationMin}min, ${apt.status})`);
     });
 
     // Get blocked times
@@ -1132,7 +1079,6 @@ export class AppointmentsService {
       },
     });
 
-    console.log(`📋 Found ${existingAppointments.length} appointments, ${blockedTimes.length} blocked times`);
 
     const tehranTimeOpts = { timeZone: 'Asia/Tehran' as const, hour: '2-digit' as const, minute: '2-digit' as const, hour12: false };
 
@@ -1168,7 +1114,6 @@ export class AppointmentsService {
       }
     }
 
-    console.log(`✅ Generated ${availableSlots.length} available slots (including work schedule and blocked times)`);
 
     // Build ALL slots (including busy ones for better UX); window = 10:00–22:00 Tehran in UTC
     const allSlots: { time: string; displayTime: string; endTime: string; available: boolean; reason?: string }[] = [];
@@ -1207,34 +1152,12 @@ export class AppointmentsService {
       }
     }
 
-    // [TZ-VALIDATE] Temporary slot validation logs (booking window + 2h rule)
-    const { nowUtc, dateStr: todayTehran, timeStr: nowTehran } = this.getTehranNow();
-    const minAllowedUtc = new Date(nowUtc.getTime() + 2 * 60 * 60 * 1000);
-    const dayStartUtc = tehranMidnightUtc;
-    const firstGeneratedSlot = allSlots[0]?.time ?? null;
-    console.log('[TZ-VALIDATE] nowUtc:', nowUtc.toISOString());
-    console.log('[TZ-VALIDATE] nowTehran:', nowTehran);
-    console.log('[TZ-VALIDATE] minAllowedUtc:', minAllowedUtc.toISOString());
-    console.log('[TZ-VALIDATE] dayStartUtc (tehranMidnightUtc):', dayStartUtc.toISOString());
-    console.log('[TZ-VALIDATE] firstGeneratedSlot:', firstGeneratedSlot);
+    const { nowUtc } = this.getTehranNow();
 
-    // Min 2h rule: today (Asia/Tehran) only, non-staff. Matches create(): scheduledAt < now+2h.
-    // gapMinutes < 120 covers past slots (negative gap) and the next two hours.
-    const requestedDate = date.slice(0, 10); // YYYY-MM-DD (normalize if ISO)
-    console.log('[MIN2H-DEBUG]', {
-      requestedDate,
-      todayTehran,
-      isSameDay: requestedDate === todayTehran,
-      typeofRequested: typeof requestedDate,
-      typeofToday: typeof todayTehran,
-    });
-    console.log('[MIN2H-DEBUG-TYPES]', {
-      requestedDateValue: requestedDate,
-      requestedDateISO: new Date(requestedDate).toISOString(),
-      todayTehranISO: new Date(todayTehran).toISOString(),
-    });
-    if (requestedDate === todayTehran && !isStaff) {
-      const minGapMinutes = 2 * 60; // 2 hours in minutes
+    // Min 2h rule for public/customer callers: any slot earlier than now+2h
+    // (Asia/Tehran clock, compared in UTC), including early next-day slots.
+    if (!isStaff) {
+      const minGapMinutes = 2 * 60;
       for (const slot of allSlots) {
         const gapMinutes = (new Date(slot.time).getTime() - nowUtc.getTime()) / 60000;
         if (gapMinutes < minGapMinutes && slot.available) {
@@ -1243,25 +1166,10 @@ export class AppointmentsService {
         }
       }
     }
-    const firstValidSlotAfter2h = allSlots.find(s => s.available)?.time ?? null;
-    console.log('[TZ-VALIDATE] firstValidSlotAfter2h:', firstValidSlotAfter2h);
-
-    // If requestedDate !== todayTehran: do not apply min_2h at all.
-
-    const availableCount = allSlots.filter(s => s.available).length;
-    const busyCount = allSlots.filter(s => !s.available).length;
-    const busySlots = allSlots.filter(s => !s.available);
-
-    console.log(`✅ Generated ${allSlots.length} total slots: ${availableCount} available, ${busyCount} busy`);
-    
-    if (busySlots.length > 0) {
-      console.log(`🔴 Busy slots:`);
-      busySlots.forEach(slot => {
-        console.log(`   - ${slot.displayTime}: ${slot.reason}`);
-      });
-    }
 
     const firstAvailableSlot = allSlots.find(s => s.available)?.time ?? null;
+    const availableCount = allSlots.filter(s => s.available).length;
+    const busyCount = allSlots.filter(s => !s.available).length;
 
     return {
       date,
@@ -1297,10 +1205,7 @@ export class AppointmentsService {
       throw new NotFoundException(`Employee with ID ${employeeId} not found`);
     }
 
-    const { nowUtc, dateStr: todayTehranStr, timeStr: tehranTimeStr } = this.getTehranNow();
-    console.log('[Earliest] Server now (ISO):', nowUtc.toISOString());
-    console.log('[Earliest] Tehran now (date/time):', todayTehranStr, tehranTimeStr);
-    console.log('[Earliest] Base Tehran date for earliest search:', todayTehranStr);
+    const { dateStr: todayTehranStr } = this.getTehranNow();
 
     const durationMin = BOOKING_DURATION_MIN;
 
@@ -1312,8 +1217,6 @@ export class AppointmentsService {
 
     for (let i = 0; i < 30; i++) {
       const dateStr = addDaysToGregorian(todayTehranStr, i);
-      console.log('[Earliest] Offset:', i);
-      console.log('[Earliest] Date checked:', dateStr);
 
       const result = await this.getAvailableSlots({
         employeeId,
@@ -1322,16 +1225,11 @@ export class AppointmentsService {
         slotIntervalMin: SLOT_INTERVAL_MIN,
       });
 
-      const _totalSlots = result.slots.length;
-      const availableSlots = result.slots.filter((s) => s.available).length;
-      console.log('[Earliest] Available slots count:', availableSlots);
       const first = result.slots.find((s) => s.available);
-      console.log('[Earliest] First slot time:', first?.time ?? null);
 
       if (first) {
         const gregorianDate = new Date(dateStr + 'T12:00:00.000Z');
         const jalaliDate = this.calendarService.toJalali(gregorianDate);
-        console.log(`✅ Earliest slot found: ${dateStr} ${first.displayTime} (Jalali: ${jalaliDate})`);
         return {
           date: dateStr,
           jalaliDate,
@@ -1342,7 +1240,6 @@ export class AppointmentsService {
       }
     }
 
-    console.log('⚠️ No available slot in next 30 days for employee', employeeId, 'service', serviceId);
     throw new NotFoundException({ message: 'NO_AVAILABLE_SLOT' });
   }
 
@@ -1351,7 +1248,6 @@ export class AppointmentsService {
    * Creates accounting transactions and handles debt if needed
    */
   async settle(id: number, dto: SettleAppointmentDto, adminUser: any) {
-    console.log('💰 Settling appointment:', id, 'by admin role:', adminUser?.role);
 
     const appointment = await this.findOne(id, adminUser);
 
@@ -1414,7 +1310,6 @@ export class AppointmentsService {
       });
 
       if (existingTransaction) {
-        console.log('⚠️  Duplicate settlement detected, returning existing');
         return this.findOne(id, adminUser);
       }
     }
@@ -1629,7 +1524,6 @@ export class AppointmentsService {
             meta: meta as any,
           },
         });
-        console.log('📝 Created CustomerDebt for amount:', debtRial.toString());
       }
 
       if (paidRial > 0n) {
@@ -1658,7 +1552,6 @@ export class AppointmentsService {
           });
         }
 
-        console.log('💵 Created INCOME transaction for amount:', paidRial.toString());
 
         if (tipRial && tipRial > 0n) {
           const tipDescription = buildAppointmentTipDescription({
@@ -1695,7 +1588,6 @@ export class AppointmentsService {
             });
           }
 
-          console.log('💵 Created TIP transaction for amount:', tipRial.toString());
         }
       }
 
@@ -1710,7 +1602,6 @@ export class AppointmentsService {
         );
       }
 
-      console.log('✅ Appointment settled successfully');
       return updated;
     }, { maxWait: 5_000, timeout: 30_000 });
 
@@ -1749,7 +1640,6 @@ export class AppointmentsService {
    * Soft-deletes related transactions, restores bank balance, removes CustomerDebt, clears appointment financial fields.
    */
   async revertSettlement(id: number, adminUser: any) {
-    console.log('↩️ Reverting settlement for appointment:', id, 'by admin role:', adminUser?.role);
 
     const locked = await this.prisma.appointment.findFirst({
       where: { id, financiallyLockedAt: { not: null } },
@@ -1781,7 +1671,6 @@ export class AppointmentsService {
         },
       });
 
-      console.log(`↩️ Found ${transactions.length} transaction(s) to revert for appointment ${id}`);
 
       for (const txn of transactions) {
         if (txn.accountId != null) {
@@ -1789,7 +1678,6 @@ export class AppointmentsService {
             where: { id: txn.accountId },
             data: { balance: { decrement: txn.amount } },
           });
-          console.log(`↩️ Decremented account ${txn.accountId} by ${txn.amount}`);
         }
         await tx.transaction.update({
           where: { id: txn.id },
@@ -1807,7 +1695,6 @@ export class AppointmentsService {
         },
       });
       if (deletedDebts.count > 0) {
-        console.log(`↩️ Deleted ${deletedDebts.count} CustomerDebt row(s) for appointment ${id}`);
       }
 
       await tx.appointmentTipAllocation.deleteMany({
@@ -1842,7 +1729,6 @@ export class AppointmentsService {
         },
       });
 
-      console.log('✅ Revert settlement completed for appointment', id);
       return { message: 'Settlement reverted successfully', restockTransitions };
     }, { maxWait: 5_000, timeout: 30_000 });
 
@@ -1883,7 +1769,6 @@ export class AppointmentsService {
    * (EMPLOYEE/ADMIN only) - change status from PENDING_CONFIRMATION to CONFIRMED
    */
   async confirm(id: number, currentUser: any) {
-    console.log('✅ Confirming appointment:', id, 'by user role:', currentUser?.role);
 
     const appointment = await this.findOne(id, currentUser);
 
@@ -1937,7 +1822,6 @@ export class AppointmentsService {
           );
 
           if (hasConflict) {
-            console.log('❌ Conflict detected during confirmation');
             // Do not call getAvailableSlots inside the TX — it is slow and can expire the TX.
             throw new BadRequestException({
               statusCode: 409,
@@ -1959,7 +1843,6 @@ export class AppointmentsService {
         },
       });
 
-      console.log('✅ Appointment confirmed successfully');
       return confirmed;
     }, { maxWait: 5_000, timeout: 30_000 });
 
@@ -2028,7 +1911,6 @@ export class AppointmentsService {
    * Get employee calendar (appointments + blocked times)
    */
   async getEmployeeCalendar(employeeId: number, fromDate: string, toDate: string) {
-    console.log('📅 Getting employee calendar:', { employeeId, fromDate, toDate });
 
     const from = new Date(fromDate);
     const to = new Date(toDate);
@@ -2090,7 +1972,6 @@ export class AppointmentsService {
     reason?: string;
     createdBy?: number;
   }) {
-    console.log('🚫 Creating blocked time:', data);
 
     const blockedTime = await this.prisma.blockedTime.create({
       data: {
@@ -2105,7 +1986,6 @@ export class AppointmentsService {
       },
     });
 
-    console.log('✅ Blocked time created:', blockedTime.id);
     return blockedTime;
   }
 
@@ -2485,7 +2365,6 @@ export class AppointmentsService {
             appointmentId: appointment.id,
           },
         });
-        console.log('✅ Push notification sent to ADMIN role');
       } catch (pushError) {
         console.error('⚠️ Failed to send push notification to ADMIN:', pushError.message);
       }
@@ -2515,7 +2394,6 @@ export class AppointmentsService {
               appointmentId: appointment.id,
             },
           });
-          console.log('✅ Push notification sent to employee:', appointment.employee.userId);
         } catch (pushError) {
           console.error('⚠️ Failed to send push notification to employee:', pushError.message);
         }
@@ -2546,7 +2424,6 @@ export class AppointmentsService {
               appointmentId: appointment.id,
             },
           });
-          console.log('✅ Push notification sent to customer:', appointment.customer.userId);
         } catch (pushError) {
           console.error('⚠️ Failed to send push notification to customer:', pushError.message);
         }
@@ -2586,7 +2463,6 @@ export class AppointmentsService {
               appointmentId: appointment.id,
             },
           });
-          console.log('✅ Push notification sent to customer for confirmation:', appointment.customer.userId);
         } catch (pushError) {
           console.error('⚠️ Failed to send confirmation push notification to customer:', pushError.message);
         }
