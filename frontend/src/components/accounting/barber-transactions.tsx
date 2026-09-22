@@ -140,7 +140,7 @@ export function BarberTransactions() {
             </div>
           ) : (
             filteredTransactions.map((transaction) => (
-              <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+              <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-white/5 transition-colors">
                 <div className="flex items-center space-x-4">
                   {getTransactionIcon(transaction.type)}
                   <div>

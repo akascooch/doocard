@@ -7,23 +7,8 @@ declare module "@/components/ui/icon" {
   export function Icon(props: IconProps): JSX.Element;
 }
 
-declare module "@/components/ui/button" {
-  interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-    variant?:
-      | "default"
-      | "primary"
-      | "secondary"
-      | "destructive"
-      | "success"
-      | "warning"
-      | "outline"
-      | "ghost"
-      | "link";
-    size?: "default" | "sm" | "lg" | "xl" | "icon" | "icon-sm" | "icon-lg";
-    children: React.ReactNode;
-  }
-  export function Button(props: ButtonProps): JSX.Element;
-}
+/* Button types come from components/ui/button.tsx (includes variant="glass").
+   Do not re-declare @/components/ui/button here — ambient overrides strip glass + ref. */
 
 declare module "@/components/ui/card" {
   interface CardProps extends React.HTMLAttributes<HTMLDivElement> {

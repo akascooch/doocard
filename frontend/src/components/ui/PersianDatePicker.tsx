@@ -173,10 +173,10 @@ export default function PersianDatePicker({
           w-full px-4 py-2 rounded-lg border text-right
           ${error 
             ? 'border-red-500 focus:ring-red-500 focus:border-red-500' 
-            : 'border-gray-300 focus:ring-main-orange focus:border-main-orange'
+            : 'border-white/10 focus:border-white/25 focus:ring-white/20'
           }
-          ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}
-          focus:ring-2 focus:outline-none
+          ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white/5 backdrop-blur-md'}
+          focus:ring-1 focus:outline-none
           transition-colors duration-200
           text-sm
         `}
@@ -254,10 +254,10 @@ export function TimePicker({
           w-full px-4 py-2 rounded-lg border text-right
           ${error 
             ? 'border-red-500 focus:ring-red-500 focus:border-red-500' 
-            : 'border-gray-300 focus:ring-main-orange focus:border-main-orange'
+            : 'border-white/10 focus:border-white/25 focus:ring-white/20'
           }
-          ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}
-          focus:ring-2 focus:outline-none
+          ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white/5 backdrop-blur-md'}
+          focus:ring-1 focus:outline-none
           transition-colors duration-200
           text-sm
         `}

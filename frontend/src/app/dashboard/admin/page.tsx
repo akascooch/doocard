@@ -135,7 +135,7 @@ export default function AdminDashboard() {
         </div>
         <div className="flex items-center gap-3">
           <Button 
-            variant="primary" 
+            variant="glass" 
             onClick={() => router.push('/dashboard/appointments')}
             className="shadow-lg hover:shadow-xl group"
           >

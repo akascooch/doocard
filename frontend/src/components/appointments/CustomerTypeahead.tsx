@@ -284,7 +284,7 @@ export default function CustomerTypeahead({
                   customers.map((customer) => (
                     <div
                       key={customer.id}
-                      className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+                      className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-white/5 cursor-pointer hover:bg-white/10 transition-colors"
                       onClick={() => {
                         selectCustomer(customer);
                         setOpen(false);

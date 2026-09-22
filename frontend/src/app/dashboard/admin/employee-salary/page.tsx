@@ -502,7 +502,7 @@ export default function EmployeeSalaryPage() {
             <div>
               <Label className="text-gray-700 dark:text-gray-300">کارمند</Label>
               <Select value={employeeId} onValueChange={setEmployeeId} disabled={employeesLoading}>
-                <SelectTrigger className="bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white mt-1">
+                <SelectTrigger className="mt-1">
                   <SelectValue placeholder="انتخاب کارمند" />
                 </SelectTrigger>
                 <SelectContent>
@@ -540,7 +540,7 @@ export default function EmployeeSalaryPage() {
                 max={100}
                 value={percentage}
                 onChange={(e) => setPercentage(e.target.value)}
-                className="bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white mt-1"
+                className="mt-1"
               />
             </div>
           </div>

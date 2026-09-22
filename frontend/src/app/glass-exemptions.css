@@ -20,6 +20,7 @@
 button.glass-chip[data-chip],
 button.glass-button[data-glass],
 button[data-glass].glass-button,
+button[data-variant="glass"],
 a[data-glass],
 [data-glass].glass-button {
   background-color: var(--glass-bg) !important;
@@ -31,6 +32,7 @@ a[data-glass],
 button.glass-chip[data-chip]:hover:not(:disabled):not([data-selected='true']),
 button.glass-button[data-glass]:hover:not(:disabled),
 button[data-glass].glass-button:hover:not(:disabled),
+button[data-variant="glass"]:hover:not(:disabled),
 a[data-glass]:hover,
 [data-glass].glass-button:hover:not(:disabled) {
   background-color: var(--glass-bg-hover) !important;
@@ -48,6 +50,7 @@ a[data-glass].glass-nav-active {
 /* Auth shell historically forces solid white on w-full / submit — exempt glass only. */
 .aurora-auth-shell button.glass-button[data-glass],
 .aurora-auth-shell button[data-glass].glass-button,
+.aurora-auth-shell button[data-variant="glass"],
 .aurora-auth-shell form button[type='submit'][data-glass] {
   background-color: var(--glass-bg) !important;
   color: var(--glass-fg) !important;
@@ -55,6 +58,7 @@ a[data-glass].glass-nav-active {
 }
 
 .aurora-dashboard-canvas button.glass-button[data-glass],
+.aurora-dashboard-canvas button[data-variant="glass"],
 .aurora-dashboard-canvas a[data-glass],
 .aurora-dashboard-canvas button.glass-chip[data-chip] {
   background-color: var(--glass-bg) !important;
@@ -66,4 +70,21 @@ a[data-glass].glass-nav-active {
   background-color: var(--glass-bg-selected) !important;
   color: var(--glass-fg-selected) !important;
   border-color: var(--glass-border-selected) !important;
+}
+
+/* Form / surface tokens using Tailwind bg-white/* must not be forced to solid #fff.
+   Exclude public booking light-island selects — those stay solid white for readability. */
+.aurora-dashboard-canvas [class*="bg-white\/"],
+.aurora-auth-shell [class*="bg-white\/"],
+button[class*="bg-white\/"]:not(.aurora-public-select-trigger),
+input[class*="bg-white\/"],
+[role="combobox"][class*="bg-white\/"]:not(.aurora-public-select-trigger) {
+  background-color: var(--glass-bg) !important;
+}
+
+.aurora-public-booking button[role="combobox"],
+.aurora-public-booking .aurora-public-select-trigger {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: #d1d5db !important;
 }

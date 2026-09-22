@@ -127,7 +127,7 @@ export function DateRangeFilter({ onDateRangeChange, selectedRange, selectedType
       {/* انتخاب بازه سفارشی */}
       <div className="flex items-center gap-2">
         <Button
-          variant="outline"
+          variant="glass"
           onClick={() => setIsCalendarOpen(!isCalendarOpen)}
           className="justify-start text-left font-normal"
         >
@@ -161,7 +161,7 @@ export function DateRangeFilter({ onDateRangeChange, selectedRange, selectedType
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <Button
-                variant="outline"
+                variant="glass"
                 size="sm"
                 onClick={() => setIsCalendarOpen(false)}
               >

@@ -258,7 +258,7 @@ function NotificationCard({
         className={`p-4 transition-all hover:shadow-md ${
           !notification.isRead
             ? 'bg-primary/5 border-primary/30'
-            : 'bg-white dark:bg-gray-800'
+            : 'bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/10 transition-all'
         }`}
       >
         <div className="flex items-start gap-3">

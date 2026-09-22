@@ -105,7 +105,7 @@ export default function ServicesMultiSelect({
                 key={service.id}
                 data-cy={`service-option-${service.id}`}
                 className={cn(
-                  'flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors',
+                  'flex items-center justify-between p-3 rounded-lg border border-white/10 bg-white/5 cursor-pointer hover:bg-white/10 transition-colors',
                   selectedServiceIds.includes(service.id) && 'border-main-orange bg-orange-50 dark:bg-orange-900/20'
                 )}
                 onClick={() => toggleService(service.id)}

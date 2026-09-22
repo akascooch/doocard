@@ -36,10 +36,10 @@
   color: #f4f4f5 !important;
 }
 
-.aurora-dashboard-canvas button.bg-white:not([role="combobox"]):not([data-chip]):not(.glass-chip),
-.aurora-dashboard-canvas button[class*="dark:bg-white"]:not([class*="bg-white/"]):not([role="combobox"]):not([data-chip]):not(.glass-chip),
-.aurora-dashboard-canvas a.bg-white.text-black,
-.aurora-dashboard-canvas .bg-white.text-black {
+.aurora-dashboard-canvas button.bg-white:not([role="combobox"]):not([data-chip]):not(.glass-chip):not(.glass-button):not([data-glass]),
+.aurora-dashboard-canvas button[class*="dark:bg-white"]:not([class*="bg-white/"]):not([role="combobox"]):not([data-chip]):not(.glass-chip):not(.glass-button):not([data-glass]),
+.aurora-dashboard-canvas a.bg-white.text-black:not([data-glass]):not(.glass-button),
+.aurora-dashboard-canvas .bg-white.text-black:not([data-glass]):not(.glass-button):not([class*="bg-white/"]) {
   background-color: #ffffff !important;
   color: #09090b !important;
 }

@@ -684,7 +684,7 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                 نحوه انتخاب زمان نوبت
               </label>
               <div className="space-y-3">
-                <label className="flex flex-col gap-2 p-4 rounded-xl border-2 cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-gray-800/50 has-[:checked]:border-teal has-[:checked]:bg-teal/5">
+                <label className="flex flex-col gap-2 p-4 rounded-xl border-2 border-white/10 bg-white/5 cursor-pointer transition-all hover:bg-white/10 has-[:checked]:border-teal has-[:checked]:bg-teal/5">
                   <div className="flex items-center gap-3">
                     <input
                       type="radio"
@@ -709,7 +709,7 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                     </div>
                   )}
                 </label>
-                <label className="flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-gray-800/50 has-[:checked]:border-teal has-[:checked]:bg-teal/5">
+                <label className="flex items-center gap-3 p-4 rounded-xl border-2 border-white/10 bg-white/5 cursor-pointer transition-all hover:bg-white/10 has-[:checked]:border-teal has-[:checked]:bg-teal/5">
                   <input
                     type="radio"
                     name="dateMode"
