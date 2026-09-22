@@ -136,6 +136,7 @@ export default function HomePage() {
                 : landing.aboutText || FALLBACK.aboutText}
             </p>
             <div className="mt-10 flex w-full max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
+              {/* [GATED-W-B] Brand primary CTA — solid white kept pending Wave B product decision (AUDIT_GLASS_CONVERSION_20260922). */}
               <Link
                 href={bookHref}
                 className="inline-flex items-center justify-center rounded-md bg-white px-8 py-3.5 text-sm font-semibold text-black hover:bg-zinc-200"
@@ -193,6 +194,7 @@ export default function HomePage() {
                     <span className="text-zinc-400">{formatDuration(service.durationMinutes)}</span>
                     <Link
                       href={bookHref}
+                      /* [GATED-W-B] Brand primary CTA — Wave B product decision */
                       className="inline-flex min-h-11 items-center rounded-md bg-white px-4 text-xs font-semibold text-black touch-manipulation hover:bg-zinc-200"
                     >
                       رزرو
@@ -234,6 +236,7 @@ export default function HomePage() {
                       {barber.bio && <p className="text-sm leading-7 text-zinc-400">{barber.bio}</p>}
                       <Link
                         href={landingBookHref(hasToken, barber.id)}
+                        /* [GATED-W-B] Brand primary CTA — Wave B product decision */
                         className="inline-flex rounded-md bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-zinc-200"
                       >
                         رزرو با این آرایشگر

@@ -98,14 +98,14 @@ export function DashboardShell({
 
       {isMobile ? (
         <Button
-          variant="primary"
+          variant="glass"
           size="icon"
           type="button"
           onClick={onToggleSidebar}
           aria-label={menuOpenLabel}
           aria-expanded={isSidebarOpen}
           title={menuOpenLabel}
-          className="fixed bottom-6 left-4 z-30 h-14 w-14 min-h-14 min-w-14 rounded-full border-2 border-white bg-white text-gray-900 shadow-xl shadow-black/30 hover:bg-zinc-100 active:scale-95"
+          className="fixed bottom-6 left-4 z-30 h-14 w-14 min-h-14 min-w-14 rounded-full shadow-xl shadow-black/30 active:scale-95"
           style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
         >
           {isSidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}

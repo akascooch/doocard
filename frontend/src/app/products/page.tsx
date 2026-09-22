@@ -263,7 +263,8 @@ export default function PublicProductsPage() {
                           quoteRequired,
                         })
                       }}
-                      className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-white px-4 text-sm font-semibold text-black hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="glass-button inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-white/15 bg-white/5 px-4 text-sm font-semibold text-zinc-100 backdrop-blur-md hover:border-white/25 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                      data-glass=""
                     >
                       {!inStock ? "ناموجود" : quoteRequired ? "افزودن برای استعلام" : "افزودن به سبد"}
                     </button>

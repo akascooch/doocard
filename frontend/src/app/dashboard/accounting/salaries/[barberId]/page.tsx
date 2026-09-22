@@ -111,11 +111,11 @@ export default function BarberTransactionDetailsPage() {
 
   const getTransactionTypeLabel = (type: string) => {
     switch (type) {
-      case 'INCOME': return { label: 'درآمد خدمات', color: 'bg-green-100 text-green-800' };
-      case 'WITHDRAWAL': return { label: 'برداشت', color: 'bg-red-100 text-red-800' };
-      case 'TIP': return { label: 'تیپ', color: 'bg-blue-100 text-blue-800' };
-      case 'SALARY': return { label: 'حقوق', color: 'bg-purple-100 text-purple-800' };
-      default: return { label: 'سایر', color: 'bg-gray-100 text-gray-800' };
+      case 'INCOME': return { label: 'درآمد خدمات', color: 'border-emerald-400/30 text-emerald-200' };
+      case 'WITHDRAWAL': return { label: 'برداشت', color: 'border-red-400/30 text-red-200' };
+      case 'TIP': return { label: 'تیپ', color: 'border-sky-400/30 text-sky-200' };
+      case 'SALARY': return { label: 'حقوق', color: 'border-violet-400/30 text-violet-200' };
+      default: return { label: 'سایر', color: 'border-white/20 text-zinc-300' };
     }
   };
 
@@ -264,7 +264,7 @@ export default function BarberTransactionDetailsPage() {
                       return (
                         <TableRow key={transaction.id}>
                           <TableCell>
-                            <Badge className={typeInfo.color}>
+                            <Badge variant="glass" className={typeInfo.color}>
                               {typeInfo.label}
                             </Badge>
                           </TableCell>

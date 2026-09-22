@@ -195,8 +195,9 @@ export default function CustomerDashboard() {
             </div>
             <Button
               size="lg"
+              variant="glass"
               onClick={() => setBookingModalOpen(true)}
-              className="bg-white text-black hover:bg-white/90 shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 text-lg px-8 py-6 h-auto font-bold"
+              className="shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 text-lg px-8 py-6 h-auto font-bold"
             >
               <CalendarPlus className="w-6 h-6 ml-2" />
               رزرو نوبت جدید

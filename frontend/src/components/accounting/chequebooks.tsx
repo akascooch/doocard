@@ -122,11 +122,11 @@ const PAYEE_KIND_LABELS: Record<ChequePayeeKind, string> = {
 }
 
 const STATUS_BADGE_CLASS: Record<ChequeLeafStatus, string> = {
-  BLANK: 'bg-muted text-muted-foreground',
-  ISSUED: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
-  CLEARED: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
-  BOUNCED: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200',
-  CANCELLED: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+  BLANK: 'border-white/15 text-zinc-400',
+  ISSUED: 'border-sky-400/30 text-sky-200',
+  CLEARED: 'border-emerald-400/30 text-emerald-200',
+  BOUNCED: 'border-red-400/30 text-red-200',
+  CANCELLED: 'border-white/20 text-zinc-300',
 }
 
 const NEXT_STATUS_OPTIONS: Partial<Record<ChequeLeafStatus, ChequeLeafStatus[]>> = {
@@ -701,7 +701,7 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
                     <TableRow key={leaf.id}>
                       <TableCell className="font-mono">{leaf.leafNumber}</TableCell>
                       <TableCell>
-                        <Badge className={STATUS_BADGE_CLASS[leaf.status]}>
+                        <Badge variant="glass" className={STATUS_BADGE_CLASS[leaf.status]}>
                           {STATUS_LABELS[leaf.status]}
                         </Badge>
                       </TableCell>

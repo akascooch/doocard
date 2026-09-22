@@ -281,13 +281,13 @@ export default function DayClosingPage() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">تکمیل شده:</span>
-                  <Badge variant="default" className="bg-green-100 text-green-800">
+                  <Badge variant="glass" className="border-emerald-400/30 text-emerald-200">
                     {dayClosingData.completedAppointments}
                   </Badge>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">در انتظار:</span>
-                  <Badge variant="default" className="bg-yellow-100 text-yellow-800">
+                  <Badge variant="glass" className="border-amber-400/30 text-amber-200">
                     {dayClosingData.pendingAppointments}
                   </Badge>
                 </div>

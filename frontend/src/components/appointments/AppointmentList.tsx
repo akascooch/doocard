@@ -142,20 +142,24 @@ export default function AppointmentList({
 
   const getStatusBadge = (status: string) => {
     const configs: Record<string, { label: string; className: string }> = {
-      PENDING: { label: 'در انتظار', className: 'bg-yellow-100 text-yellow-800' },
+      PENDING: { label: 'در انتظار', className: 'border-amber-400/30 text-amber-200' },
       PENDING_CONFIRMATION: {
         label: 'نیاز به تأیید',
-        className: 'bg-amber-100 text-amber-800 animate-pulse',
+        className: 'border-amber-400/40 text-amber-100 animate-pulse',
       },
-      CONFIRMED: { label: 'تأیید شده', className: 'bg-blue-100 text-blue-800' },
-      COMPLETED: { label: 'انجام شده', className: 'bg-green-100 text-green-800' },
-      SETTLED: { label: 'تسویه شده', className: 'bg-green-100 text-green-800' },
-      PAID: { label: 'پرداخت شده', className: 'bg-green-100 text-green-800' },
-      CANCELLED: { label: 'لغو شده', className: 'bg-gray-100 text-gray-800' },
+      CONFIRMED: { label: 'تأیید شده', className: 'border-sky-400/30 text-sky-200' },
+      COMPLETED: { label: 'انجام شده', className: 'border-emerald-400/30 text-emerald-200' },
+      SETTLED: { label: 'تسویه شده', className: 'border-emerald-400/30 text-emerald-200' },
+      PAID: { label: 'پرداخت شده', className: 'border-emerald-400/30 text-emerald-200' },
+      CANCELLED: { label: 'لغو شده', className: 'border-white/20 text-zinc-300' },
     };
 
     const config = configs[status] || { label: status, className: '' };
-    return <Badge className={config.className}>{config.label}</Badge>;
+    return (
+      <Badge variant="glass" className={config.className}>
+        {config.label}
+      </Badge>
+    );
   };
 
   const handleConfirm = async (id: number) => {

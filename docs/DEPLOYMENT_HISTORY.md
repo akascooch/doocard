@@ -5,6 +5,49 @@ Do not git-pull `/var/www/doocard`. Never `rsync --delete`. Never unmask apache2
 
 ---
 
+## 2026-09-22 — Phase 11 closeout (`v2.0.10-glass-buttons`)
+
+| Field | Value |
+|------|--------|
+| Date | 2026-09-22 (~19:30 +0330) |
+| Status | **SUCCESS** — cycle **CLOSED** |
+| Target | Production `/var/www/doocard` |
+| Scope | UI/Frontend only — Glass UI Conversion Wave A |
+| Staging artifact (integrity only) | `build-v2.0.10-glass-buttons.tar.gz` SHA256 `E5AA58CCEF759414311CD8ED688E8219A2F6DDE198B07757964068E22F5FD07E` |
+| Source overlay (deployed) | `frontend-src-v2.0.10-glass-buttons.tar.gz` SHA256 `8D997ECA57C8B244FC6E2475EDB01625A11C4CD79E9789E79ADC1346709FA56D` |
+| Linux live BUILD_ID | `HIDgUlx_EAbWWsZWSFNuk` (src == standalone) |
+| Frontend PID | **1220462** |
+| Backend PID | **1214691** (unaltered) |
+| DB backup SHA | `06013f13a7c95b154a39769e95777a3c492e074902d04f1fe21ccf5bd96b0e24` (`doocard_pre_phase10_v2010_20260922_154943.dump`) |
+| FE snapshot SHA | `f048f3a476e8a4b40a7694fb47878ff91c4cf4088bf005cabfccca5d4de31777` (`frontend-before-phase10-v2010_20260922_154943.tgz`) |
+| Git tag | `v2.0.10-glass-buttons` (annotated, local → origin) |
+| Docs sealed | `AUDIT_GLASS_CONVERSION_20260922.md`, `GLASS_IMPLEMENTATION_20260922.md`, `QA_GLASS_VERIFICATION_20260922.md`, `BUILD_MANIFEST_20260922.md` |
+| Server cleanup | `/tmp/deploy-v2010` removed; `/var/backups/doocard/` backups retained |
+| Health | `https://doocardbarbershop.com/api/health` **200** |
+
+---
+
+## 2026-09-22 — Phase 10 LIVE `v2.0.10-glass-buttons` (Wave A)
+
+| Field | Value |
+|------|--------|
+| Status | **LIVE-STABLE** — FE-only source overlay + Ubuntu build |
+| When | 2026-09-22 ~19:19–19:25 +0330 (UTC TS `20260922_154943`) |
+| Method | Windows standalone artifact **not deployed** (hard constraint). Source overlay `frontend-src-v2.0.10-glass-buttons.tar.gz` SHA256 `8D997ECA57C8B244FC6E2475EDB01625A11C4CD79E9789E79ADC1346709FA56D` → rsync (no `--delete`) → `npm ci` → `npm run build` → `pm2 reload doocard-frontend` |
+| Windows staging artifact (integrity only) | `build-v2.0.10-glass-buttons.tar.gz` SHA256 `E5AA58CCEF759414311CD8ED688E8219A2F6DDE198B07757964068E22F5FD07E` (verified on server; **not** extracted to `/var/www`) |
+| Pre BUILD_ID | `8Gd4etZ-wCok7njiRXtc3` |
+| New BUILD_ID | `HIDgUlx_EAbWWsZWSFNuk` (src == standalone) |
+| PM2 | frontend pid **1220462** (reloads 20); backend pid **1214691** unchanged |
+| Backend `dist/main.js` SHA256 | `ac6079c51f34f489394d5752833b0e686817a2ea913402d7e0d15a063551ff16` — **unchanged** |
+| DB dump | `/var/backups/doocard/doocard_pre_phase10_v2010_20260922_154943.dump` (6 108 879 B) SHA256 `06013f13a7c95b154a39769e95777a3c492e074902d04f1fe21ccf5bd96b0e24` |
+| FE snapshot | `/var/backups/doocard/frontend-before-phase10-v2010_20260922_154943.tgz` (73 774 407 B, 3343 entries) SHA256 `f048f3a476e8a4b40a7694fb47878ff91c4cf4088bf005cabfccca5d4de31777` |
+| Env | `.env.local` / `.env.production` fingerprint unchanged (`da361c07…44f23`) |
+| Smoke | `/api/health` 200; `/` 200; www 200; `/products` 200 + glass markers; `/login` 200 + `aurora-auth-shell`; staff login 200; book 200. GATED-W-B / chip hydration = **MANUAL-BROWSER-VERIFY** |
+| Rollback | Not executed. Anchor BUILD_ID `8Gd4etZ-wCok7njiRXtc3` + FE snapshot above |
+| Deviations | (1) Deployed source overlay instead of Windows standalone per constraint. (2) Prod uses `.env.local` not `.env`. (3) Apex `/` does not contain `aurora-auth-shell` (login does). |
+
+---
+
 ## 2026-09-22 — Phase 11 closeout (`v2.0.9-glasschip`)
 
 | Field | Value |

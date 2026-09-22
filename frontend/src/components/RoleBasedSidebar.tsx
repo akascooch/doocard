@@ -421,21 +421,23 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
                 key={item.href}
                 href={item.href}
                 data-cy={`nav-${item.href}`}
+                data-glass={isActive ? '' : undefined}
+                data-selected={isActive ? 'true' : 'false'}
                 className={cn(
                   'group relative flex items-center gap-4 rounded-2xl px-4 py-3 text-sm font-medium transition-colors duration-200',
-                  isActive 
-                    ? 'border border-white bg-white text-black shadow-sm' 
+                  isActive
+                    ? 'glass-nav-active border border-white/40 bg-white/15 text-white shadow-sm ring-2 ring-amber-200/80 backdrop-blur-md'
                     : 'border border-transparent bg-transparent text-white/80 hover:border-white/10 hover:bg-[#1A1A1A] hover:text-white',
                   isCollapsed && !isHovered && !isMobile && 'justify-center px-2'
                 )}
                 title={isCollapsed && !isHovered && !isMobile ? item.title : undefined}
               >
                 {isActive && (
-                  <span className="absolute inset-y-2 right-1 w-0.5 rounded-full bg-black" aria-hidden />
+                  <span className="absolute inset-y-2 right-1 w-0.5 rounded-full bg-amber-200/80" aria-hidden />
                 )}
                 <Icon className={cn(
                   "h-5 w-5 flex-shrink-0 transition-colors duration-200",
-                  isActive ? "text-black" : "text-white/70 group-hover:text-white"
+                  isActive ? "text-white" : "text-white/70 group-hover:text-white"
                 )} />
                 {isVisible && (
                   <div className="flex-1 min-w-0">
@@ -443,7 +445,7 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
                     {(!isCollapsed || isHovered) && !isMobile && (
                       <span className={cn(
                         "mt-0.5 block text-xs leading-relaxed",
-                        isActive ? "text-black/50" : "text-white/40"
+                        isActive ? "text-white/60" : "text-white/40"
                       )}>
                         {item.description}
                       </span>

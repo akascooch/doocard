@@ -63,6 +63,7 @@ export function LandingHeader({ bookHref }: { bookHref: string }) {
           </Link>
           <Link
             href={bookHref}
+            /* [GATED-W-B] Brand primary CTA — Wave B product decision (AUDIT_GLASS_CONVERSION_20260922). */
             className={`${tap} inline-flex min-h-11 min-w-11 items-center justify-center rounded-md bg-white px-3 text-xs font-semibold text-black hover:bg-zinc-200 sm:px-4 sm:text-sm`}
           >
             <span className="sm:hidden">رزرو</span>
@@ -115,6 +116,7 @@ export function LandingHeader({ bookHref }: { bookHref: string }) {
           </Link>
           <Link
             href={bookHref}
+            /* [GATED-W-B] Brand primary CTA — Wave B product decision */
             className={`${tap} flex min-h-11 items-center justify-center rounded-md bg-white px-3 py-3 text-center font-semibold text-black`}
             onClick={() => setOpen(false)}
           >

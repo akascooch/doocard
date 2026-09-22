@@ -137,6 +137,7 @@ export default function LoginPage() {
                 </Label>
               </div>
 
+              {/* [GATED-W-B] Auth submit solid white — Wave B product decision (AUDIT_GLASS_CONVERSION_20260922). Do not glassify until approved. */}
               <Button
                 type="submit"
                 className="mt-4 h-auto min-h-11 w-full rounded-xl bg-white px-6 py-3.5 font-semibold text-black shadow-lg transition-all duration-200 hover:bg-zinc-200 hover:shadow-white/10 active:scale-[0.99]"

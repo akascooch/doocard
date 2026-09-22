@@ -104,7 +104,11 @@ const AlertDialogAction = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Action
     ref={ref}
-    className={cn("inline-flex items-center justify-center rounded-xl font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-zinc-950 bg-white text-zinc-950 hover:bg-zinc-100 h-10 py-2 px-4", className)}
+    className={cn(
+      "glass-button inline-flex h-10 items-center justify-center rounded-xl border border-white/15 bg-white/5 px-4 py-2 font-medium text-zinc-100 backdrop-blur-md transition-colors hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-40 ring-offset-zinc-950",
+      className,
+    )}
+    data-glass=""
     {...props}
   />
 ))

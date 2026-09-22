@@ -168,11 +168,12 @@ export function NotificationPrompt({ onClose, className = '' }: NotificationProm
               <Button
                 onClick={handleSubscribe}
                 disabled={!isSupported || isLoading || isSubscribed}
-                className="h-10 flex-1 rounded-xl border border-white bg-white text-black hover:bg-white/90"
+                variant="glass"
+                className="h-10 flex-1 rounded-xl"
               >
                 {isLoading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-black border-t-transparent" />
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-100 border-t-transparent" />
                     در حال فعال‌سازی...
                   </span>
                 ) : isSubscribed ? (

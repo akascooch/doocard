@@ -1,0 +1,69 @@
+/**
+ * Glass exemption layer — MUST load after contrast-fix.css and aurora-dashboard.css.
+ * Lifts forced solid #ffffff on inverted CTAs for [data-glass] / .glass-chip / .glass-button
+ * without rewriting those global hard overrides wholesale.
+ */
+
+:root {
+  --glass-bg: rgb(255 255 255 / 0.05);
+  --glass-bg-hover: rgb(255 255 255 / 0.1);
+  --glass-bg-selected: rgb(255 255 255 / 0.15);
+  --glass-border: rgb(255 255 255 / 0.15);
+  --glass-border-hover: rgb(255 255 255 / 0.25);
+  --glass-border-selected: rgb(255 255 255 / 0.4);
+  --glass-fg: #f4f4f5;
+  --glass-fg-selected: #ffffff;
+  --glass-ring-amber: rgb(253 230 138 / 0.8);
+  --glass-ring-focus: rgb(99 102 241 / 0.5);
+}
+
+button.glass-chip[data-chip],
+button.glass-button[data-glass],
+button[data-glass].glass-button,
+a[data-glass],
+[data-glass].glass-button {
+  background-color: var(--glass-bg) !important;
+  background-image: none !important;
+  color: var(--glass-fg) !important;
+  border-color: var(--glass-border) !important;
+}
+
+button.glass-chip[data-chip]:hover:not(:disabled):not([data-selected='true']),
+button.glass-button[data-glass]:hover:not(:disabled),
+button[data-glass].glass-button:hover:not(:disabled),
+a[data-glass]:hover,
+[data-glass].glass-button:hover:not(:disabled) {
+  background-color: var(--glass-bg-hover) !important;
+  border-color: var(--glass-border-hover) !important;
+}
+
+button.glass-chip[data-chip][data-selected='true'],
+a[data-glass][data-selected='true'],
+a[data-glass].glass-nav-active {
+  background-color: var(--glass-bg-selected) !important;
+  color: var(--glass-fg-selected) !important;
+  border-color: var(--glass-border-selected) !important;
+}
+
+/* Auth shell historically forces solid white on w-full / submit — exempt glass only. */
+.aurora-auth-shell button.glass-button[data-glass],
+.aurora-auth-shell button[data-glass].glass-button,
+.aurora-auth-shell form button[type='submit'][data-glass] {
+  background-color: var(--glass-bg) !important;
+  color: var(--glass-fg) !important;
+  border-color: var(--glass-border) !important;
+}
+
+.aurora-dashboard-canvas button.glass-button[data-glass],
+.aurora-dashboard-canvas a[data-glass],
+.aurora-dashboard-canvas button.glass-chip[data-chip] {
+  background-color: var(--glass-bg) !important;
+  color: var(--glass-fg) !important;
+}
+
+.aurora-dashboard-canvas a[data-glass].glass-nav-active,
+.aurora-dashboard-canvas a[data-glass][data-selected='true'] {
+  background-color: var(--glass-bg-selected) !important;
+  color: var(--glass-fg-selected) !important;
+  border-color: var(--glass-border-selected) !important;
+}

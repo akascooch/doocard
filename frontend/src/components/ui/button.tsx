@@ -2,6 +2,7 @@ import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
+import { GLASS_BUTTON_SURFACE } from "@/lib/glass-tokens"
 
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl font-bold transition-all duration-md ease-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed",
@@ -17,6 +18,8 @@ const buttonVariants = cva(
         outline: "border-2 border-gray-600 bg-white dark:bg-transparent text-gray-800 dark:text-zinc-100 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/[0.05] hover:text-gray-900 dark:hover:text-white hover:scale-[1.02] active:scale-[0.98]",
         ghost: "bg-transparent text-foreground hover:bg-muted hover:text-foreground active:scale-[0.98] dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-100",
         link: "text-gray-600 dark:text-zinc-400 underline-offset-4 hover:underline",
+        /** Canonical glass CTA — tokens from @/lib/glass-tokens; no solid bg-white. */
+        glass: `${GLASS_BUTTON_SURFACE} font-semibold hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40`,
       },
       size: {
         default: "h-12 px-6 py-3 text-sm md:text-base",
@@ -54,10 +57,12 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         className.includes("from-primary") ||
         className.includes("from-secondary"))
     const finalClassName = isGradientLike ? cn(computedClassName, "text-black") : computedClassName
+    const isGlass = variant === "glass"
     return (
       <Comp
         className={finalClassName}
         ref={ref}
+        data-glass={isGlass ? "" : undefined}
         {...props}
       />
     )

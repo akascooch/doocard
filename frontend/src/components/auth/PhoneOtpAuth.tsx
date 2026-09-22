@@ -181,6 +181,7 @@ export function PhoneOtpAuth({
         </div>
         <Button
           type="button"
+          // [GATED-W-B] Auth OTP CTA inherits Button default (solid white in dark) — Wave B product decision.
           className="h-auto min-h-11 w-full"
           disabled={savingName || name.trim().length < 2}
           onClick={() => void saveNameAndFinish()}
@@ -223,6 +224,7 @@ export function PhoneOtpAuth({
           />
           <Button
             type="button"
+            // [GATED-W-B] Auth OTP CTA — Wave B product decision (AUDIT_GLASS_CONVERSION_20260922).
             className="h-auto min-h-11 w-full"
             disabled={verifying || code.length !== OTP_LENGTH}
             onClick={() => void verifyCode()}
@@ -255,6 +257,7 @@ export function PhoneOtpAuth({
       ) : (
         <Button
           type="button"
+          // [GATED-W-B] Auth send-code CTA — Wave B product decision.
           className="h-auto min-h-11 w-full"
           disabled={sending}
           onClick={() => void sendCode()}

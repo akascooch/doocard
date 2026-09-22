@@ -205,7 +205,8 @@ export function CheckoutForm({
             </p>
             <Button
               type="button"
-              className="w-full bg-white text-black hover:bg-zinc-200"
+              variant="glass"
+              className="w-full"
               onClick={() => {
                 resetForm()
                 onOpenChange(false)
@@ -400,9 +401,10 @@ export function CheckoutForm({
 
             <Button
               type="submit"
+              variant="glass"
               disabled={!canSubmit}
               data-cy="checkout-submit"
-              className="w-full bg-white text-black hover:bg-zinc-200"
+              className="w-full"
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {quoteRequired ? "ثبت درخواست و استعلام قیمت" : "ثبت سفارش"}
