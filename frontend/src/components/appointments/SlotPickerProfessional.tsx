@@ -4,11 +4,11 @@ import { useState, useEffect } from 'react';
 import { Clock, Calendar, RefreshCw } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { GlassChip } from '@/components/ui/glass-chip';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/axios';
 import { useToast } from '@/components/ui/use-toast';
 import { slotsApiDateFromPicker } from '@/lib/date';
-import { cn } from '@/lib/utils';
 
 interface TimeSlot {
   time: string; // ISO string
@@ -183,25 +183,23 @@ export default function SlotPickerProfessional({
                 زمان‌های خالی
               </p>
               <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                {availableSlots.map((slot, index) => (
-                  <Button
+                {availableSlots.map((slot, index) => {
+                  const isSelected = selectedTime === slot.time;
+                  return (
+                  <GlassChip
                     key={index}
-                    type="button"
                     data-slot-time={slot.time}
-                    variant={selectedTime === slot.time ? 'default' : 'outline'}
-                    size="lg"
+                    selected={isSelected}
                     onClick={() => selectSlot(slot)}
-                    className={cn(
-                      'text-base font-medium transition-all duration-200',
-                      selectedTime === slot.time
-                        ? 'bg-green-600 hover:bg-green-700 text-white border-green-600 shadow-lg scale-105'
-                        : 'border-green-300 hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-950 text-green-700 dark:text-green-400'
-                    )}
+                    className="text-base"
                   >
-                    <Clock className="h-4 w-4 ml-1" />
+                    <Clock className="h-4 w-4 ml-1 shrink-0" aria-hidden />
                     {slot.displayTime}
-                  </Button>
-                ))}
+                    {isSelected ? <span aria-hidden>✓</span> : null}
+                    {isSelected ? <span className="sr-only">انتخاب شده</span> : null}
+                  </GlassChip>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -215,18 +213,16 @@ export default function SlotPickerProfessional({
               </p>
               <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
                 {busySlots.map((slot, index) => (
-                  <Button
+                  <GlassChip
                     key={index}
-                    type="button"
                     data-slot-time={slot.time}
-                    variant="outline"
-                    size="lg"
                     disabled
-                    className="text-base font-medium border-red-300 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 cursor-not-allowed opacity-60"
+                    className="text-base"
                   >
-                    <Clock className="h-4 w-4 ml-1" />
+                    <Clock className="h-4 w-4 ml-1 shrink-0" aria-hidden />
                     {slot.displayTime}
-                  </Button>
+                    <span className="sr-only">رزرو شده</span>
+                  </GlassChip>
                 ))}
               </div>
             </div>

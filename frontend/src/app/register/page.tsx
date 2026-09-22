@@ -22,7 +22,7 @@ export default function RegisterPage() {
       title="ثبت‌نام با موبایل"
       subtitle="بدون ایمیل و رمز عبور — فقط شماره موبایل و کد ۵ رقمی پیامک"
       heading="به دوکارد بپیوندید"
-      headingHint="سه مرحله کوتاه برای فعال‌سازی حساب مشتری."
+      headingHint="با شماره موبایل و کد ۵ رقمی پیامک حساب مشتری را فعال کنید."
       activeStep={1}
     >
       <Card

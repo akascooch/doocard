@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { GlassChip } from '@/components/ui/glass-chip'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -371,15 +372,16 @@ export default function BookAppointmentPage() {
                     {timeSlots
                       .filter((slot) => slot.available !== false && !isPublicLeadBlockedSlot(slot))
                       .map((slot) => (
-                      <Button
+                      <GlassChip
                         key={slot.time}
-                        type="button"
-                        variant={formData.appointmentTime === slot.time ? "default" : "outline"}
+                        selected={formData.appointmentTime === slot.time}
                         onClick={() => handleInputChange('appointmentTime', slot.time)}
-                        className="text-sm min-h-11"
                       >
                         {slot.displayTime}
-                      </Button>
+                        {formData.appointmentTime === slot.time ? (
+                          <span className="sr-only">انتخاب شده</span>
+                        ) : null}
+                      </GlassChip>
                     ))}
                   </div>
                   {timeSlots.filter((slot) => slot.available !== false && !isPublicLeadBlockedSlot(slot)).length === 0 && (

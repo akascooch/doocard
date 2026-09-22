@@ -79,7 +79,7 @@ export default function LoginPage() {
       title={title}
       subtitle={subtitle}
       heading={intent === "register" ? "به دوکارد بپیوندید" : "ورود به دوکارد"}
-      headingHint="سه مرحله کوتاه برای ورود به فضای مدیریت سالن."
+      headingHint="با شماره موبایل و کد پیامک وارد فضای سالن شوید."
       activeStep={1}
     >
       <Card

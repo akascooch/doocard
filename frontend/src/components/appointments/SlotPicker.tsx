@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react';
 import { Clock, Keyboard } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { GlassChip } from '@/components/ui/glass-chip';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/axios';
 import { useToast } from '@/components/ui/use-toast';
 import { slotsApiDateFromPicker, snapToThirtyMinuteClock, tehranIsoFromGregorianDate } from '@/lib/date';
-import { cn } from '@/lib/utils';
 
 interface TimeSlot {
   time: string; // ISO string
@@ -191,23 +191,17 @@ export default function SlotPicker({
             <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
               {slots.map((slot, index) => {
                 const isUnavailable = slot.available === false;
+                const isSelected = selectedTime === slot.time;
                 return (
-                <Button
+                <GlassChip
                   key={index}
-                  type="button"
-                  variant={selectedTime === slot.time ? 'default' : 'outline'}
-                  size="sm"
+                  selected={isSelected}
                   disabled={isUnavailable}
                   onClick={() => selectSlot(slot)}
-                  className={cn(
-                    'text-sm',
-                    selectedTime === slot.time &&
-                      'bg-main-orange hover:bg-main-orange/90',
-                    isUnavailable && 'cursor-not-allowed opacity-50'
-                  )}
                 >
                   {slot.displayTime}
-                </Button>
+                  {isSelected ? <span className="sr-only">انتخاب شده</span> : null}
+                </GlassChip>
                 );
               })}
             </div>

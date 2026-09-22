@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { GlassChip } from '@/components/ui/glass-chip'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
 import {
@@ -802,25 +803,22 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                       <div className="grid grid-cols-3 gap-3">
                         {timeSlots
                           .filter(s => s.available !== false && !isPublicLeadBlockedSlot(s))
-                          .map((slot) => (
-                            <Card
+                          .map((slot) => {
+                            const isSelected = formData.appointmentTime === slot.time
+                            return (
+                            <GlassChip
                               key={slot.time}
-                              className={`transition-all duration-200 ${
-                                formData.appointmentTime === slot.time
-                                  ? 'ring-2 ring-green-600 shadow-lg shadow-green-500/20 bg-green-50 dark:bg-green-950/20 cursor-pointer hover:shadow-md'
-                                  : 'cursor-pointer hover:shadow-md hover:ring-2 hover:ring-green-300 border-green-200'
-                              }`}
+                              selected={isSelected}
                               onClick={() => setFormData({ ...formData, appointmentTime: slot.time })}
+                              className="flex-col h-auto py-3"
                             >
-                              <CardContent className="p-3 text-center">
-                                <Clock className={`w-5 h-5 mx-auto mb-1 ${formData.appointmentTime === slot.time ? 'text-green-600' : 'text-gray-600'}`} />
-                                <p className={`font-medium ${formData.appointmentTime === slot.time ? 'text-green-700' : 'text-gray-700'}`}>{slot.displayTime}</p>
-                                {formData.appointmentTime === slot.time && (
-                                  <CheckCircle className="w-4 h-4 text-green-600 mx-auto mt-1" />
-                                )}
-                              </CardContent>
-                            </Card>
-                          ))}
+                              <Clock className="w-5 h-5" aria-hidden />
+                              <span className="font-medium">{slot.displayTime}</span>
+                              {isSelected ? <CheckCircle className="w-4 h-4" aria-hidden /> : null}
+                              {isSelected ? <span className="sr-only">انتخاب شده</span> : null}
+                            </GlassChip>
+                            )
+                          })}
                       </div>
                     </div>
                   )}
@@ -834,16 +832,15 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                       </p>
                       <div className="grid grid-cols-3 gap-3">
                         {timeSlots.filter(s => s.available === false && s.reason !== 'min_2h' && s.reason !== 'past').map((slot) => (
-                          <Card
+                          <GlassChip
                             key={slot.time}
-                            className="cursor-not-allowed opacity-60 bg-red-50 dark:bg-red-950/20 border-red-200"
+                            disabled
+                            className="flex-col h-auto py-3"
                           >
-                            <CardContent className="p-3 text-center">
-                              <Clock className="w-5 h-5 mx-auto mb-1 text-red-600" />
-                              <p className="font-medium text-red-600">{slot.displayTime}</p>
-                              <p className="text-xs text-red-500 mt-1">رزرو شده</p>
-                            </CardContent>
-                          </Card>
+                            <Clock className="w-5 h-5" aria-hidden />
+                            <span className="font-medium">{slot.displayTime}</span>
+                            <span className="text-xs">رزرو شده</span>
+                          </GlassChip>
                         ))}
                       </div>
                     </div>

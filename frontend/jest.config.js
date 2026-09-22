@@ -1,8 +1,11 @@
-/** Isolated unit-test runner for date hardening. Does not replace Cypress e2e. */
+/** Isolated unit-test runner for date hardening + GlassChip contracts. Does not replace Cypress e2e. */
 module.exports = {
   testEnvironment: 'node',
   rootDir: '.',
-  testMatch: ['<rootDir>/src/lib/__tests__/**/*.spec.ts'],
+  testMatch: [
+    '<rootDir>/src/lib/__tests__/**/*.spec.ts',
+    '<rootDir>/src/components/**/__tests__/**/*.spec.tsx',
+  ],
   modulePathIgnorePatterns: ['<rootDir>/.next/'],
   transform: {
     '^.+\\.tsx?$': [
@@ -18,6 +21,7 @@ module.exports = {
           moduleResolution: 'node',
           skipLibCheck: true,
           isolatedModules: true,
+          jsx: 'react-jsx',
         },
       },
     ],

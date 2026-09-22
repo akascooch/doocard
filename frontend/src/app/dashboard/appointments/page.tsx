@@ -5,21 +5,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar, Search, Plus, RefreshCcw, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { AppointmentForm, AppointmentList } from '@/components/appointments';
+import { GlassChip } from '@/components/ui/glass-chip';
 import { api } from '@/lib/axios';
 import { useToast } from '@/components/ui/use-toast';
 import { getCurrentUser } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { getTehranAppointmentPresetRange } from '@/lib/date';
+
+const STATUS_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'همه' },
+  { value: 'PENDING_CONFIRMATION', label: 'نیاز به تأیید' },
+  { value: 'CONFIRMED', label: 'تأیید شده' },
+  { value: 'SETTLED', label: 'تسویه شده' },
+  { value: 'CANCELLED', label: 'لغو شده' },
+] as const;
 
 interface Appointment {
   id: number;
@@ -320,45 +322,48 @@ export default function AppointmentsPage() {
               <CardTitle className="text-lg">فیلتر و جستجو</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label>جستجو</Label>
-                  <div className="relative">
-                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="نام مشتری یا آرایشگر..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pr-10"
-                    />
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+                  <div>
+                    <Label>جستجو</Label>
+                    <div className="relative">
+                      <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="نام مشتری یا آرایشگر..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pr-10"
+                      />
+                    </div>
                   </div>
-                </div>
-
-                <div>
-                  <Label>وضعیت</Label>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">همه</SelectItem>
-                      <SelectItem value="PENDING_CONFIRMATION">نیاز به تأیید</SelectItem>
-                      <SelectItem value="CONFIRMED">تأیید شده</SelectItem>
-                      <SelectItem value="SETTLED">تسویه شده</SelectItem>
-                      <SelectItem value="CANCELLED">لغو شده</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-end">
                   <Button
                     onClick={loadAppointments}
                     variant="outline"
-                    className="w-full"
+                    className="w-full sm:w-auto"
                   >
                     <RefreshCcw className="h-4 w-4 ml-2" />
                     بروزرسانی
                   </Button>
+                </div>
+
+                <div>
+                  <Label className="mb-2 block">وضعیت</Label>
+                  <div
+                    role="group"
+                    aria-label="فیلتر وضعیت نوبت"
+                    className="flex flex-wrap gap-2"
+                  >
+                    {STATUS_FILTER_OPTIONS.map((opt) => (
+                      <GlassChip
+                        key={opt.value}
+                        selected={statusFilter === opt.value}
+                        onClick={() => setStatusFilter(opt.value)}
+                        className="min-h-10 px-2.5 text-xs sm:text-sm"
+                      >
+                        {opt.label}
+                      </GlassChip>
+                    ))}
+                  </div>
                 </div>
               </div>
             </CardContent>

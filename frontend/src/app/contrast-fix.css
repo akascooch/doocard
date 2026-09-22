@@ -118,10 +118,16 @@ select {
   color: hsl(var(--card-foreground));
 }
 
-/* Inverted CTAs only. Radix SelectTrigger is a button[role=combobox] with bg-white. */
-button.bg-white:not([role="combobox"]),
-button[class*="dark:bg-white"]:not([class*="bg-white/"]):not([role="combobox"]) {
+/* Inverted CTAs only. Radix SelectTrigger is a button[role=combobox] with bg-white.
+   Glass chips use bg-white/5 (not bg-white) and must stay glassy. */
+button.bg-white:not([role="combobox"]):not([data-chip]):not(.glass-chip),
+button[class*="dark:bg-white"]:not([class*="bg-white/"]):not([role="combobox"]):not([data-chip]):not(.glass-chip) {
   background-color: #ffffff !important;
   color: #09090b !important;
+}
+
+button[data-chip],
+button.glass-chip {
+  background-image: none;
 }
 

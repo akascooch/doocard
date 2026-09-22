@@ -36,8 +36,8 @@
   color: #f4f4f5 !important;
 }
 
-.aurora-dashboard-canvas button.bg-white:not([role="combobox"]),
-.aurora-dashboard-canvas button[class*="dark:bg-white"]:not([class*="bg-white/"]):not([role="combobox"]),
+.aurora-dashboard-canvas button.bg-white:not([role="combobox"]):not([data-chip]):not(.glass-chip),
+.aurora-dashboard-canvas button[class*="dark:bg-white"]:not([class*="bg-white/"]):not([role="combobox"]):not([data-chip]):not(.glass-chip),
 .aurora-dashboard-canvas a.bg-white.text-black,
 .aurora-dashboard-canvas .bg-white.text-black {
   background-color: #ffffff !important;
@@ -246,12 +246,41 @@
   color: #4b5563 !important;
 }
 
-.aurora-public-booking [class*="rounded-2xl"],
-.aurora-public-booking [class*="backdrop-blur"] {
+.aurora-public-booking [class*="rounded-2xl"]:not(.glass-chip):not([data-chip]),
+.aurora-public-booking [class*="backdrop-blur"]:not(.glass-chip):not([data-chip]) {
   background-color: #ffffff !important;
   color: #111827 !important;
   border-color: #e5e7eb !important;
   box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.18);
+}
+
+/* Chips stay glassy on the light booking island; readable dark type + selected ring.
+   Idle must not lock hover/selected — use specificity, not a blanket idle !important. */
+.aurora-public-booking button.glass-chip:not([data-selected="true"]),
+.aurora-public-booking button[data-chip]:not([data-selected="true"]) {
+  background-color: rgb(17 24 39 / 0.05) !important;
+  color: #111827 !important;
+  border-color: rgb(17 24 39 / 0.15) !important;
+  box-shadow: none !important;
+}
+
+.aurora-public-booking button.glass-chip:hover:not(:disabled):not([data-selected="true"]),
+.aurora-public-booking button[data-chip]:hover:not(:disabled):not([data-selected="true"]) {
+  background-color: rgb(17 24 39 / 0.1) !important;
+  border-color: rgb(17 24 39 / 0.25) !important;
+}
+
+.aurora-public-booking button.glass-chip[data-selected="true"],
+.aurora-public-booking button[data-chip][data-selected="true"] {
+  background-color: rgb(17 24 39 / 0.12) !important;
+  color: #111827 !important;
+  border-color: rgb(17 24 39 / 0.35) !important;
+}
+
+.aurora-public-booking button.glass-chip[data-selected="true"]:hover:not(:disabled),
+.aurora-public-booking button[data-chip][data-selected="true"]:hover:not(:disabled) {
+  background-color: rgb(17 24 39 / 0.16) !important;
+  border-color: rgb(17 24 39 / 0.45) !important;
 }
 
 .aurora-public-booking [class*="border-white\/5"],
