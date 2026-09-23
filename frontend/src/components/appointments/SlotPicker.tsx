@@ -155,7 +155,7 @@ export default function SlotPicker({
             {required && <span className="text-red-500 mr-1">*</span>}
           </Label>
         )}
-        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center text-sm text-muted-foreground">
+        <div className="p-4 bg-white/[0.04] border border-white/10 rounded-lg text-center text-sm text-slate-300">
           لطفاً ابتدا آرایشگر و تاریخ را انتخاب کنید
         </div>
       </div>
@@ -171,7 +171,7 @@ export default function SlotPicker({
             {required && <span className="text-red-500 mr-1">*</span>}
           </Label>
         )}
-        <div className="h-20 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse"></div>
+        <div className="h-20 bg-white/[0.04] border border-white/10 rounded-lg animate-pulse"></div>
       </div>
     );
   }
@@ -206,7 +206,7 @@ export default function SlotPicker({
               })}
             </div>
           ) : (
-            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center text-sm text-muted-foreground">
+            <div className="p-4 bg-white/[0.04] border border-white/10 rounded-lg text-center text-sm text-slate-300">
               زمان خالی برای این تاریخ موجود نیست
             </div>
           )}

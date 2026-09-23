@@ -52,36 +52,36 @@ export function MonthlyChart() {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-4 border border-gray-200 rounded-xl shadow-xl backdrop-blur-sm">
-          <div className="border-b border-gray-100 pb-2 mb-2">
-            <p className="font-bold text-gray-900 text-lg">{label}</p>
+        <div className="bg-zinc-950/95 p-4 border border-white/10 rounded-xl shadow-xl backdrop-blur-xl text-zinc-100">
+          <div className="border-b border-white/10 pb-2 mb-2">
+            <p className="font-bold text-white text-lg">{label}</p>
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span className="text-gray-600 font-medium">درآمد:</span>
+                <span className="text-slate-300 font-medium">درآمد:</span>
               </div>
-              <span className="text-green-700 font-bold">
+              <span className="text-emerald-300 font-bold">
                 {formatNumber(payload[0]?.value || 0)} تومان
               </span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                <span className="text-gray-600 font-medium">هزینه:</span>
+                <span className="text-slate-300 font-medium">هزینه:</span>
               </div>
-              <span className="text-red-700 font-bold">
+              <span className="text-rose-400 font-bold">
                 {formatNumber(payload[1]?.value || 0)} تومان
               </span>
             </div>
-            <div className="pt-2 border-t border-gray-100">
+            <div className="pt-2 border-t border-white/10">
               <div className="flex items-center justify-between">
-                <span className="text-gray-600 font-medium">سود خالص:</span>
+                <span className="text-slate-300 font-medium">سود خالص:</span>
                 <span className={`font-bold ${
                   (payload[0]?.value || 0) - (payload[1]?.value || 0) >= 0 
-                    ? 'text-green-700' 
-                    : 'text-red-700'
+                    ? 'text-emerald-300' 
+                    : 'text-rose-400'
                 }`}>
                   {formatNumber((payload[0]?.value || 0) - (payload[1]?.value || 0))} تومان
                 </span>

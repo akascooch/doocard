@@ -124,7 +124,7 @@ export default function EmployeeSelectFiltered({
             {required && <span className="text-red-500 mr-1">*</span>}
           </Label>
         )}
-        <div className="h-10 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse"></div>
+        <div className="h-10 bg-white/[0.04] border border-white/10 rounded-lg animate-pulse"></div>
       </div>
     );
   }
@@ -141,7 +141,7 @@ export default function EmployeeSelectFiltered({
       {locked ? (
         <div
           className={cn(
-            'flex min-h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm',
+            'flex min-h-10 items-center rounded-md border border-white/10 bg-white/[0.06] backdrop-blur-md px-3 text-sm text-zinc-100',
             error && 'border-red-500',
           )}
         >

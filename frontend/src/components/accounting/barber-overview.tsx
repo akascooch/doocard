@@ -205,33 +205,34 @@ export function BarberOverview() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-white/[0.06] border border-white/10 backdrop-blur-md rounded-lg">
             <div>
-              <h3 className="font-medium">درخواست برداشت</h3>
-              <p className="text-sm text-gray-600">
+              <h3 className="font-medium text-zinc-100">درخواست برداشت</h3>
+              <p className="text-sm text-slate-300">
                 موجودی قابل برداشت: {formatTomansFromRial(stats.availableIncome || 0)}
               </p>
             </div>
             <Button 
               onClick={handleWithdrawalRequest}
-              className="bg-green-600 hover:bg-green-700"
+              variant="glass"
+              className="text-emerald-300"
             >
               <BanknotesIcon className="h-4 w-4 ml-2" />
               درخواست برداشت
             </Button>
           </div>
           
-          <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-white/[0.06] border border-white/10 backdrop-blur-md rounded-lg">
             <div>
-              <h3 className="font-medium">بروزرسانی اطلاعات</h3>
-              <p className="text-sm text-gray-600">
+              <h3 className="font-medium text-zinc-100">بروزرسانی اطلاعات</h3>
+              <p className="text-sm text-slate-300">
                 آخرین بروزرسانی: {new Date().toLocaleTimeString('fa-IR')}
               </p>
             </div>
             <Button 
               onClick={refreshData}
-              variant="outline"
-              className="border-blue-200 text-blue-700 hover:bg-blue-50"
+              variant="glass"
+              className="text-sky-300"
             >
               <ArrowUpIcon className="h-4 w-4 ml-2" />
               بروزرسانی
@@ -264,8 +265,8 @@ export function BarberOverview() {
                 </Badge>
               </div>
             )}
-            <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-              💡 <strong>نکته:</strong> تیپ‌های روزانه به صورت خودکار به موجودی شما اضافه می‌شوند و می‌توانید از طریق درخواست برداشت، آن‌ها را دریافت کنید.
+            <div className="text-sm text-slate-300 bg-white/[0.06] border border-white/10 backdrop-blur-md p-3 rounded-lg">
+              💡 <strong className="text-zinc-100">نکته:</strong> تیپ‌های روزانه به صورت خودکار به موجودی شما اضافه می‌شوند و می‌توانید از طریق درخواست برداشت، آن‌ها را دریافت کنید.
             </div>
           </div>
         </CardContent>
@@ -317,8 +318,8 @@ export function BarberOverview() {
           <CardContent>
             <div className="space-y-3">
               {salesChart.map((item, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <span className="font-medium">{item.month}</span>
+                <div key={index} className="flex items-center justify-between p-3 bg-white/[0.06] border border-white/10 backdrop-blur-md rounded-lg">
+                  <span className="font-medium text-zinc-100">{item.month}</span>
                   <div className="flex gap-4">
                     <span className="text-blue-600">فروش: {formatTomansFromRial(item.sales)}</span>
                     <span className="text-purple-600">تیپ: {formatTomansFromRial(item.tips)}</span>

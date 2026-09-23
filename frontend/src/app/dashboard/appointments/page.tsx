@@ -186,14 +186,10 @@ export default function AppointmentsPage() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant={dateFilter === 'today' ? 'default' : 'outline'}
-              size="sm"
+            <GlassChip
+              selected={dateFilter === 'today'}
               onClick={() => setDateFilter('today')}
-              className={cn(
-                'flex items-center gap-2',
-                dateFilter === 'today' && 'bg-primary text-primary-foreground hover:bg-primary/90'
-              )}
+              className="flex items-center gap-2 text-slate-300"
             >
               <Clock className="h-4 w-4" />
               امروز
@@ -202,53 +198,38 @@ export default function AppointmentsPage() {
                   {stats.total}
                 </span>
               )}
-            </Button>
-            <Button
-              variant={dateFilter === 'yesterday' ? 'default' : 'outline'}
-              size="sm"
+            </GlassChip>
+            <GlassChip
+              selected={dateFilter === 'yesterday'}
               onClick={() => setDateFilter('yesterday')}
-              className={cn(
-                'flex items-center gap-2',
-                dateFilter === 'yesterday' && 'bg-primary text-primary-foreground hover:bg-primary/90'
-              )}
+              className="flex items-center gap-2 text-slate-300"
             >
               <Clock className="h-4 w-4" />
               دیروز
-            </Button>
-            <Button
-              variant={dateFilter === 'tomorrow' ? 'default' : 'outline'}
-              size="sm"
+            </GlassChip>
+            <GlassChip
+              selected={dateFilter === 'tomorrow'}
               onClick={() => setDateFilter('tomorrow')}
-              className={cn(
-                'flex items-center gap-2',
-                dateFilter === 'tomorrow' && 'bg-primary text-primary-foreground hover:bg-primary/90'
-              )}
+              className="flex items-center gap-2 text-slate-300"
             >
               <Calendar className="h-4 w-4" />
               فردا
-            </Button>
-            <Button
-              variant={dateFilter === 'week' ? 'default' : 'outline'}
-              size="sm"
+            </GlassChip>
+            <GlassChip
+              selected={dateFilter === 'week'}
               onClick={() => setDateFilter('week')}
-              className={cn(
-                'flex items-center gap-2',
-                dateFilter === 'week' && 'bg-primary text-primary-foreground hover:bg-primary/90'
-              )}
+              className="flex items-center gap-2 text-slate-300"
             >
               <Calendar className="h-4 w-4" />
               این هفته
-            </Button>
-            <Button
-              variant={dateFilter === 'all' ? 'default' : 'outline'}
-              size="sm"
+            </GlassChip>
+            <GlassChip
+              selected={dateFilter === 'all'}
               onClick={() => setDateFilter('all')}
-              className={cn(
-                dateFilter === 'all' && 'bg-primary text-primary-foreground hover:bg-primary/90'
-              )}
+              className="text-slate-300"
             >
               همه نوبت‌ها
-            </Button>
+            </GlassChip>
           </div>
         </CardContent>
       </Card>
@@ -338,8 +319,8 @@ export default function AppointmentsPage() {
                   </div>
                   <Button
                     onClick={loadAppointments}
-                    variant="outline"
-                    className="w-full sm:w-auto"
+                    variant="glass"
+                    className="w-full sm:w-auto text-sky-300"
                   >
                     <RefreshCcw className="h-4 w-4 ml-2" />
                     بروزرسانی

@@ -373,36 +373,36 @@ export default function CustomerDashboard() {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Button 
-              variant="outline" 
-              className="h-20 flex flex-col gap-2"
+              variant="glass" 
+              className="min-h-20 h-20 flex flex-col items-start justify-center gap-1"
               onClick={() => router.push('/dashboard/customer/book-appointment')}
             >
-              <UserPlus className="h-6 w-6" />
-              <span>رزرو نوبت</span>
+              <UserPlus className="h-6 w-6 text-amber-300" />
+              <span className="text-zinc-100">رزرو نوبت</span>
             </Button>
             <Button 
-              variant="outline" 
-              className="h-20 flex flex-col gap-2"
+              variant="glass" 
+              className="min-h-20 h-20 flex flex-col items-start justify-center gap-1"
               onClick={() => router.push('/dashboard/customer/appointments')}
             >
-              <Calendar className="h-6 w-6" />
-              <span>نوبت‌های من</span>
+              <Calendar className="h-6 w-6 text-amber-300" />
+              <span className="text-zinc-100">نوبت‌های من</span>
             </Button>
             <Button 
-              variant="outline" 
-              className="h-20 flex flex-col gap-2"
+              variant="glass" 
+              className="min-h-20 h-20 flex flex-col items-start justify-center gap-1"
               onClick={() => router.push('/dashboard/customer/history')}
             >
-              <History className="h-6 w-6" />
-              <span>تاریخچه</span>
+              <History className="h-6 w-6 text-amber-300" />
+              <span className="text-zinc-100">تاریخچه</span>
             </Button>
             <Button 
-              variant="outline" 
-              className="h-20 flex flex-col gap-2"
+              variant="glass" 
+              className="min-h-20 h-20 flex flex-col items-start justify-center gap-1"
               onClick={() => router.push('/dashboard/customer/settings')}
             >
-              <Star className="h-6 w-6" />
-              <span>تنظیمات</span>
+              <Star className="h-6 w-6 text-amber-300" />
+              <span className="text-zinc-100">تنظیمات</span>
             </Button>
           </div>
         </CardContent>

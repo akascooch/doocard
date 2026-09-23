@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import { Calendar, Search, Plus, RefreshCcw, Clock, CheckCircle, AlertCircle, SlidersHorizontal } from 'lucide-react';
 import { AppointmentForm, AppointmentList } from '@/components/appointments';
+import { GlassChip } from '@/components/ui/glass-chip';
 import PersianDatePicker from '@/components/ui/PersianDatePicker';
 import { api } from '@/lib/axios';
 import { useToast } from '@/components/ui/use-toast';
@@ -261,34 +262,30 @@ export default function EmployeeAppointmentsPage() {
                 ['all', 'همه', null],
               ] as const
             ).map(([key, label, Icon]) => (
-              <Button
+              <GlassChip
                 key={key}
-                variant={filterMode === 'preset' && dateFilter === key ? 'default' : 'outline'}
-                size="sm"
+                selected={filterMode === 'preset' && dateFilter === key}
                 onClick={() => handlePresetClick(key)}
-                className={cn(
-                  'flex items-center gap-2 min-h-10',
-                  filterMode === 'preset' && dateFilter === key && 'bg-primary text-primary-foreground',
-                )}
+                className="flex items-center gap-2 min-h-10 text-slate-300"
               >
                 {Icon && <Icon className="h-4 w-4" />}
                 {label}
                 {filterMode === 'preset' && dateFilter === key && key === 'today' && stats.total > 0 && (
                   <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">{stats.total}</span>
                 )}
-              </Button>
+              </GlassChip>
             ))}
           </div>
           <Button
-            variant="outline"
+            variant="glass"
             size="sm"
-            className="w-full sm:w-auto min-h-10"
+            className="w-full sm:w-auto min-h-10 text-slate-300"
             onClick={() => setAdvancedOpen(true)}
           >
             <SlidersHorizontal className="h-4 w-4 ml-2" />
             فیلتر پیشرفته
             {filterMode !== 'preset' && advancedLabel && (
-              <span className="mr-2 text-xs text-muted-foreground truncate max-w-[160px]">
+              <span className="mr-2 text-xs text-slate-400 truncate max-w-[160px]">
                 ({advancedLabel})
               </span>
             )}
@@ -456,7 +453,7 @@ export default function EmployeeAppointmentsPage() {
                   </Select>
                 </div>
                 <div className="flex items-end">
-                  <Button onClick={() => loadAppointments()} variant="outline" className="w-full min-h-10">
+                  <Button onClick={() => loadAppointments()} variant="glass" className="w-full min-h-10 text-sky-300">
                     <RefreshCcw className="h-4 w-4 ml-2" />
                     بروزرسانی
                   </Button>

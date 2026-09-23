@@ -339,8 +339,8 @@ export default function CustomerTypeahead({
         </Dialog>
 
         {selectedCustomer && (
-          <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-lg p-2">
-            <span className="text-sm text-muted-foreground">
+          <div className="flex items-center justify-between bg-white/[0.06] border border-white/10 backdrop-blur-md rounded-lg p-2">
+            <span className="text-sm text-slate-300">
               مشتری: {selectedCustomer?.user?.name ?? 'نام نامشخص'}
               {' — '}
               {selectedCustomer.preferredEmployee?.user?.name?.trim() || 'تیم سالن'}

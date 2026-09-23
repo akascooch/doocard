@@ -15,6 +15,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar, Search, Plus, RefreshCcw, Clock, CheckCircle, AlertCircle, Filter, X } from 'lucide-react';
 import { AppointmentForm, AppointmentList } from '@/components/appointments';
+import { GlassChip } from '@/components/ui/glass-chip';
 import { api } from '@/lib/axios';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
@@ -352,7 +353,7 @@ export default function AdminAppointmentsPage() {
               {showAdvancedFilters ? 'فیلتر پیشرفته' : 'فیلتر سریع زمانی'}
             </CardTitle>
             <Button
-              variant={showAdvancedFilters ? 'default' : 'outline'}
+              variant="glass"
               size="sm"
               onClick={() => {
                 if (showAdvancedFilters) {
@@ -369,7 +370,10 @@ export default function AdminAppointmentsPage() {
                   setShowAdvancedFilters(true);
                 }
               }}
-              className={cn(showAdvancedFilters && 'bg-primary text-primary-foreground hover:bg-primary/90')}
+              className={cn(
+                'text-slate-300',
+                showAdvancedFilters && 'border-white/40 bg-white/15 text-white ring-2 ring-amber-200/80',
+              )}
             >
               <Filter className="h-4 w-4 ml-2" />
               {showAdvancedFilters ? 'بازگشت به فیلتر سریع' : 'فیلتر پیشرفته'}
@@ -389,22 +393,18 @@ export default function AdminAppointmentsPage() {
                   ['all', 'همه نوبت‌ها', null],
                 ] as const
               ).map(([key, label, Icon]) => (
-                <Button
+                <GlassChip
                   key={key}
-                  variant={dateFilter === key ? 'default' : 'outline'}
-                  size="sm"
+                  selected={dateFilter === key}
                   onClick={() => handlePresetClick(key)}
-                  className={cn(
-                    'flex items-center gap-2',
-                    dateFilter === key && 'bg-primary text-primary-foreground hover:bg-primary/90',
-                  )}
+                  className="flex items-center gap-2 text-slate-300"
                 >
                   {Icon && <Icon className="h-4 w-4" />}
                   {label}
                   {dateFilter === key && key === 'today' && stats.total > 0 && (
                     <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">{stats.total}</span>
                   )}
-                </Button>
+                </GlassChip>
               ))}
             </div>
           ) : (
@@ -628,7 +628,7 @@ export default function AdminAppointmentsPage() {
                 </div>
 
                 <div className="flex items-end">
-                  <Button onClick={loadAppointmentsAndSummary} variant="outline" className="w-full">
+                  <Button onClick={loadAppointmentsAndSummary} variant="glass" className="w-full text-sky-300">
                     <RefreshCcw className="h-4 w-4 ml-2" />
                     بروزرسانی
                   </Button>

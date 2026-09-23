@@ -285,36 +285,36 @@ export default function EmployeeDashboard() {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Button
-              variant="outline"
-              className="h-20 flex flex-col gap-2"
+              variant="glass"
+              className="min-h-20 h-20 flex flex-col items-start justify-center gap-1"
               onClick={() => router.push('/dashboard/employee/appointments')}
             >
-              <Calendar className="h-6 w-6" />
-              <span>نوبت‌های من</span>
+              <Calendar className="h-6 w-6 text-amber-300" />
+              <span className="text-zinc-100">نوبت‌های من</span>
             </Button>
             <Button
-              variant="outline"
-              className="h-20 flex flex-col gap-2"
+              variant="glass"
+              className="min-h-20 h-20 flex flex-col items-start justify-center gap-1"
               onClick={() => router.push('/dashboard/employee/salary-request')}
             >
-              <DollarSign className="h-6 w-6" />
-              <span>درخواست حقوق</span>
+              <DollarSign className="h-6 w-6 text-amber-300" />
+              <span className="text-zinc-100">درخواست حقوق</span>
             </Button>
             <Button
-              variant="outline"
-              className="h-20 flex flex-col gap-2"
+              variant="glass"
+              className="min-h-20 h-20 flex flex-col items-start justify-center gap-1"
               onClick={() => router.push('/dashboard/employee/my-customers')}
             >
-              <Users className="h-6 w-6" />
-              <span>مشتریان من</span>
+              <Users className="h-6 w-6 text-amber-300" />
+              <span className="text-zinc-100">مشتریان من</span>
             </Button>
             <Button
-              variant="outline"
-              className="h-20 flex flex-col gap-2"
+              variant="glass"
+              className="min-h-20 h-20 flex flex-col items-start justify-center gap-1"
               onClick={() => router.push('/dashboard/employee/performance')}
             >
-              <BarChart3 className="h-6 w-6" />
-              <span>گزارش عملکرد</span>
+              <BarChart3 className="h-6 w-6 text-amber-300" />
+              <span className="text-zinc-100">گزارش عملکرد</span>
             </Button>
           </div>
         </CardContent>

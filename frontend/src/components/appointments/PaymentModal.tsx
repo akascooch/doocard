@@ -643,7 +643,7 @@ export default function PaymentModal({
             )}
 
             {/* Services Summary */}
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+            <div className="bg-white/[0.06] border border-white/10 backdrop-blur-md rounded-lg p-3">
               <p className="text-sm font-medium mb-2">سرویس‌های انجام شده:</p>
               <ul className="text-sm space-y-1">
                 {getAppointmentServices(appointment).map((service, idx) => (

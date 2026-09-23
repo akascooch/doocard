@@ -243,9 +243,9 @@ export default function AppointmentList({
         appointment.status === 'PENDING_CONFIRMATION' && (
           <Button
             size="sm"
-            variant="outline"
+            variant="glass"
             onClick={() => handleConfirm(appointment.id)}
-            className="text-green-600 hover:text-green-700 min-h-9"
+            className="text-emerald-300 min-h-9"
             title="تأیید نوبت"
           >
             <CheckCircle className="h-4 w-4 ml-1" />
@@ -259,12 +259,12 @@ export default function AppointmentList({
         appointment.status !== 'CANCELLED' && (
           <Button
             size="sm"
-            variant="outline"
+            variant="glass"
             onClick={() => {
               setSettleId(appointment.id);
               setSettleAppointment(appointment);
             }}
-            className="text-main-orange hover:text-main-orange/90 min-h-9"
+            className="text-amber-300 min-h-9"
             title="تسویه نوبت"
           >
             <DollarSign className="h-4 w-4 ml-1" />
@@ -276,9 +276,9 @@ export default function AppointmentList({
         (appointment.status === 'SETTLED' || appointment.status === 'PAID') && (
           <Button
             size="sm"
-            variant="outline"
+            variant="glass"
             onClick={() => handleRevertSettlement(appointment.id)}
-            className="text-amber-700 hover:text-amber-800 min-h-9"
+            className="text-sky-300 min-h-9"
             title="برگشت از تسویه"
           >
             <RotateCcw className="h-4 w-4 ml-1" />
@@ -291,9 +291,9 @@ export default function AppointmentList({
         appointment.status !== 'CANCELLED' && (
           <Button
             size="sm"
-            variant="outline"
+            variant="glass"
             onClick={() => handleCancel(appointment.id)}
-            className="text-red-600 hover:text-red-700 min-h-9"
+            className="text-slate-200 min-h-9"
             title="لغو نوبت"
           >
             <XCircle className="h-4 w-4 ml-1" />
@@ -304,9 +304,9 @@ export default function AppointmentList({
       {userRole === 'ADMIN' && (
         <Button
           size="sm"
-          variant="outline"
+          variant="glass"
           onClick={() => setDeleteId(appointment.id)}
-          className="text-red-600 hover:text-red-700 min-h-9"
+          className="text-rose-400 min-h-9"
           title="حذف نوبت"
         >
           <Trash2 className="h-4 w-4 ml-1" />

@@ -481,8 +481,8 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
 
           {/* Summary (only show price for non-customers) */}
           {formData.serviceIds.length > 0 && (
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-2">
-              <h3 className="font-semibold">خلاصه نوبت:</h3>
+            <div className="bg-white/[0.06] border border-white/10 backdrop-blur-md rounded-lg p-4 space-y-2">
+              <h3 className="font-semibold text-zinc-100">خلاصه نوبت:</h3>
               <div className="text-sm space-y-1">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">تعداد سرویس:</span>

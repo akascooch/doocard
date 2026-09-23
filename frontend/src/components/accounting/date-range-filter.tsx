@@ -136,7 +136,7 @@ export function DateRangeFilter({ onDateRangeChange, selectedRange, selectedType
         </Button>
         
         {isCalendarOpen && (
-          <div className="absolute z-50 mt-2 bg-white border rounded-lg shadow-lg p-4">
+          <div className="absolute z-50 mt-2 bg-zinc-950/95 backdrop-blur-xl border border-white/10 text-zinc-100 rounded-lg shadow-lg p-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-2 block">از تاریخ</label>

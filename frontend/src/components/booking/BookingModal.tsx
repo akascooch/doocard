@@ -486,7 +486,7 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-2 border-white/20 shadow-2xl">
+      <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden bg-white/[0.05] backdrop-blur-xl border border-white/10 shadow-2xl text-zinc-100">
         {/* Glassmorphism Header */}
         <div className="relative bg-gradient-to-br from-teal/10 via-light-blue/10 to-main-orange/10 border-b border-white/20 backdrop-blur-md">
           <div className="absolute inset-0 bg-grid-white/5"></div>
@@ -517,7 +517,7 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                   className={`h-1 flex-1 rounded-full transition-all duration-300 ${
                     s <= step
                       ? 'bg-gradient-to-r from-teal to-light-blue shadow-lg shadow-teal/50'
-                      : 'bg-gray-200 dark:bg-gray-700'
+                      : 'bg-white/[0.04] border border-white/10'
                   }`}
                 />
               ))}
@@ -901,7 +901,7 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
         </div>
 
         {/* Footer */}
-        <div className="border-t border-white/20 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-sm p-4 flex justify-between">
+        <div className="border-t border-white/10 bg-white/[0.05] backdrop-blur-xl p-4 flex justify-between">
           {step > 1 && (
             <Button
               variant="outline"

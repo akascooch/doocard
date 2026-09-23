@@ -163,7 +163,7 @@ export default function ServicesMultiSelect({
           </div>
 
           {/* Summary */}
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-sm">
+          <div className="bg-white/[0.06] border border-white/10 backdrop-blur-md rounded-lg p-3 text-sm">
             {!hidePrices && (
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">مجموع قیمت:</span>

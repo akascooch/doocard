@@ -134,7 +134,7 @@ export default function SlotPickerProfessional({
             {required && <span className="text-red-500 mr-1">*</span>}
           </Label>
         )}
-        <div className="h-32 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse flex items-center justify-center">
+        <div className="h-32 bg-white/[0.04] border border-white/10 rounded-xl animate-pulse flex items-center justify-center">
           <RefreshCw className="h-6 w-6 animate-spin text-gray-500 dark:text-gray-300" />
         </div>
       </div>
