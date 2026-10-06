@@ -65,6 +65,7 @@ export default function OfflineBanner() {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: -100, opacity: 0 }}
         className="fixed top-0 left-0 right-0 z-[9998] bg-warning-solid text-warning-foreground shadow-lg"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-start gap-3">

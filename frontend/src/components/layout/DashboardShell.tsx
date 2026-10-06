@@ -65,6 +65,7 @@ export function DashboardShell({
             className={`fixed right-0 top-0 z-50 h-full overflow-hidden shadow-2xl lg:rounded-none ${
               isMobile ? 'w-80' : 'w-72'
             }`}
+            style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
           >
             {sidebar}
           </motion.div>
@@ -105,7 +106,7 @@ export function DashboardShell({
           aria-expanded={isSidebarOpen}
           title={menuOpenLabel}
           className="fixed bottom-6 left-4 z-30 h-14 w-14 min-h-14 min-w-14 rounded-full shadow-xl active:scale-95"
-          style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
+          style={{ marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
         >
           {isSidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </Button>

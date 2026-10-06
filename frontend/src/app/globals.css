@@ -645,6 +645,18 @@
   }
 }
 
+/* iOS Safari zooms the page when a focused field computes below 16px.
+   text-sm on inputs is 14px. This unlayered rule wins over that utility
+   only under 1024px, so a desktop window keeps the component size.
+   maximum-scale and user-scalable are intentionally not changed. */
+@media (max-width: 1024px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]):not([type="hidden"]):not([type="image"]):not([type="color"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 /* Skip to content link */
 .skip-to-content {
   @apply sr-only focus:not-sr-only;

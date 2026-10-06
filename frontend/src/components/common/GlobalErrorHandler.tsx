@@ -68,6 +68,7 @@ export default function GlobalErrorHandler() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -100, opacity: 0 }}
             className="fixed top-0 left-0 right-0 z-[9997] bg-primary text-primary-foreground shadow-lg"
+            style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
           >
             <div className="container mx-auto px-4 py-2">
               <div className="flex items-center justify-center gap-2 text-sm">
@@ -87,6 +88,7 @@ export default function GlobalErrorHandler() {
             exit={{ y: -100, opacity: 0 }}
             transition={{ delay: 0.2, duration: 0.3 }}
             className="fixed top-0 left-0 right-0 z-[9999] bg-primary text-primary-foreground shadow-lg"
+            style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
           >
             <div className="container mx-auto px-4 py-2">
               <div className="flex items-center justify-center gap-2 text-sm">

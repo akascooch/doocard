@@ -31,7 +31,11 @@ export function DashboardTopbar({
   const roleKey = userRole && ROLE_LABELS[userRole] ? userRole : 'CUSTOMER'
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-md">
+    <header
+      data-app-header="true"
+      className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-md"
+      style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+    >
       <div className="flex h-14 items-center justify-between gap-3 px-6 lg:h-16 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
           <button

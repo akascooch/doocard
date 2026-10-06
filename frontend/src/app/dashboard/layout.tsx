@@ -148,7 +148,10 @@ export default function DashboardLayout({
         <div className="aurora-dashboard-canvas min-h-screen bg-background text-foreground">
           {/* Auth degraded banner (session-only, non-destructive) */}
           {authDegraded && (
-            <div className="fixed top-0 inset-x-0 z-40 flex justify-center px-4 pt-4">
+            <div
+              className="fixed top-0 inset-x-0 z-40 flex justify-center px-4 pt-4"
+              style={{ paddingTop: "max(1rem, env(safe-area-inset-top, 0px))" }}
+            >
               <div className="flex w-full max-w-3xl flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3 text-card-foreground shadow-md md:flex-row md:items-center">
                 <div className="flex-1">
                   <p className="font-semibold text-sm md:text-base">
