@@ -45,6 +45,7 @@ export interface AppointmentRecord {
   employeeName: string;
   employeeId?: number;
   notes?: string;
+  paymentMethod?: string | null;
 }
 
 /** Human-readable tip assignment label; safe when fields are null. */

@@ -27,6 +27,11 @@ import { api } from '@/lib/axios';
 import { useToast } from '@/components/ui/use-toast';
 import { getApiErrorMessage, notifyError, notifySuccess } from '@/lib/notify';
 import { formatAppointmentWhenTehran } from '@/lib/date';
+import { formatAppointmentPaymentMethod } from '@/lib/payment-method';
+import {
+  appointmentPaymentBadgeClass,
+  appointmentStatusBadgeClass,
+} from '@/lib/appointment-status';
 import { toTomans } from '@/lib/money';
 import {
   type AppointmentRecord,
@@ -141,26 +146,35 @@ export default function AppointmentList({
   };
 
   const getStatusBadge = (status: string) => {
-    const configs: Record<string, { label: string; className: string }> = {
-      PENDING: { label: 'در انتظار', className: 'border-border text-foreground' },
-      PENDING_CONFIRMATION: {
-        label: 'نیاز به تأیید',
-        className: 'border-border text-foreground animate-pulse',
-      },
-      CONFIRMED: { label: 'تأیید شده', className: 'border-border text-foreground' },
-      COMPLETED: { label: 'انجام شده', className: 'border-border text-foreground' },
-      SETTLED: { label: 'تسویه شده', className: 'border-border text-foreground' },
-      PAID: { label: 'پرداخت شده', className: 'border-border text-foreground' },
-      CANCELLED: { label: 'لغو شده', className: 'border-border text-foreground' },
+    const labels: Record<string, string> = {
+      PENDING: 'در انتظار',
+      PENDING_CONFIRMATION: 'نیاز به تأیید',
+      CONFIRMED: 'تأیید شده',
+      COMPLETED: 'انجام شده',
+      SETTLED: 'تسویه شده',
+      PAID: 'پرداخت شده',
+      CANCELLED: 'لغو شده',
     };
+    const pulse = status === 'PENDING_CONFIRMATION' ? 'animate-pulse' : '';
 
-    const config = configs[status] || { label: status, className: '' };
     return (
-      <Badge variant="glass" className={config.className}>
-        {config.label}
+      <Badge
+        variant="outline"
+        className={`normal-case tracking-normal ${appointmentStatusBadgeClass(status)} ${pulse}`}
+      >
+        {labels[status] || status}
       </Badge>
     );
   };
+
+  const getPaymentBadge = (method?: string | null) => (
+    <Badge
+      variant="outline"
+      className={`normal-case tracking-normal ${appointmentPaymentBadgeClass(method)}`}
+    >
+      {formatAppointmentPaymentMethod(method)}
+    </Badge>
+  );
 
   const handleConfirm = async (id: number) => {
     try {
@@ -392,6 +406,10 @@ export default function AppointmentList({
               ) : null}
               {renderNotes(appointment.notes)}
               {renderPackageHint(appointment)}
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">تسویه:</span>
+                {getPaymentBadge(appointment.paymentMethod)}
+              </div>
             </div>
             {renderActions(appointment)}
           </div>
@@ -409,6 +427,7 @@ export default function AppointmentList({
               <TableHead className="text-right">سرویس‌ها</TableHead>
               <TableHead className="text-right">مدت زمان</TableHead>
               <TableHead className="text-right">وضعیت</TableHead>
+              <TableHead className="text-right">تسویه</TableHead>
               {userRole !== 'CUSTOMER' && (
                 <TableHead className="text-right">مبلغ</TableHead>
               )}
@@ -442,6 +461,7 @@ export default function AppointmentList({
                 </TableCell>
                 <TableCell>{appointment.durationMin} دقیقه</TableCell>
                 <TableCell>{getStatusBadge(appointment.status)}</TableCell>
+              <TableCell>{getPaymentBadge(appointment.paymentMethod)}</TableCell>
                 {userRole !== 'CUSTOMER' && (
                   <TableCell>
                     {appointment.amount ? (

@@ -109,6 +109,7 @@ const config = {
         },
         warning: {
           DEFAULT: 'hsl(var(--warning))',
+          solid: 'hsl(var(--warning-solid))',
           foreground: 'hsl(var(--warning-foreground))',
         },
         info: {

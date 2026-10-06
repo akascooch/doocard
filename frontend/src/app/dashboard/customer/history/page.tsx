@@ -13,6 +13,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { getDashboardHomePath } from '@/lib/user-roles'
 import { formatToJalali, getTehranAppointmentPresetRange, getTehranTodayJalali, jalaliDateRangeBoundsTehran } from '@/lib/date'
 import { formatTomansFromRial } from '@/lib/money'
+import { appointmentStatusBadgeClass } from '@/lib/appointment-status'
 
 type HistoryItem = {
   id: number
@@ -30,14 +31,14 @@ type HistoryItem = {
   calendarDate?: { jalaliDate?: string } | null
 }
 
-const STATUS_META: Record<string, { label: string; className: string }> = {
-  COMPLETED: { label: 'انجام شده', className: 'bg-accent text-foreground' },
-  SETTLED: { label: 'تسویه شده', className: 'bg-accent text-foreground' },
-  PAID: { label: 'پرداخت شده', className: 'bg-accent text-foreground' },
-  CANCELLED: { label: 'لغو شده', className: 'bg-accent text-foreground' },
-  CONFIRMED: { label: 'تأیید شده', className: 'bg-accent text-foreground' },
-  PENDING: { label: 'در انتظار', className: 'bg-accent text-foreground' },
-  PENDING_CONFIRMATION: { label: 'در انتظار تأیید', className: 'bg-accent text-foreground' },
+const STATUS_META: Record<string, string> = {
+  COMPLETED: 'انجام شده',
+  SETTLED: 'تسویه شده',
+  PAID: 'پرداخت شده',
+  CANCELLED: 'لغو شده',
+  CONFIRMED: 'تأیید شده',
+  PENDING: 'در انتظار',
+  PENDING_CONFIRMATION: 'در انتظار تأیید',
 }
 
 type DatePreset = 'all' | 'month' | 'week' | 'year'
@@ -212,7 +213,7 @@ export default function CustomerHistoryPage() {
       ) : (
         <div className="space-y-3">
           {filtered.map((item) => {
-            const meta = STATUS_META[item.status] || { label: item.status, className: '' }
+            const label = STATUS_META[item.status] || item.status
             const jalali =
               item.calendarDate?.jalaliDate ||
               (item.scheduledAt ? formatToJalali(item.scheduledAt) : '—')
@@ -231,8 +232,11 @@ export default function CustomerHistoryPage() {
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-medium">{serviceLabel(item)}</h3>
-                      <Badge variant="outline" className={meta.className}>
-                        {meta.label}
+                      <Badge
+                        variant="outline"
+                        className={`normal-case tracking-normal ${appointmentStatusBadgeClass(item.status)}`}
+                      >
+                        {label}
                       </Badge>
                     </div>
                     <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">

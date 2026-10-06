@@ -17,6 +17,7 @@ import {
   BarChart3,
 } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
+import { appointmentStatusBadgeClass } from '@/lib/appointment-status'
 import { canAccessEmployeeDashboard, getDashboardHomePath } from '@/lib/user-roles'
 import { formatTomansFromRial } from '@/lib/money'
 import { formatToJalali } from '@/lib/date'
@@ -53,14 +54,14 @@ interface TodayAppointment {
   }
 }
 
-const STATUS_LABEL: Record<string, { label: string; className: string }> = {
-  PENDING: { label: 'در انتظار', className: 'bg-accent text-foreground' },
-  PENDING_CONFIRMATION: { label: 'در انتظار تأیید', className: 'bg-accent text-foreground' },
-  CONFIRMED: { label: 'تأیید شده', className: 'bg-accent text-foreground' },
-  COMPLETED: { label: 'انجام شده', className: 'bg-accent text-foreground' },
-  SETTLED: { label: 'تسویه شده', className: 'bg-accent text-foreground' },
-  PAID: { label: 'پرداخت شده', className: 'bg-accent text-foreground' },
-  CANCELLED: { label: 'لغو شده', className: 'bg-accent text-foreground' },
+const STATUS_LABEL: Record<string, string> = {
+  PENDING: 'در انتظار',
+  PENDING_CONFIRMATION: 'در انتظار تأیید',
+  CONFIRMED: 'تأیید شده',
+  COMPLETED: 'انجام شده',
+  SETTLED: 'تسویه شده',
+  PAID: 'پرداخت شده',
+  CANCELLED: 'لغو شده',
 }
 
 function formatTehranTime(iso?: string) {
@@ -130,10 +131,12 @@ export default function EmployeeDashboard() {
   }
 
   const getStatusBadge = (status: string) => {
-    const meta = STATUS_LABEL[status] || { label: status, className: '' }
     return (
-      <Badge variant="outline" className={meta.className}>
-        {meta.label}
+      <Badge
+        variant="outline"
+        className={`normal-case tracking-normal ${appointmentStatusBadgeClass(status)}`}
+      >
+        {STATUS_LABEL[status] || status}
       </Badge>
     )
   }

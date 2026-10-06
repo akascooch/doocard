@@ -6,6 +6,7 @@ const nextConfig = {
   output: 'standalone',
 
   reactStrictMode: true,
+  poweredByHeader: false,
   // Keep deployable if unrelated pages still have TS mismatches.
   // Prefer fixing call sites (see book-appointment) over relying on this long-term.
   typescript: {
@@ -44,11 +45,6 @@ const nextConfig = {
         hostname: 'www.doocardbarbershop.com',
         pathname: '/uploads/**',
       },
-      {
-        protocol: 'http',
-        hostname: '45.159.115.148',
-        pathname: '/uploads/**',
-      },
     ],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
@@ -61,7 +57,7 @@ const nextConfig = {
     // Dynamic CSP based on environment
     const connectSrc = isDevelopment
       ? "'self' http://localhost:3000 http://localhost:3001 ws://localhost:3001 https://maps.googleapis.com"
-      : "'self' https://www.doocardbarbershop.com wss://www.doocardbarbershop.com http://doocardbarbershop.com https://doocardbarbershop.com http://185.255.88.158:3001 ws://185.255.88.158:3001 http://45.159.115.148 https://maps.googleapis.com";
+      : "'self' https://www.doocardbarbershop.com wss://www.doocardbarbershop.com http://doocardbarbershop.com https://doocardbarbershop.com https://maps.googleapis.com";
     const frameSrc = isDevelopment
       ? "'self' https://www.google.com https://www.google.com/maps https://maps.google.com https://maps.googleapis.com"
       : "'self' https://www.google.com https://www.google.com/maps https://maps.google.com https://maps.googleapis.com";
@@ -72,8 +68,8 @@ const nextConfig = {
       ? "'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com"
       : "'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com";
     const imgSrc = isDevelopment
-      ? "'self' data: blob: http://localhost:3001 http://127.0.0.1:3001 http://doocardbarbershop.com https://doocardbarbershop.com http://45.159.115.148 https://maps.gstatic.com https://maps.googleapis.com"
-      : "'self' data: blob: http://doocardbarbershop.com https://doocardbarbershop.com http://45.159.115.148 https://maps.gstatic.com https://maps.googleapis.com";
+      ? "'self' data: blob: http://localhost:3001 http://127.0.0.1:3001 http://doocardbarbershop.com https://doocardbarbershop.com https://maps.gstatic.com https://maps.googleapis.com"
+      : "'self' data: blob: http://doocardbarbershop.com https://doocardbarbershop.com https://maps.gstatic.com https://maps.googleapis.com";
     
     return [
       {
@@ -121,7 +117,38 @@ const nextConfig = {
           {
             key: 'X-DNS-Prefetch-Control',
             value: 'on'
+          }
+        ]
+      },
+      {
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable'
+          }
+        ]
+      },
+      {
+        source: '/',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate, max-age=0'
           },
+          {
+            key: 'Pragma',
+            value: 'no-cache'
+          },
+          {
+            key: 'Expires',
+            value: '0'
+          }
+        ]
+      },
+      {
+        source: '/:path((?!_next/static|_next/image).*)',
+        headers: [
           {
             key: 'Cache-Control',
             value: 'no-cache, no-store, must-revalidate, max-age=0'

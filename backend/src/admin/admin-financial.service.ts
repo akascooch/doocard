@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AppointmentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { getJalaliMonthRanges } from '../common/utils/date-utils';
+import { operatingExpenseWhere } from './operating-expense.where';
 
 const SETTLED_STATUSES: AppointmentStatus[] = [
   AppointmentStatus.COMPLETED,
@@ -79,11 +80,7 @@ export class AdminFinancialService {
   private async getMonthlyExpenseTotal(start: Date, end: Date): Promise<bigint> {
     const agg = await this.prisma.transaction.aggregate({
       _sum: { amount: true },
-      where: {
-        type: 'EXPENSE',
-        deletedAt: null,
-        occurredAt: { gte: start, lte: end },
-      },
+      where: operatingExpenseWhere(start, end),
     });
     return agg._sum.amount ?? BigInt(0);
   }
@@ -94,11 +91,7 @@ export class AdminFinancialService {
   ): Promise<Array<{ name: string; total: string }>> {
     const groups = await this.prisma.transaction.groupBy({
       by: ['categoryId'],
-      where: {
-        type: 'EXPENSE',
-        deletedAt: null,
-        occurredAt: { gte: start, lte: end },
-      },
+      where: operatingExpenseWhere(start, end),
       _sum: { amount: true },
     });
 

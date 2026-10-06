@@ -13,13 +13,14 @@ import {
   retryAllFailedOperations,
   setLastSuccessfulSyncAt,
 } from './outbox';
-import type {
-  AppointmentCreatePayload,
-  AppointmentCreateResult,
-  AppointmentSettlePayload,
-  CustomerQuickPayload,
-  CustomerQuickResult,
-  OfflineOutboxItem,
+import {
+  DEFAULT_APPOINTMENT_SETTLE_PAYMENT_METHOD,
+  type AppointmentCreatePayload,
+  type AppointmentCreateResult,
+  type AppointmentSettlePayload,
+  type CustomerQuickPayload,
+  type CustomerQuickResult,
+  type OfflineOutboxItem,
 } from './types';
 
 let syncInProgress = false;
@@ -124,7 +125,7 @@ async function syncAppointmentSettle(
   const settleBody = {
     amount: payload.amount,
     tipAmount: 0,
-    paymentMethod: 'CASH' as const,
+    paymentMethod: payload.paymentMethod ?? DEFAULT_APPOINTMENT_SETTLE_PAYMENT_METHOD,
     accountId: payload.accountId,
     notes: payload.notes,
     externalRef: payload.externalRef,

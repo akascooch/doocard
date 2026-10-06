@@ -676,6 +676,10 @@ export class AppointmentsService {
     }
   }
 
+  private isPaymentMethodUnsetFilter(value: string | boolean | undefined): boolean {
+    return value === true || value === 'true' || value === '1';
+  }
+
   /**
    * Shared list/summary filter builder (role scope + query filters).
    * Date axis is always scheduledAt.
@@ -712,6 +716,16 @@ export class AppointmentsService {
       where.employeeId = query.employeeId;
     }
     if (query.status) where.status = query.status;
+
+    const paymentMethodUnset = this.isPaymentMethodUnsetFilter(query.paymentMethodUnset);
+    if (query.paymentMethod && paymentMethodUnset) {
+      throw new BadRequestException('فیلتر روش پرداخت نامعتبر است');
+    }
+    if (paymentMethodUnset) {
+      where.paymentMethod = null;
+    } else if (query.paymentMethod) {
+      where.paymentMethod = query.paymentMethod;
+    }
 
     if (query.from || query.to) {
       where.scheduledAt = {};
@@ -1022,11 +1036,6 @@ export class AppointmentsService {
         : [{ start: BUSINESS_HOUR_START, end: BUSINESS_HOUR_END }],
     );
 
-    // [TZ-VALIDATE STEP 2] Window bounds (no logic change)
-    const win = workingHours[0];
-    const windowStartUtc = new Date(tehranMidnightUtc.getTime() + win.start * 60 * 60 * 1000);
-    const windowEndUtc = new Date(tehranMidnightUtc.getTime() + win.end * 60 * 60 * 1000);
-
     // Get existing appointments (on this Tehran day)
     const existingAppointments = await this.prisma.appointment.findMany({
       where: {
@@ -1047,9 +1056,6 @@ export class AppointmentsService {
         status: true,
       },
       orderBy: { scheduledAt: 'asc' },
-    });
-    
-    existingAppointments.forEach(apt => {
     });
 
     // Get blocked times
@@ -1207,7 +1213,10 @@ export class AppointmentsService {
 
     const { dateStr: todayTehranStr } = this.getTehranNow();
 
-    const durationMin = BOOKING_DURATION_MIN;
+    const durationMin =
+      Number.isInteger(service.durationMinutes) && service.durationMinutes > 0
+        ? service.durationMinutes
+        : BOOKING_DURATION_MIN;
 
     const addDaysToGregorian = (dateStr: string, days: number): string => {
       const d = new Date(dateStr + 'T12:00:00.000Z');
@@ -1737,18 +1746,48 @@ export class AppointmentsService {
   }
 
   /**
-   * Cancel appointment
+   * Cancel appointment.
+   * Ownership is still enforced by findOne (404 for another customer or barber).
+   * The status write is conditional so a concurrent settle cannot be overwritten,
+   * and notification/SMS run only when this request changes the row.
    */
   async cancel(id: number, currentUser: any) {
+    if (!currentUser?.role) {
+      throw new ForbiddenException('دسترسی به این نوبت مجاز نیست');
+    }
+
     const appointment = await this.findOne(id, currentUser);
+
+    if (appointment.status === 'CANCELLED') {
+      return appointment;
+    }
 
     if (appointment.status === 'SETTLED' || appointment.status === 'PAID') {
       throw new BadRequestException('نمی‌توان نوبت تسویه شده را لغو کرد');
     }
 
-    const updated = await this.prisma.appointment.update({
-      where: { id },
+    const transition = await this.prisma.appointment.updateMany({
+      where: {
+        id,
+        deletedAt: null,
+        status: { notIn: ['CANCELLED', 'SETTLED', 'PAID'] },
+      },
       data: { status: 'CANCELLED' },
+    });
+
+    if (transition.count === 0) {
+      const current = await this.findOne(id, currentUser);
+      if (current.status === 'CANCELLED') {
+        return current;
+      }
+      if (current.status === 'SETTLED' || current.status === 'PAID') {
+        throw new BadRequestException('نمی‌توان نوبت تسویه شده را لغو کرد');
+      }
+      throw new ConflictException('وضعیت نوبت تغییر کرده و لغو انجام نشد');
+    }
+
+    const updated = await this.prisma.appointment.findFirst({
+      where: { id, deletedAt: null },
       include: {
         customer: { include: { user: true } },
         employee: { include: { user: true } },
@@ -1756,9 +1795,11 @@ export class AppointmentsService {
       },
     });
 
-    // Send notification
-    await this.notifyAppointmentCancelled(updated);
+    if (!updated) {
+      throw new NotFoundException(APPOINTMENT_NOT_FOUND_FA);
+    }
 
+    await this.notifyAppointmentCancelled(updated);
     this.enqueueAppointmentSms('Cancelled', () => this.sendAppointmentCancelledSms(updated));
 
     return this.formatAppointment(updated);

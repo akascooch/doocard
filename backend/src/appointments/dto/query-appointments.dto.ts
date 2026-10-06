@@ -1,5 +1,15 @@
-import { IsOptional, IsNumber, IsDateString, IsEnum, IsString } from 'class-validator';
+import { IsOptional, IsNumber, IsDateString, IsEnum, IsString, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
+
+export enum AppointmentPaymentMethodEnum {
+  CASH = 'CASH',
+  CARD = 'CARD',
+  ONLINE = 'ONLINE',
+  TRANSFER = 'TRANSFER',
+  CHEQUE = 'CHEQUE',
+  CARD2CARD = 'CARD2CARD',
+  DEBT = 'DEBT',
+}
 
 export enum AppointmentStatusEnum {
   PENDING = 'PENDING',
@@ -25,6 +35,18 @@ export class QueryAppointmentsDto {
   @IsEnum(AppointmentStatusEnum)
   @IsOptional()
   status?: AppointmentStatusEnum;
+
+  @IsEnum(AppointmentPaymentMethodEnum)
+  @IsOptional()
+  paymentMethod?: AppointmentPaymentMethodEnum;
+
+  /**
+   * Explicit null/legacy filter. Stored as a string so implicit Boolean
+   * conversion cannot turn an arbitrary query value into true.
+   */
+  @IsIn(['true', 'false', '1', '0', true, false])
+  @IsOptional()
+  paymentMethodUnset?: string | boolean;
 
   @IsDateString()
   @IsOptional()

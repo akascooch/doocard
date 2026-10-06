@@ -28,6 +28,7 @@ import {
 import axios from '@/lib/axios'
 import { parseFromJalali, persianToEnglishDigits, getCurrentJalaliDate, getJalaliWeekdayName, addDaysToJalali, isJalaliDateBefore, englishToPersianDigits, tehranHHmmFromIso, slotsApiDateFromPicker } from '@/lib/date'
 import { getCurrentUser } from '@/lib/auth'
+import { effectiveServiceDurationMin } from '@/lib/booking-duration'
 import {
   PUBLIC_BOOKING_LEAD_HINT_FA,
   isPublicLeadBlockedSlot,
@@ -250,7 +251,11 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
       }
 
       const selectedService = services.find(s => s.id === parseInt(formData.serviceId))
-      const durationMin = 60
+      if (!selectedService) {
+        setLoadingSlots(false)
+        return
+      }
+      const durationMin = effectiveServiceDurationMin(selectedService)
       
       
       const res = await fetch(
@@ -388,7 +393,7 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
       const servicesPayload = [{
         serviceId: selectedService.id,
         priceAtBooking: selectedService.price, // Already in RIAL
-        durationMin: 60,
+        durationMin: effectiveServiceDurationMin(selectedService),
       }]
 
       const timeStr = tehranHHmmFromIso(formData.appointmentTime)

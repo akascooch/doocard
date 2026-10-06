@@ -192,7 +192,7 @@ export function operationTypeLabel(type: OfflineOperationType): string {
     case 'APPOINTMENT_CREATE':
       return 'ثبت نوبت';
     case 'APPOINTMENT_SETTLE':
-      return 'تسویه نقدی';
+      return 'تسویه نوبت';
     default:
       return type;
   }

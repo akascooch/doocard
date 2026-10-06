@@ -121,7 +121,7 @@ export default function PaymentModal({
     tipRecipientType: '' as '' | 'INDIVIDUAL' | 'TEAM',
     tipRecipientEmployeeId: null as number | null,
     tipTeamMemberIds: [] as number[],
-    paymentMethod: 'CASH' as 'CASH' | 'CARD' | 'CARD2CARD' | 'DEBT',
+    paymentMethod: 'CARD' as 'CASH' | 'CARD' | 'CARD2CARD' | 'DEBT',
     accountId: null as number | null,
     notes: '',
   });
@@ -195,7 +195,7 @@ export default function PaymentModal({
         tipRecipientType: '',
         tipRecipientEmployeeId: null,
         tipTeamMemberIds: [],
-        paymentMethod: 'CASH',
+        paymentMethod: 'CARD',
         accountId: null,
         notes: '',
       });
@@ -319,14 +319,6 @@ export default function PaymentModal({
         });
         return;
       }
-      if (formData.paymentMethod !== 'CASH') {
-        toast({
-          title: 'غیرفعال در حالت آفلاین',
-          description: 'در حالت آفلاین فقط تسویه نقدی امکان‌پذیر است.',
-          variant: 'destructive',
-        });
-        return;
-      }
       if (formData.tipAmount > 0) {
         toast({
           title: 'غیرفعال در حالت آفلاین',
@@ -358,7 +350,7 @@ export default function PaymentModal({
           externalRef: settleExternalRef,
           appointmentRef: { kind: 'server', appointmentId },
           amount: formData.amount,
-          paymentMethod: 'CASH',
+          paymentMethod: formData.paymentMethod,
           accountId: formData.accountId,
           notes: formData.notes || undefined,
         });
@@ -592,7 +584,7 @@ export default function PaymentModal({
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  حالت آفلاین: فقط تسویه نقدی بدون انعام امکان‌پذیر است.
+                  حالت آفلاین: تسویه با روش پرداخت انتخاب‌شده صف می‌شود. انعام و فروش فروشگاه در این حالت غیرفعال است.
                 </AlertDescription>
               </Alert>
             )}

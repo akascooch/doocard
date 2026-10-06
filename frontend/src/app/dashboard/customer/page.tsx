@@ -18,6 +18,7 @@ import {
   Gift
 } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
+import { appointmentStatusBadgeClass } from '@/lib/appointment-status'
 import { getDashboardHomePath } from '@/lib/user-roles'
 import { formatJalaliDateTime } from '@/lib/date'
 import { BookingModal } from '@/components/booking/BookingModal'
@@ -341,9 +342,9 @@ export default function CustomerDashboard() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-medium">وضعیت:</span>
-                  <Badge 
-                    variant={stats.nextAppointment.status === 'CONFIRMED' ? 'default' : 'secondary'}
-                    className={stats.nextAppointment.status === 'CONFIRMED' ? 'bg-accent text-foreground' : ''}
+                  <Badge
+                    variant="outline"
+                    className={`normal-case tracking-normal ${appointmentStatusBadgeClass(stats.nextAppointment.status)}`}
                   >
                     {stats.nextAppointment.status === 'CONFIRMED' ? 'تایید شده' : 'در انتظار'}
                   </Badge>

@@ -37,6 +37,7 @@ import {
 import MoneyInput from '@/components/ui/MoneyInput'
 import { toThousandTomans } from '@/lib/money'
 import { type EmployeeListItem, getEmployeeDisplayName, normalizeEmployeeList } from '@/lib/employee'
+import { effectiveServiceDurationMin } from '@/lib/booking-duration'
 
 interface Customer {
   id: number
@@ -148,8 +149,14 @@ export default function NewAppointmentPage() {
       return
     }
     try {
+      const selected = services.find((row) => row.id.toString() === formData.serviceId)
+      if (!selected) {
+        setAvailableSlots([])
+        return
+      }
+      const durationMin = effectiveServiceDurationMin(selected)
       const response = await axios.get(
-        `/appointments/slots?date=${gregorianDate}&employeeId=${employeeId}&durationMin=60&slotIntervalMin=30`
+        `/appointments/slots?date=${gregorianDate}&employeeId=${employeeId}&durationMin=${durationMin}&slotIntervalMin=30`
       )
       const slots = response.data?.slots ?? []
       const available = slots.filter((s: { available?: boolean }) => s.available !== false)
@@ -221,7 +228,7 @@ export default function NewAppointmentPage() {
           {
             serviceId: parseInt(formData.serviceId, 10),
             priceAtBooking: service ? service.price : undefined,
-            durationMin: service ? service.duration : undefined,
+            durationMin: service ? effectiveServiceDurationMin(service) : undefined,
           },
         ],
         jalaliDate,

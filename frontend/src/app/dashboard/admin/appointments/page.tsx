@@ -30,6 +30,13 @@ import {
 import { formatTomansFromRial } from '@/lib/money';
 import { type EmployeeListItem, normalizeEmployeeList, getEmployeeDisplayName } from '@/lib/employee';
 import { type AppointmentRecord } from '@/lib/appointment';
+import {
+  APPOINTMENT_PAYMENT_METHODS,
+  APPOINTMENT_PAYMENT_METHOD_LABELS,
+  UNSET_PAYMENT_METHOD_FILTER,
+  UNSET_PAYMENT_METHOD_LABEL,
+  appointmentPaymentFilterParams,
+} from '@/lib/payment-method';
 
 interface Appointment extends AppointmentRecord {}
 
@@ -72,6 +79,7 @@ export default function AdminAppointmentsPage() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState('ALL');
   const [dateFilter, setDateFilter] = useState<PresetFilter>('today');
 
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -157,6 +165,7 @@ export default function AdminAppointmentsPage() {
       }
       if (searchTerm) params.search = searchTerm;
       if (statusFilter !== 'ALL') params.status = statusFilter;
+      Object.assign(params, appointmentPaymentFilterParams(paymentMethodFilter));
 
       const [listRes, summaryRes] = await Promise.all([
         api.get('/appointments', { params }),
@@ -191,6 +200,7 @@ export default function AdminAppointmentsPage() {
     appliedEmployeeId,
     searchTerm,
     statusFilter,
+    paymentMethodFilter,
     toast,
   ]);
 
@@ -210,6 +220,7 @@ export default function AdminAppointmentsPage() {
     appliedDateTo,
     appliedEmployeeId,
     statusFilter,
+    paymentMethodFilter,
     loadAppointmentsAndSummary,
   ]);
 
@@ -597,7 +608,7 @@ export default function AdminAppointmentsPage() {
               <CardTitle className="text-lg">فیلتر و جستجو</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <Label>جستجو</Label>
                   <div className="relative">
@@ -623,6 +634,26 @@ export default function AdminAppointmentsPage() {
                       <SelectItem value="CONFIRMED">تأیید شده</SelectItem>
                       <SelectItem value="SETTLED">تسویه شده</SelectItem>
                       <SelectItem value="CANCELLED">لغو شده</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>روش تسویه</Label>
+                  <Select value={paymentMethodFilter} onValueChange={setPaymentMethodFilter}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">همه</SelectItem>
+                      {APPOINTMENT_PAYMENT_METHODS.map((method) => (
+                        <SelectItem key={method} value={method}>
+                          {APPOINTMENT_PAYMENT_METHOD_LABELS[method]}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value={UNSET_PAYMENT_METHOD_FILTER}>
+                        {UNSET_PAYMENT_METHOD_LABEL}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

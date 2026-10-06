@@ -17,6 +17,11 @@ import { api } from '@/lib/axios';
 import { useToast } from '@/components/ui/use-toast';
 import { getCurrentUser } from '@/lib/auth';
 import {
+  FALLBACK_BOOKING_DURATION_MIN,
+  effectiveServiceDurationMin,
+  effectiveServicesDurationMin,
+} from '@/lib/booking-duration';
+import {
   getTehranTodayJalali,
   jalaliToApiDate,
   tehranHHmmFromIso,
@@ -183,7 +188,7 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
       const servicesPayload = selectedServices.map(s => ({
         serviceId: s.id,
         priceAtBooking: s.price,
-        durationMin: s.durationMinutes,
+        durationMin: effectiveServiceDurationMin(s),
       }));
 
       const timeStr = tehranHHmmFromIso(formData.time!);
@@ -359,7 +364,9 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
   };
 
   const selectedServices = services.filter(s => formData.serviceIds.includes(s.id));
-  const totalDuration = selectedServices.reduce((sum, s) => sum + s.durationMinutes, 0);
+  const totalDuration = selectedServices.length
+    ? effectiveServicesDurationMin(selectedServices)
+    : 0;
   const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
 
   if (loadingServices) {
@@ -460,7 +467,7 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
             key={slotRefreshKey}
             employeeId={formData.employeeId}
             date={formData.date}
-            durationMin={60}
+            durationMin={selectedServices.length ? totalDuration : FALLBACK_BOOKING_DURATION_MIN}
             selectedTime={formData.time}
             onChange={(time) => setFormData({ ...formData, time })}
             label="زمان *"

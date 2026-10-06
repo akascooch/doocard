@@ -26,6 +26,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Calculator, CreditCard, DollarSign, CalendarDays, Bell } from 'lucide-react';
 import axios from '@/lib/axios';
 import { formatTomansFromRial } from '@/lib/money';
+import { appointmentStatusBadgeClass } from '@/lib/appointment-status';
 import { formatToJalali, getTehranCurrentJalaliMonthRange } from '@/lib/date';
 import usePushNotifications from '@/hooks/usePushNotifications';
 import { getCurrentUser } from '@/lib/auth';
@@ -492,7 +493,10 @@ export default function EmployeeSalaryRequestPage() {
                         <TableCell>{apt.scheduledAtJalali}</TableCell>
                         <TableCell>{apt.customerName}</TableCell>
                         <TableCell>
-                          <Badge variant="secondary">
+                          <Badge
+                            variant="outline"
+                            className={`normal-case tracking-normal ${appointmentStatusBadgeClass(apt.status)}`}
+                          >
                             {STATUS_LABELS[apt.status] ?? apt.status}
                           </Badge>
                         </TableCell>

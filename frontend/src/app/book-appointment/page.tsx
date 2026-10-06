@@ -13,6 +13,7 @@ import { PhoneOtpAuth } from '@/components/auth/PhoneOtpAuth'
 import { getCurrentUser, isAuthenticated } from '@/lib/auth'
 import { getErrorMessage } from '@/lib/error-handler'
 import { getCurrentJalaliDate, parseFromJalali, persianToEnglishDigits, tehranHHmmFromIso, slotsApiDateFromPicker } from '@/lib/date'
+import { effectiveServiceDurationMin } from '@/lib/booking-duration'
 import {
   clearBookingDraft,
   readBookingDraft,
@@ -122,14 +123,17 @@ export default function BookAppointmentPage() {
   }, [formData.serviceId])
 
   useEffect(() => {
-    if (formData.appointmentDate && formData.employeeId) {
+    if (formData.appointmentDate && formData.employeeId && formData.serviceId) {
       const dateStr = slotsApiDateFromPicker(formData.appointmentDate)
       if (!dateStr) return
+      const selected = services.find((service) => service.id.toString() === formData.serviceId)
+      if (!selected) return
+      const durationMin = effectiveServiceDurationMin(selected)
 
       void (async () => {
         try {
           const response = await fetch(
-            `/api/appointments/slots?date=${dateStr}&employeeId=${formData.employeeId}&durationMin=60&slotIntervalMin=30`
+            `/api/appointments/slots?date=${dateStr}&employeeId=${formData.employeeId}&durationMin=${durationMin}&slotIntervalMin=30`
           )
           if (response.ok) {
             const data = await response.json()
@@ -140,7 +144,7 @@ export default function BookAppointmentPage() {
         }
       })()
     }
-  }, [formData.appointmentDate, formData.employeeId])
+  }, [formData.appointmentDate, formData.employeeId, formData.serviceId, services])
 
   const fetchServices = async () => {
     try {
@@ -207,7 +211,7 @@ export default function BookAppointmentPage() {
         services: [{
           serviceId: selected.id,
           priceAtBooking: selected.price,
-          durationMin: selected.durationMinutes || 60,
+          durationMin: effectiveServiceDurationMin(selected),
         }],
         employeeId: parseInt(formData.employeeId, 10),
         customerId,

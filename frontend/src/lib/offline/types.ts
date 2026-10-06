@@ -54,11 +54,25 @@ export interface AppointmentRefServer {
 
 export type AppointmentRef = AppointmentRefOutbox | AppointmentRefServer;
 
+export const APPOINTMENT_SETTLE_PAYMENT_METHODS = [
+  'CASH',
+  'CARD',
+  'CARD2CARD',
+  'DEBT',
+] as const;
+
+export type AppointmentSettlePaymentMethod =
+  (typeof APPOINTMENT_SETTLE_PAYMENT_METHODS)[number];
+
+/** New appointment settlements default to the card reader. Explicit CASH stays valid. */
+export const DEFAULT_APPOINTMENT_SETTLE_PAYMENT_METHOD: AppointmentSettlePaymentMethod =
+  'CARD';
+
 export interface AppointmentSettlePayload {
   externalRef: string;
   appointmentRef: AppointmentRef;
   amount: number;
-  paymentMethod: 'CASH';
+  paymentMethod: AppointmentSettlePaymentMethod;
   accountId?: number;
   notes?: string;
 }

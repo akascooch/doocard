@@ -14,7 +14,7 @@ const buttonVariants = cva(
         secondary: "border border-border bg-secondary text-secondary-foreground hover:bg-accent hover:scale-[1.02] active:scale-[0.98]",
         destructive: "border border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90 hover:scale-[1.02] active:scale-[0.98]",
         success: "border border-success bg-success text-success-foreground hover:bg-success/90 hover:scale-[1.02] active:scale-[0.98]",
-        warning: "border border-warning bg-warning text-warning-foreground hover:bg-warning/90 hover:scale-[1.02] active:scale-[0.98]",
+        warning: "border border-warning-solid bg-warning-solid text-warning-foreground hover:bg-warning-solid/90 hover:scale-[1.02] active:scale-[0.98]",
         outline: "border-2 border-border bg-card text-card-foreground hover:bg-accent hover:text-accent-foreground hover:scale-[1.02] active:scale-[0.98]",
         ghost: "bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground active:scale-[0.98]",
         link: "text-foreground underline-offset-4 hover:underline",

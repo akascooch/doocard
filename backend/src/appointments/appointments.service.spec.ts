@@ -47,6 +47,8 @@ describe('AppointmentsService', () => {
       count: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
+      aggregate: jest.fn(),
       delete: jest.fn(),
     },
     customer: {
@@ -130,6 +132,43 @@ describe('AppointmentsService', () => {
         }),
       );
       expect(mockPrismaService.employee.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('applies paymentMethod to the list and summary where clause', async () => {
+      mockPrismaService.appointment.findMany.mockResolvedValue([]);
+      mockPrismaService.appointment.count.mockResolvedValue(0);
+      mockPrismaService.appointment.aggregate.mockResolvedValue({ _sum: { amount: 0n } });
+
+      await service.findAll({ paymentMethod: 'CARD' } as any, { id: 1, role: 'ADMIN' });
+      await service.getSummary({ paymentMethod: 'CARD' } as any, { id: 1, role: 'ADMIN' });
+
+      expect(mockPrismaService.appointment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ paymentMethod: 'CARD', deletedAt: null }),
+        }),
+      );
+      expect(mockPrismaService.appointment.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ paymentMethod: 'CARD' }),
+        }),
+      );
+    });
+
+    it('filters legacy rows with a null payment method without treating them as cash', async () => {
+      mockPrismaService.appointment.count.mockResolvedValue(2);
+      mockPrismaService.appointment.aggregate.mockResolvedValue({ _sum: { amount: null } });
+
+      const summary = await service.getSummary(
+        { paymentMethodUnset: true } as any,
+        { id: 1, role: 'ADMIN' },
+      );
+
+      expect(summary.totalCount).toBe(2);
+      expect(mockPrismaService.appointment.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ paymentMethod: null }),
+        }),
+      );
     });
 
     it('scopes customer lists to the authenticated customer profile', async () => {
@@ -267,6 +306,100 @@ describe('AppointmentsService', () => {
       expect(resolveSms).toBeDefined();
       resolveSms?.({ success: true });
     });
+
+    async function mockStaffCreate(durationMinutes = 30) {
+      mockCalendarService.toGregorian.mockReturnValue(new Date(Date.UTC(2021, 2, 21)));
+      mockCalendarService.ensureExists.mockResolvedValue({ id: 9 });
+      mockPrismaService.customer.findUnique.mockResolvedValue({
+        id: 1,
+        user: { id: 1, name: 'John Doe', phone: '09123456789', role: 'CUSTOMER' },
+      });
+      mockPrismaService.employee.findUnique.mockResolvedValue({
+        id: 1,
+        isActive: true,
+        user: { id: 2, name: 'Jane Smith', role: 'EMPLOYEE' },
+        employeeServices: [{ serviceId: 1 }],
+      });
+      mockPrismaService.service.findUnique.mockResolvedValue({
+        id: 1,
+        name: 'Haircut',
+        price: 50000,
+        durationMinutes,
+      });
+      mockPrismaService.customer.updateMany.mockResolvedValue({ count: 0 });
+      let created: { scheduledAt: Date; durationMin: number } | undefined;
+      mockPrismaService.$transaction.mockImplementation(async (fn: (tx: any) => unknown) => {
+        const tx = {
+          $executeRaw: jest.fn().mockResolvedValue(undefined),
+          appointment: {
+            findFirst: jest.fn().mockResolvedValue(null),
+            create: jest.fn().mockImplementation(async ({ data }: { data: { scheduledAt: Date; durationMin: number } }) => {
+              created = data;
+              return { ...appointmentRow, ...data, status: 'PENDING' };
+            }),
+          },
+          blockedTime: { findFirst: jest.fn().mockResolvedValue(null) },
+        };
+        await fn(tx);
+        return { ...appointmentRow, status: 'PENDING' };
+      });
+      return () => created;
+    }
+
+    it('keeps 11:00 Tehran as the start and occupies 30 minutes forward', async () => {
+      const created = await mockStaffCreate(30);
+      await service.create(
+        {
+          customerId: 1,
+          employeeId: 1,
+          services: [{ serviceId: 1, durationMin: 30 }],
+          jalaliDate: '1400-01-01',
+          time: '11:00',
+        } as any,
+        { id: 1, role: 'ADMIN' },
+      );
+      const row = created();
+      expect(row?.scheduledAt.toISOString()).toBe('2021-03-21T07:30:00.000Z');
+      expect(row?.durationMin).toBe(30);
+      expect(new Date(row!.scheduledAt.getTime() + 30 * 60 * 1000).toISOString()).toBe(
+        '2021-03-21T08:00:00.000Z',
+      );
+    });
+
+    it('keeps 11:00 Tehran as the start and occupies 120 minutes forward', async () => {
+      const created = await mockStaffCreate(120);
+      await service.create(
+        {
+          customerId: 1,
+          employeeId: 1,
+          services: [{ serviceId: 1, durationMin: 120 }],
+          jalaliDate: '1400-01-01',
+          time: '11:00',
+        } as any,
+        { id: 1, role: 'ADMIN' },
+      );
+      const row = created();
+      expect(row?.scheduledAt.toISOString()).toBe('2021-03-21T07:30:00.000Z');
+      expect(row?.durationMin).toBe(120);
+      expect(new Date(row!.scheduledAt.getTime() + 120 * 60 * 1000).toISOString()).toBe(
+        '2021-03-21T09:30:00.000Z',
+      );
+    });
+
+    it('uses the service duration when the payload omits durationMin', async () => {
+      const created = await mockStaffCreate(30);
+      await service.create(
+        {
+          customerId: 1,
+          employeeId: 1,
+          services: [{ serviceId: 1 }],
+          jalaliDate: '1400-01-01',
+          time: '11:00',
+        } as any,
+        { id: 1, role: 'ADMIN' },
+      );
+      expect(created()?.durationMin).toBe(30);
+    });
   });
 
   describe('update', () => {
@@ -351,17 +484,29 @@ describe('AppointmentsService', () => {
             resolveSms = resolve;
           }),
       );
-      mockPrismaService.appointment.findFirst.mockResolvedValue(appointmentRow);
-      mockPrismaService.appointment.update.mockResolvedValue({
-        ...appointmentRow,
-        status: 'CANCELLED',
-        calendarDate: { jalaliDate: '1402-10-25' },
-      });
+      mockPrismaService.appointment.findFirst
+        .mockResolvedValueOnce(appointmentRow)
+        .mockResolvedValueOnce({
+          ...appointmentRow,
+          status: 'CANCELLED',
+          calendarDate: { jalaliDate: '1402-10-25' },
+        });
+      mockPrismaService.appointment.updateMany.mockResolvedValue({ count: 1 });
 
       const started = Date.now();
       const result = await service.cancel(1, { id: 1, role: 'ADMIN' });
       expect(Date.now() - started).toBeLessThan(500);
       expect(result.status).toBe('CANCELLED');
+      expect(mockPrismaService.appointment.update).not.toHaveBeenCalled();
+      expect(mockPrismaService.appointment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: 1,
+            status: { notIn: ['CANCELLED', 'SETTLED', 'PAID'] },
+          }),
+          data: { status: 'CANCELLED' },
+        }),
+      );
       await Promise.resolve();
       await Promise.resolve();
       expect(mockSmsOutbound.sendIfAllowed).toHaveBeenCalled();
