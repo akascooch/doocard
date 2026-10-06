@@ -99,6 +99,7 @@ describe('CustomersService customer update ownership', () => {
       update: jest.fn(),
     },
     user: { findUnique: jest.fn(), update: jest.fn() },
+    employee: { findUnique: jest.fn() },
     $transaction: jest.fn(),
   };
 
@@ -147,6 +148,33 @@ describe('CustomersService customer update ownership', () => {
     expect(data.customerId).toBeUndefined();
     expect(data.preferredEmployeeId).toBeUndefined();
     expect(tx.user.update).not.toHaveBeenCalled();
+  });
+
+  it('hides an unassigned customer from an employee the same way as a missing row', async () => {
+    prisma.employee.findUnique.mockResolvedValue({ id: 7, isActive: true, userId: 10 });
+    prisma.customer.findUnique.mockResolvedValueOnce({
+      id: 55,
+      userId: 20,
+      preferredEmployeeId: 99,
+      user: { phone: '09120000000' },
+    });
+
+    const foreign = await service
+      .update(55, { notes: 'x' } as never, { id: 10, role: 'EMPLOYEE' })
+      .catch((error: unknown) => error);
+
+    prisma.customer.findUnique.mockResolvedValueOnce(null);
+    const missing = await service
+      .update(404, { notes: 'x' } as never, { id: 10, role: 'EMPLOYEE' })
+      .catch((error: unknown) => error);
+
+    expect(foreign).toBeInstanceOf(NotFoundException);
+    expect(missing).toBeInstanceOf(NotFoundException);
+    expect((foreign as NotFoundException).getStatus()).toBe(404);
+    expect((foreign as NotFoundException).getResponse()).toEqual(
+      (missing as NotFoundException).getResponse(),
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('returns 404 from the service when the customer row is missing', async () => {

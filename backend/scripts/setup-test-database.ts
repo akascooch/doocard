@@ -1,47 +1,28 @@
 /**
  * Integration-test gate. Does not connect, migrate, seed, or reset a database.
- * Unit tests do not call this file.
+ * Exit 0: TEST_DATABASE_URL passed isolation checks.
+ * Exit 2: prerequisites missing (INTEGRATION_SKIPPED). Not a successful test run.
+ * Exit 1: the URL is present but unsafe.
  */
-import { existsSync } from 'fs';
-import { resolve } from 'path';
+import { assertIsolatedTestDatabaseUrl, IntegrationHarnessError } from '../tests/prisma-test.service';
 
-function refuse(message: string): never {
-  console.error(message);
-  process.exit(1);
+function finish(error: unknown): never {
+  const skipped = error instanceof IntegrationHarnessError;
+  console.error(error instanceof Error ? error.message : 'Integration setup refused.');
+  process.exit(skipped && /is not set|must not equal/.test(error instanceof Error ? error.message : '') ? 2 : 1);
 }
 
-const testUrl = process.env.TEST_DATABASE_URL;
-if (!testUrl) {
-  refuse(
-    'Integration setup refused: set TEST_DATABASE_URL to an isolated local database whose name contains "test". This command does not read DATABASE_URL and does not create a database. Unit tests: npm run test:unit.',
-  );
-}
-
-if (process.env.DATABASE_URL && testUrl === process.env.DATABASE_URL) {
-  refuse('Integration setup refused: TEST_DATABASE_URL must not equal DATABASE_URL.');
-}
-
-let parsed: URL;
 try {
-  parsed = new URL(testUrl);
-} catch {
-  refuse('Integration setup refused: TEST_DATABASE_URL is not a valid URL.');
-}
-
-const host = parsed.hostname;
-const databaseName = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
-if (host !== '127.0.0.1' && host !== 'localhost') {
-  refuse('Integration setup refused: the database host must be 127.0.0.1 or localhost.');
-}
-if (!/test/i.test(databaseName)) {
-  refuse('Integration setup refused: the database name must contain "test".');
-}
-
-const harness = resolve(__dirname, '../tests/prisma-test.service.ts');
-if (!existsSync(harness)) {
-  refuse(
-    'Integration execution blocked: backend/tests/prisma-test.service.ts is not in this repository. No connection was opened and no schema command was run.',
+  if (process.env.INTEGRATION_DRY_RUN === '1' && !process.env.TEST_DATABASE_URL) {
+    console.log(
+      'INTEGRATION_DRY_RUN: no TEST_DATABASE_URL. The harness will not connect and resetDatabase is a no-op. This is not a database test run.',
+    );
+    process.exit(0);
+  }
+  assertIsolatedTestDatabaseUrl(process.env.TEST_DATABASE_URL);
+  console.log(
+    'Isolated TEST_DATABASE_URL accepted. No connection was opened and no schema command was run. resetDatabase will not delete rows unless a future explicit wipe is added.',
   );
+} catch (error) {
+  finish(error);
 }
-
-console.log('Isolated TEST_DATABASE_URL accepted. No database connection was opened.');

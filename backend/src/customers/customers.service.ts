@@ -3,7 +3,6 @@ import {
   ConflictException,
   NotFoundException,
   BadRequestException,
-  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import type { CustomerProfileResponseDto } from './dto/customer-profile.response';
@@ -253,14 +252,17 @@ export class CustomersService {
       delete supplied.preferredEmployeeId;
     }
     if (role === 'EMPLOYEE' || role === 'SERVICE') {
-      const actorEmployeeId = await this.resolveActorEmployeeId(currentUser);
-      if (
-        actorEmployeeId == null ||
-        customer.preferredEmployeeId !== actorEmployeeId
-      ) {
-        throw new ForbiddenException(
-          'فقط می‌توانید مشتریان اختصاص‌یافته به خود را ویرایش کنید',
-        );
+      let actorEmployeeId: number | null = null;
+      try {
+        actorEmployeeId = await this.resolveActorEmployeeId(currentUser);
+      } catch (error) {
+        if (error instanceof BadRequestException) {
+          throw new NotFoundException('Customer not found');
+        }
+        throw error;
+      }
+      if (actorEmployeeId == null || customer.preferredEmployeeId !== actorEmployeeId) {
+        throw new NotFoundException('Customer not found');
       }
     }
 
