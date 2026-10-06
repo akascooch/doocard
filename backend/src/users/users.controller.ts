@@ -11,6 +11,7 @@ import {
   ParseIntPipe,
   Query,
   UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
@@ -48,6 +49,7 @@ export class UsersController {
   @Get()
   @UseGuards(JwtAuthGuard)
   async findAll(@Req() req: any) {
+    this.assertCanListUsers(req.user);
     console.log('🔍 GET /users called by role:', req.user?.role);
     
     const result = await this.usersService.findAll();
@@ -64,7 +66,7 @@ export class UsersController {
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
-    const _currentUser = req.user;
+    this.assertStaffOrSelf(req.user, id);
     return this.usersService.findOne(id);
   }
 
@@ -118,8 +120,7 @@ export class UsersController {
     @Req() req: any,
   ) {
     console.log('🔧 PATCH /users/:id called with id:', id, 'by role:', req.user?.role);
-    
-    const _currentUser = req.user;
+    this.assertStaffOrSelf(req.user, id);
     try {
       const result = await this.usersService.update(id, updateUserDto);
       console.log('✅ Update result:', result);
@@ -246,7 +247,7 @@ export class UsersController {
     }
     
     if (currentUser.role !== 'ADMIN' && currentUser.id !== id) {
-      throw new Error('شما فقط مجاز به تغییر رمز عبور خود هستید');
+      throw new ForbiddenException('شما فقط مجاز به تغییر رمز عبور خود هستید');
     }
 
     try {
@@ -260,5 +261,39 @@ export class UsersController {
       console.error('❌ Error changing password:', error);
       throw error;
     }
+  }
+
+  private assertCanListUsers(currentUser?: { role?: string }): void {
+    const role = currentUser?.role;
+    if (
+      role === 'ADMIN' ||
+      role === 'EMPLOYEE' ||
+      role === 'SERVICE' ||
+      role === 'ACCOUNTANT' ||
+      role === 'MANAGER'
+    ) {
+      return;
+    }
+    throw new ForbiddenException('دسترسی به فهرست کاربران مجاز نیست');
+  }
+
+  private assertStaffOrSelf(
+    currentUser: { id?: number; role?: string } | undefined,
+    targetUserId: number,
+  ): void {
+    const role = currentUser?.role;
+    if (
+      role === 'ADMIN' ||
+      role === 'EMPLOYEE' ||
+      role === 'SERVICE' ||
+      role === 'ACCOUNTANT' ||
+      role === 'MANAGER'
+    ) {
+      return;
+    }
+    if (role === 'CUSTOMER' && currentUser?.id === targetUserId) {
+      return;
+    }
+    throw new ForbiddenException('دسترسی به این کاربر مجاز نیست');
   }
 }

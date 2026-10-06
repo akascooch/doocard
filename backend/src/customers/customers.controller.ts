@@ -11,6 +11,8 @@ import {
   Query,
   Req,
   BadRequestException,
+  ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
@@ -96,11 +98,7 @@ export class CustomersController {
   @Get(':id')
   @Roles('ADMIN', 'EMPLOYEE', 'CUSTOMER')
   async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
-    const currentUser = req.user;
-    // اگر مشتری است، فقط اطلاعات خودش را ببیند
-    if (currentUser.role === 'CUSTOMER' && currentUser.id !== id) {
-      throw new Error('Unauthorized access');
-    }
+    await this.assertCustomerRecordAccess(id, req.user);
     return this.service.findOne(id);
   }
 
@@ -112,10 +110,7 @@ export class CustomersController {
     @Req() req: any,
   ) {
     const currentUser = req.user;
-    // اگر مشتری است، فقط اطلاعات خودش را ویرایش کند
-    if (currentUser.role === 'CUSTOMER' && currentUser.id !== id) {
-      throw new Error('Unauthorized access');
-    }
+    await this.assertCustomerRecordAccess(id, currentUser);
     // Non-admins cannot reassign preferred barber via this endpoint
     if (
       currentUser.role !== 'ADMIN' &&
@@ -141,6 +136,37 @@ export class CustomersController {
   @Roles('ADMIN', 'EMPLOYEE')
   async remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.remove(id);
+  }
+
+  /**
+   * CUSTOMER may only touch the customer row linked to the JWT user id.
+   * The route :id is the customer primary key, not users.id.
+   * Staff roles already allowed on the route keep lookup by that primary key.
+   */
+  private async assertCustomerRecordAccess(
+    id: number,
+    currentUser?: { id?: number; role?: string },
+  ): Promise<void> {
+    const role = currentUser?.role;
+    if (
+      role === 'ADMIN' ||
+      role === 'EMPLOYEE' ||
+      role === 'SERVICE' ||
+      role === 'ACCOUNTANT'
+    ) {
+      return;
+    }
+
+    const row = await this.prisma.customer.findUnique({
+      where: { id },
+      select: { userId: true },
+    });
+    if (!row) {
+      throw new NotFoundException('Customer not found');
+    }
+    if (role !== 'CUSTOMER' || row.userId !== currentUser?.id) {
+      throw new ForbiddenException('دسترسی به اطلاعات این مشتری مجاز نیست');
+    }
   }
 
   /**

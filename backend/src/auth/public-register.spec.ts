@@ -48,14 +48,13 @@ describe('public register role lock', () => {
     },
   );
 
-  it('throttles register the same way as OTP request and leaves login alone', () => {
+  it('keeps the stricter OTP and register windows', () => {
     const register = routeBlock('register');
     const otp = routeBlock('otp/request');
     expect(register).toContain('@UseGuards(ThrottlerGuard)');
     expect(register).toContain('@Throttle({ short: { limit: 3, ttl: 900_000 } })');
     expect(otp).toContain('@UseGuards(ThrottlerGuard)');
     expect(otp).toContain('@Throttle({ short: { limit: 3, ttl: 900_000 } })');
-    expect(routeBlock('login')).not.toContain('ThrottlerGuard');
-    expect(routeBlock('refresh')).not.toContain('ThrottlerGuard');
+    expect(routeBlock('otp/verify')).toContain('@Throttle({ short: { limit: 5, ttl: 900_000 } })');
   });
 });

@@ -235,6 +235,12 @@ export class CustomersService {
     }
 
     const role = currentUser?.role;
+    if (role === 'CUSTOMER') {
+      const actorId = Number(currentUser?.id ?? currentUser?.sub);
+      if (!Number.isInteger(actorId) || customer.userId !== actorId) {
+        throw new ForbiddenException('دسترسی به اطلاعات این مشتری مجاز نیست');
+      }
+    }
     if (role === 'EMPLOYEE' || role === 'SERVICE') {
       const actorEmployeeId = await this.resolveActorEmployeeId(currentUser);
       if (

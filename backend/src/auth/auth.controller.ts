@@ -61,6 +61,8 @@ export class AuthController {
   }
 
   @Post('login')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ short: { limit: 5, ttl: 60_000 } })
   async login(
     @Body() loginDto: LoginDto, 
     @Res({ passthrough: true }) res: Response,
@@ -86,6 +88,8 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ short: { limit: 10, ttl: 60_000 } })
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response
