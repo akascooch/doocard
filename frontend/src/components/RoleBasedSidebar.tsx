@@ -352,7 +352,7 @@ function ThemeModeToggle({ iconOnly }: { iconOnly: boolean }) {
       aria-label={mounted ? action : 'تغییر تم'}
       title={label}
       className={cn(
-        'flex min-h-11 w-full items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-medium text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'flex min-h-11 w-full items-center gap-3 rounded-xl border border-sidebar-border bg-sidebar-accent px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-primary hover:text-sidebar-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         iconOnly && 'justify-center px-2'
       )}
     >
@@ -392,7 +392,7 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
   return (
     <div 
       className={cn(
-        "flex h-full flex-col gap-4 border-l border-border bg-card text-card-foreground shadow-sm transition-all duration-300 ease-out",
+        "flex h-full flex-col gap-4 border-l border-sidebar-border bg-sidebar text-sidebar-foreground shadow-sm transition-all duration-300 ease-out",
         isCollapsed && !isHovered ? "w-20" : "w-72",
         isMobile && "w-80"
       )}
@@ -400,8 +400,8 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
       onMouseLeave={() => !isCollapsed && setIsHovered(false)}
     >
       {/* Header */}
-      <div className="flex h-16 items-center justify-between border-b border-border px-4">
-        <Link href="/" className="flex items-center gap-3 font-semibold text-card-foreground/80 transition-colors duration-200 hover:text-card-foreground">
+      <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
+        <Link href="/" className="flex items-center gap-3 font-semibold text-sidebar-foreground/80 transition-colors duration-200 hover:text-sidebar-foreground">
           <div className="w-10 h-10">
             <AppLogo size="sm" animated={false} />
           </div>
@@ -412,9 +412,9 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
         {isMobile && onToggle && (
           <button
             onClick={onToggle}
-            className="rounded-xl p-2 transition-colors duration-200 hover:bg-accent"
+            className="rounded-xl p-2 transition-colors duration-200 hover:bg-sidebar-accent"
           >
-            <X className="h-6 w-6 text-card-foreground" />
+            <X className="h-6 w-6 text-sidebar-foreground" />
           </button>
         )}
       </div>
@@ -423,7 +423,7 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
       {(!isCollapsed || isHovered) && !isMobile && (
         <div className="px-4 animate-fade-in">
           <div 
-            className="inline-flex items-center rounded-full bg-primary px-3 py-1.5 text-xs font-extrabold text-primary-foreground"
+            className="inline-flex items-center rounded-full bg-sidebar-accent px-3 py-1.5 text-xs font-extrabold text-sidebar-foreground"
           >
             {userRole === 'ADMIN' && 'مدیر سیستم'}
             {userRole === 'ACCOUNTANT' && 'حسابدار'}
@@ -452,23 +452,22 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
                 key={item.href}
                 href={item.href}
                 data-cy={`nav-${item.href}`}
-                data-glass={isActive ? '' : undefined}
                 data-selected={isActive ? 'true' : 'false'}
                 className={cn(
                   'group relative flex items-center gap-4 rounded-2xl px-4 py-3 text-sm font-medium transition-colors duration-200',
                   isActive
-                    ? 'border border-ring bg-accent text-accent-foreground shadow-sm ring-2 ring-ring'
-                    : 'border border-transparent bg-transparent text-card-foreground/80 hover:border-border hover:bg-accent hover:text-accent-foreground',
+                    ? 'border border-sidebar-primary bg-sidebar-primary text-sidebar-primary-foreground shadow-sm ring-2 ring-sidebar-primary'
+                    : 'border border-transparent bg-transparent text-sidebar-foreground/80 hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                   isCollapsed && !isHovered && !isMobile && 'justify-center px-2'
                 )}
                 title={isCollapsed && !isHovered && !isMobile ? item.title : undefined}
               >
                 {isActive && (
-                  <span className="absolute inset-y-2 right-1 w-0.5 rounded-full bg-ring" aria-hidden />
+                  <span className="absolute inset-y-2 right-1 w-0.5 rounded-full bg-sidebar-primary-foreground" aria-hidden />
                 )}
                 <Icon className={cn(
                   "h-5 w-5 flex-shrink-0 transition-colors duration-200",
-                  isActive ? "text-accent-foreground" : "text-card-foreground group-hover:text-accent-foreground"
+                  isActive ? "text-sidebar-primary-foreground" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
                 )} />
                 {isVisible && (
                   <div className="flex-1 min-w-0">
@@ -476,7 +475,7 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
                     {(!isCollapsed || isHovered) && !isMobile && (
                       <span className={cn(
                         "mt-0.5 block text-xs leading-relaxed",
-                        isActive ? "text-accent-foreground" : "text-card-foreground"
+                        isActive ? "text-sidebar-primary-foreground/90" : "text-sidebar-foreground/70"
                       )}>
                         {item.description}
                       </span>
@@ -490,7 +489,7 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
       </div>
 
       {/* Footer */}
-      <div className="mt-auto space-y-2 border-t border-border p-4">
+      <div className="mt-auto space-y-2 border-t border-sidebar-border p-4">
         <ThemeModeToggle iconOnly={isCollapsed && !isHovered && !isMobile} />
         <LogoutButton isCollapsed={isCollapsed} isHovered={isHovered} isMobile={isMobile} />
       </div>

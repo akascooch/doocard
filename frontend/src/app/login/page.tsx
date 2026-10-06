@@ -126,7 +126,7 @@ export default function LoginPage() {
                 <input
                   id="rememberMe"
                   type="checkbox"
-                  className="h-4 w-4 shrink-0 rounded-md border border-border bg-card accent-[#2B2D42]"
+                  className="h-4 w-4 shrink-0 rounded-md border border-border bg-card accent-[#D90429]"
                   checked={formData.rememberMe}
                   onChange={(e) =>
                     setFormData({ ...formData, rememberMe: e.currentTarget.checked })

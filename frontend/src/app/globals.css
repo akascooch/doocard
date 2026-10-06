@@ -43,41 +43,96 @@
   /* ============================================ */
   
   :root {
-    /* Palette: #2B2D42 #8D99AE #EDF2F4 #EF233C #D90429. #FFFFFF only on destructive. */
-    --brand-grey: 218 17% 62%; /* #8D99AE */
+    /* Brand foundation: #2B2D42 #8D99AE #EDF2F4 #EF233C #D90429.
+       Derived tones and status colors are documented in IMPLEMENTATION-PLAN.md.
+       White on #EF233C is 4.22:1, so button labels use #D90429 (5.25:1). */
+    --brand-grey: 218 17% 62%; /* #8D99AE support only */
     --brand-grey-light: 197 24% 94%; /* #EDF2F4 */
     --brand-grey-dark: 235 21% 21%; /* #2B2D42 */
     --brand-dark: 235 21% 21%;
     --brand-light: 197 24% 94%;
 
-    /* Light theme. Page #8D99AE, surfaces #EDF2F4, text #2B2D42. */
-    --background: 218 17% 62%;
+    --color-bg-app: #EDF2F4;
+    --color-bg-page: #EDF2F4;
+    --color-bg-surface: #FFFFFF;
+    --color-bg-surface-soft: #F4F6F8;
+    --color-bg-elevated: #FFFFFF;
+    --color-bg-sidebar: #2B2D42;
+    --color-bg-overlay: rgb(43 45 66 / 0.6);
+    --color-bg-input: #FFFFFF;
+    --color-text-primary: #2B2D42;
+    --color-text-secondary: #5C6578;
+    --color-text-muted: #5C6578;
+    --color-text-inverse: #EDF2F4;
+    --color-text-disabled: #8D99AE;
+    --color-text-link: #D90429;
+    --color-border: #C5CDD6;
+    --color-border-subtle: #E6EAEF;
+    --color-border-strong: #2B2D42;
+    --color-border-focus: #EF233C;
+    --color-accent: #D90429;
+    --color-accent-hover: #A80320;
+    --color-accent-active: #8E021B;
+    --color-accent-soft: #FDE8EB;
+    --color-accent-foreground: #FFFFFF;
+    --color-energy: #EF233C;
+    --color-success: #0E7A4A;
+    --color-success-soft: #E7F6EE;
+    --color-success-foreground: #FFFFFF;
+    --color-warning: #8A5A00;
+    --color-warning-soft: #FFF4D6;
+    --color-warning-foreground: #FFFFFF;
+    --color-info: #1D4E89;
+    --color-info-soft: #E8F0FA;
+    --color-info-foreground: #FFFFFF;
+    --color-danger: #D90429;
+    --color-danger-hover: #A80320;
+    --color-danger-soft: #FDE8EB;
+    --color-danger-foreground: #FFFFFF;
+    --color-focus-ring: #EF233C;
+    --color-selection: #FDE8EB;
+    --color-disabled-bg: #E6EAEF;
+    --color-disabled-foreground: #5C6578;
+
+    /* Light theme. Page #EDF2F4, cards white, sidebar navy, CTA #D90429. */
+    --background: 197 24% 94%;
     --foreground: 235 21% 21%;
-    --card: 197 24% 94%;
+    --card: 0 0% 100%;
     --card-foreground: 235 21% 21%;
-    --popover: 197 24% 94%;
+    --popover: 0 0% 100%;
     --popover-foreground: 235 21% 21%;
-    --primary: 235 21% 21%;
-    --primary-foreground: 197 24% 94%;
-    --secondary: 218 17% 62%;
+    --primary: 350 96% 43%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 22% 96%;
     --secondary-foreground: 235 21% 21%;
-    --muted: 218 17% 62%;
-    --muted-foreground: 235 21% 21%;
-    --accent: 218 17% 62%;
+    --muted: 210 22% 96%;
+    --muted-foreground: 221 13% 42%;
+    --accent: 213 22% 92%;
     --accent-foreground: 235 21% 21%;
-    --destructive: 350 96% 43%; /* #D90429 */
-    --destructive-foreground: 0 0% 100%; /* #FFFFFF */
-    --error: 353 86% 54%; /* #EF233C outlines and icons */
-    --success: 235 21% 21%;
-    --success-foreground: 197 24% 94%;
-    --warning: 235 21% 21%;
-    --warning-foreground: 197 24% 94%;
-    --info: 218 17% 62%;
-    --info-foreground: 235 21% 21%;
-    --border: 235 21% 21%;
-    --input: 197 24% 94%;
-    --ring: 235 21% 21%;
-    --chart-2: 218 17% 62%; /* #8D99AE, distinct from --primary #2B2D42. On #EDF2F4 this is 2.55:1. */
+    --destructive: 350 96% 43%;
+    --destructive-foreground: 0 0% 100%;
+    --error: 353 86% 54%;
+    --success: 152 79% 27%;
+    --success-foreground: 0 0% 100%;
+    --warning: 39 100% 27%;
+    --warning-foreground: 0 0% 100%;
+    --info: 212 65% 32%;
+    --info-foreground: 0 0% 100%;
+    --border: 214 16% 81%;
+    --input: 0 0% 100%;
+    --ring: 353 86% 54%;
+    --chart-1: 350 96% 43%;
+    --chart-2: 235 21% 21%;
+    --chart-3: 152 79% 27%;
+    --chart-4: 212 65% 32%;
+    --chart-5: 39 100% 27%;
+    --sidebar: 235 21% 21%;
+    --sidebar-foreground: 197 24% 94%;
+    --sidebar-border: 235 14% 32%;
+    --sidebar-accent: 235 16% 28%;
+    --sidebar-accent-foreground: 197 24% 94%;
+    --sidebar-primary: 350 96% 43%;
+    --sidebar-primary-foreground: 0 0% 100%;
     --radius: 0.75rem;
     color-scheme: light;
     
@@ -125,34 +180,87 @@
   /* ========== DARK THEME - HIGH CONTRAST ========== */
   [data-theme="dark"],
   .dark {
-    /* Page #2B2D42. Cards stay #EDF2F4 so body copy stays #2B2D42. */
-    --background: 235 21% 21%;
+    /* Page #12131C, cards #1C1E2B, elevated #232536, sidebar #0E0F16. */
+    --color-bg-app: #12131C;
+    --color-bg-page: #12131C;
+    --color-bg-surface: #1C1E2B;
+    --color-bg-surface-soft: #232536;
+    --color-bg-elevated: #232536;
+    --color-bg-sidebar: #0E0F16;
+    --color-bg-overlay: rgb(8 9 14 / 0.72);
+    --color-bg-input: #1C1E2B;
+    --color-text-primary: #EDF2F4;
+    --color-text-secondary: #A8B2C1;
+    --color-text-muted: #A8B2C1;
+    --color-text-inverse: #2B2D42;
+    --color-text-disabled: #8D99AE;
+    --color-text-link: #FF8B98;
+    --color-border: #3A3E56;
+    --color-border-subtle: #2A2D42;
+    --color-border-strong: #8D99AE;
+    --color-border-focus: #EF233C;
+    --color-accent: #D90429;
+    --color-accent-hover: #FF4D63;
+    --color-accent-active: #EF233C;
+    --color-accent-soft: #3A1520;
+    --color-accent-foreground: #FFFFFF;
+    --color-energy: #EF233C;
+    --color-success: #0E7A4A;
+    --color-success-soft: #123D2C;
+    --color-success-foreground: #FFFFFF;
+    --color-warning: #8A5A00;
+    --color-warning-soft: #3A2C10;
+    --color-warning-foreground: #FFFFFF;
+    --color-info: #1D4E89;
+    --color-info-soft: #16283F;
+    --color-info-foreground: #FFFFFF;
+    --color-danger: #D90429;
+    --color-danger-hover: #FF4D63;
+    --color-danger-soft: #3A1520;
+    --color-danger-foreground: #FFFFFF;
+    --color-focus-ring: #EF233C;
+    --color-selection: #3A1520;
+    --color-disabled-bg: #232536;
+    --color-disabled-foreground: #8D99AE;
+
+    --background: 234 22% 9%;
     --foreground: 197 24% 94%;
-    --card: 197 24% 94%;
-    --card-foreground: 235 21% 21%;
-    --popover: 197 24% 94%;
-    --popover-foreground: 235 21% 21%;
-    --primary: 235 21% 21%;
-    --primary-foreground: 197 24% 94%;
-    --secondary: 218 17% 62%;
-    --secondary-foreground: 235 21% 21%;
-    --muted: 218 17% 62%;
-    --muted-foreground: 218 17% 62%; /* #8D99AE on #2B2D42 = 4.69:1 */
-    --accent: 218 17% 62%;
-    --accent-foreground: 235 21% 21%;
+    --card: 232 21% 14%;
+    --card-foreground: 197 24% 94%;
+    --popover: 234 21% 17%;
+    --popover-foreground: 197 24% 94%;
+    --primary: 350 96% 43%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 234 21% 17%;
+    --secondary-foreground: 197 24% 94%;
+    --muted: 234 21% 17%;
+    --muted-foreground: 216 17% 71%;
+    --accent: 235 19% 25%;
+    --accent-foreground: 197 24% 94%;
     --destructive: 350 96% 43%;
     --destructive-foreground: 0 0% 100%;
     --error: 353 86% 54%;
-    --success: 197 24% 94%;
-    --success-foreground: 235 21% 21%;
-    --warning: 197 24% 94%;
-    --warning-foreground: 235 21% 21%;
-    --info: 218 17% 62%;
-    --info-foreground: 235 21% 21%;
-    --border: 235 21% 21%;
-    --input: 197 24% 94%;
-    --ring: 235 21% 21%;
-    --chart-2: 218 17% 62%; /* #8D99AE, distinct from --primary #2B2D42. On #EDF2F4 this is 2.55:1. */
+    --success: 152 79% 27%;
+    --success-foreground: 0 0% 100%;
+    --warning: 39 100% 27%;
+    --warning-foreground: 0 0% 100%;
+    --info: 212 65% 32%;
+    --info-foreground: 0 0% 100%;
+    --border: 232 16% 28%;
+    --input: 232 21% 14%;
+    --ring: 353 86% 54%;
+    --chart-1: 353 86% 54%;
+    --chart-2: 197 24% 94%;
+    --chart-3: 152 55% 52%;
+    --chart-4: 210 70% 68%;
+    --chart-5: 39 90% 62%;
+    --sidebar: 233 22% 7%;
+    --sidebar-foreground: 197 24% 94%;
+    --sidebar-border: 234 14% 18%;
+    --sidebar-accent: 232 21% 14%;
+    --sidebar-accent-foreground: 197 24% 94%;
+    --sidebar-primary: 350 96% 43%;
+    --sidebar-primary-foreground: 0 0% 100%;
     color-scheme: dark;
     
     /* Dark theme shadows - more prominent */
@@ -168,7 +276,7 @@
   }
 
   html {
-    @apply scroll-smooth;
+    @apply scroll-smooth bg-background text-foreground;
     font-size: 16px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -246,11 +354,12 @@
   }
   
   ::-webkit-scrollbar-thumb {
-    @apply bg-primary/30 rounded-full;
+    background-color: hsl(var(--muted-foreground) / 0.45);
+    border-radius: 9999px;
   }
   
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-primary/50;
+    background-color: hsl(var(--muted-foreground) / 0.7);
   }
   
   /* ========== SELECTION ========== */
@@ -556,18 +665,15 @@
   }
 }
 
-/* #8D99AE edge keeps a #2B2D42 button visible on the dark page (4.69:1). */
-.dark .bg-primary,
-[data-theme="dark"] .bg-primary {
-  border-color: #8D99AE;
+/* Page and surface foreground stay paired. Muted text keeps its own AA token. */
+:is(.bg-card, .bg-popover, .bg-input, .bg-accent, .bg-secondary, .bg-muted).text-foreground,
+:is(.bg-card, .bg-popover, .bg-input, .bg-accent, .bg-secondary, .bg-muted) .text-foreground {
+  color: hsl(var(--card-foreground));
 }
 
-/* Light surfaces keep #2B2D42 type. #8D99AE is only for text on #2B2D42 (4.69:1). */
-:is(.bg-card, .bg-popover, .bg-input, .bg-accent, .bg-secondary, .bg-muted).text-foreground,
-:is(.bg-card, .bg-popover, .bg-input, .bg-accent, .bg-secondary, .bg-muted) .text-foreground,
-:is(.bg-card, .bg-popover, .bg-input, .bg-accent, .bg-secondary, .bg-muted).text-muted-foreground,
-:is(.bg-card, .bg-popover, .bg-input, .bg-accent, .bg-secondary, .bg-muted) .text-muted-foreground {
-  color: hsl(var(--card-foreground));
+::selection {
+  background: var(--color-selection);
+  color: var(--color-text-primary);
 }
 
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),

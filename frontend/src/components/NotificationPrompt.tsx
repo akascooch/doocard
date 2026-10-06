@@ -102,7 +102,7 @@ export function NotificationPrompt({ onClose, className = '' }: NotificationProm
           className={`fixed top-20 left-4 z-40 w-[min(100%-2rem,24rem)] max-w-sm ${className}`}
           style={{ marginTop: 'env(safe-area-inset-top)' }}
         >
-          <div className="rounded-2xl border border-border bg-primary p-4 text-primary-foreground shadow-2xl backdrop-blur-md selection:bg-accent">
+          <div className="rounded-2xl border border-border bg-card p-4 text-card-foreground shadow-2xl">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-accent">
                 {deviceInfo?.platform === 'ios' ? (
@@ -118,7 +118,7 @@ export function NotificationPrompt({ onClose, className = '' }: NotificationProm
                   {needsPWAInstall ? 'راهنمای فعال‌سازی اعلان‌ها' : 'فعال‌سازی اعلان‌ها'}
                 </p>
                 {deviceInfo && (
-                  <p className="mt-0.5 text-[11px] text-primary-foreground">
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
                     {deviceInfo.browser} • {deviceInfo.osVersion} {deviceInfo.isPWA && '• PWA Mode'}
                   </p>
                 )}
@@ -127,7 +127,7 @@ export function NotificationPrompt({ onClose, className = '' }: NotificationProm
                 type="button"
                 onClick={handleClose}
                 aria-label="بستن / بعداً"
-                className="rounded-xl p-1.5 text-primary-foreground transition-colors hover:bg-accent hover:text-card-foreground"
+                className="rounded-xl p-1.5 text-card-foreground transition-colors hover:bg-accent"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -145,7 +145,7 @@ export function NotificationPrompt({ onClose, className = '' }: NotificationProm
             )}
 
             {testResult === 'success' && (
-              <div className="mt-3 flex items-start gap-2 rounded-xl border border-border bg-primary px-3 py-2 text-xs text-primary-foreground">
+              <div className="mt-3 flex items-start gap-2 rounded-xl border border-success/30 bg-success px-3 py-2 text-xs text-success-foreground">
                 <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>{isSubscribed ? 'اعلان‌ها با موفقیت فعال شدند!' : 'پیام آزمایشی ارسال شد!'}</span>
               </div>
@@ -158,7 +158,7 @@ export function NotificationPrompt({ onClose, className = '' }: NotificationProm
               </div>
             )}
 
-            <p className="mt-3 text-xs leading-relaxed text-primary-foreground">
+            <p className="mt-3 text-xs leading-relaxed text-card-foreground">
               {needsPWAInstall
                 ? 'در آیفون، اعلان سیستمی فقط بعد از نصب روی صفحه اصلی (PWA) فعال می‌شود.'
                 : 'اعلان‌ها فقط برای رویدادهای مهم ارسال می‌شوند و هر زمان قابل غیرفعال‌سازی هستند.'}
@@ -194,7 +194,7 @@ export function NotificationPrompt({ onClose, className = '' }: NotificationProm
                 onClick={handleClose}
                 variant="ghost"
                 data-cy="notification-prompt-close"
-                className="h-10 rounded-xl text-primary-foreground hover:bg-accent hover:text-card-foreground"
+                className="h-10 rounded-xl text-card-foreground hover:bg-accent"
               >
                 بستن / بعداً
               </Button>
@@ -205,7 +205,7 @@ export function NotificationPrompt({ onClose, className = '' }: NotificationProm
                 onClick={handleSendTest}
                 disabled={isLoading}
                 variant="outline"
-                className="mt-2 h-9 w-full rounded-xl border-border bg-transparent text-primary-foreground hover:bg-accent hover:text-card-foreground"
+                className="mt-2 h-9 w-full rounded-xl border-border bg-transparent text-card-foreground hover:bg-accent"
               >
                 ارسال پیام آزمایشی
               </Button>
