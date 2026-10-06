@@ -3,11 +3,20 @@ import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
+function requiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    console.error(`Missing ${name}. Refusing to seed an admin user.`);
+    process.exit(1);
+  }
+  return value;
+}
+
 async function main(): Promise<void> {
-  const adminEmail = 'scoochexy@gmail.com';
-  const adminPhone = '09370504588';
-  const adminName = 'scooch';
-  const defaultPassword = 'admin123';
+  const adminEmail = requiredEnv('SEED_ADMIN_EMAIL');
+  const adminPhone = requiredEnv('SEED_ADMIN_PHONE');
+  const adminName = requiredEnv('SEED_ADMIN_NAME');
+  const adminPassword = requiredEnv('SEED_ADMIN_PASSWORD');
   const saltRounds = 12;
 
   try {
@@ -21,7 +30,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    const passwordHash = await bcrypt.hash(defaultPassword, saltRounds);
+    const passwordHash = await bcrypt.hash(adminPassword, saltRounds);
 
     const created = await prisma.user.create({
       data: {
@@ -34,7 +43,7 @@ async function main(): Promise<void> {
       select: { id: true },
     });
 
-    console.log(`Admin user created with id=${created.id}. A default password has been set.`);
+    console.log(`Admin user created with id=${created.id}.`);
   } catch (error) {
     console.error('Failed to seed admin user:', error);
     process.exitCode = 1;
@@ -44,5 +53,3 @@ async function main(): Promise<void> {
 }
 
 main();
-
-

@@ -1,9 +1,13 @@
 import * as bcrypt from 'bcrypt';
 
 async function generateHash() {
-    const password = '123456';
-    const hash = await bcrypt.hash(password, 10);
-    console.log('Password hash for "123456":', hash);
+  const password = process.env.GENERATE_PASSWORD;
+  if (!password) {
+    console.error('GENERATE_PASSWORD is required.');
+    process.exit(1);
+  }
+  await bcrypt.hash(password, 10);
+  console.log('Password hash generated. The hash was not printed.');
 }
 
-generateHash(); 
+generateHash();

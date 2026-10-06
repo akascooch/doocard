@@ -1,4 +1,4 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { CustomersController } from './customers.controller';
 import { CustomersService } from './customers.service';
 
@@ -29,12 +29,22 @@ describe('customer record ownership', () => {
     expect(service.findOne).toHaveBeenCalledWith(55, { id: 10, role: 'CUSTOMER' });
   });
 
-  it('rejects a customer whose user id equals another customer primary key', async () => {
-    prisma.customer.findUnique.mockResolvedValue({ userId: 99 });
+  it('hides an existing foreign customer row the same way as a missing row', async () => {
+    prisma.customer.findUnique.mockResolvedValueOnce({ userId: 99 }).mockResolvedValueOnce(null);
 
-    await expect(
-      controller.findOne(10, { user: { id: 10, role: 'CUSTOMER' } }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    const existing = await controller
+      .findOne(10, { user: { id: 10, role: 'CUSTOMER' } })
+      .catch((error: unknown) => error);
+    const missing = await controller
+      .findOne(55, { user: { id: 10, role: 'CUSTOMER' } })
+      .catch((error: unknown) => error);
+
+    expect(existing).toBeInstanceOf(NotFoundException);
+    expect(missing).toBeInstanceOf(NotFoundException);
+    expect((existing as NotFoundException).getStatus()).toBe((missing as NotFoundException).getStatus());
+    expect((existing as NotFoundException).getResponse()).toEqual(
+      (missing as NotFoundException).getResponse(),
+    );
     expect(service.findOne).not.toHaveBeenCalled();
   });
 
@@ -43,7 +53,7 @@ describe('customer record ownership', () => {
 
     await expect(
       controller.update(55, { notes: 'x' } as never, { user: { id: 10, role: 'CUSTOMER' } }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect(service.update).not.toHaveBeenCalled();
   });
 
@@ -104,7 +114,7 @@ describe('CustomersService customer update ownership', () => {
 
     await expect(
       service.update(55, { notes: 'x' } as never, { id: 10, role: 'CUSTOMER' }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 

@@ -21,25 +21,52 @@ describe('user record ownership', () => {
     controller = new UsersController(usersService as never, prisma as never);
   });
 
-  it('rejects a customer reading another user id', async () => {
-    await expect(
-      controller.findOne(20, { user: { id: 10, role: 'CUSTOMER' } }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+  it('hides another user and a missing user behind the same 404', async () => {
+    const existing = await controller
+      .findOne(20, { user: { id: 10, role: 'CUSTOMER' } })
+      .catch((error: unknown) => error);
+    const missing = await controller
+      .findOne(404, { user: { id: 10, role: 'CUSTOMER' } })
+      .catch((error: unknown) => error);
+    expect(existing).toBeInstanceOf(NotFoundException);
+    expect(missing).toBeInstanceOf(NotFoundException);
+    expect((existing as NotFoundException).getStatus()).toBe((missing as NotFoundException).getStatus());
+    expect((existing as NotFoundException).getResponse()).toEqual(
+      (missing as NotFoundException).getResponse(),
+    );
     expect(usersService.findOne).not.toHaveBeenCalled();
   });
 
   it('rejects a customer updating another user id', async () => {
     await expect(
       controller.update(20, { name: 'x' } as never, { user: { id: 10, role: 'CUSTOMER' } }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect(usersService.update).not.toHaveBeenCalled();
   });
 
   it('rejects a customer changing another user password', async () => {
     await expect(
-      controller.changePassword(20, { password: 'new-password' }, { user: { id: 10, role: 'CUSTOMER' } }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+      controller.changePassword(20, { password: 'fixture-password-1' }, { user: { id: 10, role: 'CUSTOMER' } }),
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect(usersService.changePassword).not.toHaveBeenCalled();
+  });
+
+  it('rejects an employee patch of another user name', async () => {
+    await expect(
+      controller.update(20, { name: 'Other', phone: '09120000000' } as never, {
+        user: { id: 10, role: 'EMPLOYEE' },
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(usersService.update).not.toHaveBeenCalled();
+  });
+
+  it('lets an employee update their own profile name', async () => {
+    await controller.update(10, { name: 'Self' } as never, { user: { id: 10, role: 'EMPLOYEE' } });
+    expect(usersService.update).toHaveBeenCalledWith(
+      10,
+      { name: 'Self' },
+      { id: 10, role: 'EMPLOYEE' },
+    );
   });
 
   it('lets a customer read their own user id', async () => {
@@ -92,6 +119,13 @@ describe('UsersService authorization', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     service = new UsersService(prisma as never, {} as never);
+  });
+
+  it('rejects an employee role change on their own id', async () => {
+    await expect(
+      service.update(10, { role: 'ADMIN', isActive: false } as never, { id: 10, role: 'EMPLOYEE' }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
   it('rejects a customer role change even on their own id', async () => {

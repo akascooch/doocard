@@ -16,7 +16,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { UsersService } from './users.service';
+import { HIDDEN_USER_MESSAGE, UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -262,7 +262,7 @@ export class UsersController {
     }
     
     if (currentUser.role !== 'ADMIN' && currentUser.id !== id) {
-      throw new ForbiddenException('شما فقط مجاز به تغییر رمز عبور خود هستید');
+      throw new NotFoundException(HIDDEN_USER_MESSAGE);
     }
 
     try {
@@ -280,13 +280,7 @@ export class UsersController {
 
   private assertCanListUsers(currentUser?: { role?: string }): void {
     const role = currentUser?.role;
-    if (
-      role === 'ADMIN' ||
-      role === 'EMPLOYEE' ||
-      role === 'SERVICE' ||
-      role === 'ACCOUNTANT' ||
-      role === 'MANAGER'
-    ) {
+    if (role === 'ADMIN') {
       return;
     }
     throw new ForbiddenException('دسترسی به فهرست کاربران مجاز نیست');
@@ -297,18 +291,9 @@ export class UsersController {
     targetUserId: number,
   ): void {
     const role = currentUser?.role;
-    if (
-      role === 'ADMIN' ||
-      role === 'EMPLOYEE' ||
-      role === 'SERVICE' ||
-      role === 'ACCOUNTANT' ||
-      role === 'MANAGER'
-    ) {
+    if (role === 'ADMIN' || currentUser?.id === targetUserId) {
       return;
     }
-    if (role === 'CUSTOMER' && currentUser?.id === targetUserId) {
-      return;
-    }
-    throw new ForbiddenException('دسترسی به این کاربر مجاز نیست');
+    throw new NotFoundException(HIDDEN_USER_MESSAGE);
   }
 }

@@ -1,5 +1,6 @@
-// Unit specs under src are mocked. `npm run test:unit` does not call
-// scripts/setup-test-database.ts. Integration specs stay on `npm run test:integration`.
+// Unit specs under src are mocked. `npm run test:unit` does not use a database.
+// `npm run test:integration` runs scripts/setup-test-database.ts first.
+// That script requires TEST_DATABASE_URL and does not open a connection.
 module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: 'src',

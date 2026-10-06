@@ -146,15 +146,12 @@ export class CustomersService {
       }
     });
 
-    if (!customer) {
+    const actorId = Number(currentUser?.id ?? currentUser?.sub);
+    const hiddenFromCustomer =
+      currentUser?.role === 'CUSTOMER' &&
+      (!customer || !Number.isInteger(actorId) || customer.userId !== actorId);
+    if (!customer || hiddenFromCustomer) {
       throw new NotFoundException('Customer not found');
-    }
-
-    if (currentUser?.role === 'CUSTOMER') {
-      const actorId = Number(currentUser.id ?? currentUser.sub);
-      if (!Number.isInteger(actorId) || customer.userId !== actorId) {
-        throw new ForbiddenException('دسترسی به اطلاعات این مشتری مجاز نیست');
-      }
     }
 
     return customer;
@@ -237,16 +234,16 @@ export class CustomersService {
       include: { user: true }
     });
 
-    if (!customer) {
+    const role = currentUser?.role;
+    const actorId = Number(currentUser?.id ?? currentUser?.sub);
+    const hiddenFromCustomer =
+      role === 'CUSTOMER' &&
+      (!customer || !Number.isInteger(actorId) || customer.userId !== actorId);
+    if (!customer || hiddenFromCustomer) {
       throw new NotFoundException('Customer not found');
     }
 
-    const role = currentUser?.role;
     if (role === 'CUSTOMER') {
-      const actorId = Number(currentUser?.id ?? currentUser?.sub);
-      if (!Number.isInteger(actorId) || customer.userId !== actorId) {
-        throw new ForbiddenException('دسترسی به اطلاعات این مشتری مجاز نیست');
-      }
       const supplied = updateCustomerDto as UpdateCustomerDto & {
         userId?: unknown;
         customerId?: unknown;

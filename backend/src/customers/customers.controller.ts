@@ -11,7 +11,6 @@ import {
   Query,
   Req,
   BadRequestException,
-  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { CustomersService } from './customers.service';
@@ -169,12 +168,11 @@ export class CustomersController {
       where: { id },
       select: { userId: true },
     });
-    if (!row) {
-      throw new NotFoundException('Customer not found');
+    const actorId = currentUser?.id;
+    if (role === 'CUSTOMER' && row && row.userId === actorId) {
+      return;
     }
-    if (role !== 'CUSTOMER' || row.userId !== currentUser?.id) {
-      throw new ForbiddenException('دسترسی به اطلاعات این مشتری مجاز نیست');
-    }
+    throw new NotFoundException('Customer not found');
   }
 
   /**

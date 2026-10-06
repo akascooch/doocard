@@ -31,7 +31,8 @@ async function fullReset() {
     // 2. ایجاد کاربر ادمین
     console.log('👤 ایجاد کاربر ادمین...');
     
-    const password = '123456';
+    const password = process.env.FULL_RESET_ADMIN_PASSWORD;
+    if (!password) throw new Error('FULL_RESET_ADMIN_PASSWORD is required');
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const admin = await prisma.user.create({
@@ -48,7 +49,7 @@ async function fullReset() {
 
     console.log('✅ کاربر ادمین ایجاد شد');
     console.log(`📧 ایمیل: ${admin.email}`);
-    console.log(`🔑 رمز عبور: ${password}`);
+    console.log('Admin password was taken from the environment and was not printed.');
     console.log('');
     
     // 3. ایجاد تنظیمات اولیه SMS
@@ -126,7 +127,7 @@ async function fullReset() {
     console.log('');
     console.log('💡 حالا می‌توانید وارد سیستم شوید:');
     console.log(`   📧 ایمیل: ${admin.email}`);
-    console.log(`   🔑 رمز عبور: ${password}`);
+    console.log('Admin password was taken from the environment and was not printed.');
     console.log('');
     console.log('🚀 برای اجرای سرور:');
     console.log('   npm run start:dev');

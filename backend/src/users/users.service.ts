@@ -7,13 +7,12 @@ import * as bcrypt from 'bcrypt';
 
 type UserActor = { id?: number; role?: string };
 
-const USER_STAFF_ROLES = new Set(['ADMIN', 'EMPLOYEE', 'SERVICE', 'ACCOUNTANT', 'MANAGER']);
+export const HIDDEN_USER_MESSAGE = 'کاربر یافت نشد';
 
-function assertUserActor(actor: UserActor | undefined, targetId: number): void {
+function assertSingleUser(actor: UserActor | undefined, targetId: number): void {
   if (!actor) return;
-  if (actor.role && USER_STAFF_ROLES.has(actor.role)) return;
-  if (actor.role === 'CUSTOMER' && actor.id === targetId) return;
-  throw new ForbiddenException('دسترسی به این کاربر مجاز نیست');
+  if (actor.role === 'ADMIN' || actor.id === targetId) return;
+  throw new NotFoundException(HIDDEN_USER_MESSAGE);
 }
 
 @Injectable()
@@ -129,7 +128,7 @@ export class UsersService {
   }
 
   async findAll(actor?: UserActor) {
-    if (actor && !(actor.role && USER_STAFF_ROLES.has(actor.role))) {
+    if (actor && actor.role !== 'ADMIN') {
       throw new ForbiddenException('دسترسی به فهرست کاربران مجاز نیست');
     }
     return this.prisma.user.findMany({
@@ -144,7 +143,7 @@ export class UsersService {
   }
 
   async findOne(id: number, actor?: UserActor) {
-    assertUserActor(actor, id);
+    assertSingleUser(actor, id);
     const user = await this.prisma.user.findUnique({
       where: { id },
       include: {
@@ -181,7 +180,7 @@ export class UsersService {
   }
 
   async update(id: number, updateUserDto: UpdateUserDto, actor?: UserActor) {
-    assertUserActor(actor, id);
+    assertSingleUser(actor, id);
     if (actor && actor.role !== 'ADMIN') {
       if (
         updateUserDto.role !== undefined ||
@@ -364,7 +363,7 @@ export class UsersService {
 
   async changePassword(id: number, newPassword: string, actor?: UserActor) {
     if (actor && actor.role !== 'ADMIN' && actor.id !== id) {
-      throw new ForbiddenException('شما فقط مجاز به تغییر رمز عبور خود هستید');
+      throw new NotFoundException(HIDDEN_USER_MESSAGE);
     }
     const user = await this.prisma.user.findUnique({
       where: { id },
