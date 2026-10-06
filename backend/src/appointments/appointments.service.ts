@@ -56,6 +56,10 @@ import {
   scopedEmployeeListId,
 } from './appointment-access.util';
 import { StockNotificationService } from '../waitlist/stock-notification.service';
+import {
+  bookingDurationMinFromService,
+  bookingPriceRialFromServicePrice,
+} from './booking-price.util';
 
 export interface ServiceSnapshot {
   serviceId: number;
@@ -383,13 +387,26 @@ export class AppointmentsService {
         throw new NotFoundException(`Service with ID ${serviceDto.serviceId} not found`);
       }
 
-      const priceAtBooking = serviceDto.priceAtBooking !== undefined 
-        ? serviceDto.priceAtBooking 
-        : Math.floor(service.price * 10);
-
-      const durationMin = serviceDto.durationMin !== undefined
-        ? serviceDto.durationMin
-        : service.durationMinutes;
+      const serverPrice = bookingPriceRialFromServicePrice(service.price);
+      const serverDuration = bookingDurationMinFromService(service.durationMinutes);
+      let priceAtBooking: number;
+      let durationMin: number;
+      if (isCustomerRole(currentUser)) {
+        if (serverPrice == null || serverDuration == null) {
+          throw new BadRequestException('قیمت یا مدت سرویس برای رزرو آنلاین معتبر نیست');
+        }
+        priceAtBooking = serverPrice;
+        durationMin = serverDuration;
+      } else {
+        priceAtBooking =
+          serviceDto.priceAtBooking !== undefined
+            ? serviceDto.priceAtBooking
+            : serverPrice ?? Math.floor(service.price * 10);
+        durationMin =
+          serviceDto.durationMin !== undefined
+            ? serviceDto.durationMin
+            : service.durationMinutes;
+      }
 
       servicesSnapshot.push({
         serviceId: service.id,
@@ -401,7 +418,9 @@ export class AppointmentsService {
       totalDuration += durationMin;
     }
 
-    const finalDuration = dto.durationMin || totalDuration;
+    const finalDuration = isCustomerRole(currentUser)
+      ? totalDuration
+      : dto.durationMin || totalDuration;
     
     const endAt = new Date(scheduledAt.getTime() + finalDuration * 60 * 1000);
 

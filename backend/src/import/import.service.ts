@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { excludePassword } from '../common/utils/exclude-password';
 import * as ExcelJS from 'exceljs';
 import * as jalaali from 'jalaali-js';
 import * as crypto from 'crypto';
@@ -30,9 +31,47 @@ import {
   findExistingCustomerPhones,
 } from './lib/customer-commit.lib';
 
+export const IMPORT_JOB_NOT_FOUND_FA = 'عملیات import یافت نشد';
+
+const IMPORT_JOB_SELECT = {
+  id: true,
+  userId: true,
+  entity: true,
+  filename: true,
+  batchId: true,
+  totalRows: true,
+  created: true,
+  updated: true,
+  failed: true,
+  status: true,
+  metadata: true,
+  startedAt: true,
+  finishedAt: true,
+  createdAt: true,
+} as const;
+
 @Injectable()
 export class ImportService {
   constructor(private prisma: PrismaService) {}
+
+  /**
+   * Owner-only job detail. Missing and foreign jobs share one response.
+   * ADMIN does not gain visibility into another user's import job.
+   */
+  async getJobForActor(id: number, actorUserId: number | undefined) {
+    if (!Number.isInteger(actorUserId) || (actorUserId ?? 0) <= 0) {
+      throw new NotFoundException(IMPORT_JOB_NOT_FOUND_FA);
+    }
+
+    const job = await this.prisma.importJob.findFirst({
+      where: { id, userId: actorUserId },
+      select: IMPORT_JOB_SELECT,
+    });
+    if (!job) {
+      throw new NotFoundException(IMPORT_JOB_NOT_FOUND_FA);
+    }
+    return excludePassword(job);
+  }
 
   /**
    * Generate Excel template for customers
@@ -158,92 +197,6 @@ export class ImportService {
       rows,
       errors,
     };
-  }
-
-  /**
-   * Import customers to database
-   */
-  async importCustomers(rows: any[], userId: number, batchId: string) {
-    let created = 0;
-    let updated = 0;
-    let failed = 0;
-    const failedRows: any[] = [];
-
-    for (const row of rows) {
-      try {
-        // Check if user exists by phone
-        const existingUser = await this.prisma.user.findUnique({
-          where: { phone: row.phone },
-        });
-
-        if (existingUser) {
-          // Update existing
-          await this.prisma.customer.update({
-            where: { userId: existingUser.id },
-            data: {
-              birthdate: row.birthdate ? this.parseJalaliDate(row.birthdate) : null,
-              notes: row.notes || null,
-            },
-          });
-          updated++;
-        } else {
-          // Create new
-          const user = await this.prisma.user.create({
-            data: {
-              name: row.name,
-              phone: row.phone,
-              email: row.email || null,
-              password: await this.hashPassword('123456'), // Default password
-              role: 'CUSTOMER',
-            },
-          });
-
-          await this.prisma.customer.create({
-            data: {
-              userId: user.id,
-              birthdate: row.birthdate ? this.parseJalaliDate(row.birthdate) : null,
-              notes: row.notes || null,
-            },
-          });
-          created++;
-        }
-      } catch (error) {
-        console.error('Error importing row:', row, error);
-        failed++;
-        failedRows.push({
-          ...row,
-          error: error.message,
-        });
-      }
-    }
-
-    // Create import job record
-    await this.prisma.importJob.create({
-      data: {
-        userId,
-        entity: 'CUSTOMERS',
-        filename: 'customers-import.xlsx',
-        batchId,
-        totalRows: rows.length,
-        created,
-        updated,
-        failed,
-        status: failed > 0 ? 'COMPLETED' : 'COMPLETED',
-        finishedAt: new Date(),
-      },
-    });
-
-    return {
-      created,
-      updated,
-      failed,
-      failedRows,
-    };
-  }
-
-  private async hashPassword(password: string): Promise<string> {
-    const bcrypt = require('bcrypt');
-    return bcrypt.hash(password, 10);
   }
 
   /**

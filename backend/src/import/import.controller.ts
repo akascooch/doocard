@@ -35,6 +35,7 @@ export class ImportController {
    * Download Excel template for customers
    */
   @Get('templates/customers')
+  @Roles('ADMIN')
   async downloadCustomersTemplate(@Res() res: Response) {
     const workbook = await this.service.generateCustomersTemplate();
     
@@ -55,6 +56,7 @@ export class ImportController {
    * Upload and parse Excel file (with validation)
    */
   @Post('upload')
+  @Roles('ADMIN')
   @UseInterceptors(FileInterceptor('file'))
   async upload(
     @UploadedFile() file: Express.Multer.File,
@@ -83,6 +85,7 @@ export class ImportController {
    * Commit a previewed import (requires previewToken from upload response).
    */
   @Post('commit')
+  @Roles('ADMIN')
   async commit(@Body() dto: CommitImportDto, @Req() req: any) {
     const userId = req.user.sub || req.user.id;
 
@@ -113,6 +116,7 @@ export class ImportController {
    * Get list of import jobs
    */
   @Get('jobs')
+  @Roles('ADMIN')
   async getJobs(@Req() req: any) {
     const userId = req.user.sub || req.user.id;
 
@@ -127,11 +131,13 @@ export class ImportController {
    * Get specific job details
    */
   @Get('jobs/:id')
-  async getJob(@Param('id', ParseIntPipe) id: number) {
-    return this.prisma.importJob.findUnique({
-      where: { id },
-      include: { user: { select: { name: true, phone: true } } },
-    });
+  @Roles('ADMIN')
+  async getJob(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: { user?: { id?: number; sub?: number } },
+  ) {
+    const userId = req.user?.id || req.user?.sub;
+    return this.service.getJobForActor(id, userId);
   }
 }
 

@@ -484,6 +484,159 @@ describe('AppointmentsService', () => {
       );
       expect(created()?.durationMin).toBe(30);
     });
+
+    it.each(['ADMIN', 'EMPLOYEE'])(
+      'keeps %s desk price and duration when the client supplies them',
+      async (role) => {
+        const created = await mockStaffCreate(30);
+        await service.create(
+          {
+            customerId: 1,
+            employeeId: 1,
+            services: [{ serviceId: 1, priceAtBooking: 111, durationMin: 45 }],
+            durationMin: 45,
+            jalaliDate: '1400-01-01',
+            time: '11:00',
+          } as any,
+          { id: 1, role },
+        );
+        const row = created() as unknown as {
+          durationMin: number;
+          services: Array<{ priceAtBooking: number; durationMin: number }>;
+        };
+        expect(row.services[0].priceAtBooking).toBe(111);
+        expect(row.services[0].durationMin).toBe(45);
+        expect(row.durationMin).toBe(45);
+      },
+    );
+
+    it('derives customer price and duration from the service and ignores client values', async () => {
+      mockCalendarService.toGregorian.mockReturnValue(new Date(Date.UTC(2030, 0, 1)));
+      mockCalendarService.ensureExists.mockResolvedValue({ id: 9 });
+      mockPrismaService.customer.findUnique.mockImplementation(async (args: { where: { userId?: number; id?: number } }) => {
+        if (args.where.userId === 10) return { id: 55, userId: 10 };
+        if (args.where.id === 55) {
+          return { id: 55, userId: 10, user: { id: 10, name: 'Own', role: 'CUSTOMER' } };
+        }
+        return null;
+      });
+      mockPrismaService.employee.findUnique.mockResolvedValue({
+        id: 1,
+        isActive: true,
+        user: { id: 2, role: 'EMPLOYEE' },
+        employeeServices: [{ serviceId: 1 }],
+      });
+      mockPrismaService.service.findUnique.mockResolvedValue({
+        id: 1,
+        name: 'Haircut',
+        price: 50000,
+        durationMinutes: 30,
+      });
+      mockPrismaService.customer.updateMany.mockResolvedValue({ count: 0 });
+      let created: { durationMin: number; services: Array<{ priceAtBooking: number; durationMin: number }> } | undefined;
+      mockPrismaService.$transaction.mockImplementation(async (fn: (tx: any) => unknown) => {
+        const tx = {
+          $executeRaw: jest.fn().mockResolvedValue(undefined),
+          appointment: {
+            findFirst: jest.fn().mockResolvedValue(null),
+            create: jest.fn().mockImplementation(async ({ data }: { data: typeof created }) => {
+              created = data;
+              return { ...appointmentRow, ...data, status: 'PENDING_CONFIRMATION' };
+            }),
+          },
+          blockedTime: { findFirst: jest.fn().mockResolvedValue(null) },
+        };
+        await fn(tx);
+        return { ...appointmentRow, status: 'PENDING_CONFIRMATION' };
+      });
+
+      await service.create(
+        {
+          customerId: 999,
+          employeeId: 1,
+          services: [{ serviceId: 1, priceAtBooking: 1, durationMin: 1 }],
+          durationMin: 5,
+          jalaliDate: '1408-10-11',
+          time: '11:00',
+        } as any,
+        { id: 10, role: 'CUSTOMER' },
+      );
+
+      expect(created?.services[0].priceAtBooking).toBe(500000);
+      expect(created?.services[0].durationMin).toBe(30);
+      expect(created?.durationMin).toBe(30);
+    });
+
+    it('rejects a customer booking when service price or duration is not authoritative', async () => {
+      mockCalendarService.toGregorian.mockReturnValue(new Date(Date.UTC(2030, 0, 1)));
+      mockCalendarService.ensureExists.mockResolvedValue({ id: 9 });
+      mockPrismaService.customer.findUnique.mockImplementation(async (args: { where: { userId?: number; id?: number } }) => {
+        if (args.where.userId === 10) return { id: 55, userId: 10 };
+        if (args.where.id === 55) {
+          return { id: 55, userId: 10, user: { id: 10, role: 'CUSTOMER' } };
+        }
+        return null;
+      });
+      mockPrismaService.employee.findUnique.mockResolvedValue({
+        id: 1,
+        isActive: true,
+        user: { role: 'EMPLOYEE' },
+        employeeServices: [{ serviceId: 1 }],
+      });
+      mockPrismaService.service.findUnique.mockResolvedValue({
+        id: 1,
+        name: 'Haircut',
+        price: -1,
+        durationMinutes: 0,
+      });
+
+      await expect(
+        service.create(
+          {
+            customerId: 55,
+            employeeId: 1,
+            services: [{ serviceId: 1, priceAtBooking: 999, durationMin: 15 }],
+            jalaliDate: '1408-10-11',
+            time: '11:00',
+          } as any,
+          { id: 10, role: 'CUSTOMER' },
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects a customer booking when the service does not exist', async () => {
+      mockCalendarService.toGregorian.mockReturnValue(new Date(Date.UTC(2030, 0, 1)));
+      mockCalendarService.ensureExists.mockResolvedValue({ id: 9 });
+      mockPrismaService.customer.findUnique.mockImplementation(async (args: { where: { userId?: number; id?: number } }) => {
+        if (args.where.userId === 10) return { id: 55, userId: 10 };
+        if (args.where.id === 55) {
+          return { id: 55, userId: 10, user: { id: 10, role: 'CUSTOMER' } };
+        }
+        return null;
+      });
+      mockPrismaService.employee.findUnique.mockResolvedValue({
+        id: 1,
+        isActive: true,
+        user: { role: 'EMPLOYEE' },
+        employeeServices: [{ serviceId: 1 }],
+      });
+      mockPrismaService.service.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.create(
+          {
+            customerId: 55,
+            employeeId: 1,
+            services: [{ serviceId: 1, priceAtBooking: 999, durationMin: 15 }],
+            jalaliDate: '1408-10-11',
+            time: '11:00',
+          } as any,
+          { id: 10, role: 'CUSTOMER' },
+        ),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
+    });
   });
 
   describe('update', () => {

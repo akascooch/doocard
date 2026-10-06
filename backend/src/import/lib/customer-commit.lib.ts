@@ -1,13 +1,7 @@
 import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
 import * as jalaali from 'jalaali-js';
 import { ParsedCustomerRow } from './customer-workbook.parser';
-
-export const DEFAULT_CUSTOMER_IMPORT_PASSWORD = 'excel-import-no-login';
-
-export async function hashCustomerImportPassword(): Promise<string> {
-  return bcrypt.hash(DEFAULT_CUSTOMER_IMPORT_PASSWORD, 10);
-}
+import { hashUnreachableCustomerBootstrap } from './import-bootstrap-password';
 
 export async function findExistingCustomerPhones(
   prisma: PrismaClient,
@@ -74,7 +68,7 @@ export async function commitEligibleCustomerRows(
           name: row.name,
           phone: row.phone,
           email: row.email,
-          password: await hashCustomerImportPassword(),
+          password: await hashUnreachableCustomerBootstrap(),
           role: 'CUSTOMER',
         },
       });

@@ -1,5 +1,5 @@
 import { Prisma, PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import { hashUnreachableCustomerBootstrap } from './import-bootstrap-password';
 import {
   GENERIC_IMPORT_CUSTOMER_NAME,
   GENERIC_IMPORT_CUSTOMER_PHONE,
@@ -11,16 +11,11 @@ import {
 
 export const SOURCE_TYPE_APPT = 'EXCEL_IMPORT:APPOINTMENTS';
 export const DEFAULT_SERVICE_DURATION_MIN = 60;
-export const DEFAULT_IMPORT_PASSWORD = 'excel-import-no-login';
 
 export type ServiceRef = { serviceId: number; durationMinutes: number };
 
 export function externalRefAppointment(batchId: string, dedupKey: string): string {
   return `${SOURCE_TYPE_APPT}:${batchId}:${dedupKey}`;
-}
-
-export async function hashImportPassword(): Promise<string> {
-  return bcrypt.hash(DEFAULT_IMPORT_PASSWORD, 10);
 }
 
 /** Count non-deleted appointments per Jalali calendar date key. */
@@ -76,7 +71,7 @@ export async function ensureGenericImportCustomer(prisma: PrismaClient): Promise
     data: {
       name: GENERIC_IMPORT_CUSTOMER_NAME,
       phone,
-      password: await hashImportPassword(),
+      password: await hashUnreachableCustomerBootstrap(),
       role: 'CUSTOMER',
     },
   });
@@ -218,7 +213,7 @@ async function ensureCalendarDate(
   return created.id;
 }
 
-async function ensureCustomer(
+export async function ensureCustomer(
   tx: Prisma.TransactionClient,
   phone: string,
   name: string,
@@ -231,7 +226,7 @@ async function ensureCustomer(
       data: {
         name: name.trim() || 'مشتری',
         phone,
-        password: await hashImportPassword(),
+        password: await hashUnreachableCustomerBootstrap(),
         role: 'CUSTOMER',
       },
       include: { customer: true },

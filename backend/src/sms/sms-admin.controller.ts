@@ -88,6 +88,7 @@ export class SmsAdminController {
   ) {}
 
   @Get('status')
+  @Roles('ADMIN')
   async getStatus() {
     const provider = (this.config.get<string>('SMS_PROVIDER', 'faraz') || 'faraz')
       .trim()
@@ -111,11 +112,13 @@ export class SmsAdminController {
   }
 
   @Get('rules')
+  @Roles('ADMIN')
   async listRules() {
     return this.policy.listRules();
   }
 
   @Patch('rules')
+  @Roles('ADMIN')
   async updateRule(@Body() dto: UpdateSmsRuleDto) {
     const row = await this.policy.setSmsEnabled(dto.eventKey, dto.smsEnabled);
     return {
@@ -127,6 +130,7 @@ export class SmsAdminController {
   }
 
   @Get('templates')
+  @Roles('ADMIN')
   async listTemplates(
     @Query('q') q?: string,
     @Query('includeInactive') includeInactive?: string,
@@ -138,11 +142,13 @@ export class SmsAdminController {
   }
 
   @Get('templates/catalog')
+  @Roles('ADMIN')
   catalog() {
     return this.templates.catalogKeys();
   }
 
   @Get('templates/:templateKey')
+  @Roles('ADMIN')
   async getTemplate(@Param('templateKey') templateKey: string) {
     const list = await this.templates.list({ includeInactive: true });
     const row = list.find((t) => t.templateKey === templateKey);
@@ -154,6 +160,7 @@ export class SmsAdminController {
 
   /** DB-only update — never sends SMS. */
   @Patch('templates/:templateKey')
+  @Roles('ADMIN')
   async updateTemplate(
     @Param('templateKey') templateKey: string,
     @Body() dto: UpdateTemplateDto,
@@ -175,6 +182,7 @@ export class SmsAdminController {
   }
 
   @Get('events')
+  @Roles('ADMIN')
   async listEvents(
     @Query('limit') limit?: string,
     @Query('appointmentId') appointmentId?: string,
@@ -238,6 +246,7 @@ export class SmsAdminController {
   }
 
   @Get('events/by-appointment/:appointmentId')
+  @Roles('ADMIN')
   async eventsByAppointment(@Param('appointmentId') appointmentId: string) {
     const id = parseInt(appointmentId, 10);
     if (!Number.isFinite(id)) return { appointmentId: null, items: [] };
@@ -286,11 +295,13 @@ export class SmsAdminController {
   }
 
   @Post('test')
+  @Roles('ADMIN')
   async sendTest(@Req() req: any, @Body() dto: TestSmsDto) {
     return this.sendControlled(req, dto, 'test');
   }
 
   @Post('send-custom')
+  @Roles('ADMIN')
   async sendCustom(@Req() req: any, @Body() dto: TestSmsDto) {
     return this.sendControlled(req, dto, 'custom');
   }
