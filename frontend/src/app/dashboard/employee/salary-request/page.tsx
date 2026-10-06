@@ -262,9 +262,9 @@ export default function EmployeeSalaryRequestPage() {
       {(user?.role === 'SERVICE' || user?.role === 'EMPLOYEE') &&
         isSupported &&
         !isSubscribed && (
-          <Card className="border-main-orange/40 bg-orange-50/50 dark:bg-orange-950/20">
+          <Card className="border-border bg-accent dark:bg-primary">
             <CardContent className="pt-6 flex flex-col sm:flex-row sm:items-center gap-3">
-              <Bell className="h-5 w-5 text-main-orange shrink-0" />
+              <Bell className="h-5 w-5 text-foreground shrink-0" />
               <p className="text-sm flex-1">
                 برای دریافت آنی اعلان انعام و یادآور حساب، اعلان‌های مرورگر را فعال کنید. پیامک ارسال
                 نمی‌شود.
@@ -315,7 +315,7 @@ export default function EmployeeSalaryRequestPage() {
             <Button
               onClick={handlePreview}
               disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-primary hover:bg-primary text-primary-foreground"
             >
               <Calculator className="w-4 h-4 ml-2" />
               {loading ? 'در حال محاسبه...' : 'پیش‌نمایش'}
@@ -349,7 +349,7 @@ export default function EmployeeSalaryRequestPage() {
                     ? 'انعام'
                     : `سهم شما (${preview.commissionPercentageUsed}٪)`}
                 </p>
-                <p className="text-xl font-bold text-green-600 tabular-nums">
+                <p className="text-xl font-bold text-foreground tabular-nums">
                   {formatTomansFromRial(
                     preview.isServiceStaff
                       ? preview.totalTipIncome ?? 0
@@ -363,7 +363,7 @@ export default function EmployeeSalaryRequestPage() {
                 <p className="text-sm text-muted-foreground">
                   {preview.isServiceStaff ? 'پرداخت‌شده قبلی' : 'کسورات نوبت'}
                 </p>
-                <p className="text-xl font-bold text-amber-600 tabular-nums">
+                <p className="text-xl font-bold text-foreground tabular-nums">
                   {formatTomansFromRial(
                     preview.isServiceStaff
                       ? preview.priorWithdrawalsTotal
@@ -379,7 +379,7 @@ export default function EmployeeSalaryRequestPage() {
                     ? 'قابل برداشت'
                     : 'قابل برداشت از سهم نوبت‌ها'}
                 </p>
-                <p className="text-xl font-bold text-green-700 tabular-nums">
+                <p className="text-xl font-bold text-foreground tabular-nums">
                   {formatTomansFromRial(preview.netPayable)}
                 </p>
               </CardContent>
@@ -396,7 +396,7 @@ export default function EmployeeSalaryRequestPage() {
           )}
 
           {preview.excludedAlreadySettledAppointments > 0 && (
-            <p className="text-sm text-amber-700">
+            <p className="text-sm text-foreground">
               {preview.excludedAlreadySettledAppointments} نوبت قبلاً تسویه شده و در این
               پیش‌نمایش نیست.
             </p>
@@ -460,7 +460,7 @@ export default function EmployeeSalaryRequestPage() {
               <Button
                 onClick={handleSubmitRequest}
                 disabled={submitting}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-primary hover:bg-primary text-primary-foreground"
               >
                 <DollarSign className="w-4 h-4 ml-2" />
                 {submitting ? 'در حال ثبت...' : 'ثبت درخواست'}
@@ -539,7 +539,7 @@ export default function EmployeeSalaryRequestPage() {
                     </TableCell>
                     <TableCell>
                       {w.sourceType === CHEQUE_PAYROLL_SOURCE ? (
-                        <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100">
+                        <Badge className="bg-accent text-foreground hover:bg-accent">
                           واریز حقوق / مساعده
                         </Badge>
                       ) : (
@@ -584,7 +584,7 @@ export default function EmployeeSalaryRequestPage() {
                         </div>
                       </div>
                       <div className="text-left space-y-1">
-                        <div className="font-semibold tabular-nums text-green-700">
+                        <div className="font-semibold tabular-nums text-foreground">
                           {formatTomansFromRial(r.requestedAmountRial)}
                         </div>
                         <Badge variant="secondary">{STATUS_LABELS[r.status] ?? r.status}</Badge>

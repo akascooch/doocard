@@ -108,7 +108,7 @@ export default function CustomerAppointmentsPage() {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">نوبت‌های من</h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-1">
+        <p className="text-foreground dark:text-foreground mt-1">
           مشاهده و رزرو نوبت جدید
         </p>
         <Button
@@ -131,13 +131,13 @@ export default function CustomerAppointmentsPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>در انتظار تأیید</CardDescription>
-            <CardTitle className="text-2xl text-amber-600">{pendingCount}</CardTitle>
+            <CardTitle className="text-2xl text-foreground">{pendingCount}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>تأیید شده</CardDescription>
-            <CardTitle className="text-2xl text-green-600">{confirmedCount}</CardTitle>
+            <CardTitle className="text-2xl text-foreground">{confirmedCount}</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -167,13 +167,13 @@ export default function CustomerAppointmentsPage() {
             <CardContent>
               {loading ? (
                 <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-main-orange"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-border"></div>
                 </div>
               ) : (
                 <>
                   {pendingCount > 0 && (
-                    <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                      <p className="text-sm text-amber-800 dark:text-amber-200">
+                    <div className="mb-4 p-4 bg-accent dark:bg-primary border border-border dark:border-border rounded-lg">
+                      <p className="text-sm text-foreground dark:text-foreground">
                         📌 {pendingCount} نوبت شما در انتظار تأیید توسط کارشناس است
                       </p>
                     </div>
@@ -193,8 +193,8 @@ export default function CustomerAppointmentsPage() {
         <TabsContent value="new">
           {customerId ? (
             <>
-              <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <p className="text-sm text-blue-800 dark:text-blue-200">
+              <div className="mb-4 p-4 bg-accent dark:bg-primary border border-border dark:border-border rounded-lg">
+                <p className="text-sm text-foreground dark:text-foreground">
                   ℹ️ نوبت شما پس از ثبت، توسط کارشناس تأیید خواهد شد و سپس قطعی می‌گردد
                 </p>
               </div>

@@ -31,13 +31,13 @@ type HistoryItem = {
 }
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
-  COMPLETED: { label: 'انجام شده', className: 'bg-green-100 text-green-800' },
-  SETTLED: { label: 'تسویه شده', className: 'bg-green-100 text-green-800' },
-  PAID: { label: 'پرداخت شده', className: 'bg-emerald-100 text-emerald-800' },
-  CANCELLED: { label: 'لغو شده', className: 'bg-red-100 text-red-800' },
-  CONFIRMED: { label: 'تأیید شده', className: 'bg-blue-100 text-blue-800' },
-  PENDING: { label: 'در انتظار', className: 'bg-yellow-100 text-yellow-800' },
-  PENDING_CONFIRMATION: { label: 'در انتظار تأیید', className: 'bg-yellow-100 text-yellow-800' },
+  COMPLETED: { label: 'انجام شده', className: 'bg-accent text-foreground' },
+  SETTLED: { label: 'تسویه شده', className: 'bg-accent text-foreground' },
+  PAID: { label: 'پرداخت شده', className: 'bg-accent text-foreground' },
+  CANCELLED: { label: 'لغو شده', className: 'bg-accent text-foreground' },
+  CONFIRMED: { label: 'تأیید شده', className: 'bg-accent text-foreground' },
+  PENDING: { label: 'در انتظار', className: 'bg-accent text-foreground' },
+  PENDING_CONFIRMATION: { label: 'در انتظار تأیید', className: 'bg-accent text-foreground' },
 }
 
 type DatePreset = 'all' | 'month' | 'week' | 'year'

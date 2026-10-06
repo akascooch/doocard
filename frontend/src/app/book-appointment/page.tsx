@@ -265,7 +265,7 @@ export default function BookAppointmentPage() {
         : identitySkipped
 
   return (
-    <div className="aurora-public-booking min-h-screen py-8" data-theme="light">
+    <div className="aurora-public-booking min-h-screen bg-background py-8 text-foreground">
       <div className="max-w-4xl mx-auto px-4">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-4">رزرو نوبت آنلاین</h1>
@@ -365,7 +365,7 @@ export default function BookAppointmentPage() {
                 />
                 <div className="space-y-2">
                   <Label>انتخاب زمان *</Label>
-                  <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-200">
+                  <p className="rounded-lg border border-border bg-primary px-3 py-2 text-xs leading-relaxed text-foreground">
                     {PUBLIC_BOOKING_LEAD_HINT_FA}
                   </p>
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">

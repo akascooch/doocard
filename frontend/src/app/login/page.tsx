@@ -84,13 +84,13 @@ export default function LoginPage() {
     >
       <Card
         padding="none"
-        className="w-full rounded-3xl border border-zinc-800/80 bg-zinc-900/70 p-5 text-zinc-100 shadow-[0_20px_50px_rgba(0,0,0,0.7)] backdrop-blur-2xl sm:p-8"
+        className="w-full rounded-3xl border border-border bg-card p-5 text-card-foreground shadow-md sm:p-8"
       >
         <CardContent className="space-y-5 p-0 sm:space-y-6">
           {staffMode ? (
             <form onSubmit={handleStaffSubmit} className="space-y-5" dir="rtl">
               <div className="space-y-2">
-                <Label htmlFor="identifier" className="text-sm font-medium leading-relaxed text-zinc-200">ایمیل یا شماره موبایل</Label>
+                <Label htmlFor="identifier" className="text-sm font-medium leading-relaxed text-card-foreground">ایمیل یا شماره موبایل</Label>
                 <Input
                   id="identifier"
                   type="text"
@@ -102,12 +102,12 @@ export default function LoginPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, identifier: e.target.value })
                   }
-                  className="min-h-11 rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-right text-white outline-none placeholder:text-zinc-500 transition-all duration-200 hover:border-zinc-700 focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
+                  className="min-h-11 rounded-xl border border-border bg-input px-4 py-3 text-right text-card-foreground outline-none placeholder:text-card-foreground transition-all duration-200 hover:border-ring focus:border-ring focus:ring-2 focus:ring-ring"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium leading-relaxed text-zinc-200">رمز عبور</Label>
+                <Label htmlFor="password" className="text-sm font-medium leading-relaxed text-card-foreground">رمز عبور</Label>
                 <PasswordInput
                   id="password"
                   autoComplete="current-password"
@@ -118,7 +118,7 @@ export default function LoginPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, password: e.target.value })
                   }
-                  className="min-h-11 rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-right text-white outline-none placeholder:text-zinc-500 transition-all duration-200 hover:border-zinc-700 focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
+                  className="min-h-11 rounded-xl border border-border bg-input px-4 py-3 text-right text-card-foreground outline-none placeholder:text-card-foreground transition-all duration-200 hover:border-ring focus:border-ring focus:ring-2 focus:ring-ring"
                 />
               </div>
 
@@ -126,13 +126,13 @@ export default function LoginPage() {
                 <input
                   id="rememberMe"
                   type="checkbox"
-                  className="h-4 w-4 shrink-0 rounded-md border border-zinc-700 bg-zinc-900 accent-white"
+                  className="h-4 w-4 shrink-0 rounded-md border border-border bg-card accent-[#2B2D42]"
                   checked={formData.rememberMe}
                   onChange={(e) =>
                     setFormData({ ...formData, rememberMe: e.currentTarget.checked })
                   }
                 />
-                <Label htmlFor="rememberMe" className="select-none text-xs font-normal text-zinc-300 sm:text-sm">
+                <Label htmlFor="rememberMe" className="select-none text-xs font-normal text-card-foreground sm:text-sm">
                   مرا به خاطر بسپار (کارکنان، تا ۹۰ روز)
                 </Label>
               </div>
@@ -140,7 +140,7 @@ export default function LoginPage() {
               {/* [GATED-W-B] Auth submit solid white — Wave B product decision (AUDIT_GLASS_CONVERSION_20260922). Do not glassify until approved. */}
               <Button
                 type="submit"
-                className="mt-4 h-auto min-h-11 w-full rounded-xl bg-white px-6 py-3.5 font-semibold text-black shadow-lg transition-all duration-200 hover:bg-zinc-200 hover:shadow-white/10 active:scale-[0.99]"
+                className="mt-4 h-auto min-h-11 w-full rounded-xl px-6 py-3.5 font-semibold shadow-sm active:scale-[0.99]"
                 disabled={loading}
               >
                 {loading ? "در حال ورود..." : "ورود به سیستم"}
@@ -154,13 +154,13 @@ export default function LoginPage() {
             />
           )}
 
-          <div className="h-px w-full bg-zinc-800" />
+          <div className="h-px w-full bg-border" />
 
           <div className="space-y-2 text-center">
             {staffMode ? (
               <button
                 type="button"
-                className="aurora-auth-ghost flex w-full items-center justify-center py-2.5 text-sm font-medium text-zinc-400 transition-colors hover:text-white"
+                className="aurora-auth-ghost flex w-full items-center justify-center py-2.5 text-sm font-medium text-card-foreground transition-colors hover:text-accent-foreground"
                 onClick={() => setStaffMode(false)}
               >
                 ورود مشتریان با پیامک
@@ -168,7 +168,7 @@ export default function LoginPage() {
             ) : (
               <button
                 type="button"
-                className="aurora-auth-ghost flex w-full items-center justify-center py-2.5 text-sm font-medium text-zinc-400 transition-colors hover:text-white"
+                className="aurora-auth-ghost flex w-full items-center justify-center py-2.5 text-sm font-medium text-card-foreground transition-colors hover:text-accent-foreground"
                 onClick={() => setStaffMode(true)}
               >
                 ورود کارکنان با رمز عبور

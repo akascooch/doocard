@@ -171,7 +171,7 @@ export default function NotificationsPage() {
       {/* Notifications List */}
       {notifications.length === 0 ? (
         <Card className="p-12 text-center">
-          <Bell className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+          <Bell className="w-16 h-16 mx-auto mb-4 text-foreground dark:text-foreground" />
           <h3 className="text-lg font-medium text-muted-foreground mb-2">
             نوتیفیکیشنی وجود ندارد
           </h3>
@@ -258,7 +258,7 @@ function NotificationCard({
         className={`p-4 transition-all hover:shadow-md ${
           !notification.isRead
             ? 'bg-primary/5 border-primary/30'
-            : 'bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/10 transition-all'
+            : 'bg-accent backdrop-blur-md border border-border hover:bg-accent transition-all'
         }`}
       >
         <div className="flex items-start gap-3">
@@ -267,7 +267,7 @@ function NotificationCard({
             className={`w-10 h-10 rounded-full flex items-center justify-center text-xl flex-shrink-0 ${
               !notification.isRead
                 ? 'bg-primary/20'
-                : 'bg-gray-100 dark:bg-gray-700'
+                : 'bg-accent dark:bg-accent'
             }`}
           >
             {getIcon(notification.type)}
@@ -305,7 +305,7 @@ function NotificationCard({
                   variant="ghost"
                   size="sm"
                   onClick={() => onDelete(notification.id)}
-                  className="h-8 w-8 p-0 text-red-500 hover:text-red-600"
+                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                   title="حذف"
                 >
                   <Trash2 className="w-4 h-4" />

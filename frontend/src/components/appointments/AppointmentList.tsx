@@ -142,16 +142,16 @@ export default function AppointmentList({
 
   const getStatusBadge = (status: string) => {
     const configs: Record<string, { label: string; className: string }> = {
-      PENDING: { label: 'در انتظار', className: 'border-amber-400/30 text-amber-200' },
+      PENDING: { label: 'در انتظار', className: 'border-border text-foreground' },
       PENDING_CONFIRMATION: {
         label: 'نیاز به تأیید',
-        className: 'border-amber-400/40 text-amber-100 animate-pulse',
+        className: 'border-border text-foreground animate-pulse',
       },
-      CONFIRMED: { label: 'تأیید شده', className: 'border-sky-400/30 text-sky-200' },
-      COMPLETED: { label: 'انجام شده', className: 'border-emerald-400/30 text-emerald-200' },
-      SETTLED: { label: 'تسویه شده', className: 'border-emerald-400/30 text-emerald-200' },
-      PAID: { label: 'پرداخت شده', className: 'border-emerald-400/30 text-emerald-200' },
-      CANCELLED: { label: 'لغو شده', className: 'border-white/20 text-zinc-300' },
+      CONFIRMED: { label: 'تأیید شده', className: 'border-border text-foreground' },
+      COMPLETED: { label: 'انجام شده', className: 'border-border text-foreground' },
+      SETTLED: { label: 'تسویه شده', className: 'border-border text-foreground' },
+      PAID: { label: 'پرداخت شده', className: 'border-border text-foreground' },
+      CANCELLED: { label: 'لغو شده', className: 'border-border text-foreground' },
     };
 
     const config = configs[status] || { label: status, className: '' };
@@ -245,7 +245,7 @@ export default function AppointmentList({
             size="sm"
             variant="glass"
             onClick={() => handleConfirm(appointment.id)}
-            className="text-emerald-300 min-h-9"
+            className="text-foreground min-h-9"
             title="تأیید نوبت"
           >
             <CheckCircle className="h-4 w-4 ml-1" />
@@ -264,7 +264,7 @@ export default function AppointmentList({
               setSettleId(appointment.id);
               setSettleAppointment(appointment);
             }}
-            className="text-amber-300 min-h-9"
+            className="text-foreground min-h-9"
             title="تسویه نوبت"
           >
             <DollarSign className="h-4 w-4 ml-1" />
@@ -278,7 +278,7 @@ export default function AppointmentList({
             size="sm"
             variant="glass"
             onClick={() => handleRevertSettlement(appointment.id)}
-            className="text-sky-300 min-h-9"
+            className="text-foreground min-h-9"
             title="برگشت از تسویه"
           >
             <RotateCcw className="h-4 w-4 ml-1" />
@@ -293,7 +293,7 @@ export default function AppointmentList({
             size="sm"
             variant="glass"
             onClick={() => handleCancel(appointment.id)}
-            className="text-slate-200 min-h-9"
+            className="text-foreground min-h-9"
             title="لغو نوبت"
           >
             <XCircle className="h-4 w-4 ml-1" />
@@ -306,7 +306,7 @@ export default function AppointmentList({
           size="sm"
           variant="glass"
           onClick={() => setDeleteId(appointment.id)}
-          className="text-rose-400 min-h-9"
+          className="text-foreground min-h-9"
           title="حذف نوبت"
         >
           <Trash2 className="h-4 w-4 ml-1" />
@@ -486,7 +486,7 @@ export default function AppointmentList({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>انصراف</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive">
               حذف
             </AlertDialogAction>
           </AlertDialogFooter>

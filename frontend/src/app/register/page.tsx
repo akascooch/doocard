@@ -27,7 +27,7 @@ export default function RegisterPage() {
     >
       <Card
         padding="none"
-        className="w-full rounded-3xl border border-zinc-800/80 bg-zinc-900/70 p-5 text-zinc-100 shadow-[0_20px_50px_rgba(0,0,0,0.7)] backdrop-blur-2xl sm:p-8"
+        className="w-full rounded-3xl border border-border bg-card p-5 text-foreground shadow-[0_20px_50px_rgba(0,0,0,0.7)] backdrop-blur-2xl sm:p-8"
       >
         <CardContent className="p-0 pt-0">
           <PhoneOtpAuth
@@ -40,7 +40,7 @@ export default function RegisterPage() {
           <div className="mt-6 text-center">
             <button
               type="button"
-              className="aurora-auth-ghost flex w-full items-center justify-center py-2.5 text-sm font-medium text-zinc-400 transition-colors hover:text-white"
+              className="aurora-auth-ghost flex w-full items-center justify-center py-2.5 text-sm font-medium text-foreground transition-colors hover:text-foreground"
               onClick={() => router.push("/login")}
             >
               حساب دارید؟ وارد شوید

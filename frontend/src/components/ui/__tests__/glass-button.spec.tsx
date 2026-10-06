@@ -8,22 +8,23 @@ function markup(ui: React.ReactElement) {
 }
 
 describe('Button glass variant contract', () => {
-  it('applies data-glass and glass surface tokens without solid bg-white', () => {
+  it('applies data-glass and glass surface tokens without a legacy white fill', () => {
     const html = markup(<Button variant="glass">ادامه</Button>)
     expect(html).toContain('data-glass')
     expect(html).toContain('glass-button')
-    expect(html).toContain('bg-white/5')
-    expect(html).toContain('backdrop-blur-md')
-    expect(html).not.toMatch(/\bbg-white["\s]/)
+    expect(html).toContain('bg-card')
+    expect(html).toContain('text-card-foreground')
+    expect(html).not.toContain(['bg', 'white'].join('-'))
   })
 
-  it('keeps default and primary solid dark:bg-white (no blanket remap)', () => {
+  it('keeps default and primary on palette tokens', () => {
     const def = buttonVariants({ variant: 'default' })
     const primary = buttonVariants({ variant: 'primary' })
-    expect(def).toContain('dark:bg-white')
-    expect(primary).toContain('dark:bg-white')
-    expect(def).not.toContain('bg-white/5')
-    expect(primary).not.toContain('bg-white/5')
+    expect(def).toContain('bg-primary')
+    expect(def).toContain('text-primary-foreground')
+    expect(primary).toContain('bg-primary')
+    expect(def).not.toContain('bg-accent')
+    expect(primary).not.toContain('bg-accent')
   })
 
   it('disables pointer events and reduces opacity when disabled', () => {
@@ -33,13 +34,13 @@ describe('Button glass variant contract', () => {
       </Button>,
     )
     expect(html).toContain('disabled')
-    expect(html).toMatch(/opacity-40|opacity-50/)
+    expect(html).toMatch(/opacity-60/)
   })
 
   it('GlassButton forwards to variant=glass', () => {
     const html = markup(<GlassButton>تأیید</GlassButton>)
     expect(html).toContain('data-glass')
-    expect(html).toContain('bg-white/5')
+    expect(html).toContain('bg-card')
     expect(html).toContain('type="button"')
   })
 })

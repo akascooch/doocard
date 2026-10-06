@@ -24,10 +24,10 @@ export default function Error({
   return (
     <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
       <div className="text-6xl">🚨</div>
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+      <h2 className="text-2xl font-bold text-foreground dark:text-foreground">
         مشکلی پیش آمده است
       </h2>
-      <p className="text-gray-600 dark:text-gray-400 text-center max-w-md">
+      <p className="text-foreground dark:text-foreground text-center max-w-md">
         {error.message || 'خطایی در بارگذاری صفحه خدمات رخ داده است'}
       </p>
       <div className="flex gap-2">

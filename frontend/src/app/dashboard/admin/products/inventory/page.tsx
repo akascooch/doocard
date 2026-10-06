@@ -183,7 +183,7 @@ export default function AdminInventoryPage() {
           <CardHeader>
             <CardTitle>هشدار موجودی کم</CardTitle>
           </CardHeader>
-          <CardContent className="text-2xl font-semibold text-red-600">{lowStockItems.length}</CardContent>
+          <CardContent className="text-2xl font-semibold text-destructive">{lowStockItems.length}</CardContent>
         </Card>
         <Card>
           <CardHeader>
@@ -199,7 +199,7 @@ export default function AdminInventoryPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TriangleAlert className="h-5 w-5 text-red-600" />
+              <TriangleAlert className="h-5 w-5 text-destructive" />
               موجودی پایین
             </CardTitle>
             <CardDescription>کالاهایی که به سقف هشدار رسیده‌اند</CardDescription>

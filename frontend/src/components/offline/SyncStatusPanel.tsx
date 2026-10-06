@@ -110,7 +110,7 @@ export default function SyncStatusPanel() {
         <Icon
           name={serverReachable ? 'Wifi' : 'WifiOff'}
           size={20}
-          className={serverReachable ? 'text-green-600' : 'text-amber-600'}
+          className={serverReachable ? 'text-foreground' : 'text-foreground'}
         />
       </div>
 
@@ -142,7 +142,7 @@ export default function SyncStatusPanel() {
       </Button>
 
       {!serverReachable && canSync && (
-        <p className="text-xs text-amber-700">
+        <p className="text-xs text-foreground">
           برای ارسال دستی، ابتدا اتصال به سرور برقرار شود.
         </p>
       )}

@@ -172,7 +172,7 @@ export function ProductPackagingManager({ productId }: { productId: number }) {
                     type="button"
                     variant="outline"
                     size="icon-sm"
-                    className="text-red-600"
+                    className="text-destructive"
                     aria-label={`حذف ${item.name}`}
                     title="حذف"
                     onClick={() => setDeleteTarget(item)}

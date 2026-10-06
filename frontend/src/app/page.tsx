@@ -103,7 +103,7 @@ export default function HomePage() {
   const heroImage = landing.slides[0]?.imageUrl
 
   return (
-    <div className="min-h-screen scroll-smooth bg-black text-white">
+    <div className="min-h-screen scroll-smooth bg-background text-foreground">
       <LandingHeader bookHref={bookHref} />
 
       <main className="pt-[calc(4.75rem+env(safe-area-inset-top,0px))] sm:pt-[calc(6rem+env(safe-area-inset-top,0px))]">
@@ -117,20 +117,20 @@ export default function HomePage() {
               fetchPriority="high"
             />
           ) : null}
-          <div className="absolute inset-0 bg-gradient-to-b from-black via-black/80 to-[#080808]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-background via-background/80 to-card" />
           <div className="relative z-10 mx-auto flex min-h-[88vh] max-w-5xl flex-col items-center justify-center px-4 py-16 text-center sm:py-20">
             <AppLogo
               size="lg"
               className="mx-auto mb-4 h-24 w-24 object-contain sm:h-32 sm:w-32"
               priority
             />
-            <p className="mb-6 text-[11px] tracking-[0.42em] text-zinc-400">
+            <p className="mb-6 text-[11px] tracking-[0.42em] text-foreground">
               {detailsLoading ? "…" : landing.heroSubtitle || "PRECISION IN EVERY DETAIL"}
             </p>
-            <h1 className="text-4xl font-semibold tracking-[0.12em] text-white sm:text-6xl md:text-7xl">
+            <h1 className="text-4xl font-semibold tracking-[0.12em] text-foreground sm:text-6xl md:text-7xl">
               {landing.heroTitle || "DOOCARD BARBERSHOP"}
             </h1>
-            <p className="mt-8 max-w-2xl text-sm leading-8 text-zinc-400 sm:text-base">
+            <p className="mt-8 max-w-2xl text-sm leading-8 text-foreground sm:text-base">
               {detailsLoading
                 ? "در حال آماده‌سازی تجربه‌ی شما..."
                 : landing.aboutText || FALLBACK.aboutText}
@@ -139,14 +139,14 @@ export default function HomePage() {
               {/* [GATED-W-B] Brand primary CTA — solid white kept pending Wave B product decision (AUDIT_GLASS_CONVERSION_20260922). */}
               <Link
                 href={bookHref}
-                className="inline-flex items-center justify-center rounded-md bg-white px-8 py-3.5 text-sm font-semibold text-black hover:bg-zinc-200"
+                className="inline-flex items-center justify-center rounded-md bg-primary px-8 py-3.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
               >
                 <Calendar className="ml-2 h-4 w-4" />
                 رزرو آنلاین نوبت
               </Link>
               <a
                 href="#services"
-                className="inline-flex items-center justify-center rounded-md border border-white/20 px-8 py-3.5 text-sm text-white hover:bg-white/10"
+                className="inline-flex items-center justify-center rounded-md border border-border px-8 py-3.5 text-sm text-foreground hover:bg-primary/10"
               >
                 مشاهده خدمات
               </a>
@@ -154,48 +154,48 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="gallery" className="bg-[#080808] px-4 py-20 sm:px-6 lg:px-8">
+        <section id="gallery" className="bg-card px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
-            <p className="mb-3 text-xs tracking-[0.35em] text-zinc-500">گالری</p>
+            <p className="mb-3 text-xs tracking-[0.35em] text-foreground">گالری</p>
             <h2 className="mb-10 text-3xl font-semibold tracking-wide sm:text-4xl">فضا و جزئیات</h2>
             <LandingCarousel slides={landing.slides} />
           </div>
         </section>
 
-        <section id="services" className="bg-black px-4 py-20 sm:px-6 lg:px-8">
+        <section id="services" className="bg-background px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
-            <p className="mb-3 text-center text-xs tracking-[0.35em] text-zinc-500">خدمات</p>
+            <p className="mb-3 text-center text-xs tracking-[0.35em] text-foreground">خدمات</p>
             <h2 className="mb-4 text-center text-3xl font-semibold sm:text-4xl">خدمات تخصصی دوکارد</h2>
-            <p className="mx-auto mb-12 max-w-2xl text-center text-sm text-zinc-400">
+            <p className="mx-auto mb-12 max-w-2xl text-center text-sm text-foreground">
               هر خدمت با دقت و زمان مشخص ارائه می‌شود.
             </p>
-            {servicesError && <p className="mb-8 text-center text-sm text-red-400">{servicesError}</p>}
+            {servicesError && <p className="mb-8 text-center text-sm text-destructive">{servicesError}</p>}
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
               {servicesLoading && services.length === 0 &&
                 Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="h-44 animate-pulse rounded-2xl border border-white/10 bg-[#080808]" />
+                  <div key={i} className="h-44 animate-pulse rounded-2xl border border-border bg-card" />
                 ))}
               {services.map((service) => (
                 <article
                   key={service.id}
-                  className="flex h-full flex-col justify-between rounded-2xl border border-white/10 bg-[#080808] px-6 py-6"
+                  className="flex h-full flex-col justify-between rounded-2xl border border-border bg-card px-6 py-6"
                 >
                   <div className="space-y-3">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-1 text-[11px] text-zinc-400">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-[11px] text-foreground">
                       <Sparkles className="h-3 w-3" />
                       خدمت تخصصی
                     </div>
                     <h3 className="text-xl font-semibold">{service.name}</h3>
                     {service.description && (
-                      <p className="text-sm leading-7 text-zinc-400">{service.description}</p>
+                      <p className="text-sm leading-7 text-foreground">{service.description}</p>
                     )}
                   </div>
-                  <div className="mt-6 flex items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm">
-                    <span className="text-zinc-400">{formatDuration(service.durationMinutes)}</span>
+                  <div className="mt-6 flex items-center justify-between gap-3 border-t border-border pt-4 text-sm">
+                    <span className="text-foreground">{formatDuration(service.durationMinutes)}</span>
                     <Link
                       href={bookHref}
                       /* [GATED-W-B] Brand primary CTA — Wave B product decision */
-                      className="inline-flex min-h-11 items-center rounded-md bg-white px-4 text-xs font-semibold text-black touch-manipulation hover:bg-zinc-200"
+                      className="inline-flex min-h-11 items-center rounded-md bg-primary px-4 text-xs font-semibold text-primary-foreground touch-manipulation hover:bg-primary/90"
                     >
                       رزرو
                     </Link>
@@ -206,17 +206,17 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="team" className="bg-[#080808] px-4 py-20 sm:px-6 lg:px-8">
+        <section id="team" className="bg-card px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
-            <p className="mb-3 text-xs tracking-[0.35em] text-zinc-500">تیم دوکارد</p>
+            <p className="mb-3 text-xs tracking-[0.35em] text-foreground">تیم دوکارد</p>
             <h2 className="mb-10 text-3xl font-semibold sm:text-4xl">آرایشگران ارشد</h2>
             {landing.staff.length === 0 ? (
-              <p className="text-sm text-zinc-500">اعضای تیم به‌زودی از پنل مدیریت معرفی می‌شوند.</p>
+              <p className="text-sm text-foreground">اعضای تیم به‌زودی از پنل مدیریت معرفی می‌شوند.</p>
             ) : (
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {landing.staff.map((barber) => (
-                  <article key={barber.id} className="overflow-hidden rounded-2xl border border-white/10 bg-[#141414]">
-                    <div className="aspect-[4/5] bg-black">
+                  <article key={barber.id} className="overflow-hidden rounded-2xl border border-border bg-card">
+                    <div className="aspect-[4/5] bg-background">
                       {barber.avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -225,19 +225,19 @@ export default function HomePage() {
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-full items-center justify-center text-zinc-600">بدون تصویر</div>
+                        <div className="flex h-full items-center justify-center text-foreground">بدون تصویر</div>
                       )}
                     </div>
                     <div className="space-y-3 p-5">
-                      <p className="text-[11px] tracking-[0.25em] text-zinc-500">
+                      <p className="text-[11px] tracking-[0.25em] text-foreground">
                         {barber.displayTitle || "Master Barber"}
                       </p>
                       <h3 className="text-xl font-semibold">{barber.name}</h3>
-                      {barber.bio && <p className="text-sm leading-7 text-zinc-400">{barber.bio}</p>}
+                      {barber.bio && <p className="text-sm leading-7 text-foreground">{barber.bio}</p>}
                       <Link
                         href={landingBookHref(hasToken, barber.id)}
                         /* [GATED-W-B] Brand primary CTA — Wave B product decision */
-                        className="inline-flex rounded-md bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-zinc-200"
+                        className="inline-flex rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
                       >
                         رزرو با این آرایشگر
                       </Link>
@@ -249,14 +249,14 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="about" className="bg-black px-4 py-20 sm:px-6 lg:px-8">
+        <section id="about" className="bg-background px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-4xl text-center">
-            <p className="mb-3 text-xs tracking-[0.35em] text-zinc-500">تجربه VIP</p>
+            <p className="mb-3 text-xs tracking-[0.35em] text-foreground">تجربه VIP</p>
             <h2 className="text-3xl font-semibold leading-snug sm:text-5xl">
               اینجا فقط یک اصلاح نیست؛
-              <span className="mt-3 block text-zinc-300">این‌جا استاندارد شخصی شماست.</span>
+              <span className="mt-3 block text-foreground">این‌جا استاندارد شخصی شماست.</span>
             </h2>
-            <p className="mx-auto mt-8 max-w-2xl text-sm leading-8 text-zinc-400 sm:text-base">
+            <p className="mx-auto mt-8 max-w-2xl text-sm leading-8 text-foreground sm:text-base">
               {landing.aboutText || FALLBACK.aboutText}
             </p>
           </div>
@@ -266,52 +266,52 @@ export default function HomePage() {
               { icon: Shield, title: "فضای خصوصی و آرام", body: "جایی برای نفس کشیدن، فکر کردن و تازه‌ شدن؛ بدون شلوغی." },
               { icon: Clock, title: "احترام به زمان شما", body: "نوبت‌ها با دقت برنامه‌ریزی می‌شوند تا بدون معطلی سرویس بگیرید." },
             ].map((item) => (
-              <div key={item.title} className="rounded-2xl border border-white/10 bg-[#080808] p-8">
-                <item.icon className="mb-5 h-6 w-6 text-white" />
+              <div key={item.title} className="rounded-2xl border border-border bg-card p-8">
+                <item.icon className="mb-5 h-6 w-6 text-foreground" />
                 <h3 className="mb-3 text-xl font-semibold">{item.title}</h3>
-                <p className="text-sm leading-7 text-zinc-400">{item.body}</p>
+                <p className="text-sm leading-7 text-foreground">{item.body}</p>
               </div>
             ))}
           </div>
         </section>
 
-        <section id="contact" className="bg-[#080808] px-4 py-20 sm:px-6 lg:px-8">
+        <section id="contact" className="bg-card px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto grid max-w-7xl grid-cols-1 items-start gap-10 lg:grid-cols-2">
             <div className="space-y-6">
-              <p className="text-xs tracking-[0.35em] text-zinc-500">ساعات کاری و تماس</p>
+              <p className="text-xs tracking-[0.35em] text-foreground">ساعات کاری و تماس</p>
               <h2 className="text-3xl font-semibold sm:text-4xl">سالن دوکارد</h2>
-              <p className="text-sm leading-7 text-zinc-400">{landing.contact}</p>
+              <p className="text-sm leading-7 text-foreground">{landing.contact}</p>
               <div className="space-y-4 text-sm">
                 <div className="flex gap-3">
-                  <Clock className="mt-0.5 h-5 w-5 text-zinc-400" />
+                  <Clock className="mt-0.5 h-5 w-5 text-foreground" />
                   <div>
-                    <p className="text-zinc-500">شنبه تا پنجشنبه</p>
+                    <p className="text-foreground">شنبه تا پنجشنبه</p>
                     <p>{hours.weekdays}</p>
-                    <p className="mt-2 text-zinc-500">جمعه</p>
+                    <p className="mt-2 text-foreground">جمعه</p>
                     <p>{hours.friday}</p>
-                    {hours.note && <p className="mt-2 text-zinc-500">{hours.note}</p>}
+                    {hours.note && <p className="mt-2 text-foreground">{hours.note}</p>}
                   </div>
                 </div>
                 <div className="flex gap-3">
-                  <Phone className="mt-0.5 h-5 w-5 text-zinc-400" />
+                  <Phone className="mt-0.5 h-5 w-5 text-foreground" />
                   <div>
-                    <p className="text-zinc-500">تلفن</p>
+                    <p className="text-foreground">تلفن</p>
                     <a href={`tel:${tel}`} className="hover:underline" dir="ltr">
                       {landing.phone}
                     </a>
                   </div>
                 </div>
                 <div className="flex gap-3">
-                  <MapPin className="mt-0.5 h-5 w-5 text-zinc-400" />
+                  <MapPin className="mt-0.5 h-5 w-5 text-foreground" />
                   <div>
-                    <p className="text-zinc-500">آدرس</p>
+                    <p className="text-foreground">آدرس</p>
                     <p>{landing.address}</p>
                   </div>
                 </div>
                 <div className="flex gap-3">
-                  <Instagram className="mt-0.5 h-5 w-5 text-zinc-400" />
+                  <Instagram className="mt-0.5 h-5 w-5 text-foreground" />
                   <div>
-                    <p className="text-zinc-500">اینستاگرام</p>
+                    <p className="text-foreground">اینستاگرام</p>
                     <a href={ig} target="_blank" rel="noopener noreferrer" className="hover:underline">
                       doocard
                     </a>
@@ -325,19 +325,19 @@ export default function HomePage() {
       </main>
 
       <footer
-        className="border-t border-white/10 bg-black px-4 py-10"
+        className="border-t border-border bg-background px-4 py-10"
         style={{ paddingBottom: "max(2.5rem, env(safe-area-inset-bottom, 0px))" }}
       >
         <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
           <div>
             <p className="tracking-[0.3em] text-sm">DOOCARD BARBERSHOP</p>
-            <p className="mt-2 text-xs text-zinc-500">{landing.address}</p>
+            <p className="mt-2 text-xs text-foreground">{landing.address}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-4 text-sm text-zinc-400">
+          <div className="flex flex-wrap items-center gap-4 text-sm text-foreground">
             <a href={`tel:${tel}`} dir="ltr">
               {landing.phone}
             </a>
-            <Link href="/products" className="hover:text-white">
+            <Link href="/products" className="hover:text-foreground">
               فروشگاه
             </Link>
             <a href={ig} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1">
@@ -346,7 +346,7 @@ export default function HomePage() {
             </a>
             <button
               type="button"
-              className="inline-flex items-center gap-1 text-white"
+              className="inline-flex items-center gap-1 text-foreground"
               onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             >
               <ArrowUp className="h-4 w-4" />
@@ -355,7 +355,7 @@ export default function HomePage() {
           </div>
         </div>
         <p
-          className="mx-auto mt-8 max-w-7xl text-center text-xs tracking-[0.18em] text-zinc-500"
+          className="mx-auto mt-8 max-w-7xl text-center text-xs tracking-[0.18em] text-foreground"
           dir="ltr"
         >
           Powered by TECHOOCH

@@ -456,7 +456,7 @@ export default function AdminHomepagePage() {
             {slides.map((slide, index) => (
               <Card key={slide.id}>
                 <CardContent className="grid gap-4 p-4 md:grid-cols-[220px_1fr]">
-                  <div className="overflow-hidden rounded-lg border bg-black">
+                  <div className="overflow-hidden rounded-lg border bg-background">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={slide.imageUrl} alt={slide.title || ""} className="h-40 w-full object-cover" />
                   </div>

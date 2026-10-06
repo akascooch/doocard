@@ -48,14 +48,14 @@ export function RecentTransactions() {
   return (
     <div className="space-y-3">
       {transactions.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="text-center py-8 text-foreground">
+          <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
             </svg>
           </div>
-          <h3 className="text-sm font-medium text-gray-700">هیچ تراکنشی یافت نشد</h3>
-          <p className="mt-1 text-sm text-gray-500">
+          <h3 className="text-sm font-medium text-foreground">هیچ تراکنشی یافت نشد</h3>
+          <p className="mt-1 text-sm text-foreground">
             هنوز تراکنشی ثبت نشده است.
           </p>
         </div>
@@ -65,17 +65,17 @@ export function RecentTransactions() {
             key={transaction.id}
             className={`flex items-center justify-between p-3 border rounded-lg transition-all duration-200 hover:shadow-sm ${
               transaction.type === 'INCOME' 
-                ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 hover:from-green-100 hover:to-emerald-100' 
-                : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200 hover:from-red-100 hover:to-pink-100'
+                ? 'bg-gradient-to-r from-accent to-accent border-border hover:from-accent hover:to-accent'
+                : 'bg-gradient-to-r from-accent to-accent border-border hover:from-accent hover:to-accent'
             }`}
           >
             <div className="flex items-center space-x-3">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                transaction.type === 'INCOME' ? 'bg-green-100' : 'bg-red-100'
+                transaction.type === 'INCOME' ? 'bg-accent' : 'bg-accent'
               }`}>
                 <svg
                   className={`w-5 h-5 ${
-                    transaction.type === 'INCOME' ? 'text-green-600' : 'text-red-600'
+                    transaction.type === 'INCOME' ? 'text-foreground' : 'text-destructive'
                   }`}
                   fill="none"
                   stroke="currentColor"
@@ -85,10 +85,10 @@ export function RecentTransactions() {
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="font-medium text-gray-900 text-sm truncate">
+                <h4 className="font-medium text-foreground text-sm truncate">
                   {transaction.description}
                 </h4>
-                <div className="flex items-center space-x-2 text-xs text-gray-500">
+                <div className="flex items-center space-x-2 text-xs text-foreground">
                   <span>{transaction.dateJalali || '-'}</span>
                   <span>•</span>
                   <span>{new Date(transaction.date).toLocaleTimeString('fa-IR', { 
@@ -108,12 +108,12 @@ export function RecentTransactions() {
             </div>
             <div className="text-right">
               <div className={`font-bold text-sm ${
-                transaction.type === 'INCOME' ? 'text-green-700' : 'text-red-700'
+                transaction.type === 'INCOME' ? 'text-foreground' : 'text-destructive'
               }`}>
                 {transaction.type === 'INCOME' ? '+' : '-'} {formatNumber(Math.abs(transaction.amount))} تومان
               </div>
               <div className={`text-xs ${
-                transaction.type === 'INCOME' ? 'text-green-600' : 'text-red-600'
+                transaction.type === 'INCOME' ? 'text-foreground' : 'text-destructive'
               }`}>
                 {transaction.type === 'INCOME' ? 'درآمد' : 'هزینه'}
               </div>
@@ -124,7 +124,7 @@ export function RecentTransactions() {
       
       {transactions.length > 5 && (
         <div className="text-center pt-2">
-          <button className="text-sm text-green-600 hover:text-green-700 font-medium">
+          <button className="text-sm text-foreground hover:text-foreground font-medium">
             مشاهده همه تراکنش‌ها ({transactions.length})
           </button>
         </div>

@@ -19,7 +19,7 @@ export function LandingCarousel({ slides }: { slides: LandingSlide[] }) {
 
   if (!slides.length) {
     return (
-      <div className="flex h-64 items-center justify-center rounded-2xl border border-white/10 bg-[#080808] text-sm text-zinc-500">
+      <div className="flex h-64 items-center justify-center rounded-2xl border border-border bg-primary text-sm text-primary-foreground">
         گالری به‌زودی از پنل مدیریت تکمیل می‌شود.
       </div>
     )
@@ -51,7 +51,7 @@ export function LandingCarousel({ slides }: { slides: LandingSlide[] }) {
       {slides.map((slide) => (
         <article
           key={slide.id}
-          className="relative h-64 w-[min(88vw,420px)] shrink-0 snap-center overflow-hidden rounded-2xl border border-white/10 bg-[#080808] sm:h-80 sm:w-[480px]"
+          className="relative h-64 w-[min(88vw,420px)] shrink-0 snap-center overflow-hidden rounded-2xl border border-border bg-primary sm:h-80 sm:w-[480px]"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -61,12 +61,12 @@ export function LandingCarousel({ slides }: { slides: LandingSlide[] }) {
             draggable={false}
           />
           {(slide.title || slide.subtitle) && (
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-5">
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[rgb(43_45_66/0.9)] to-transparent p-5">
               {slide.title && (
-                <h3 className="text-lg font-semibold tracking-wide text-white">{slide.title}</h3>
+                <h3 className="text-lg font-semibold tracking-wide text-primary-foreground">{slide.title}</h3>
               )}
               {slide.subtitle && (
-                <p className="mt-1 text-sm text-zinc-300">{slide.subtitle}</p>
+                <p className="mt-1 text-sm text-primary-foreground">{slide.subtitle}</p>
               )}
             </div>
           )}

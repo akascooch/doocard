@@ -23,7 +23,7 @@ const SimplePasswordInput = React.forwardRef<HTMLInputElement, SimplePasswordInp
           {...props}
         />
         <div
-          className="absolute left-2 top-1/2 -translate-y-1/2 cursor-pointer p-1 rounded text-muted-foreground hover:text-foreground dark:text-white/80 dark:hover:text-white hover:bg-white/10 transition-colors"
+          className="absolute left-2 top-1/2 -translate-y-1/2 cursor-pointer p-1 rounded text-muted-foreground hover:text-foreground dark:text-foreground dark:hover:text-foreground hover:bg-accent transition-colors"
           onClick={() => {
             console.log('Eye clicked, current state:', showPassword)
             setShowPassword(!showPassword)

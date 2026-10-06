@@ -3,14 +3,14 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const inputVariants = cva(
-  "flex w-full rounded-xl border bg-white/5 border-white/10 text-white dark:text-zinc-100 transition-all duration-300 file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-indigo-500/50 focus-visible:border-indigo-500/50 disabled:cursor-not-allowed disabled:opacity-60 disabled:bg-white/[0.04]",
+  "flex w-full rounded-xl border border-border bg-input text-card-foreground transition-all duration-300 file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-60",
   {
     variants: {
       variant: {
-        default: "border-white/10 hover:border-white/20",
-        filled: "bg-white/[0.06] border-white/10 hover:border-white/20",
-        ghost: "border-transparent bg-transparent hover:bg-white/[0.05]",
-        error: "border-red-500 dark:border-destructive focus-visible:ring-red-500 dark:focus-visible:ring-destructive",
+        default: "border-border hover:border-ring",
+        filled: "border-border bg-card hover:border-ring",
+        ghost: "border-transparent bg-transparent hover:bg-accent",
+        error: "border-error focus-visible:ring-error focus-visible:border-error",
       },
       inputSize: {
         default: "h-12 px-4 py-3 text-sm",

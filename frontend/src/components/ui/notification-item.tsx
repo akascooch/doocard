@@ -8,15 +8,15 @@ interface NotificationItemProps {
 const getNotificationIcon = (type: NotificationType) => {
   switch (type) {
     case 'appointment':
-      return { name: 'CalendarPlus', className: 'text-green-500' }
+      return { name: 'CalendarPlus', className: 'text-foreground' }
     case 'cancellation':
-      return { name: 'CalendarX', className: 'text-red-500' }
+      return { name: 'CalendarX', className: 'text-destructive' }
     case 'reminder':
-      return { name: 'Clock', className: 'text-blue-500' }
+      return { name: 'Clock', className: 'text-foreground' }
     case 'system':
-      return { name: 'Settings', className: 'text-purple-500' }
+      return { name: 'Settings', className: 'text-foreground' }
     default:
-      return { name: 'Bell', className: 'text-gray-500' }
+      return { name: 'Bell', className: 'text-foreground' }
   }
 }
 

@@ -122,11 +122,11 @@ const PAYEE_KIND_LABELS: Record<ChequePayeeKind, string> = {
 }
 
 const STATUS_BADGE_CLASS: Record<ChequeLeafStatus, string> = {
-  BLANK: 'border-white/15 text-zinc-400',
-  ISSUED: 'border-sky-400/30 text-sky-200',
-  CLEARED: 'border-emerald-400/30 text-emerald-200',
-  BOUNCED: 'border-red-400/30 text-red-200',
-  CANCELLED: 'border-white/20 text-zinc-300',
+  BLANK: 'border-border text-foreground',
+  ISSUED: 'border-border text-foreground',
+  CLEARED: 'border-border text-foreground',
+  BOUNCED: 'border-destructive text-foreground',
+  CANCELLED: 'border-border text-foreground',
 }
 
 const NEXT_STATUS_OPTIONS: Partial<Record<ChequeLeafStatus, ChequeLeafStatus[]>> = {
@@ -447,7 +447,7 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-main-orange" />
+              <BookOpen className="h-5 w-5 text-foreground" />
               دسته‌های چک
             </CardTitle>
             <div className="flex flex-wrap items-center gap-2">
@@ -466,7 +466,7 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
               <Dialog open={isBookDialogOpen} onOpenChange={setIsBookDialogOpen}>
               <DialogTrigger asChild>
                 <Button
-                  className="bg-main-orange hover:bg-main-orange/90"
+                  className="bg-primary hover:bg-accent"
                   onClick={() => {
                     resetBookForm()
                   }}
@@ -546,7 +546,7 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setIsBookDialogOpen(false)}>انصراف</Button>
-                  <Button className="bg-main-orange hover:bg-main-orange/90" onClick={handleCreateChequebook}>
+                  <Button className="bg-primary hover:bg-accent" onClick={handleCreateChequebook}>
                     ایجاد دسته چک
                   </Button>
                 </div>
@@ -558,7 +558,7 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
         <CardContent>
           {loadingBooks ? (
             <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-main-orange" />
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-border" />
             </div>
           ) : chequebooks.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground">
@@ -571,7 +571,7 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
                 <Card
                   key={book.id}
                   className={`cursor-pointer transition-colors ${
-                    selectedBookId === book.id ? 'border-main-orange ring-1 ring-main-orange/40' : ''
+                    selectedBookId === book.id ? 'border-border ring-1 ring-ring' : ''
                   }`}
                   onClick={() => setSelectedBookId(book.id)}
                 >
@@ -636,7 +636,7 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-red-600"
+                        className="text-destructive"
                         onClick={(e) => {
                           e.stopPropagation()
                           handleDeleteChequebook(book.id)
@@ -679,7 +679,7 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
           <CardContent>
             {loadingLeaves ? (
               <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-main-orange" />
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-border" />
               </div>
             ) : leaves.length === 0 ? (
               <p className="text-center py-8 text-muted-foreground">برگه‌ای یافت نشد</p>
@@ -923,7 +923,7 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
             <Button variant="outline" onClick={() => { setIsLeafDialogOpen(false); setEditingLeaf(null) }}>
               انصراف
             </Button>
-            <Button className="bg-main-orange hover:bg-main-orange/90" onClick={handleUpdateLeaf}>
+            <Button className="bg-primary hover:bg-accent" onClick={handleUpdateLeaf}>
               ذخیره
             </Button>
           </div>

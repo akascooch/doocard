@@ -119,12 +119,12 @@ export default function EmployeeSelectFiltered({
     return (
       <div className="space-y-2">
         {label && (
-          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <Label className="text-sm font-medium text-foreground dark:text-foreground">
             {label}
-            {required && <span className="text-red-500 mr-1">*</span>}
+            {required && <span className="text-destructive mr-1">*</span>}
           </Label>
         )}
-        <div className="h-10 bg-white/[0.04] border border-white/10 rounded-lg animate-pulse"></div>
+        <div className="h-10 bg-accent border border-border rounded-lg animate-pulse"></div>
       </div>
     );
   }
@@ -132,17 +132,17 @@ export default function EmployeeSelectFiltered({
   return (
     <div className="space-y-2">
       {label && (
-        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <Label className="text-sm font-medium text-foreground dark:text-foreground">
           {label}
-          {required && <span className="text-red-500 mr-1">*</span>}
+          {required && <span className="text-destructive mr-1">*</span>}
         </Label>
       )}
 
       {locked ? (
         <div
           className={cn(
-            'flex min-h-10 items-center rounded-md border border-white/10 bg-white/[0.06] backdrop-blur-md px-3 text-sm text-zinc-100',
-            error && 'border-red-500',
+            'flex min-h-10 items-center rounded-md border border-border bg-accent backdrop-blur-md px-3 text-sm text-foreground',
+            error && 'border-destructive',
           )}
         >
           {lockedDisplayName ||
@@ -156,7 +156,7 @@ export default function EmployeeSelectFiltered({
         value={selectedEmployeeId?.toString() || ''}
         onValueChange={(val) => onChange(val ? parseInt(val) : null)}
       >
-        <SelectTrigger data-cy="select-employee" className={cn('text-right', error && 'border-red-500')}>
+        <SelectTrigger data-cy="select-employee" className={cn('text-right', error && 'border-destructive')}>
           <SelectValue placeholder="انتخاب آرایشگر..." />
         </SelectTrigger>
         <SelectContent>
@@ -207,7 +207,7 @@ export default function EmployeeSelectFiltered({
         </p>
       )}
 
-      {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
+      {error && <p className="text-sm text-destructive mt-1">{error}</p>}
     </div>
   );
 }

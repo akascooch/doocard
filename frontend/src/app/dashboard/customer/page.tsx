@@ -155,7 +155,7 @@ export default function CustomerDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-main-orange"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-border"></div>
       </div>
     )
   }
@@ -172,24 +172,24 @@ export default function CustomerDashboard() {
             خوش آمدید، {user?.name}
           </p>
         </div>
-        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+        <Badge variant="outline" className="bg-accent text-foreground border-border">
           مشتری
         </Badge>
       </div>
 
       {/* Hero CTA - New Booking Button */}
-      <Card className="relative overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-teal via-light-blue to-main-orange">
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+      <Card className="relative overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-accent via-accent to-accent">
+        <div className="absolute inset-0 bg-gradient-to-t from-[rgb(43_45_66/0.2)] to-transparent"></div>
         <CardContent className="relative p-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="text-white">
+            <div className="text-foreground">
               <div className="flex items-center gap-2 mb-2">
                 <Sparkles className="w-6 h-6 animate-pulse" />
                 <h2 className="text-2xl md:text-3xl font-bold">
                   آماده برای رزرو نوبت جدید هستید؟
                 </h2>
               </div>
-              <p className="text-white/90 text-lg">
+              <p className="text-foreground text-lg">
                 با چند کلیک ساده، نوبت خود را در سریع‌ترین زمان ممکن رزرو کنید
               </p>
             </div>
@@ -218,10 +218,10 @@ export default function CustomerDashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="border-main-orange/20">
+        <Card className="border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">کل نوبت‌ها</CardTitle>
-            <Calendar className="h-4 w-4 text-main-orange" />
+            <Calendar className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalAppointments}</div>
@@ -231,10 +231,10 @@ export default function CustomerDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-teal/20">
+        <Card className="border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">نوبت‌های آینده</CardTitle>
-            <Clock className="h-4 w-4 text-teal" />
+            <Clock className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.upcomingAppointments}</div>
@@ -244,10 +244,10 @@ export default function CustomerDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-light-blue/20">
+        <Card className="border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">تکمیل شده</CardTitle>
-            <CheckCircle className="h-4 w-4 text-light-blue" />
+            <CheckCircle className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.completedAppointments}</div>
@@ -257,10 +257,10 @@ export default function CustomerDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-main-orange/20">
+        <Card className="border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">لغو شده</CardTitle>
-            <AlertCircle className="h-4 w-4 text-main-orange" />
+            <AlertCircle className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.cancelledAppointments}</div>
@@ -295,7 +295,7 @@ export default function CustomerDashboard() {
         <CardContent>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center text-white font-bold">
+              <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center text-foreground font-bold">
                 {(profile?.preferredEmployee?.name || 'تیم سالن').slice(0,1)}
               </div>
               <div>
@@ -317,7 +317,7 @@ export default function CustomerDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-main-orange" />
+              <Calendar className="h-5 w-5 text-foreground" />
               نوبت بعدی شما
             </CardTitle>
             <CardDescription>
@@ -343,7 +343,7 @@ export default function CustomerDashboard() {
                   <span className="font-medium">وضعیت:</span>
                   <Badge 
                     variant={stats.nextAppointment.status === 'CONFIRMED' ? 'default' : 'secondary'}
-                    className={stats.nextAppointment.status === 'CONFIRMED' ? 'bg-green-100 text-green-800' : ''}
+                    className={stats.nextAppointment.status === 'CONFIRMED' ? 'bg-accent text-foreground' : ''}
                   >
                     {stats.nextAppointment.status === 'CONFIRMED' ? 'تایید شده' : 'در انتظار'}
                   </Badge>
@@ -353,7 +353,7 @@ export default function CustomerDashboard() {
                 <Button variant="outline" size="sm">
                   ویرایش
                 </Button>
-                <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
                   لغو نوبت
                 </Button>
               </div>
@@ -377,32 +377,32 @@ export default function CustomerDashboard() {
               className="min-h-20 h-20 flex flex-col items-start justify-center gap-1"
               onClick={() => router.push('/dashboard/customer/book-appointment')}
             >
-              <UserPlus className="h-6 w-6 text-amber-300" />
-              <span className="text-zinc-100">رزرو نوبت</span>
+              <UserPlus className="h-6 w-6 text-foreground" />
+              <span className="text-foreground">رزرو نوبت</span>
             </Button>
             <Button 
               variant="glass" 
               className="min-h-20 h-20 flex flex-col items-start justify-center gap-1"
               onClick={() => router.push('/dashboard/customer/appointments')}
             >
-              <Calendar className="h-6 w-6 text-amber-300" />
-              <span className="text-zinc-100">نوبت‌های من</span>
+              <Calendar className="h-6 w-6 text-foreground" />
+              <span className="text-foreground">نوبت‌های من</span>
             </Button>
             <Button 
               variant="glass" 
               className="min-h-20 h-20 flex flex-col items-start justify-center gap-1"
               onClick={() => router.push('/dashboard/customer/history')}
             >
-              <History className="h-6 w-6 text-amber-300" />
-              <span className="text-zinc-100">تاریخچه</span>
+              <History className="h-6 w-6 text-foreground" />
+              <span className="text-foreground">تاریخچه</span>
             </Button>
             <Button 
               variant="glass" 
               className="min-h-20 h-20 flex flex-col items-start justify-center gap-1"
               onClick={() => router.push('/dashboard/customer/settings')}
             >
-              <Star className="h-6 w-6 text-amber-300" />
-              <span className="text-zinc-100">تنظیمات</span>
+              <Star className="h-6 w-6 text-foreground" />
+              <span className="text-foreground">تنظیمات</span>
             </Button>
           </div>
         </CardContent>

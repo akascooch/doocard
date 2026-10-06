@@ -25,10 +25,10 @@ export function ChartWithFilters() {
   return (
     <Card className="shadow-lg">
       <CardHeader>
-        <CardTitle className="text-xl font-bold text-gray-800">
+        <CardTitle className="text-xl font-bold text-foreground">
           نمودار درآمد و هزینه - سال شمسی {new Date().getFullYear()}
         </CardTitle>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-foreground">
           نمایش داده‌ها بر اساس ماه‌های شمسی از فروردین تا اسفند
         </p>
       </CardHeader>
@@ -48,9 +48,9 @@ export function ChartWithFilters() {
         </div>
         
         {/* توضیحات */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h4 className="font-medium text-blue-800 mb-2">📊 نحوه نمایش نمودار:</h4>
-          <ul className="text-sm text-blue-700 space-y-1">
+        <div className="bg-accent border border-border rounded-lg p-4">
+          <h4 className="font-medium text-foreground mb-2">📊 نحوه نمایش نمودار:</h4>
+          <ul className="text-sm text-foreground space-y-1">
             <li>• <strong>فروردین تا اسفند:</strong> ماه‌ها به ترتیب صحیح شمسی نمایش داده می‌شوند</li>
             <li>• <strong>درآمد (سبز):</strong> تمام تراکنش‌های مثبت و درآمدها</li>
             <li>• <strong>هزینه (قرمز):</strong> تمام تراکنش‌های منفی و هزینه‌ها</li>

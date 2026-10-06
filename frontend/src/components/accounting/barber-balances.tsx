@@ -345,19 +345,19 @@ export function BarberBalances() {
                     {barber.firstName} {barber.lastName}
                   </TableCell>
                   <TableCell>{barber.email}</TableCell>
-                  <TableCell className="text-green-600">
+                  <TableCell className="text-foreground">
                     {formatAmount(barber.serviceAmount || 0)}
                   </TableCell>
-                  <TableCell className="text-blue-600">
+                  <TableCell className="text-foreground">
                     {formatAmount(barber.tipAmount || 0)}
                   </TableCell>
-                  <TableCell className="text-purple-600">
+                  <TableCell className="text-foreground">
                     {formatAmount(barber.salaryAmount || 0)}
                   </TableCell>
-                  <TableCell className="text-amber-600">
+                  <TableCell className="text-foreground">
                     {formatAmount(barber.totalDeduction || 0)}
                   </TableCell>
-                  <TableCell className="text-green-700 font-semibold">
+                  <TableCell className="text-foreground font-semibold">
                     {formatAmount(
                       barber.payoutNetAfterDeduction ??
                         ((barber.payoutGrossBeforeDeduction || barber.salaryAmount || 0) - (barber.totalDeduction || 0)),
@@ -366,7 +366,7 @@ export function BarberBalances() {
                   <TableCell className="font-bold">
                     {formatAmount(barber.totalIncome)}
                   </TableCell>
-                  <TableCell className="text-red-600">
+                  <TableCell className="text-destructive">
                     {formatAmount(barber.totalWithdrawals)}
                   </TableCell>
                   <TableCell className="font-bold text-lg">
@@ -406,7 +406,7 @@ export function BarberBalances() {
           </DialogHeader>
           <div className="space-y-4">
             {selectedBarber && (
-              <div className="p-3 bg-gray-50 rounded">
+              <div className="p-3 bg-accent rounded">
                 <p className="font-medium">آرایشگر: {selectedBarber.firstName} {selectedBarber.lastName}</p>
               </div>
             )}

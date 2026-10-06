@@ -7,7 +7,7 @@ export default function TestSimplePage() {
   const [password, setPassword] = useState('')
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-accent p-4">
       <div className="w-full max-w-md space-y-4">
         <h1 className="text-2xl font-bold text-center">تست ساده</h1>
         
@@ -31,14 +31,14 @@ export default function TestSimplePage() {
           </button>
         </div>
 
-        <div className="p-4 bg-white rounded border">
+        <div className="p-4 bg-card rounded border">
           <p>مقدار رمز عبور: <strong>{password || '(خالی)'}</strong></p>
           <p>نوع فیلد: <strong>{showPassword ? 'text' : 'password'}</strong></p>
         </div>
 
         <button
           onClick={() => setShowPassword(!showPassword)}
-          className="w-full p-2 bg-blue-500 text-white rounded"
+          className="w-full p-2 bg-primary text-primary-foreground rounded"
         >
           تغییر نوع فیلد
         </button>

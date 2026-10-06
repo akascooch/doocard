@@ -392,7 +392,7 @@ export default function AdminCustomersPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-main-orange"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-border"></div>
       </div>
     )
   }
@@ -406,7 +406,7 @@ export default function AdminCustomersPage() {
         </div>
         <Button
           onClick={() => setIsCreateDialogOpen(true)}
-          className="bg-main-orange hover:bg-main-orange/90 text-foreground"
+          className="bg-primary hover:bg-accent text-foreground"
         >
           <Plus className="h-4 w-4 ml-2" />
           مشتری جدید
@@ -417,7 +417,7 @@ export default function AdminCustomersPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">کل مشتریان</CardTitle>
-            <Users className="h-4 w-4 text-main-orange" />
+            <Users className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{customers.length}</div>
@@ -642,7 +642,7 @@ export default function AdminCustomersPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleDeleteCustomer(customer.id)}
-                          className="text-red-600 hover:text-red-700"
+                          className="text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -691,7 +691,7 @@ export default function AdminCustomersPage() {
             </Button>
             <Button
               onClick={handleCreateCustomer}
-              className="bg-main-orange hover:bg-main-orange/90"
+              className="bg-primary hover:bg-accent"
             >
               ثبت مشتری
             </Button>
@@ -771,7 +771,7 @@ export default function AdminCustomersPage() {
             <Button
               onClick={handleEditCustomer}
               disabled={saving || !formData.name.trim()}
-              className="bg-main-orange hover:bg-main-orange/90"
+              className="bg-primary hover:bg-accent"
             >
               {saving ? 'در حال ذخیره...' : 'ذخیره تغییرات'}
             </Button>

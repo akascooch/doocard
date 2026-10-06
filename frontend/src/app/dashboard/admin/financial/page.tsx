@@ -208,8 +208,8 @@ export default function AdminFinancialPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">گزارشات مالی</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
+          <h1 className="text-3xl font-bold text-foreground dark:text-foreground">گزارشات مالی</h1>
+          <p className="text-foreground dark:text-foreground mt-2">
             گزارشات مالی، درآمد و هزینه‌های سالن زیبایی
           </p>
         </div>
@@ -254,7 +254,7 @@ export default function AdminFinancialPage() {
 
       {yearlyLoading ? (
         <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-main-orange" />
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-border" />
         </div>
       ) : (
         <>
@@ -262,7 +262,7 @@ export default function AdminFinancialPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-main-orange" />
+                <BarChart3 className="h-5 w-5 text-foreground" />
                 هزینه‌های ماهانه (سال {year})
               </CardTitle>
               <CardDescription>فروردین → اسفند، با تفکیک دسته (در tooltip)</CardDescription>
@@ -323,7 +323,7 @@ export default function AdminFinancialPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-green-600" />
+                <TrendingUp className="h-5 w-5 text-foreground" />
                 درآمد ماهانه از نوبت‌ها (سال {year})
               </CardTitle>
               <CardDescription>
@@ -413,7 +413,7 @@ export default function AdminFinancialPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-main-orange" />
+                <Users className="h-5 w-5 text-foreground" />
                 رتبه‌بندی کارمندان (کل سال {year})
               </CardTitle>
               <CardDescription>مرتب‌سازی بر اساس تعداد نوبت (نزولی)</CardDescription>
@@ -460,7 +460,7 @@ export default function AdminFinancialPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-green-600" />
+                <TrendingUp className="h-5 w-5 text-foreground" />
                 مبلغ فروش کل کارمندان (سال {year})
               </CardTitle>
               <CardDescription>مرتب‌سازی همان رتبه‌بندی تعداد نوبت؛ نمایش به تومان</CardDescription>
@@ -513,7 +513,7 @@ export default function AdminFinancialPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-main-orange" />
+                <Users className="h-5 w-5 text-foreground" />
                 مشتریان برتر (سال {year})
               </CardTitle>
               <CardDescription>مرتب‌سازی بر اساس مبلغ کل، تعداد مراجعه یا امتیاز وفاداری</CardDescription>

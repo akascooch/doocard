@@ -29,7 +29,7 @@ const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
         />
         <button
           type="button"
-          className="absolute end-2 top-1/2 z-10 -translate-y-1/2 rounded p-1 text-zinc-400 transition-colors hover:text-white"
+          className="absolute end-2 top-1/2 z-10 -translate-y-1/2 rounded p-1 text-foreground transition-colors hover:text-foreground"
           onClick={handleTogglePassword}
           aria-label={showPassword ? "مخفی کردن رمز" : "نمایش رمز"}
           style={{ zIndex: 20 }}

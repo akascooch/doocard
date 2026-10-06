@@ -58,14 +58,18 @@ describe('GlassChip a11y and theme contract', () => {
     )
     expect(html).toContain('13:00')
     expect(html).toContain('✓')
-    expect(html).toContain('bg-white/15')
-    expect(html).toContain('ring-amber-200/80')
+    expect(html).toContain('bg-accent')
+    expect(html).toContain('ring-ring')
     expect(html).toContain('font-semibold')
+    expect(html).not.toContain(['ring', 'amber'].join('-'))
+    expect(html).not.toContain(['bg', 'white'].join('-'))
   })
 
-  it('uses idle glass token and never the solid bg-white CTA class', () => {
+  it('uses idle glass token and never a legacy white surface', () => {
     const html = markup(<GlassChip>13:00</GlassChip>)
-    expect(html).toContain('bg-white/5')
-    expect(html).not.toMatch(/\bbg-white["\s]/)
+    expect(html).toContain('bg-card')
+    expect(html).toContain('text-card-foreground')
+    expect(html).not.toContain(['bg', 'white'].join('-'))
+    expect(html).not.toContain(['text', 'white'].join('-'))
   })
 })

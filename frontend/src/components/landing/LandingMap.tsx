@@ -13,7 +13,7 @@ const ACTIONS = [
 export function LandingMap({ address }: { address: string }) {
   return (
     <div className="space-y-3">
-      <div className="relative h-[280px] w-full overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 sm:h-[320px]">
+      <div className="relative h-[280px] w-full overflow-hidden rounded-2xl border border-border bg-card sm:h-[320px]">
         <iframe
           title="موقعیت سالن دوکارد"
           src={EMBED}
@@ -22,7 +22,7 @@ export function LandingMap({ address }: { address: string }) {
           referrerPolicy="no-referrer-when-downgrade"
         />
       </div>
-      <p className="text-xs text-zinc-500">{address}</p>
+      <p className="text-xs text-foreground">{address}</p>
       <div className="grid grid-cols-3 gap-2">
         {ACTIONS.map((item) => (
           <a
@@ -30,7 +30,7 @@ export function LandingMap({ address }: { address: string }) {
             href={item.href}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 bg-zinc-900 px-2 text-sm text-white touch-manipulation hover:bg-zinc-800"
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-border bg-card px-2 text-sm text-foreground touch-manipulation hover:bg-card"
           >
             {item.label}
           </a>

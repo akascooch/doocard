@@ -66,9 +66,9 @@ export default function ServicesMultiSelect({
   return (
     <div className="space-y-2" dir="rtl">
       {label && (
-        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <Label className="text-sm font-medium text-foreground dark:text-foreground">
           {label}
-          {required && <span className="text-red-500 mr-1">*</span>}
+          {required && <span className="text-destructive mr-1">*</span>}
         </Label>
       )}
 
@@ -80,7 +80,7 @@ export default function ServicesMultiSelect({
             data-cy="select-services"
             className={cn(
               'w-full justify-between text-right h-auto min-h-[40px] py-2',
-              error && 'border-red-500',
+              error && 'border-destructive',
               selectedServiceIds.length === 0 && 'text-muted-foreground'
             )}
           >
@@ -105,8 +105,8 @@ export default function ServicesMultiSelect({
                 key={service.id}
                 data-cy={`service-option-${service.id}`}
                 className={cn(
-                  'flex items-center justify-between p-3 rounded-lg border border-white/10 bg-white/5 cursor-pointer hover:bg-white/10 transition-colors',
-                  selectedServiceIds.includes(service.id) && 'border-main-orange bg-orange-50 dark:bg-orange-900/20'
+                  'flex items-center justify-between p-3 rounded-lg border border-border bg-accent cursor-pointer hover:bg-accent transition-colors',
+                  selectedServiceIds.includes(service.id) && 'border-border bg-accent dark:bg-primary'
                 )}
                 onClick={() => toggleService(service.id)}
               >
@@ -133,7 +133,7 @@ export default function ServicesMultiSelect({
           </div>
 
           <div className="flex justify-end pt-4">
-            <Button onClick={() => setOpen(false)} className="bg-main-orange hover:bg-main-orange/90">
+            <Button onClick={() => setOpen(false)} className="bg-primary hover:bg-accent">
               تأیید ({selectedServiceIds.length} سرویس)
             </Button>
           </div>
@@ -154,7 +154,7 @@ export default function ServicesMultiSelect({
                 <button
                   type="button"
                   onClick={() => removeService(service.id)}
-                  className="mr-1 hover:text-red-600"
+                  className="mr-1 hover:text-destructive"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -163,11 +163,11 @@ export default function ServicesMultiSelect({
           </div>
 
           {/* Summary */}
-          <div className="bg-white/[0.06] border border-white/10 backdrop-blur-md rounded-lg p-3 text-sm">
+          <div className="bg-accent border border-border backdrop-blur-md rounded-lg p-3 text-sm">
             {!hidePrices && (
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">مجموع قیمت:</span>
-                <span className="font-bold text-main-orange">{toTomans(totalPrice)}</span>
+                <span className="font-bold text-foreground">{toTomans(totalPrice)}</span>
               </div>
             )}
             <div className={cn("flex justify-between items-center", !hidePrices && "mt-1")}>
@@ -178,7 +178,7 @@ export default function ServicesMultiSelect({
         </div>
       )}
 
-      {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
+      {error && <p className="text-sm text-destructive mt-1">{error}</p>}
     </div>
   );
 }

@@ -180,10 +180,10 @@ export function CheckoutForm({
         onOpenChange(next)
       }}
     >
-      <DialogContent data-cy="checkout-dialog" className="max-h-[90vh] max-w-lg overflow-y-auto border-white/10 bg-[#0c0c0c] text-white sm:max-w-xl">
+      <DialogContent data-cy="checkout-dialog" className="max-h-[90vh] max-w-lg overflow-y-auto border-border bg-card text-card-foreground sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{quoteRequired ? "ثبت درخواست استعلام قیمت" : "تسویه کارت‌به‌کارت"}</DialogTitle>
-          <DialogDescription className="text-zinc-400">
+          <DialogDescription className="text-foreground">
             {quoteRequired
               ? "برخی اقلام نیازمند استعلام قیمت هستند؛ پس از ثبت سفارش، کارشناسان قیمت نهایی را اعلام خواهند کرد."
               : "سفارش پس از بررسی رسید توسط سالن تأیید می‌شود."}
@@ -192,7 +192,7 @@ export function CheckoutForm({
 
         {successOrder ? (
           <div className="space-y-4 text-sm">
-            <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-emerald-200" data-cy="checkout-success">
+            <p className="rounded-md border border-border bg-primary px-4 py-3 text-foreground" data-cy="checkout-success">
               {successOrder.status === "AWAITING_QUOTE"
                 ? "درخواست استعلام قیمت شما ثبت شد."
                 : "سفارش شما ثبت شد."}
@@ -218,14 +218,14 @@ export function CheckoutForm({
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
             {quoteRequired ? (
-              <p className="rounded-md border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm leading-7 text-amber-100">
+              <p className="rounded-md border border-border bg-primary px-4 py-3 text-sm leading-7 text-foreground">
                 برخی اقلام نیازمند استعلام قیمت هستند؛ پس از ثبت سفارش، کارشناسان قیمت نهایی را اعلام خواهند کرد.
               </p>
             ) : (
-              <div className="rounded-md border border-white/15 bg-white/5 p-4 text-sm text-zinc-100">
-                <p className="text-zinc-300">به نام</p>
+              <div className="rounded-md border border-border bg-accent p-4 text-sm text-foreground">
+                <p className="text-foreground">به نام</p>
                 <p className="mt-1 text-base font-semibold">{SHOP_CARD_TO_CARD.ownerName}</p>
-                <p className="mt-4 text-zinc-300">شماره کارت</p>
+                <p className="mt-4 text-foreground">شماره کارت</p>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <p dir="ltr" className="font-mono text-lg tracking-wide">
                     {SHOP_CARD_TO_CARD.cardNumberDisplay}
@@ -234,21 +234,21 @@ export function CheckoutForm({
                     type="button"
                     onClick={() => void copyCardNumber()}
                     aria-label="کپی شماره کارت"
-                    className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-white/20 px-3 text-xs text-white hover:bg-white/10"
+                    className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-border px-3 text-xs text-foreground hover:bg-accent"
                   >
                     {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                     {copied ? "کپی شد" : "کپی شماره کارت"}
                   </button>
                 </div>
-                <p className="mt-3 leading-7 text-zinc-300">{SHOP_CARD_TO_CARD.instructions}</p>
+                <p className="mt-3 leading-7 text-foreground">{SHOP_CARD_TO_CARD.instructions}</p>
               </div>
             )}
 
-            <div className="flex items-start gap-2 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
+            <div className="flex items-start gap-2 rounded-md border border-border bg-primary px-3 py-2 text-sm text-foreground">
               <Truck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
               <div>
                 <p className="font-medium">ارسال در محدوده سام‌سنتر رایگان است</p>
-                <p className="mt-1 text-xs leading-6 text-emerald-100/80">
+                <p className="mt-1 text-xs leading-6 text-foreground">
                   این اطلاعیه فقط برای محدوده مجتمع سام است و هزینه ارسال سایر مناطق را مشخص نمی‌کند.
                 </p>
               </div>
@@ -256,7 +256,7 @@ export function CheckoutForm({
 
             <div className="space-y-2">
               {items.length === 0 ? (
-                <p className="text-sm text-zinc-500">سبد خرید خالی است.</p>
+                <p className="text-sm text-foreground">سبد خرید خالی است.</p>
               ) : (
                 items.map((item) => {
                   const atMax =
@@ -264,23 +264,23 @@ export function CheckoutForm({
                   return (
                   <div
                     key={item.productId}
-                    className="flex items-center justify-between gap-3 rounded-md border border-white/10 px-3 py-2"
+                    className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm">{item.title}</p>
-                      <p className="text-xs text-zinc-500">
+                      <p className="text-xs text-foreground">
                         {item.quoteRequired
                           ? "نیازمند استعلام قیمت"
                           : `${formatTomansFromRial(item.price)} × ${item.quantity}`}
                       </p>
                       {item.maxStock != null ? (
-                        <p className="text-xs text-zinc-500">حداکثر موجودی: {item.maxStock}</p>
+                        <p className="text-xs text-foreground">حداکثر موجودی: {item.maxStock}</p>
                       ) : null}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       <button
                         type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded border border-white/15 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded border border-border disabled:cursor-not-allowed disabled:opacity-60"
                         onClick={() => decrease(item.productId)}
                         aria-label="کاهش"
                       >
@@ -289,7 +289,7 @@ export function CheckoutForm({
                       <span className="w-6 text-center text-sm">{item.quantity}</span>
                       <button
                         type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded border border-white/15 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded border border-border disabled:cursor-not-allowed disabled:opacity-60"
                         onClick={() => increase(item.productId)}
                         disabled={atMax}
                         aria-label="افزایش"
@@ -298,7 +298,7 @@ export function CheckoutForm({
                       </button>
                       <button
                         type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center text-zinc-400 hover:text-red-400"
+                        className="inline-flex h-8 w-8 items-center justify-center text-foreground hover:text-destructive"
                         onClick={() => removeItem(item.productId)}
                         aria-label="حذف"
                       >
@@ -318,68 +318,68 @@ export function CheckoutForm({
 
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label htmlFor="shop-name" className="text-zinc-200">
+                <Label htmlFor="shop-name" className="text-foreground">
                   نام و نام خانوادگی *
                 </Label>
                 <Input
                   id="shop-name"
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  className="border-white/15 bg-transparent text-white"
+                  className="border-border bg-transparent text-foreground"
                   maxLength={120}
                   required
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="shop-phone" className="text-zinc-200">
+                <Label htmlFor="shop-phone" className="text-foreground">
                   شماره موبایل *
                 </Label>
                 <Input
                   id="shop-phone"
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
-                  className="border-white/15 bg-transparent text-white"
+                  className="border-border bg-transparent text-foreground"
                   dir="ltr"
                   placeholder="0912xxxxxxx"
                   required
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="shop-address" className="text-zinc-200">
+                <Label htmlFor="shop-address" className="text-foreground">
                   آدرس (اختیاری)
                 </Label>
                 <Textarea
                   id="shop-address"
                   value={customerAddress}
                   onChange={(e) => setCustomerAddress(e.target.value)}
-                  className="border-white/15 bg-transparent text-white"
+                  className="border-border bg-transparent text-foreground"
                   rows={2}
                   maxLength={500}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="shop-notes" className="text-zinc-200">
+                <Label htmlFor="shop-notes" className="text-foreground">
                   یادداشت (اختیاری)
                 </Label>
                 <Textarea
                   id="shop-notes"
                   value={customerNotes}
                   onChange={(e) => setCustomerNotes(e.target.value)}
-                  className="border-white/15 bg-transparent text-white"
+                  className="border-border bg-transparent text-foreground"
                   rows={2}
                   maxLength={1000}
                 />
               </div>
               {!quoteRequired ? (
               <div className="space-y-1.5">
-                <Label htmlFor="shop-receipt" className="text-zinc-200">
+                <Label htmlFor="shop-receipt" className="text-foreground">
                   تصویر رسید *
                 </Label>
                 <Input
                   id="shop-receipt"
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
-                  className="border-white/15 bg-transparent text-white file:text-white"
+                  className="border-border bg-transparent text-foreground file:text-foreground"
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null
                     setReceipt(file)
@@ -397,7 +397,7 @@ export function CheckoutForm({
               ) : null}
             </div>
 
-            {error ? <p className="text-sm text-red-400">{error}</p> : null}
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
             <Button
               type="submit"

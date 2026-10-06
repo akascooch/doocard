@@ -342,7 +342,7 @@ export default function ServicesPage() {
                       <Button type="submit" disabled={submitting}>
                         {submitting ? (
                           <div className="flex items-center gap-2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-border"></div>
                             در حال ذخیره...
                           </div>
                         ) : (
@@ -359,7 +359,7 @@ export default function ServicesPage() {
             <div className="text-center py-12">
               <div className="text-6xl mb-4">✂️</div>
               <h3 className="text-lg font-semibold mb-2">هیچ خدمتی یافت نشد</h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
+              <p className="text-foreground dark:text-foreground mb-4">
                 برای شروع، اولین خدمت را اضافه کنید
               </p>
               <Button onClick={() => setIsDialogOpen(true)}>
@@ -459,7 +459,7 @@ export default function ServicesPage() {
                       <Button type="submit" disabled={submitting}>
                         {submitting ? (
                           <div className="flex items-center gap-2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-border"></div>
                             در حال ذخیره...
                           </div>
                         ) : (
@@ -482,13 +482,13 @@ export default function ServicesPage() {
                 className="pl-10"
               />
               <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-5 w-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
             </div>
             {searchTerm && (
-              <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              <div className="mt-2 text-sm text-foreground dark:text-foreground">
                 {filteredServices.length} خدمت از {services.length} خدمت یافت شد
               </div>
             )}
@@ -508,7 +508,7 @@ export default function ServicesPage() {
               {filteredServices.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8">
-                    <div className="text-gray-500 dark:text-gray-400">
+                    <div className="text-foreground dark:text-foreground">
                       <div className="text-4xl mb-2">
                         {searchTerm ? "🔍" : "✂️"}
                       </div>

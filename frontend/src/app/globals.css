@@ -20,18 +20,18 @@
   background: rgba(0, 0, 0, 0.3);
 }
 
-.bg-grid-white\/10 {
-  background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+.bg-grid-line {
+  background-image:
+    linear-gradient(to right, rgb(43 45 66 / 0.18) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(43 45 66 / 0.18) 1px, transparent 1px);
   background-size: 20px 20px;
 }
 
-.bg-grid-white\/5 {
-  background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-  background-size: 20px 20px;
+.dark .bg-grid-line,
+[data-theme="dark"] .bg-grid-line {
+  background-image:
+    linear-gradient(to right, rgb(237 242 244 / 0.16) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(237 242 244 / 0.16) 1px, transparent 1px);
 }
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
@@ -43,65 +43,50 @@
   /* ============================================ */
   
   :root {
-    /* ========== BRAND COLORS ========== */
-    --brand-grey: 0 0% 61%; /* #9CA3AF - Grey-400 */
-    --brand-grey-light: 0 0% 82%; /* #D1D5DB - Grey-300 */
-    --brand-grey-dark: 0 0% 42%; /* #6B7280 - Grey-600 */
-    
-    --brand-green: 162 28% 47%; /* #6ea090 */
-    --brand-green-light: 162 28% 62%; /* #8eb8a8 */
-    --brand-green-dark: 162 28% 32%; /* #4a7165 */
-    
-    --brand-dark: 30 4% 13%; /* #232220 */
-    --brand-light: 60 9% 91%; /* #e7e8e4 */
-    
-    /* ========== LIGHT THEME (Default) - HIGH CONTRAST ========== */
-    --background: 0 0% 98%;            /* Near White #fafafa */
-    --foreground: 30 4% 10%;           /* Very Dark #1a1918 */
-    
-    --card: 0 0% 100%;                 /* Pure White */
-    --card-foreground: 30 4% 10%;      /* Very Dark */
-    
-    --popover: 0 0% 100%;
-    --popover-foreground: 30 4% 10%;
-    
-    --primary: 0 0% 42%;               /* Grey-600 for better contrast */
-    --primary-foreground: 0 0% 100%;   /* White text */
-    
-    --secondary: 162 28% 38%;          /* Green Darker */
-    --secondary-foreground: 0 0% 100%; /* White text */
-    
-    --muted: 60 9% 95%;                /* Very Light Grey */
-    --muted-foreground: 30 4% 25%;     /* Dark Grey - High contrast */
-    
-    --accent: 0 0% 42%;
-    --accent-foreground: 0 0% 100%;
-    
-    --destructive: 0 84% 50%;          /* Red - Good contrast */
-    --destructive-foreground: 0 0% 100%;
-    
-    --success: 162 40% 38%;            /* Green Darker - Better contrast */
-    --success-foreground: 0 0% 100%;
-    
-    --warning: 38 100% 45%;            /* Amber Darker */
-    --warning-foreground: 0 0% 100%;
-    
-    --info: 199 89% 40%;               /* Blue Darker */
-    --info-foreground: 0 0% 100%;
-    
-    --border: 60 9% 80%;               /* Medium Grey */
-    --input: 0 0% 100%;                /* White */
-    --ring: 0 0% 42%;                  /* Grey-600 */
-    
-    --radius: 0.75rem;                 /* 12px */
+    /* Palette: #2B2D42 #8D99AE #EDF2F4 #EF233C #D90429. #FFFFFF only on destructive. */
+    --brand-grey: 218 17% 62%; /* #8D99AE */
+    --brand-grey-light: 197 24% 94%; /* #EDF2F4 */
+    --brand-grey-dark: 235 21% 21%; /* #2B2D42 */
+    --brand-dark: 235 21% 21%;
+    --brand-light: 197 24% 94%;
+
+    /* Light theme. Page #8D99AE, surfaces #EDF2F4, text #2B2D42. */
+    --background: 218 17% 62%;
+    --foreground: 235 21% 21%;
+    --card: 197 24% 94%;
+    --card-foreground: 235 21% 21%;
+    --popover: 197 24% 94%;
+    --popover-foreground: 235 21% 21%;
+    --primary: 235 21% 21%;
+    --primary-foreground: 197 24% 94%;
+    --secondary: 218 17% 62%;
+    --secondary-foreground: 235 21% 21%;
+    --muted: 218 17% 62%;
+    --muted-foreground: 235 21% 21%;
+    --accent: 218 17% 62%;
+    --accent-foreground: 235 21% 21%;
+    --destructive: 350 96% 43%; /* #D90429 */
+    --destructive-foreground: 0 0% 100%; /* #FFFFFF */
+    --error: 353 86% 54%; /* #EF233C outlines and icons */
+    --success: 235 21% 21%;
+    --success-foreground: 197 24% 94%;
+    --warning: 235 21% 21%;
+    --warning-foreground: 197 24% 94%;
+    --info: 218 17% 62%;
+    --info-foreground: 235 21% 21%;
+    --border: 235 21% 21%;
+    --input: 197 24% 94%;
+    --ring: 235 21% 21%;
+    --chart-2: 218 17% 62%; /* #8D99AE, distinct from --primary #2B2D42. On #EDF2F4 this is 2.55:1. */
+    --radius: 0.75rem;
+    color-scheme: light;
     
     /* ========== SHADOWS ========== */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
     --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
-    --shadow-glow-grey: 0 0 20px rgba(156, 163, 175, 0.3);
-    --shadow-glow-green: 0 0 20px rgba(110, 160, 144, 0.3);
+    --shadow-glow: 0 0 20px rgb(43 45 66 / 0.28);
     
     /* ========== MOTION ========== */
     --motion-duration-xs: 120ms;
@@ -140,42 +125,35 @@
   /* ========== DARK THEME - HIGH CONTRAST ========== */
   [data-theme="dark"],
   .dark {
-    --background: 30 4% 8%;             /* Very Dark #141312 */
-    --foreground: 0 0% 98%;             /* Near White #fafafa */
-    
-    --card: 30 4% 12%;                  /* Dark card #1f1d1c */
-    --card-foreground: 0 0% 98%;        /* Near White */
-    
-    --popover: 30 4% 12%;
-    --popover-foreground: 0 0% 98%;
-    
-    --primary: 0 0% 58%;                /* Grey-500 Brighter */
-    --primary-foreground: 30 4% 8%;     /* Very Dark text */
-    
-    --secondary: 162 35% 55%;           /* Green Brighter */
-    --secondary-foreground: 30 4% 8%;   /* Dark text */
-    
-    --muted: 30 4% 15%;                 /* Dark muted */
-    --muted-foreground: 0 0% 75%;       /* Light grey text */
-    
-    --accent: 0 0% 58%;
-    --accent-foreground: 30 4% 8%;
-    
-    --destructive: 0 72% 55%;           /* Red Brighter */
-    --destructive-foreground: 0 0% 98%;
-    
-    --success: 162 35% 55%;             /* Green Brighter */
-    --success-foreground: 30 4% 8%;
-    
-    --warning: 38 100% 55%;             /* Amber Brighter */
-    --warning-foreground: 30 4% 8%;
-    
-    --info: 199 89% 55%;                /* Blue Brighter */
-    --info-foreground: 30 4% 8%;
-    
-    --border: 30 4% 25%;                /* Visible border */
-    --input: 30 4% 12%;                 /* Dark input */
-    --ring: 0 0% 58%;                   /* Grey ring */
+    /* Page #2B2D42. Cards stay #EDF2F4 so body copy stays #2B2D42. */
+    --background: 235 21% 21%;
+    --foreground: 197 24% 94%;
+    --card: 197 24% 94%;
+    --card-foreground: 235 21% 21%;
+    --popover: 197 24% 94%;
+    --popover-foreground: 235 21% 21%;
+    --primary: 235 21% 21%;
+    --primary-foreground: 197 24% 94%;
+    --secondary: 218 17% 62%;
+    --secondary-foreground: 235 21% 21%;
+    --muted: 218 17% 62%;
+    --muted-foreground: 218 17% 62%; /* #8D99AE on #2B2D42 = 4.69:1 */
+    --accent: 218 17% 62%;
+    --accent-foreground: 235 21% 21%;
+    --destructive: 350 96% 43%;
+    --destructive-foreground: 0 0% 100%;
+    --error: 353 86% 54%;
+    --success: 197 24% 94%;
+    --success-foreground: 235 21% 21%;
+    --warning: 197 24% 94%;
+    --warning-foreground: 235 21% 21%;
+    --info: 218 17% 62%;
+    --info-foreground: 235 21% 21%;
+    --border: 235 21% 21%;
+    --input: 197 24% 94%;
+    --ring: 235 21% 21%;
+    --chart-2: 218 17% 62%; /* #8D99AE, distinct from --primary #2B2D42. On #EDF2F4 this is 2.55:1. */
+    color-scheme: dark;
     
     /* Dark theme shadows - more prominent */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
@@ -293,7 +271,7 @@
     @apply hover:scale-[1.02] hover:shadow-lg;
     @apply focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
     @apply active:scale-[0.98];
-    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100;
+    @apply disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100;
   }
 
   .btn-secondary {
@@ -303,7 +281,7 @@
     @apply hover:bg-secondary/90 hover:scale-[1.02];
     @apply focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2;
     @apply active:scale-[0.98];
-    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply disabled:opacity-60 disabled:cursor-not-allowed;
   }
   
   .btn-outline {
@@ -313,7 +291,7 @@
     @apply hover:bg-primary hover:text-primary-foreground hover:scale-[1.02];
     @apply focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
     @apply active:scale-[0.98];
-    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply disabled:opacity-60 disabled:cursor-not-allowed;
   }
   
   .btn-ghost {
@@ -377,8 +355,8 @@
     @apply rounded-xl px-4 py-3 w-full;
     @apply transition-all duration-md ease-smooth;
     @apply focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary;
-    @apply placeholder:text-muted-foreground;
-    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply placeholder:text-card-foreground;
+    @apply disabled:opacity-60 disabled:cursor-not-allowed;
   }
   
   .input-error {
@@ -479,12 +457,8 @@
     @apply bg-background/80 backdrop-blur-xl;
   }
   
-  .gradient-grey {
-    @apply bg-gradient-to-r from-gray-500 to-gray-600;
-  }
-  
-  .gradient-green {
-    @apply bg-gradient-to-r from-brand-green-500 to-brand-green-600;
+  .gradient-neutral {
+    @apply bg-gradient-to-r from-primary to-secondary;
   }
   
   .text-gradient {
@@ -573,10 +547,33 @@
   }
   
   body {
-    @apply bg-white text-black;
+    background: #EDF2F4 !important;
+    color: #2B2D42 !important;
   }
   
   .card {
-    @apply shadow-none border border-gray-300;
+    @apply shadow-none border border-border;
   }
+}
+
+/* #8D99AE edge keeps a #2B2D42 button visible on the dark page (4.69:1). */
+.dark .bg-primary,
+[data-theme="dark"] .bg-primary {
+  border-color: #8D99AE;
+}
+
+/* Light surfaces keep #2B2D42 type. #8D99AE is only for text on #2B2D42 (4.69:1). */
+:is(.bg-card, .bg-popover, .bg-input, .bg-accent, .bg-secondary, .bg-muted).text-foreground,
+:is(.bg-card, .bg-popover, .bg-input, .bg-accent, .bg-secondary, .bg-muted) .text-foreground,
+:is(.bg-card, .bg-popover, .bg-input, .bg-accent, .bg-secondary, .bg-muted).text-muted-foreground,
+:is(.bg-card, .bg-popover, .bg-input, .bg-accent, .bg-secondary, .bg-muted) .text-muted-foreground {
+  color: hsl(var(--card-foreground));
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+textarea,
+select {
+  background-color: hsl(var(--input));
+  color: hsl(var(--card-foreground));
+  border-color: hsl(var(--border));
 }

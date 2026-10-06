@@ -144,7 +144,7 @@ export default function CustomerPackagesPage() {
               <p className="text-sm text-muted-foreground">
                 {item.serviceName} · باقی‌مانده {item.remainingSessions} از {item.totalSessions} جلسه
               </p>
-              <p className={`text-sm ${item.expiringSoon ? "text-amber-600" : "text-muted-foreground"}`}>
+              <p className={`text-sm ${item.expiringSoon ? "text-foreground" : "text-muted-foreground"}`}>
                 انقضا: {new Date(item.expiresAt).toLocaleDateString("fa-IR")}
                 {item.expiringSoon ? " · نزدیک به انقضا" : ""}
               </p>

@@ -189,12 +189,12 @@ export default function AppointmentsPage() {
             <GlassChip
               selected={dateFilter === 'today'}
               onClick={() => setDateFilter('today')}
-              className="flex items-center gap-2 text-slate-300"
+              className="flex items-center gap-2 text-foreground"
             >
               <Clock className="h-4 w-4" />
               امروز
               {dateFilter === 'today' && stats.total > 0 && (
-                <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
+                <span className="bg-accent px-2 py-0.5 rounded-full text-xs">
                   {stats.total}
                 </span>
               )}
@@ -202,7 +202,7 @@ export default function AppointmentsPage() {
             <GlassChip
               selected={dateFilter === 'yesterday'}
               onClick={() => setDateFilter('yesterday')}
-              className="flex items-center gap-2 text-slate-300"
+              className="flex items-center gap-2 text-foreground"
             >
               <Clock className="h-4 w-4" />
               دیروز
@@ -210,7 +210,7 @@ export default function AppointmentsPage() {
             <GlassChip
               selected={dateFilter === 'tomorrow'}
               onClick={() => setDateFilter('tomorrow')}
-              className="flex items-center gap-2 text-slate-300"
+              className="flex items-center gap-2 text-foreground"
             >
               <Calendar className="h-4 w-4" />
               فردا
@@ -218,7 +218,7 @@ export default function AppointmentsPage() {
             <GlassChip
               selected={dateFilter === 'week'}
               onClick={() => setDateFilter('week')}
-              className="flex items-center gap-2 text-slate-300"
+              className="flex items-center gap-2 text-foreground"
             >
               <Calendar className="h-4 w-4" />
               این هفته
@@ -226,7 +226,7 @@ export default function AppointmentsPage() {
             <GlassChip
               selected={dateFilter === 'all'}
               onClick={() => setDateFilter('all')}
-              className="text-slate-300"
+              className="text-foreground"
             >
               همه نوبت‌ها
             </GlassChip>
@@ -236,7 +236,7 @@ export default function AppointmentsPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-blue-500">
+        <Card className="border-l-4 border-l-border">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
@@ -245,35 +245,35 @@ export default function AppointmentsPage() {
             <CardTitle className="text-3xl">{stats.total}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="border-l-4 border-l-amber-500">
+        <Card className="border-l-4 border-l-border">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1">
               <AlertCircle className="h-4 w-4" />
               نیاز به تأیید
             </CardDescription>
-            <CardTitle className="text-3xl text-amber-600">
+            <CardTitle className="text-3xl text-foreground">
               {stats.pending}
             </CardTitle>
           </CardHeader>
         </Card>
-        <Card className="border-l-4 border-l-blue-500">
+        <Card className="border-l-4 border-l-border">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1">
               <CheckCircle className="h-4 w-4" />
               تأیید شده
             </CardDescription>
-            <CardTitle className="text-3xl text-blue-600">
+            <CardTitle className="text-3xl text-foreground">
               {stats.confirmed}
             </CardTitle>
           </CardHeader>
         </Card>
-        <Card className="border-l-4 border-l-green-500">
+        <Card className="border-l-4 border-l-border">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1">
               <CheckCircle className="h-4 w-4" />
               تسویه شده
             </CardDescription>
-            <CardTitle className="text-3xl text-green-600">
+            <CardTitle className="text-3xl text-foreground">
               {stats.completed}
             </CardTitle>
           </CardHeader>
@@ -320,7 +320,7 @@ export default function AppointmentsPage() {
                   <Button
                     onClick={loadAppointments}
                     variant="glass"
-                    className="w-full sm:w-auto text-sky-300"
+                    className="w-full sm:w-auto text-foreground"
                   >
                     <RefreshCcw className="h-4 w-4 ml-2" />
                     بروزرسانی
@@ -356,7 +356,7 @@ export default function AppointmentsPage() {
               <CardTitle className="flex items-center justify-between">
                 <span>نوبت‌ها ({filteredAndSortedAppointments.length})</span>
                 {stats.pending > 0 && (
-                  <span className="text-sm font-normal text-amber-600 flex items-center gap-1">
+                  <span className="text-sm font-normal text-foreground flex items-center gap-1">
                     <AlertCircle className="h-4 w-4" />
                     {stats.pending} نوبت نیاز به تأیید دارد
                   </span>
@@ -369,7 +369,7 @@ export default function AppointmentsPage() {
             <CardContent>
               {loading ? (
                 <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-main-orange"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-border"></div>
                 </div>
               ) : (
                 <AppointmentList

@@ -191,7 +191,7 @@ export default function MyCustomersPage() {
         <CardContent>
           {loading ? (
             <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-main-orange" />
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-border" />
             </div>
           ) : filtered.length === 0 ? (
             <p className="text-center text-muted-foreground py-10">

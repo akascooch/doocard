@@ -1,5 +1,7 @@
 import type { Config } from "tailwindcss"
 
+/** DEPRECATED — DO NOT USE. Live Tailwind config is frontend/tailwind.config.ts. */
+
 const config: Config = {
   content: [
     "./src/**/*.{js,ts,jsx,tsx}"

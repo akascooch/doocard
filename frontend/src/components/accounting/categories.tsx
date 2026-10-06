@@ -229,7 +229,7 @@ export function Categories() {
             <Badge variant="default" className="text-xs">درآمد</Badge>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.income}</div>
+            <div className="text-2xl font-bold text-foreground">{stats.income}</div>
           </CardContent>
         </Card>
         <Card>
@@ -238,7 +238,7 @@ export function Categories() {
             <Badge variant="destructive" className="text-xs">هزینه</Badge>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.expense}</div>
+            <div className="text-2xl font-bold text-destructive">{stats.expense}</div>
           </CardContent>
         </Card>
       </div>
@@ -436,7 +436,7 @@ export function Categories() {
                               <AlertDialogCancel>انصراف</AlertDialogCancel>
                               <AlertDialogAction
                                 onClick={() => handleDelete(category)}
-                                className="bg-red-600 hover:bg-red-700"
+                                className="bg-destructive hover:bg-destructive"
                               >
                                 حذف
                               </AlertDialogAction>

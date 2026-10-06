@@ -318,7 +318,7 @@ export default function AdminServices() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-main-orange"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-border"></div>
       </div>
     )
   }
@@ -440,7 +440,7 @@ export default function AdminServices() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
-                  <Scissors className="h-5 w-5 text-main-orange" />
+                  <Scissors className="h-5 w-5 text-foreground" />
                   {service.name}
                 </CardTitle>
                 <div className="flex gap-1">
@@ -448,7 +448,7 @@ export default function AdminServices() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleOpenEmployeeDialog(service)}
-                    className="text-blue-600 hover:text-blue-700"
+                    className="text-foreground hover:text-foreground"
                     title="اختصاص به کارمندان"
                   >
                     <Users className="h-4 w-4" />
@@ -464,7 +464,7 @@ export default function AdminServices() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleDeleteService(service.id)}
-                    className="text-red-600 hover:text-red-700"
+                    className="text-destructive hover:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -537,7 +537,7 @@ export default function AdminServices() {
                         setSelectedEmployeeIds(selectedEmployeeIds.filter(id => id !== employee.id))
                       }
                     }}
-                    className="rounded border-gray-300"
+                    className="rounded border-border"
                   />
                   <label htmlFor={`employee-${employee.id}`} className="flex-1 cursor-pointer">
                     <div className="flex justify-between items-center gap-2">
@@ -563,7 +563,7 @@ export default function AdminServices() {
             <Button variant="outline" onClick={() => setIsEmployeeDialogOpen(false)}>
               انصراف
             </Button>
-            <Button onClick={handleAssignEmployees} className="bg-main-orange hover:bg-main-orange/90">
+            <Button onClick={handleAssignEmployees} className="bg-primary hover:bg-accent">
               ذخیره تغییرات
             </Button>
           </div>

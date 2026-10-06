@@ -1,6 +1,1 @@
-/* Homepage: luxury monochrome. Do not force the old gold photographic body background. */
-html,
-body {
-  background-color: #000000 !important;
-  background-image: none !important;
-}
+/* Landing color comes from theme tokens on the page shell. */

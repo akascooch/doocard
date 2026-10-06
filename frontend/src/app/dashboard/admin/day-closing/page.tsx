@@ -219,10 +219,10 @@ export default function DayClosingPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">کل درآمد</CardTitle>
-                <TrendingUp className="h-4 w-4 text-green-600" />
+                <TrendingUp className="h-4 w-4 text-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">
+                <div className="text-2xl font-bold text-foreground">
                   {formatTomansFromRial(dayClosingData.totalIncome)}
                 </div>
               </CardContent>
@@ -231,10 +231,10 @@ export default function DayClosingPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">کل هزینه</CardTitle>
-                <TrendingDown className="h-4 w-4 text-red-600" />
+                <TrendingDown className="h-4 w-4 text-destructive" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-red-600">
+                <div className="text-2xl font-bold text-destructive">
                   {formatTomansFromRial(dayClosingData.totalExpense)}
                 </div>
               </CardContent>
@@ -243,10 +243,10 @@ export default function DayClosingPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">کل انعام</CardTitle>
-                <DollarSign className="h-4 w-4 text-yellow-600" />
+                <DollarSign className="h-4 w-4 text-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-yellow-600">
+                <div className="text-2xl font-bold text-foreground">
                   {formatTomansFromRial(dayClosingData.totalTips)}
                 </div>
               </CardContent>
@@ -255,10 +255,10 @@ export default function DayClosingPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">کل حقوق</CardTitle>
-                <Users className="h-4 w-4 text-blue-600" />
+                <Users className="h-4 w-4 text-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-600">
+                <div className="text-2xl font-bold text-foreground">
                   {formatTomansFromRial(dayClosingData.totalSalaries)}
                 </div>
               </CardContent>
@@ -281,13 +281,13 @@ export default function DayClosingPage() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">تکمیل شده:</span>
-                  <Badge variant="glass" className="border-emerald-400/30 text-emerald-200">
+                  <Badge variant="glass" className="border-border text-foreground">
                     {dayClosingData.completedAppointments}
                   </Badge>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">در انتظار:</span>
-                  <Badge variant="glass" className="border-amber-400/30 text-amber-200">
+                  <Badge variant="glass" className="border-border text-foreground">
                     {dayClosingData.pendingAppointments}
                   </Badge>
                 </div>
@@ -335,9 +335,9 @@ export default function DayClosingPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 {dayClosingData.isClosed ? (
-                  <Lock className="h-5 w-5 text-red-600" />
+                  <Lock className="h-5 w-5 text-destructive" />
                 ) : (
-                  <Unlock className="h-5 w-5 text-green-600" />
+                  <Unlock className="h-5 w-5 text-foreground" />
                 )}
                 عملیات روز
               </CardTitle>
@@ -355,7 +355,7 @@ export default function DayClosingPage() {
                     onClick={handleReopenDay}
                     disabled={reopening}
                     variant="outline"
-                    className="border-yellow-500 text-yellow-600 hover:bg-yellow-50"
+                    className="border-border text-foreground hover:bg-accent"
                   >
                     <Unlock className="h-4 w-4 ml-2" />
                     {reopening ? 'در حال باز کردن...' : 'باز کردن روز'}
@@ -364,7 +364,7 @@ export default function DayClosingPage() {
                   <Button
                     onClick={handleCloseDay}
                     disabled={closing}
-                    className="bg-red-600 hover:bg-red-700"
+                    className="bg-destructive hover:bg-destructive"
                   >
                     <Lock className="h-4 w-4 ml-2" />
                     {closing ? 'در حال بستن...' : 'بستن روز'}
@@ -373,10 +373,10 @@ export default function DayClosingPage() {
               </div>
               
               {!dayClosingData.isClosed && (
-                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="mt-4 p-4 bg-accent border border-border rounded-lg">
                   <div className="flex items-start gap-2">
-                    <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
-                    <div className="text-sm text-yellow-800">
+                    <AlertCircle className="h-5 w-5 text-foreground mt-0.5" />
+                    <div className="text-sm text-foreground">
                       <p className="font-medium">توجه:</p>
                       <p>پس از بستن روز، امکان ویرایش یا حذف قرار ملاقات‌ها و تراکنش‌های آن روز وجود نخواهد داشت.</p>
                     </div>

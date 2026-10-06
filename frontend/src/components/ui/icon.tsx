@@ -16,7 +16,7 @@ interface IconProps extends Omit<LucideProps, 'ref'> {
  * 
  * @example
  * <Icon name="Calendar" size={20} />
- * <Icon name="Check" className="text-green-500" ariaLabel="Success" />
+ * <Icon name="Check" className="text-foreground" ariaLabel="Success" />
  */
 export function Icon({ 
   name, 

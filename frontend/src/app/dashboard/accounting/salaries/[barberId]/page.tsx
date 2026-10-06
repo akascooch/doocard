@@ -111,11 +111,11 @@ export default function BarberTransactionDetailsPage() {
 
   const getTransactionTypeLabel = (type: string) => {
     switch (type) {
-      case 'INCOME': return { label: 'درآمد خدمات', color: 'border-emerald-400/30 text-emerald-200' };
-      case 'WITHDRAWAL': return { label: 'برداشت', color: 'border-red-400/30 text-red-200' };
-      case 'TIP': return { label: 'تیپ', color: 'border-sky-400/30 text-sky-200' };
-      case 'SALARY': return { label: 'حقوق', color: 'border-violet-400/30 text-violet-200' };
-      default: return { label: 'سایر', color: 'border-white/20 text-zinc-300' };
+      case 'INCOME': return { label: 'درآمد خدمات', color: 'border-border text-foreground' };
+      case 'WITHDRAWAL': return { label: 'برداشت', color: 'border-destructive text-foreground' };
+      case 'TIP': return { label: 'تیپ', color: 'border-border text-foreground' };
+      case 'SALARY': return { label: 'حقوق', color: 'border-border text-foreground' };
+      default: return { label: 'سایر', color: 'border-border text-foreground' };
     }
   };
 
@@ -153,9 +153,9 @@ export default function BarberTransactionDetailsPage() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-green-600" />
+                <TrendingUp className="h-5 w-5 text-foreground" />
                 <div>
-                  <p className="text-sm text-gray-600">کل درآمد</p>
+                  <p className="text-sm text-foreground">کل درآمد</p>
                   <p className="text-lg font-bold">{formatAmount(stats.totalIncome)} تومان</p>
                 </div>
               </div>
@@ -164,9 +164,9 @@ export default function BarberTransactionDetailsPage() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-blue-600" />
+                <DollarSign className="h-5 w-5 text-foreground" />
                 <div>
-                  <p className="text-sm text-gray-600">کل تیپ</p>
+                  <p className="text-sm text-foreground">کل تیپ</p>
                   <p className="text-lg font-bold">{formatAmount(stats.totalTips)} تومان</p>
                 </div>
               </div>
@@ -175,9 +175,9 @@ export default function BarberTransactionDetailsPage() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
-                <TrendingDown className="h-5 w-5 text-red-600" />
+                <TrendingDown className="h-5 w-5 text-destructive" />
                 <div>
-                  <p className="text-sm text-gray-600">کل برداشت</p>
+                  <p className="text-sm text-foreground">کل برداشت</p>
                   <p className="text-lg font-bold">{formatAmount(stats.totalWithdrawn)} تومان</p>
                 </div>
               </div>
@@ -186,9 +186,9 @@ export default function BarberTransactionDetailsPage() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-purple-600" />
+                <DollarSign className="h-5 w-5 text-foreground" />
                 <div>
-                  <p className="text-sm text-gray-600">کل حقوق</p>
+                  <p className="text-sm text-foreground">کل حقوق</p>
                   <p className="text-lg font-bold">{formatAmount(stats.totalSalaries)} تومان</p>
                 </div>
               </div>
@@ -197,9 +197,9 @@ export default function BarberTransactionDetailsPage() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-emerald-600" />
+                <DollarSign className="h-5 w-5 text-foreground" />
                 <div>
-                  <p className="text-sm text-gray-600">موجودی فعلی</p>
+                  <p className="text-sm text-foreground">موجودی فعلی</p>
                   <p className="text-lg font-bold">{formatAmount(stats.currentBalance)} تومان</p>
                 </div>
               </div>
@@ -268,7 +268,7 @@ export default function BarberTransactionDetailsPage() {
                               {typeInfo.label}
                             </Badge>
                           </TableCell>
-                          <TableCell className={`font-bold ${transaction.type === 'WITHDRAWAL' ? 'text-red-600' : 'text-green-600'}`}>
+                          <TableCell className={`font-bold ${transaction.type === 'WITHDRAWAL' ? 'text-destructive' : 'text-foreground'}`}>
                             {transaction.type === 'WITHDRAWAL' ? '-' : '+'}{formatAmount(transaction.amount)} تومان
                           </TableCell>
                           <TableCell>{formatDate(transaction.date)}</TableCell>
@@ -285,7 +285,7 @@ export default function BarberTransactionDetailsPage() {
                     })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                      <TableCell colSpan={5} className="text-center py-8 text-foreground">
                         هیچ تراکنشی یافت نشد
                       </TableCell>
                     </TableRow>
@@ -314,7 +314,7 @@ export default function BarberTransactionDetailsPage() {
                 placeholder="مبلغ را وارد کنید"
               />
               {stats && (
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-foreground mt-1">
                   موجودی قابل برداشت: {formatAmount(stats.currentBalance)} تومان
                 </p>
               )}

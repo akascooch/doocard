@@ -151,9 +151,9 @@ export default function PersianDatePicker({
   return (
     <div className={`space-y-2 ${className} ${disablePortal ? 'relative overflow-visible' : ''}`} data-cy="jalali-date-picker">
       {label && (
-        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <Label className="text-sm font-medium text-foreground dark:text-foreground">
           {label}
-          {required && <span className="text-red-500 mr-1">*</span>}
+          {required && <span className="text-destructive mr-1">*</span>}
         </Label>
       )}
       
@@ -172,10 +172,10 @@ export default function PersianDatePicker({
           rmdp-input
           w-full px-4 py-2 rounded-lg border text-right
           ${error 
-            ? 'border-red-500 focus:ring-red-500 focus:border-red-500' 
-            : 'border-white/10 focus:border-white/25 focus:ring-white/20'
+            ? 'border-destructive focus:ring-destructive focus:border-destructive'
+            : 'border-border focus:border-border focus:ring-ring'
           }
-          ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white/5 backdrop-blur-md'}
+          ${disabled ? 'bg-accent cursor-not-allowed' : 'bg-accent backdrop-blur-md'}
           focus:ring-1 focus:outline-none
           transition-colors duration-200
           text-sm
@@ -208,7 +208,7 @@ export default function PersianDatePicker({
       />
       
       {error && (
-        <p className="text-sm text-red-500 mt-1">{error}</p>
+        <p className="text-sm text-destructive mt-1">{error}</p>
       )}
     </div>
   );
@@ -239,9 +239,9 @@ export function TimePicker({
   return (
     <div className={`space-y-2 ${className}`}>
       {label && (
-        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <Label className="text-sm font-medium text-foreground dark:text-foreground">
           {label}
-          {required && <span className="text-red-500 mr-1">*</span>}
+          {required && <span className="text-destructive mr-1">*</span>}
         </Label>
       )}
       
@@ -253,10 +253,10 @@ export function TimePicker({
         className={`
           w-full px-4 py-2 rounded-lg border text-right
           ${error 
-            ? 'border-red-500 focus:ring-red-500 focus:border-red-500' 
-            : 'border-white/10 focus:border-white/25 focus:ring-white/20'
+            ? 'border-destructive focus:ring-destructive focus:border-destructive'
+            : 'border-border focus:border-border focus:ring-ring'
           }
-          ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white/5 backdrop-blur-md'}
+          ${disabled ? 'bg-accent cursor-not-allowed' : 'bg-accent backdrop-blur-md'}
           focus:ring-1 focus:outline-none
           transition-colors duration-200
           text-sm
@@ -264,7 +264,7 @@ export function TimePicker({
       />
       
       {error && (
-        <p className="text-sm text-red-500 mt-1">{error}</p>
+        <p className="text-sm text-destructive mt-1">{error}</p>
       )}
     </div>
   );

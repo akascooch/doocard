@@ -23,7 +23,7 @@ export function LogoutButton({ isCollapsed = false, isHovered = false, isMobile 
       type="button"
       onClick={handleLogout}
       className={cn(
-        'group flex w-full items-center gap-4 rounded-xl border border-transparent px-4 py-3 text-sm font-medium text-zinc-400 transition-all hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50',
+        'group flex w-full items-center gap-4 rounded-xl border border-transparent px-4 py-3 text-sm font-medium text-card-foreground transition-all hover:border-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         isCollapsed && !isHovered && !isMobile && 'justify-center px-2'
       )}
       title={isCollapsed && !isHovered && !isMobile ? 'خروج' : undefined}

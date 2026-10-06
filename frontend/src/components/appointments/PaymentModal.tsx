@@ -573,7 +573,7 @@ export default function PaymentModal({
       <DialogContent className="flex max-h-[min(90dvh,40rem)] w-[calc(100vw-1.5rem)] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-[550px]">
         <DialogHeader className="shrink-0 px-6 pt-6">
           <DialogTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5 text-main-orange" />
+            <DollarSign className="h-5 w-5 text-foreground" />
             تسویه نوبت
           </DialogTitle>
           <DialogDescription>
@@ -583,7 +583,7 @@ export default function PaymentModal({
 
         {loadingData ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-main-orange" />
+            <Loader2 className="h-8 w-8 animate-spin text-foreground" />
           </div>
         ) : appointment ? (
           <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
@@ -619,7 +619,7 @@ export default function PaymentModal({
               </Alert>
             )}
             {loyaltyAlert && loyaltyAlert.items.length > 0 && (
-              <Alert className="border-amber-400 bg-amber-50 text-amber-950 dark:bg-amber-950/40 dark:text-amber-50">
+              <Alert className="border-border bg-accent text-foreground dark:bg-primary dark:text-foreground">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="space-y-2">
                   {loyaltyAlert.items.map((pkg) => (
@@ -643,27 +643,27 @@ export default function PaymentModal({
             )}
 
             {/* Services Summary */}
-            <div className="bg-white/[0.06] border border-white/10 backdrop-blur-md rounded-lg p-3">
+            <div className="bg-accent border border-border backdrop-blur-md rounded-lg p-3">
               <p className="text-sm font-medium mb-2">سرویس‌های انجام شده:</p>
               <ul className="text-sm space-y-1">
                 {getAppointmentServices(appointment).map((service, idx) => (
                   <li key={idx} className="flex justify-between">
                     <span>{service.serviceName || `سرویس ${idx + 1}`}</span>
-                    <span className="text-main-orange font-medium">
+                    <span className="text-foreground font-medium">
                       {toTomans(service.priceAtBooking)}
                     </span>
                   </li>
                 ))}
               </ul>
-              <div className="flex justify-between mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex justify-between mt-2 pt-2 border-t border-border dark:border-border">
                 <span className="font-semibold">جمع خدمات:</span>
-                <span className="font-bold text-main-orange">
+                <span className="font-bold text-foreground">
                   {toTomans(calculatedTotal)}
                 </span>
               </div>
             </div>
 
-            <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 space-y-3">
+            <div className="rounded-lg border border-border dark:border-border p-3 space-y-3">
               <button
                 type="button"
                 className="w-full text-sm font-medium flex items-center justify-between gap-2"
@@ -738,7 +738,7 @@ export default function PaymentModal({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="text-red-600"
+                        className="text-destructive"
                         onClick={() =>
                           setStoreLines(storeLines.filter((l) => l.productId !== line.productId))
                         }
@@ -778,7 +778,7 @@ export default function PaymentModal({
                 placeholder="مثال: 500,000"
                 required
               />
-              <p className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded px-2 py-1">
+              <p className="text-xs text-foreground dark:text-foreground bg-accent dark:bg-primary rounded px-2 py-1">
                 مبلغ قابل ویرایش است در صورت تغییر توافق با مشتری
               </p>
             </div>
@@ -822,7 +822,7 @@ export default function PaymentModal({
               placeholder="مثال: 200,000"
             />
 
-            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 text-sm">
+            <div className="bg-accent dark:bg-primary rounded-lg p-3 text-sm">
               <p className="font-medium mb-1">خلاصه سهم آرایشگر (برای تسویه حقوق)</p>
               <p>کسورات مالیات سهم آرایشگر هر نوبت: {toTomans(BARBER_APPOINTMENT_DEDUCTION_TOMAN * 10)}</p>
               <p className="text-muted-foreground mt-1">
@@ -848,7 +848,7 @@ export default function PaymentModal({
             />
 
             {formData.tipAmount > 0 && (
-              <div className="space-y-3 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+              <div className="space-y-3 rounded-lg border border-border dark:border-border p-3">
                 <div>
                   <Label>نوع گیرنده انعام *</Label>
                   <Select
@@ -1044,7 +1044,7 @@ export default function PaymentModal({
               <Button
                 type="submit"
                 disabled={loading}
-                className="bg-main-orange hover:bg-main-orange/90"
+                className="bg-primary hover:bg-accent"
               >
                 {loading ? (
                   <>

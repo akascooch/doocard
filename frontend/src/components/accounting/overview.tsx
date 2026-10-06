@@ -79,36 +79,36 @@ export function Overview() {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-zinc-950/95 p-4 border border-white/10 rounded-xl shadow-xl backdrop-blur-xl text-zinc-100">
-          <div className="border-b border-white/10 pb-2 mb-2">
-            <p className="font-bold text-white text-lg">{label}</p>
+        <div className="bg-card p-4 border border-border rounded-xl shadow-xl backdrop-blur-xl text-foreground">
+          <div className="border-b border-border pb-2 mb-2">
+            <p className="font-bold text-foreground text-lg">{label}</p>
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span className="text-slate-300 font-medium">درآمد:</span>
+                <div className="w-3 h-3 bg-primary rounded-full"></div>
+                <span className="text-foreground font-medium">درآمد:</span>
               </div>
-              <span className="text-emerald-300 font-bold">
+              <span className="text-foreground font-bold">
                 {toThousandTomans(payload[0]?.value || 0)}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                <span className="text-slate-300 font-medium">هزینه:</span>
+                <div className="w-3 h-3 bg-destructive rounded-full"></div>
+                <span className="text-foreground font-medium">هزینه:</span>
               </div>
-              <span className="text-rose-400 font-bold">
+              <span className="text-foreground font-bold">
                 {toThousandTomans(payload[1]?.value || 0)}
               </span>
             </div>
-            <div className="pt-2 border-t border-white/10">
+            <div className="pt-2 border-t border-border">
               <div className="flex items-center justify-between">
-                <span className="text-slate-300 font-medium">سود خالص:</span>
+                <span className="text-foreground font-medium">سود خالص:</span>
                 <span className={`font-bold ${
                   (payload[0]?.value || 0) - (payload[1]?.value || 0) >= 0 
-                    ? 'text-emerald-300' 
-                    : 'text-rose-400'
+                    ? 'text-foreground'
+                    : 'text-foreground'
                 }`}>
                   {toThousandTomans((payload[0]?.value || 0) - (payload[1]?.value || 0))}
                 </span>
@@ -124,17 +124,17 @@ export function Overview() {
   const BarberTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-zinc-950/95 p-4 border border-white/10 rounded-xl shadow-xl backdrop-blur-xl text-zinc-100">
-          <div className="border-b border-white/10 pb-2 mb-2">
-            <p className="font-bold text-white text-lg">{label}</p>
+        <div className="bg-card p-4 border border-border rounded-xl shadow-xl backdrop-blur-xl text-foreground">
+          <div className="border-b border-border pb-2 mb-2">
+            <p className="font-bold text-foreground text-lg">{label}</p>
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                <span className="text-slate-300 font-medium">تعداد نوبت:</span>
+                <div className="w-3 h-3 bg-primary rounded-full"></div>
+                <span className="text-foreground font-medium">تعداد نوبت:</span>
               </div>
-              <span className="text-sky-300 font-bold">
+              <span className="text-foreground font-bold">
                 {payload[0]?.value || 0} نوبت
               </span>
             </div>
@@ -149,12 +149,12 @@ export function Overview() {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="h-24 bg-gray-200 rounded animate-pulse" />
-          <div className="h-24 bg-gray-200 rounded animate-pulse" />
-          <div className="h-24 bg-gray-200 rounded animate-pulse" />
+          <div className="h-24 bg-accent rounded animate-pulse" />
+          <div className="h-24 bg-accent rounded animate-pulse" />
+          <div className="h-24 bg-accent rounded animate-pulse" />
         </div>
-        <div className="h-96 bg-gray-200 rounded animate-pulse" />
-        <div className="h-96 bg-gray-200 rounded animate-pulse" />
+        <div className="h-96 bg-accent rounded animate-pulse" />
+        <div className="h-96 bg-accent rounded animate-pulse" />
       </div>
     );
   }
@@ -163,15 +163,15 @@ export function Overview() {
     <div className="space-y-6">
       {/* کارت‌های خلاصه */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
+        <Card className="bg-gradient-to-r from-accent to-accent border-border">
           <CardContent className="p-6">
             <div className="flex items-center space-x-2 space-x-reverse">
-              <div className="p-2 bg-green-500 rounded-lg">
-                <ArrowTrendingUpIcon className="h-6 w-6 text-white" />
+              <div className="p-2 bg-primary rounded-lg">
+                <ArrowTrendingUpIcon className="h-6 w-6 text-foreground" />
               </div>
               <div>
-                <p className="text-sm font-medium text-green-600">کل درآمد</p>
-                <p className="text-2xl font-bold text-green-700">
+                <p className="text-sm font-medium text-foreground">کل درآمد</p>
+                <p className="text-2xl font-bold text-foreground">
                   {toThousandTomans(stats.totalIncome)}
                 </p>
               </div>
@@ -179,15 +179,15 @@ export function Overview() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-r from-red-50 to-red-100 border-red-200">
+        <Card className="bg-gradient-to-r from-accent to-accent border-border">
           <CardContent className="p-6">
             <div className="flex items-center space-x-2 space-x-reverse">
-              <div className="p-2 bg-red-500 rounded-lg">
-                <ArrowTrendingDownIcon className="h-6 w-6 text-white" />
+              <div className="p-2 bg-destructive rounded-lg">
+                <ArrowTrendingDownIcon className="h-6 w-6 text-foreground" />
               </div>
               <div>
-                <p className="text-sm font-medium text-red-600">کل هزینه</p>
-                <p className="text-2xl font-bold text-red-700">
+                <p className="text-sm font-medium text-destructive">کل هزینه</p>
+                <p className="text-2xl font-bold text-destructive">
                   {toThousandTomans(stats.totalExpense)}
                 </p>
               </div>
@@ -195,15 +195,15 @@ export function Overview() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+        <Card className="bg-gradient-to-r from-accent to-accent border-border">
           <CardContent className="p-6">
             <div className="flex items-center space-x-2 space-x-reverse">
-              <div className="p-2 bg-blue-500 rounded-lg">
-                <CurrencyDollarIcon className="h-6 w-6 text-white" />
+              <div className="p-2 bg-primary rounded-lg">
+                <CurrencyDollarIcon className="h-6 w-6 text-foreground" />
               </div>
               <div>
-                <p className="text-sm font-medium text-blue-600">موجودی کل</p>
-                <p className={`text-2xl font-bold ${stats.totalBalance >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
+                <p className="text-sm font-medium text-foreground">موجودی کل</p>
+                <p className={`text-2xl font-bold ${stats.totalBalance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
                   {stats.totalBalance >= 0 ? '' : '-'}{toThousandTomans(Math.abs(stats.totalBalance))}
                 </p>
               </div>
@@ -215,10 +215,10 @@ export function Overview() {
       {/* نمودار 12 ماه */}
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="text-xl font-bold text-gray-800">
+          <CardTitle className="text-xl font-bold text-card-foreground">
             نمودار درآمد و هزینه - سال شمسی {new Date().getFullYear()}
           </CardTitle>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-card-foreground">
             نمایش داده‌ها بر اساس ماه‌های شمسی از فروردین تا اسفند
           </p>
         </CardHeader>
@@ -234,8 +234,8 @@ export function Overview() {
               >
                 <defs>
                   <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--secondary))" stopOpacity={0.8}/>
-                    <stop offset="100%" stopColor="hsl(var(--secondary))" stopOpacity={1}/>
+                    <stop offset="0%" stopColor="hsl(var(--chart-2))" stopOpacity={0.8}/>
+                    <stop offset="100%" stopColor="hsl(var(--chart-2))" stopOpacity={1}/>
                   </linearGradient>
                   <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="hsl(var(--destructive))" stopOpacity={0.8}/>
@@ -246,27 +246,27 @@ export function Overview() {
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" stopOpacity={0.5} />
                 <XAxis
                   dataKey="month"
-                  stroke="hsl(var(--muted-foreground))"
+                  stroke="hsl(var(--card-foreground))"
                   fontSize={13}
                   fontWeight={500}
                   tickLine={false}
                   axisLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
-                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                  tick={{ fill: 'hsl(var(--card-foreground))' }}
                   tickMargin={8}
                 />
                 <YAxis
-                  stroke="hsl(var(--muted-foreground))"
+                  stroke="hsl(var(--card-foreground))"
                   fontSize={12}
                   fontWeight={500}
                   tickLine={false}
                   axisLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
-                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                  tick={{ fill: 'hsl(var(--card-foreground))' }}
                   tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
                   tickMargin={8}
                 />
                 <Tooltip 
                   content={<CustomTooltip />}
-                  cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }}
+                  cursor={{ fill: 'rgb(43 45 66 / 0.12)' }}
                 />
                 <Legend 
                   verticalAlign="top" 
@@ -295,7 +295,7 @@ export function Overview() {
             </ResponsiveContainer>
           ) : (
             <div className="h-80 w-full flex items-center justify-center">
-              <div className="text-center text-gray-500">
+              <div className="text-center text-card-foreground">
                 <div className="text-4xl mb-4">📊</div>
                 <p className="text-lg font-medium">هیچ داده‌ای برای نمایش وجود ندارد</p>
                 <p className="text-sm">در حال حاضر تراکنشی در سیستم ثبت نشده است</p>
@@ -308,10 +308,10 @@ export function Overview() {
       {/* نمودار تعداد نوبت آرایشگرها */}
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="text-xl font-bold text-gray-800">
+          <CardTitle className="text-xl font-bold text-card-foreground">
             آمار نوبت‌های آرایشگران - کل
           </CardTitle>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-card-foreground">
             نمایش تعداد کل نوبت‌های هر آرایشگر از بیشترین به کمترین
           </p>
         </CardHeader>
@@ -335,26 +335,26 @@ export function Overview() {
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
                 <XAxis
                   dataKey="name"
-                  stroke="hsl(var(--muted-foreground))"
+                  stroke="hsl(var(--card-foreground))"
                   fontSize={13}
                   fontWeight={500}
                   tickLine={false}
                   axisLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
-                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                  tick={{ fill: 'hsl(var(--card-foreground))' }}
                   tickMargin={8}
                 />
                 <YAxis
-                  stroke="hsl(var(--muted-foreground))"
+                  stroke="hsl(var(--card-foreground))"
                   fontSize={12}
                   fontWeight={500}
                   tickLine={false}
                   axisLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
-                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                  tick={{ fill: 'hsl(var(--card-foreground))' }}
                   tickMargin={8}
                 />
                 <Tooltip 
                   content={<BarberTooltip />}
-                  cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }}
+                  cursor={{ fill: 'rgb(43 45 66 / 0.12)' }}
                 />
                 <Legend 
                   verticalAlign="top" 
@@ -377,7 +377,7 @@ export function Overview() {
             </ResponsiveContainer>
           ) : (
             <div className="h-80 w-full flex items-center justify-center">
-              <div className="text-center text-gray-500">
+              <div className="text-center text-card-foreground">
                 <div className="text-4xl mb-4">👨‍💼</div>
                 <p className="text-lg font-medium">هیچ داده‌ای برای نمایش وجود ندارد</p>
                 <p className="text-sm">در حال حاضر نوبتی برای آرایشگران ثبت نشده است</p>

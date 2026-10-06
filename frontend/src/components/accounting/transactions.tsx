@@ -405,14 +405,14 @@ export function Transactions({ onTabChange }: TransactionsProps) {
               </Button>
             </div>
           </div>
-          <div className="mb-4 text-sm text-gray-600">
+          <div className="mb-4 text-sm text-foreground">
             نمایش {filteredTransactions.length} تراکنش از {transactions.length} تراکنش کل
             {(categoryFilter !== 'all' || bankAccountFilter !== 'all' || typeFilter !== 'all') && (
-              <span className="text-blue-600 font-medium">
+              <span className="text-foreground font-medium">
                 {' '}(فیلتر شده)
               </span>
             )}
-            <div className="mt-2 text-xs text-gray-500">
+            <div className="mt-2 text-xs text-foreground">
               📅 تراکنش‌ها بر اساس تاریخ (جدیدترین اول) مرتب شده‌اند
             </div>
           </div>
@@ -436,7 +436,7 @@ export function Transactions({ onTabChange }: TransactionsProps) {
                     <td className="p-2">
                       <div className="text-sm">
                                                 <div>{t.dateJalali || '-'}</div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-foreground">
                           {new Date(t.date).toLocaleTimeString('fa-IR', {
                             hour: '2-digit',
                             minute: '2-digit'
@@ -444,7 +444,7 @@ export function Transactions({ onTabChange }: TransactionsProps) {
                         </div>
                       </div>
                     </td>
-                    <td className={`p-2 font-bold ${t.type === 'INCOME' ? 'text-green-600' : 'text-red-600'}`}>{formatTomansFromRial(Math.abs(t.amount))}</td>
+                    <td className={`p-2 font-bold ${t.type === 'INCOME' ? 'text-foreground' : 'text-destructive'}`}>{formatTomansFromRial(Math.abs(t.amount))}</td>
                     <td className="p-2">{t.type === 'INCOME' ? 'درآمد' : 'هزینه'}</td>
                     <td className="p-2">
                       {t.category ? (

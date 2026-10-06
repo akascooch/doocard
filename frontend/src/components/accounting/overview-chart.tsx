@@ -108,36 +108,36 @@ export function Overview({
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-zinc-950/95 p-4 border border-white/10 rounded-xl shadow-xl backdrop-blur-xl text-zinc-100">
-          <div className="border-b border-white/10 pb-2 mb-2">
-            <p className="font-bold text-white text-lg">{label}</p>
+        <div className="bg-card p-4 border border-border rounded-xl shadow-xl backdrop-blur-xl text-foreground">
+          <div className="border-b border-border pb-2 mb-2">
+            <p className="font-bold text-foreground text-lg">{label}</p>
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span className="text-slate-300 font-medium">درآمد:</span>
+                <div className="w-3 h-3 bg-primary rounded-full"></div>
+                <span className="text-foreground font-medium">درآمد:</span>
               </div>
-              <span className="text-emerald-300 font-bold">
+              <span className="text-foreground font-bold">
                 {formatNumber(payload[0]?.value || 0)} تومان
               </span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                <span className="text-slate-300 font-medium">هزینه:</span>
+                <div className="w-3 h-3 bg-destructive rounded-full"></div>
+                <span className="text-foreground font-medium">هزینه:</span>
               </div>
-              <span className="text-rose-400 font-bold">
+              <span className="text-foreground font-bold">
                 {formatNumber(payload[1]?.value || 0)} تومان
               </span>
             </div>
-            <div className="pt-2 border-t border-white/10">
+            <div className="pt-2 border-t border-border">
               <div className="flex items-center justify-between">
-                <span className="text-slate-300 font-medium">سود خالص:</span>
+                <span className="text-foreground font-medium">سود خالص:</span>
                 <span className={`font-bold ${
                   (payload[0]?.value || 0) - (payload[1]?.value || 0) >= 0 
-                    ? 'text-emerald-300' 
-                    : 'text-rose-400'
+                    ? 'text-foreground'
+                    : 'text-foreground'
                 }`}>
                   {formatNumber((payload[0]?.value || 0) - (payload[1]?.value || 0))} تومان
                 </span>
@@ -154,8 +154,8 @@ export function Overview({
     return (
       <div className="flex items-center justify-center h-80">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">در حال بارگذاری نمودار...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-border mx-auto mb-4"></div>
+          <p className="text-foreground">در حال بارگذاری نمودار...</p>
         </div>
       </div>
     );
@@ -165,12 +165,12 @@ export function Overview({
     return (
       <div className="flex items-center justify-center h-80">
         <div className="text-center">
-          <div className="text-red-500 mb-4">
+          <div className="text-destructive mb-4">
             <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
           </div>
-          <p className="text-gray-600">{error}</p>
+          <p className="text-foreground">{error}</p>
         </div>
       </div>
     );
@@ -189,13 +189,13 @@ export function Overview({
     return (
       <div className="flex items-center justify-center h-80">
         <div className="text-center">
-          <div className="text-gray-400 mb-4">
+          <div className="text-foreground mb-4">
             <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           </div>
-          <p className="text-gray-600">هیچ داده‌ای برای نمایش وجود ندارد</p>
-          <p className="text-sm text-gray-500 mt-2">
+          <p className="text-foreground">هیچ داده‌ای برای نمایش وجود ندارد</p>
+          <p className="text-sm text-foreground mt-2">
             در بازه زمانی انتخاب شده ({dateRange.from.toLocaleDateString('fa-IR')} تا {dateRange.to.toLocaleDateString('fa-IR')}) تراکنشی ثبت نشده است
           </p>
         </div>
@@ -226,27 +226,27 @@ export function Overview({
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
         <XAxis
           dataKey="name"
-          stroke="hsl(var(--muted-foreground))"
+          stroke="hsl(var(--card-foreground))"
           fontSize={13}
           fontWeight={500}
           tickLine={false}
           axisLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
-          tick={{ fill: 'hsl(var(--muted-foreground))' }}
+          tick={{ fill: 'hsl(var(--card-foreground))' }}
           tickMargin={8}
         />
         <YAxis
-          stroke="hsl(var(--muted-foreground))"
+          stroke="hsl(var(--card-foreground))"
           fontSize={12}
           fontWeight={500}
           tickLine={false}
           axisLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
-          tick={{ fill: 'hsl(var(--muted-foreground))' }}
+          tick={{ fill: 'hsl(var(--card-foreground))' }}
           tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
           tickMargin={8}
         />
         <Tooltip 
           content={<CustomTooltip />}
-          cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }}
+          cursor={{ fill: 'rgb(43 45 66 / 0.12)' }}
         />
         <Legend 
           verticalAlign="top" 

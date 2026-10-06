@@ -74,14 +74,14 @@ export function BarberTransactions() {
 
   const getTransactionIcon = (type: string) => {
     return type === 'INCOME' ? (
-      <DollarSignIcon className="h-4 w-4 text-green-600" />
+      <DollarSignIcon className="h-4 w-4 text-foreground" />
     ) : (
-      <DollarSignIcon className="h-4 w-4 text-red-600" />
+      <DollarSignIcon className="h-4 w-4 text-destructive" />
     );
   };
 
   const getTransactionColor = (type: string) => {
-    return type === 'INCOME' ? 'text-green-600' : 'text-red-600';
+    return type === 'INCOME' ? 'text-foreground' : 'text-destructive';
   };
 
   if (loading) {
@@ -95,13 +95,13 @@ export function BarberTransactions() {
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
                 <div className="flex items-center space-x-4">
-                  <div className="h-4 w-4 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-4 w-4 bg-accent rounded animate-pulse" />
                   <div className="space-y-2">
-                    <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
-                    <div className="h-3 w-24 bg-gray-200 rounded animate-pulse" />
+                    <div className="h-4 w-32 bg-accent rounded animate-pulse" />
+                    <div className="h-3 w-24 bg-accent rounded animate-pulse" />
                   </div>
                 </div>
-                <div className="h-6 w-20 bg-gray-200 rounded animate-pulse" />
+                <div className="h-6 w-20 bg-accent rounded animate-pulse" />
               </div>
             ))}
           </div>
@@ -140,7 +140,7 @@ export function BarberTransactions() {
             </div>
           ) : (
             filteredTransactions.map((transaction) => (
-              <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-white/5 transition-colors">
+              <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent transition-colors">
                 <div className="flex items-center space-x-4">
                   {getTransactionIcon(transaction.type)}
                   <div>

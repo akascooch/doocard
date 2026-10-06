@@ -587,7 +587,7 @@ export default function AccountingPage() {
                   <div className="flex gap-2">
                   <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button variant="outline" className="border-blue-500 text-blue-600 hover:bg-blue-50" onClick={resetTransferForm}>
+                      <Button variant="outline" className="border-border text-foreground hover:bg-accent" onClick={resetTransferForm}>
                         <RefreshCcw className="h-4 w-4 ml-2" />
                         جابه‌جایی بین حساب‌ها
                       </Button>
@@ -663,7 +663,7 @@ export default function AccountingPage() {
                         <Button variant="outline" onClick={() => setIsTransferDialogOpen(false)}>
                           انصراف
                         </Button>
-                        <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleCreateTransfer}>
+                        <Button className="bg-primary hover:bg-primary text-primary-foreground" onClick={handleCreateTransfer}>
                           <RefreshCcw className="h-4 w-4 ml-2" />
                           انجام انتقال
                         </Button>
@@ -673,7 +673,7 @@ export default function AccountingPage() {
 
                   <Dialog open={isTransactionDialogOpen} onOpenChange={setIsTransactionDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button className="bg-main-orange hover:bg-main-orange/90" onClick={() => {
+                      <Button className="bg-primary hover:bg-accent" onClick={() => {
                         setEditingTransaction(null)
                         resetTransactionForm()
                       }}>
@@ -805,7 +805,7 @@ export default function AccountingPage() {
                         }}>
                           انصراف
                         </Button>
-                        <Button className="bg-main-orange hover:bg-main-orange/90" onClick={editingTransaction ? handleUpdateTransaction : handleCreateTransaction}>
+                        <Button className="bg-primary hover:bg-accent" onClick={editingTransaction ? handleUpdateTransaction : handleCreateTransaction}>
                           {editingTransaction ? 'به‌روزرسانی' : 'ثبت تراکنش'}
                         </Button>
                       </div>
@@ -907,7 +907,7 @@ export default function AccountingPage() {
               </div>
               {transactionsLoading ? (
                 <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-main-orange"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-border"></div>
                 </div>
               ) : (
                 <Table>
@@ -939,17 +939,17 @@ export default function AccountingPage() {
                           <TableCell>{formatToJalali(transaction.occurredAt)}</TableCell>
                           <TableCell>
                             {transaction.type === 'INCOME' ? (
-                              <Badge className="bg-green-100 text-green-800">درآمد</Badge>
+                              <Badge className="bg-accent text-foreground">درآمد</Badge>
                             ) : transaction.type === 'EXPENSE' ? (
-                              <Badge className="bg-red-100 text-red-800">هزینه</Badge>
+                              <Badge className="bg-accent text-foreground">هزینه</Badge>
                             ) : (
-                              <Badge className="bg-blue-100 text-blue-800">انتقال</Badge>
+                              <Badge className="bg-accent text-foreground">انتقال</Badge>
                             )}
                           </TableCell>
                           <TableCell className={
-                            transaction.type === 'INCOME' ? 'text-green-600 font-bold' : 
-                            transaction.type === 'EXPENSE' ? 'text-red-600 font-bold' : 
-                            'text-blue-600 font-bold'
+                            transaction.type === 'INCOME' ? 'text-foreground font-bold' :
+                            transaction.type === 'EXPENSE' ? 'text-destructive font-bold' :
+                            'text-foreground font-bold'
                           }>
                             {formatTomansFromRial(transaction.amount)}
                           </TableCell>
@@ -958,9 +958,9 @@ export default function AccountingPage() {
                             {transaction.type === 'TRANSFER' ? (
                               <div className="text-sm">
                                 <div className="flex items-center gap-1">
-                                  <span className="text-red-600">{transaction.account?.name}</span>
+                                  <span className="text-destructive">{transaction.account?.name}</span>
                                   <span>←</span>
-                                  <span className="text-green-600">{transaction.destinationAccount?.name}</span>
+                                  <span className="text-foreground">{transaction.destinationAccount?.name}</span>
                                 </div>
                               </div>
                             ) : (
@@ -975,7 +975,7 @@ export default function AccountingPage() {
                                   <Edit className="h-4 w-4" />
                                 </Button>
                               )}
-                              <Button variant="outline" size="sm" onClick={() => handleDeleteTransaction(transaction.id)} className="text-red-600">
+                              <Button variant="outline" size="sm" onClick={() => handleDeleteTransaction(transaction.id)} className="text-destructive">
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
@@ -998,7 +998,7 @@ export default function AccountingPage() {
                 <CardTitle>دسته‌بندی‌ها</CardTitle>
                 <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="bg-main-orange hover:bg-main-orange/90" onClick={() => {
+                    <Button className="bg-primary hover:bg-accent" onClick={() => {
                       setEditingCategory(null)
                       resetCategoryForm()
                     }}>
@@ -1034,7 +1034,7 @@ export default function AccountingPage() {
                     </div>
                     <div className="flex justify-end gap-2">
                       <Button variant="outline" onClick={() => setIsCategoryDialogOpen(false)}>انصراف</Button>
-                      <Button className="bg-main-orange hover:bg-main-orange/90" onClick={editingCategory ? handleUpdateCategory : handleCreateCategory}>
+                      <Button className="bg-primary hover:bg-accent" onClick={editingCategory ? handleUpdateCategory : handleCreateCategory}>
                         {editingCategory ? 'به‌روزرسانی' : 'ایجاد'}
                       </Button>
                     </div>
@@ -1045,7 +1045,7 @@ export default function AccountingPage() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <h3 className="font-medium text-green-600 mb-3">دسته‌بندی‌های درآمد</h3>
+                  <h3 className="font-medium text-foreground mb-3">دسته‌بندی‌های درآمد</h3>
                   {categories.filter(c => c.type === 'INCOME').map((cat) => (
                     <Card key={cat.id} className="mb-2">
                       <CardContent className="p-4">
@@ -1058,7 +1058,7 @@ export default function AccountingPage() {
                             <Button variant="ghost" size="sm" onClick={() => startEditCategory(cat)}>
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleDeleteCategory(cat.id)} className="text-red-600">
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteCategory(cat.id)} className="text-destructive">
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -1069,7 +1069,7 @@ export default function AccountingPage() {
                 </div>
 
                 <div>
-                  <h3 className="font-medium text-red-600 mb-3">دسته‌بندی‌های هزینه</h3>
+                  <h3 className="font-medium text-destructive mb-3">دسته‌بندی‌های هزینه</h3>
                   {categories.filter(c => c.type === 'EXPENSE').map((cat) => (
                     <Card key={cat.id} className="mb-2">
                       <CardContent className="p-4">
@@ -1082,7 +1082,7 @@ export default function AccountingPage() {
                             <Button variant="ghost" size="sm" onClick={() => startEditCategory(cat)}>
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleDeleteCategory(cat.id)} className="text-red-600">
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteCategory(cat.id)} className="text-destructive">
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -1104,7 +1104,7 @@ export default function AccountingPage() {
                 <CardTitle>حساب‌های بانکی</CardTitle>
                 <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="bg-main-orange hover:bg-main-orange/90" onClick={resetAccountForm}>
+                    <Button className="bg-primary hover:bg-accent" onClick={resetAccountForm}>
                       <Plus className="h-4 w-4 ml-2" />
                       حساب جدید
                     </Button>
@@ -1133,7 +1133,7 @@ export default function AccountingPage() {
                     </div>
                     <div className="flex justify-end gap-2">
                       <Button variant="outline" onClick={() => setIsAccountDialogOpen(false)}>انصراف</Button>
-                      <Button className="bg-main-orange hover:bg-main-orange/90" onClick={handleCreateAccount}>ایجاد حساب</Button>
+                      <Button className="bg-primary hover:bg-accent" onClick={handleCreateAccount}>ایجاد حساب</Button>
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -1142,16 +1142,16 @@ export default function AccountingPage() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {accounts.map((account) => (
-                  <Card key={account.id} className={account.isDefault ? 'border-main-orange' : ''}>
+                  <Card key={account.id} className={account.isDefault ? 'border-border' : ''}>
                     <CardContent className="p-4">
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <Building2 className="h-5 w-5 text-main-orange" />
+                            <Building2 className="h-5 w-5 text-foreground" />
                             <span className="font-medium">{account.name}</span>
                           </div>
                           {account.isDefault && (
-                            <Badge className="bg-main-orange text-white">پیش‌فرض</Badge>
+                            <Badge className="bg-primary text-primary-foreground">پیش‌فرض</Badge>
                           )}
                         </div>
                         
@@ -1161,7 +1161,7 @@ export default function AccountingPage() {
                           </div>
                         )}
                         
-                        <div className="text-lg font-bold text-blue-600">
+                        <div className="text-lg font-bold text-foreground">
                           موجودی: {formatTomansFromRial(account.balance)}
                         </div>
                         

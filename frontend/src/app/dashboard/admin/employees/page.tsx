@@ -257,7 +257,7 @@ export default function AdminEmployeesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-main-orange"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-border"></div>
       </div>
     )
   }
@@ -281,7 +281,7 @@ export default function AdminEmployeesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">کل کارکنان</CardTitle>
-            <UserCog className="h-4 w-4 text-main-orange" />
+            <UserCog className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{employees.length}</div>
@@ -290,7 +290,7 @@ export default function AdminEmployeesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">کارکنان فعال</CardTitle>
-            <UserCog className="h-4 w-4 text-green-600" />
+            <UserCog className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{employees.filter((e) => (e.status ?? 'active') === 'active').length}</div>
@@ -299,7 +299,7 @@ export default function AdminEmployeesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">میانگین امتیاز</CardTitle>
-            <Star className="h-4 w-4 text-yellow-600" />
+            <Star className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -310,7 +310,7 @@ export default function AdminEmployeesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">کل درآمد ماهانه</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
+            <DollarSign className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -420,13 +420,13 @@ export default function AdminEmployeesPage() {
                     <TableCell>{employee.commissionRate}%</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <DollarSign className="h-4 w-4 text-green-600" />
+                        <DollarSign className="h-4 w-4 text-foreground" />
                         {toThousandTomans(0)}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 text-yellow-500" />
+                        <Star className="h-4 w-4 text-foreground" />
                         0.0
                       </div>
                     </TableCell>
@@ -450,7 +450,7 @@ export default function AdminEmployeesPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleOpenServicesDialog(employee)}
-                          className="text-blue-600 hover:text-blue-700"
+                          className="text-foreground hover:text-foreground"
                         >
                           <Settings className="h-4 w-4" />
                         </Button>
@@ -458,7 +458,7 @@ export default function AdminEmployeesPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleDeleteEmployee(employee.id)}
-                          className="text-red-600 hover:text-red-700"
+                          className="text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -515,7 +515,7 @@ export default function AdminEmployeesPage() {
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
               انصراف
             </Button>
-            <Button onClick={handleEditEmployee} className="bg-main-orange hover:bg-main-orange/90">
+            <Button onClick={handleEditEmployee} className="bg-primary hover:bg-accent">
               ذخیره تغییرات
             </Button>
           </div>
@@ -547,7 +547,7 @@ export default function AdminEmployeesPage() {
                         setSelectedServiceIds(selectedServiceIds.filter(id => id !== service.id))
                       }
                     }}
-                    className="rounded border-gray-300"
+                    className="rounded border-border"
                   />
                   <label htmlFor={`service-${service.id}`} className="flex-1 cursor-pointer">
                     <div className="flex justify-between items-center">
@@ -577,7 +577,7 @@ export default function AdminEmployeesPage() {
             <Button variant="outline" onClick={() => setIsServicesDialogOpen(false)}>
               انصراف
             </Button>
-            <Button onClick={handleAssignServices} className="bg-main-orange hover:bg-main-orange/90">
+            <Button onClick={handleAssignServices} className="bg-primary hover:bg-accent">
               ذخیره تغییرات
             </Button>
           </div>

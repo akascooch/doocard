@@ -1,26 +1,29 @@
-/* استایل جمع‌وجور برای تقویم شمسی */
+/**
+ * DEPRECATED — DO NOT IMPORT.
+ * PersianDatePicker.tsx does not load this file. Colors below are palette-only
+ * so an accidental import cannot reintroduce a legacy selected-day color.
+ * Selected day: #2B2D42 on text #EDF2F4 (11.95:1).
+ */
 .custom-persian-calendar {
-  font-size: 12px !important;
-  border-radius: 12px !important;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-  padding: 8px 0 !important;
+  font-size: 12px;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgb(0 0 0 / 0.08);
+  padding: 8px 0;
 }
 .custom-persian-calendar .Calendar__day {
-  border-radius: 8px !important;
+  border-radius: 8px;
 }
 .custom-persian-calendar .Calendar__day.-selected {
-  background: hsl(var(--brand-grey)) !important;
-  color: #fff !important;
+  background: #2B2D42;
+  color: #EDF2F4;
 }
 .custom-persian-calendar .Calendar__day.-today {
-  border: 1px solid hsl(var(--brand-grey)) !important;
+  border: 1px solid #2B2D42;
 }
-.custom-persian-calendar .Calendar__monthText {
-  font-size: 13px !important;
-}
+.custom-persian-calendar .Calendar__monthText,
 .custom-persian-calendar .Calendar__yearText {
-  font-size: 13px !important;
+  font-size: 13px;
 }
 .custom-persian-calendar .Calendar__weekDays {
-  font-size: 11px !important;
-} 
+  font-size: 11px;
+}

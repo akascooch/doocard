@@ -398,7 +398,7 @@ export default function AdminProductsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-red-600"
+                            className="text-destructive"
                             onClick={() => void handleDeactivate(product.id)}
                           >
                             <Trash2 className="h-4 w-4" />

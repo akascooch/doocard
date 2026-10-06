@@ -96,9 +96,9 @@ export default function MoneyInput({
   return (
     <div className={`space-y-2 ${className}`}>
       {label && (
-        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <Label className="text-sm font-medium text-foreground dark:text-foreground">
           {label}
-          {required && <span className="text-red-500 mr-1">*</span>}
+          {required && <span className="text-destructive mr-1">*</span>}
         </Label>
       )}
       
@@ -112,10 +112,10 @@ export default function MoneyInput({
           className={`
             w-full px-4 py-2 rounded-lg border text-right font-medium tracking-wide
             ${error 
-              ? 'border-red-500 focus:ring-red-500 focus:border-red-500' 
-              : 'border-white/10 focus:border-white/25 focus:ring-white/20'
+              ? 'border-destructive focus:ring-destructive focus:border-destructive'
+              : 'border-border focus:border-border focus:ring-ring'
             }
-            ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white/5 backdrop-blur-md'}
+            ${disabled ? 'bg-accent cursor-not-allowed' : 'bg-accent backdrop-blur-md'}
             focus:ring-1 focus:outline-none
             transition-colors duration-200
             text-base
@@ -123,17 +123,17 @@ export default function MoneyInput({
           `}
           dir="rtl"
         />
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium pointer-events-none">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground text-sm font-medium pointer-events-none">
           تومان
         </span>
       </div>
       
       {error && (
-        <p className="text-sm text-red-500 mt-1">{error}</p>
+        <p className="text-sm text-destructive mt-1">{error}</p>
       )}
       
       {!error && displayValue && parseFormattedNumber(displayValue) > 0 && (
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-foreground mt-1">
           معادل: {new Intl.NumberFormat('fa-IR').format(parseFormattedNumber(displayValue) * 10)} ریال
         </p>
       )}
@@ -157,7 +157,7 @@ export function MoneyDisplay({ value, className = '', showLabel = true }: MoneyD
   return (
     <span className={`font-medium ${className}`}>
       {formatted}
-      {showLabel && <span className="text-sm text-gray-500 mr-1">تومان</span>}
+      {showLabel && <span className="text-sm text-foreground mr-1">تومان</span>}
     </span>
   );
 }

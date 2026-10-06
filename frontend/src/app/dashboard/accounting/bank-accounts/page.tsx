@@ -222,12 +222,12 @@ export default function BankAccountsPage() {
                 <div>
                   <label className="block mb-1">نام حساب</label>
                   <Input {...form.register("name")}/>
-                  {form.formState.errors.name && <div className="text-red-500 text-xs mt-1">{form.formState.errors.name.message}</div>}
+                  {form.formState.errors.name && <div className="text-destructive text-xs mt-1">{form.formState.errors.name.message}</div>}
                 </div>
                 <div>
                   <label className="block mb-1">شماره کارت</label>
                   <Input {...form.register("cardNumber")} placeholder="1234-5678-9012-3456" dir="ltr" maxLength={19}/>
-                  {form.formState.errors.cardNumber && <div className="text-red-500 text-xs mt-1">{form.formState.errors.cardNumber.message}</div>}
+                  {form.formState.errors.cardNumber && <div className="text-destructive text-xs mt-1">{form.formState.errors.cardNumber.message}</div>}
                 </div>
                 <Button type="submit" className="w-full">{editing ? "ویرایش" : "افزودن"}</Button>
               </form>
@@ -297,14 +297,14 @@ export default function BankAccountsPage() {
                   <tr key={acc.id} className="border-b">
                     <td className="p-2 text-center">
                       {defaultSettlementId === acc.id ? (
-                        <CheckCircle2 className="text-green-600 inline" />
+                        <CheckCircle2 className="text-foreground inline" />
                       ) : (
                         <Button size="sm" variant="outline" onClick={() => handleSetDefault(acc.id)}>انتخاب</Button>
                       )}
                     </td>
                     <td className="p-2 font-bold">{acc.name}</td>
                     <td className="p-2 font-mono" dir="ltr">{acc.cardNumber}</td>
-                    <td className="p-2 font-bold text-blue-700">{typeof acc.balance === 'number' ? acc.balance.toLocaleString('fa-IR') + ' تومان' : '...'}</td>
+                    <td className="p-2 font-bold text-foreground">{typeof acc.balance === 'number' ? acc.balance.toLocaleString('fa-IR') + ' تومان' : '...'}</td>
                     <td className="p-2">{new Date(acc.createdAt).toLocaleDateString('fa-IR')}</td>
                     <td className="p-2 flex gap-2">
                       <Button variant="ghost" size="sm" onClick={() => handleEdit(acc)}>ویرایش</Button>
@@ -336,7 +336,7 @@ export default function BankAccountsPage() {
                                       <td className="p-2">
                                         <div className="text-sm">
                                           <div>{t.dateJalali || '-'}</div>
-                                          <div className="text-xs text-gray-500">
+                                          <div className="text-xs text-foreground">
                                             {new Date(t.createdAt).toLocaleTimeString('fa-IR', { 
                                               hour: '2-digit', 
                                               minute: '2-digit' 
@@ -345,14 +345,14 @@ export default function BankAccountsPage() {
                                         </div>
                                       </td>
                                       <td className="p-2">{t.description}</td>
-                                      <td className={`p-2 font-bold ${t.type === 'INCOME' ? 'text-green-600' : 'text-red-600'}`}>
+                                      <td className={`p-2 font-bold ${t.type === 'INCOME' ? 'text-foreground' : 'text-destructive'}`}>
                                         {t.type === 'INCOME' ? '+' : '-'} {Math.abs(t.amount).toLocaleString('fa-IR')} تومان
                                       </td>
                                       <td className="p-2">
                                         <span className={`px-2 py-1 rounded text-xs ${
                                           t.type === 'INCOME' 
-                                            ? 'bg-green-100 text-green-800' 
-                                            : 'bg-red-100 text-red-800'
+                                            ? 'bg-accent text-foreground'
+                                            : 'bg-accent text-foreground'
                                         }`}>
                                           {t.type === 'INCOME' ? 'درآمد' : 'هزینه'}
                                         </span>

@@ -162,7 +162,7 @@ export default function TestPushPage() {
             <Bell className="w-4 h-4 mr-2" />
             بارگذاری اشتراک‌ها ({subscriptions.length})
           </Button>
-          <Button onClick={cleanupInvalid} disabled={loading} variant="outline" className="border-red-500 text-red-600 hover:bg-red-50">
+          <Button onClick={cleanupInvalid} disabled={loading} variant="outline" className="border-border text-foreground hover:bg-accent">
             🗑️ پاکسازی اشتراک‌های نامعتبر
           </Button>
         </CardContent>
@@ -230,16 +230,16 @@ export default function TestPushPage() {
                       </div>
                     </div>
                     <div className={`px-2 py-1 rounded text-xs ${
-                      sub.endpoint.includes('fcm') ? 'bg-green-100 text-green-700' :
-                      sub.endpoint.includes('apple') ? 'bg-blue-100 text-blue-700' :
-                      'bg-gray-100 text-gray-700'
+                      sub.endpoint.includes('fcm') ? 'bg-accent text-foreground' :
+                      sub.endpoint.includes('apple') ? 'bg-accent text-foreground' :
+                      'bg-accent text-foreground'
                     }`}>
                       {sub.endpoint.includes('fcm') ? '🤖 Android' :
                        sub.endpoint.includes('apple') ? '🍎 iOS' :
                        '🌐 Other'}
                     </div>
                   </div>
-                  <div className="text-xs font-mono bg-gray-50 dark:bg-gray-900 p-2 rounded overflow-hidden text-ellipsis">
+                  <div className="text-xs font-mono bg-accent dark:bg-card p-2 rounded overflow-hidden text-ellipsis">
                     {sub.endpoint.substring(0, 80)}...
                   </div>
                 </div>

@@ -145,23 +145,22 @@ export default function DashboardLayout({
     <ErrorBoundary>
       <NotificationProvider>
         <GlobalErrorHandler />
-        <div className="aurora-dashboard-canvas min-h-screen bg-[#09090b] text-zinc-100">
+        <div className="aurora-dashboard-canvas min-h-screen bg-background text-foreground">
           {/* Auth degraded banner (session-only, non-destructive) */}
           {authDegraded && (
             <div className="fixed top-0 inset-x-0 z-40 flex justify-center px-4 pt-4">
-              <div className="w-full max-w-3xl rounded-xl border border-amber-300 bg-amber-50/95 text-amber-900 shadow-md flex flex-col md:flex-row md:items-center gap-3 px-4 py-3">
+              <div className="flex w-full max-w-3xl flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3 text-card-foreground shadow-md md:flex-row md:items-center">
                 <div className="flex-1">
                   <p className="font-semibold text-sm md:text-base">
                     نشست شما منقضی شده یا اعتبار آن کاهش یافته است.
                   </p>
-                  <p className="text-xs md:text-sm text-amber-800 mt-1">
+                  <p className="mt-1 text-xs text-card-foreground md:text-sm">
                     برای ادامه‌ی استفاده‌ی پایدار از امکانات، پیشنهاد می‌شود دوباره وارد شوید.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 self-end md:self-auto">
                   <Button
                     size="sm"
-                    className="bg-amber-600 hover:bg-amber-700 text-white"
                     onClick={() => router.push('/login')}
                   >
                     ورود مجدد
@@ -169,7 +168,7 @@ export default function DashboardLayout({
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="text-amber-800 hover:bg-amber-100"
+                    className="text-card-foreground hover:bg-accent"
                     onClick={() => setAuthDegraded(false)}
                   >
                     بستن

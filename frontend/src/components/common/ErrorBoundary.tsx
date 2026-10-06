@@ -152,8 +152,8 @@ Timestamp: ${new Date().toISOString()}
           <Card className="max-w-2xl w-full p-8">
             <div className="text-center">
               {/* Icon */}
-              <div className="w-20 h-20 rounded-full bg-red-100 dark:bg-red-900/20 mx-auto mb-6 flex items-center justify-center">
-                <AlertCircle className="w-12 h-12 text-red-600 dark:text-red-400" />
+              <div className="w-20 h-20 rounded-full bg-accent dark:bg-destructive mx-auto mb-6 flex items-center justify-center">
+                <AlertCircle className="w-12 h-12 text-destructive dark:text-destructive" />
               </div>
 
               {/* Title */}
@@ -170,11 +170,11 @@ Timestamp: ${new Date().toISOString()}
               </p>
 
               {/* Error Details */}
-              <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 mb-6 text-right">
+              <div className="bg-accent dark:bg-card rounded-lg p-4 mb-6 text-right">
                 <p className="text-xs text-muted-foreground mb-1">
                   <span className="font-semibold">شناسه خطا (Correlation ID):</span>
                 </p>
-                <p className="text-sm font-mono bg-white dark:bg-gray-900 px-3 py-2 rounded border">
+                <p className="text-sm font-mono bg-card dark:bg-card px-3 py-2 rounded border">
                   {correlationId}
                 </p>
                 
@@ -183,7 +183,7 @@ Timestamp: ${new Date().toISOString()}
                     <p className="text-xs text-muted-foreground mt-3 mb-1">
                       <span className="font-semibold">جزئیات:</span>
                     </p>
-                    <p className="text-xs font-mono text-red-600 dark:text-red-400 bg-white dark:bg-gray-900 px-3 py-2 rounded border max-h-32 overflow-auto text-left">
+                    <p className="text-xs font-mono text-foreground dark:text-foreground bg-card dark:bg-card px-3 py-2 rounded border max-h-32 overflow-auto text-left">
                       {error.message}
                     </p>
                   </>

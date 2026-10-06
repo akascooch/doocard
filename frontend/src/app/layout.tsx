@@ -1,6 +1,5 @@
 import "./globals.css"
 import "./global-background.css"
-import "./contrast-fix.css"
 import "./aurora-dashboard.css"
 import "./glass-exemptions.css"
 import { ReactNode } from "react"
@@ -49,8 +48,8 @@ export const viewport = {
   minimumScale: 1,
   userScalable: true,
   viewportFit: 'cover',
-  themeColor: 'hsl(var(--card))',
-  colorScheme: 'dark'
+  themeColor: '#2B2D42',
+  colorScheme: 'light dark'
 }
 
 interface RootLayoutProps {
@@ -77,15 +76,15 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <meta httpEquiv="Expires" content="0" />
         
         {/* PWA Meta Tags — default dark; next-themes updates color-scheme at runtime */}
-        <meta name="theme-color" content="hsl(var(--card))" />
-        <meta name="background-color" content="hsl(var(--card))" />
-        <meta name="color-scheme" content="dark" />
+        <meta name="theme-color" content="#2B2D42" />
+        <meta name="background-color" content="#2B2D42" />
+        <meta name="color-scheme" content="light dark" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Doocard" />
         <meta name="application-name" content="Doocard Salon" />
-        <meta name="msapplication-TileColor" content="hsl(var(--card))" />
+        <meta name="msapplication-TileColor" content="#2B2D42" />
         <meta name="msapplication-TileImage" content="/logo/applogo-2048.jpg" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
         

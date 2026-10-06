@@ -63,14 +63,14 @@ export default function OfflinePage() {
 
   if (isOnline) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-accent to-accent flex items-center justify-center p-4">
         <Card className="w-full max-w-md text-center">
           <CardHeader>
-            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-              <WifiOff className="w-8 h-8 text-green-600" />
+            <div className="mx-auto w-16 h-16 bg-accent rounded-full flex items-center justify-center mb-4">
+              <WifiOff className="w-8 h-8 text-foreground" />
             </div>
-            <CardTitle className="text-green-800">اتصال برقرار شد!</CardTitle>
-            <CardDescription className="text-green-600">
+            <CardTitle className="text-foreground">اتصال برقرار شد!</CardTitle>
+            <CardDescription className="text-foreground">
               اتصال اینترنت شما برقرار شده است
             </CardDescription>
           </CardHeader>
@@ -86,16 +86,16 @@ export default function OfflinePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-accent to-accent flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
         {/* Header Card */}
         <Card className="text-center">
           <CardHeader>
-            <div className="mx-auto w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-4">
-              <WifiOff className="w-10 h-10 text-red-600" />
+            <div className="mx-auto w-20 h-20 bg-accent rounded-full flex items-center justify-center mb-4">
+              <WifiOff className="w-10 h-10 text-destructive" />
             </div>
-            <CardTitle className="text-red-800 text-xl">حالت آفلاین</CardTitle>
-            <CardDescription className="text-red-600">
+            <CardTitle className="text-destructive text-xl">حالت آفلاین</CardTitle>
+            <CardDescription className="text-destructive">
               اتصال اینترنت شما قطع شده است
             </CardDescription>
           </CardHeader>
@@ -108,22 +108,22 @@ export default function OfflinePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-gray-600">وضعیت:</span>
+              <span className="text-foreground">وضعیت:</span>
               <Badge variant="destructive">آفلاین</Badge>
             </div>
             
             {lastSync && (
               <div className="flex items-center justify-between">
-                <span className="text-gray-600">آخرین همگام‌سازی:</span>
-                <span className="text-sm text-gray-500">
+                <span className="text-foreground">آخرین همگام‌سازی:</span>
+                <span className="text-sm text-foreground">
                   {new Date(lastSync).toLocaleString('fa-IR')}
                 </span>
               </div>
             )}
             
             <div className="flex items-center justify-between">
-              <span className="text-gray-600">زمان:</span>
-              <span className="text-sm text-gray-500">
+              <span className="text-foreground">زمان:</span>
+              <span className="text-sm text-foreground">
                 {new Date().toLocaleString('fa-IR')}
               </span>
             </div>
@@ -138,7 +138,7 @@ export default function OfflinePage() {
           <CardContent className="space-y-3">
             <Button 
               onClick={handleRetryConnection} 
-              className="w-full bg-blue-600 hover:bg-blue-700"
+              className="w-full bg-primary hover:bg-primary"
             >
               <RefreshCw className="w-4 h-4 ml-2" />
               تلاش مجدد برای اتصال
@@ -174,41 +174,41 @@ export default function OfflinePage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center space-x-3 space-x-reverse">
-              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                <Clock className="w-4 h-4 text-green-600" />
+              <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center">
+                <Clock className="w-4 h-4 text-foreground" />
               </div>
-              <span className="text-sm text-gray-600">مشاهده نوبت‌های ذخیره شده</span>
+              <span className="text-sm text-foreground">مشاهده نوبت‌های ذخیره شده</span>
             </div>
             
             <div className="flex items-center space-x-3 space-x-reverse">
-              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                <Phone className="w-4 h-4 text-green-600" />
+              <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center">
+                <Phone className="w-4 h-4 text-foreground" />
               </div>
-              <span className="text-sm text-gray-600">مشاهده اطلاعات مشتریان</span>
+              <span className="text-sm text-foreground">مشاهده اطلاعات مشتریان</span>
             </div>
             
             <div className="flex items-center space-x-3 space-x-reverse">
-              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                <RefreshCw className="w-4 h-4 text-green-600" />
+              <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center">
+                <RefreshCw className="w-4 h-4 text-foreground" />
               </div>
-              <span className="text-sm text-gray-600">همگام‌سازی خودکار پس از اتصال</span>
+              <span className="text-sm text-foreground">همگام‌سازی خودکار پس از اتصال</span>
             </div>
           </CardContent>
         </Card>
 
         {/* Help Card */}
-        <Card className="bg-blue-50 border-blue-200">
+        <Card className="bg-accent border-border">
           <CardHeader>
-            <CardTitle className="text-blue-800 text-lg">راهنمایی</CardTitle>
+            <CardTitle className="text-foreground text-lg">راهنمایی</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <p className="text-sm text-blue-700">
+            <p className="text-sm text-foreground">
               • بررسی کنید که Wi-Fi یا داده موبایل شما فعال باشد
             </p>
-            <p className="text-sm text-blue-700">
+            <p className="text-sm text-foreground">
               • مودم خود را ریست کنید
             </p>
-            <p className="text-sm text-blue-700">
+            <p className="text-sm text-foreground">
               • در صورت مشکل، با پشتیبانی تماس بگیرید
             </p>
           </CardContent>

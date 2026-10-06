@@ -388,9 +388,9 @@ export default function PermissionsPage() {
                             {Object.entries(perms).map(([feature, hasPermission]) => (
                               <div key={feature} className="flex items-center gap-1">
                                 {hasPermission ? (
-                                  <CheckCircle className="w-3 h-3 text-green-500" />
+                                  <CheckCircle className="w-3 h-3 text-foreground" />
                                 ) : (
-                                  <XCircle className="w-3 h-3 text-red-500" />
+                                  <XCircle className="w-3 h-3 text-destructive" />
                                 )}
                                 <span className="text-xs">{features.find(f => f.key === feature)?.label}</span>
                               </div>

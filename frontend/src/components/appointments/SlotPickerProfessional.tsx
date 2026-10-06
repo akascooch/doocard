@@ -110,13 +110,13 @@ export default function SlotPickerProfessional({
     return (
       <div className="space-y-2">
         {label && (
-          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <Label className="text-sm font-medium text-foreground dark:text-foreground">
             {label}
-            {required && <span className="text-red-500 mr-1">*</span>}
+            {required && <span className="text-destructive mr-1">*</span>}
           </Label>
         )}
-        <div className="p-6 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 text-center">
-          <Calendar className="h-8 w-8 mx-auto mb-2 text-gray-500 dark:text-gray-300" />
+        <div className="p-6 bg-gradient-to-br from-accent to-accent dark:from-background dark:to-background rounded-xl border-2 border-dashed border-border dark:border-border text-center">
+          <Calendar className="h-8 w-8 mx-auto mb-2 text-foreground dark:text-foreground" />
           <p className="text-sm text-foreground/80">
             لطفاً ابتدا آرایشگر و تاریخ را انتخاب کنید
           </p>
@@ -129,13 +129,13 @@ export default function SlotPickerProfessional({
     return (
       <div className="space-y-2">
         {label && (
-          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <Label className="text-sm font-medium text-foreground dark:text-foreground">
             {label}
-            {required && <span className="text-red-500 mr-1">*</span>}
+            {required && <span className="text-destructive mr-1">*</span>}
           </Label>
         )}
-        <div className="h-32 bg-white/[0.04] border border-white/10 rounded-xl animate-pulse flex items-center justify-center">
-          <RefreshCw className="h-6 w-6 animate-spin text-gray-500 dark:text-gray-300" />
+        <div className="h-32 bg-accent border border-border rounded-xl animate-pulse flex items-center justify-center">
+          <RefreshCw className="h-6 w-6 animate-spin text-foreground dark:text-foreground" />
         </div>
       </div>
     );
@@ -148,9 +148,9 @@ export default function SlotPickerProfessional({
     <div className="space-y-3" dir="rtl">
       {label && (
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <Label className="text-sm font-medium text-foreground dark:text-foreground">
             {label}
-            {required && <span className="text-red-500 mr-1">*</span>}
+            {required && <span className="text-destructive mr-1">*</span>}
           </Label>
           <div className="flex items-center gap-2">
             {slots.length > 0 && (
@@ -178,8 +178,8 @@ export default function SlotPickerProfessional({
           {/* Available Slots */}
           {availableSlots.length > 0 && (
             <div>
-              <p className="text-xs text-gray-500 mb-2 flex items-center">
-                <div className="w-2 h-2 rounded-full bg-green-500 ml-2"></div>
+              <p className="text-xs text-foreground mb-2 flex items-center">
+                <div className="w-2 h-2 rounded-full bg-primary ml-2"></div>
                 زمان‌های خالی
               </p>
               <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
@@ -207,8 +207,8 @@ export default function SlotPickerProfessional({
           {/* Busy Slots (if any) */}
           {busySlots.length > 0 && (
             <div>
-              <p className="text-xs text-gray-500 mb-2 flex items-center">
-                <div className="w-2 h-2 rounded-full bg-red-500 ml-2"></div>
+              <p className="text-xs text-foreground mb-2 flex items-center">
+                <div className="w-2 h-2 rounded-full bg-destructive ml-2"></div>
                 زمان‌های پر
               </p>
               <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
@@ -230,9 +230,9 @@ export default function SlotPickerProfessional({
 
           {/* Selected Time Badge */}
           {selectedTime && (
-            <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-              <Clock className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <span className="text-sm font-medium text-green-700 dark:text-green-300">
+            <div className="flex items-center gap-2 p-3 bg-accent dark:bg-primary rounded-lg border border-border dark:border-border">
+              <Clock className="h-4 w-4 text-foreground dark:text-foreground" />
+              <span className="text-sm font-medium text-foreground dark:text-foreground">
                 زمان انتخاب شده: {getDisplayTime(selectedTime)}
               </span>
             </div>
@@ -244,20 +244,20 @@ export default function SlotPickerProfessional({
           </p>
         </>
       ) : (
-        <div className="p-6 bg-amber-50 dark:bg-amber-950/20 rounded-xl border-2 border-amber-200 dark:border-amber-800 text-center">
-          <Clock className="h-8 w-8 mx-auto mb-2 text-amber-500" />
-          <p className="text-sm text-amber-700 dark:text-amber-300 font-medium">
+        <div className="p-6 bg-accent dark:bg-primary rounded-xl border-2 border-border dark:border-border text-center">
+          <Clock className="h-8 w-8 mx-auto mb-2 text-foreground" />
+          <p className="text-sm text-foreground dark:text-foreground font-medium">
             زمان خالی برای این تاریخ موجود نیست
           </p>
-          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+          <p className="text-xs text-foreground dark:text-foreground mt-1">
             لطفاً تاریخ دیگری انتخاب کنید
           </p>
         </div>
       )}
 
       {error && (
-        <p className="text-sm text-red-500 mt-1 flex items-center">
-          <span className="inline-block w-1 h-1 rounded-full bg-red-500 ml-2"></span>
+        <p className="text-sm text-destructive mt-1 flex items-center">
+          <span className="inline-block w-1 h-1 rounded-full bg-destructive ml-2"></span>
           {error}
         </p>
       )}

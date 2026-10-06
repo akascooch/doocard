@@ -210,7 +210,7 @@ export default function EditUserPage() {
                   name="role"
                   value={formData.role}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   {ADMIN_USER_ROLE_OPTIONS.map(role => (
                     <option key={role.value} value={role.value}>

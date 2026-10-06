@@ -216,9 +216,9 @@ export default function CustomerTypeahead({
     <>
       <div className="space-y-2" dir="rtl">
         {label && (
-          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <Label className="text-sm font-medium text-foreground dark:text-foreground">
             {label}
-            {required && <span className="text-red-500 mr-1">*</span>}
+            {required && <span className="text-destructive mr-1">*</span>}
           </Label>
         )}
 
@@ -229,7 +229,7 @@ export default function CustomerTypeahead({
               variant="outline"
               className={cn(
                 'w-full justify-between text-right h-auto min-h-[40px] py-2',
-                error && 'border-red-500',
+                error && 'border-destructive',
                 !selectedCustomer && 'text-muted-foreground'
               )}
             >
@@ -284,7 +284,7 @@ export default function CustomerTypeahead({
                   customers.map((customer) => (
                     <div
                       key={customer.id}
-                      className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-white/5 cursor-pointer hover:bg-white/10 transition-colors"
+                      className="flex items-center justify-between p-3 rounded-lg border border-border bg-accent cursor-pointer hover:bg-accent transition-colors"
                       onClick={() => {
                         selectCustomer(customer);
                         setOpen(false);
@@ -300,7 +300,7 @@ export default function CustomerTypeahead({
                         </div>
                       </div>
                       {selectedCustomerId === customer.id && (
-                        <Check className="h-5 w-5 text-main-orange" />
+                        <Check className="h-5 w-5 text-foreground" />
                       )}
                     </div>
                   ))
@@ -326,7 +326,7 @@ export default function CustomerTypeahead({
                         setIsQuickAddOpen(true);
                         setOpen(false);
                       }}
-                      className="bg-main-orange hover:bg-main-orange/90"
+                      className="bg-primary hover:bg-accent"
                     >
                       <Plus className="h-4 w-4 ml-2" />
                       افزودن سریع مشتری
@@ -339,8 +339,8 @@ export default function CustomerTypeahead({
         </Dialog>
 
         {selectedCustomer && (
-          <div className="flex items-center justify-between bg-white/[0.06] border border-white/10 backdrop-blur-md rounded-lg p-2">
-            <span className="text-sm text-slate-300">
+          <div className="flex items-center justify-between bg-accent border border-border backdrop-blur-md rounded-lg p-2">
+            <span className="text-sm text-foreground">
               مشتری: {selectedCustomer?.user?.name ?? 'نام نامشخص'}
               {' — '}
               {selectedCustomer.preferredEmployee?.user?.name?.trim() || 'تیم سالن'}
@@ -361,7 +361,7 @@ export default function CustomerTypeahead({
           </div>
         )}
 
-        {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
+        {error && <p className="text-sm text-destructive mt-1">{error}</p>}
       </div>
 
       {/* Quick Add Customer Dialog */}
@@ -418,7 +418,7 @@ export default function CustomerTypeahead({
             </Button>
             <Button
               type="button"
-              className="bg-main-orange hover:bg-main-orange/90"
+              className="bg-primary hover:bg-accent"
               onClick={handleQuickAdd}
             >
               ایجاد مشتری

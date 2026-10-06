@@ -33,7 +33,7 @@ export default function NotificationBell() {
       <Bell
         className={cn(
           'w-6 h-6 transition-colors',
-          unreadCount > 0 ? 'text-white' : 'text-white/60'
+          unreadCount > 0 ? 'text-foreground' : 'text-foreground'
         )}
       />
       
@@ -44,7 +44,7 @@ export default function NotificationBell() {
             animate={{ scale: 1 }}
             exit={{ scale: 0 }}
             className={cn(
-              'absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs font-bold min-w-[18px] h-[18px] flex items-center justify-center px-1',
+              'absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full text-xs font-bold min-w-[18px] h-[18px] flex items-center justify-center px-1',
               ping && 'animate-ping'
             )}
           >
@@ -56,7 +56,7 @@ export default function NotificationBell() {
       {/* Animated ring on new notification */}
       {ping && (
         <motion.div
-          className="absolute inset-0 rounded-full border-2 border-white/40"
+          className="absolute inset-0 rounded-full border-2 border-border"
           initial={{ scale: 1, opacity: 1 }}
           animate={{ scale: 2, opacity: 0 }}
           transition={{ duration: 0.6 }}

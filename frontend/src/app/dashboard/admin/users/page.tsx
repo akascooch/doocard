@@ -274,13 +274,13 @@ export default function AdminUsersPage() {
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'ADMIN':
-        return <Badge className="bg-red-100 text-red-800 border-red-200"><Crown className="h-3 w-3 ml-1" />مدیر</Badge>
+        return <Badge className="bg-accent text-foreground border-border"><Crown className="h-3 w-3 ml-1" />مدیر</Badge>
       case 'EMPLOYEE':
-        return <Badge className="bg-blue-100 text-blue-800 border-blue-200"><UserCog className="h-3 w-3 ml-1" />آرایشگر</Badge>
+        return <Badge className="bg-accent text-foreground border-border"><UserCog className="h-3 w-3 ml-1" />آرایشگر</Badge>
       case 'SERVICE':
-        return <Badge className="bg-teal-100 text-teal-800 border-teal-200"><UserCog className="h-3 w-3 ml-1" />پرسنل خدمات</Badge>
+        return <Badge className="bg-primary text-foreground border-border"><UserCog className="h-3 w-3 ml-1" />پرسنل خدمات</Badge>
       case 'CUSTOMER':
-        return <Badge className="bg-green-100 text-green-800 border-green-200"><UserCheck className="h-3 w-3 ml-1" />مشتری</Badge>
+        return <Badge className="bg-accent text-foreground border-border"><UserCheck className="h-3 w-3 ml-1" />مشتری</Badge>
       default:
         return <Badge variant="outline">{getUserRoleLabel(role)}</Badge>
     }
@@ -289,13 +289,13 @@ export default function AdminUsersPage() {
   const getRoleIcon = (role: string) => {
     switch (role) {
       case 'ADMIN':
-        return <Crown className="h-4 w-4 text-red-600" />
+        return <Crown className="h-4 w-4 text-destructive" />
       case 'EMPLOYEE':
-        return <UserCog className="h-4 w-4 text-blue-600" />
+        return <UserCog className="h-4 w-4 text-foreground" />
       case 'SERVICE':
-        return <UserCog className="h-4 w-4 text-teal-600" />
+        return <UserCog className="h-4 w-4 text-foreground" />
       case 'CUSTOMER':
-        return <UserCheck className="h-4 w-4 text-green-600" />
+        return <UserCheck className="h-4 w-4 text-foreground" />
       default:
         return <Users className="h-4 w-4 text-muted-foreground" />
     }
@@ -304,7 +304,7 @@ export default function AdminUsersPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-main-orange"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-border"></div>
       </div>
     )
   }
@@ -328,7 +328,7 @@ export default function AdminUsersPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">کل کاربران</CardTitle>
-            <Users className="h-4 w-4 text-main-orange" />
+            <Users className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{users.length}</div>
@@ -337,7 +337,7 @@ export default function AdminUsersPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">مشتریان</CardTitle>
-            <UserCheck className="h-4 w-4 text-green-600" />
+            <UserCheck className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{users.filter(u => u.role === 'CUSTOMER').length}</div>
@@ -346,7 +346,7 @@ export default function AdminUsersPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">کارکنان</CardTitle>
-            <UserCog className="h-4 w-4 text-blue-600" />
+            <UserCog className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{users.filter(u => u.role === 'EMPLOYEE' || u.role === 'SERVICE').length}</div>
@@ -355,7 +355,7 @@ export default function AdminUsersPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">مدیران</CardTitle>
-            <Crown className="h-4 w-4 text-red-600" />
+            <Crown className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{users.filter(u => u.role === 'ADMIN').length}</div>
@@ -501,7 +501,7 @@ export default function AdminUsersPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="text-blue-600 hover:text-blue-700"
+                          className="text-foreground hover:text-foreground"
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
@@ -512,7 +512,7 @@ export default function AdminUsersPage() {
                             setSelectedUser(user)
                             setIsPasswordDialogOpen(true)
                           }}
-                          className="text-yellow-600 hover:text-yellow-700"
+                          className="text-foreground hover:text-foreground"
                         >
                           <Key className="h-4 w-4" />
                         </Button>
@@ -520,7 +520,7 @@ export default function AdminUsersPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleDeleteUser(user.id)}
-                          className="text-red-600 hover:text-red-700"
+                          className="text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -599,7 +599,7 @@ export default function AdminUsersPage() {
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
               انصراف
             </Button>
-            <Button onClick={handleEditUser} className="bg-main-orange hover:bg-main-orange/90">
+            <Button onClick={handleEditUser} className="bg-primary hover:bg-accent">
               ذخیره تغییرات
             </Button>
           </div>
@@ -641,7 +641,7 @@ export default function AdminUsersPage() {
             <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)}>
               انصراف
             </Button>
-            <Button onClick={handleChangePassword} className="bg-main-orange hover:bg-main-orange/90">
+            <Button onClick={handleChangePassword} className="bg-primary hover:bg-accent">
               تغییر رمز عبور
             </Button>
           </div>

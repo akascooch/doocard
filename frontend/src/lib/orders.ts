@@ -68,13 +68,13 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 }
 
 export const ORDER_STATUS_BADGE_CLASS: Record<OrderStatus, string> = {
-  AWAITING_QUOTE: 'border-orange-400/40 bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-200',
-  PENDING_VERIFICATION: 'border-amber-400/40 bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200',
-  PAID: 'border-emerald-400/40 bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200',
-  PROCESSING: 'border-sky-400/40 bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-200',
-  SHIPPED: 'border-indigo-400/40 bg-indigo-100 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-200',
-  COMPLETED: 'border-zinc-400/40 bg-zinc-100 text-zinc-800 dark:bg-zinc-500/15 dark:text-zinc-200',
-  CANCELLED: 'border-red-400/40 bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300',
+  AWAITING_QUOTE: 'border-border bg-accent text-accent-foreground',
+  PENDING_VERIFICATION: 'border-border bg-accent text-accent-foreground',
+  PAID: 'border-border bg-accent text-accent-foreground',
+  PROCESSING: 'border-border bg-accent text-accent-foreground',
+  SHIPPED: 'border-border bg-accent text-accent-foreground',
+  COMPLETED: 'border-border bg-accent text-accent-foreground',
+  CANCELLED: 'border-border bg-accent text-accent-foreground',
 }
 
 export function isOrderStatus(value: string): value is OrderStatus {

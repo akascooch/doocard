@@ -51,7 +51,7 @@ export default function MonthDetailPage() {
                 <span className="font-bold">تراکنش‌ها:</span>
                 <ul className="list-disc pr-6 mt-2">
                   {data.transactions.map((t: any) => (
-                    <li key={t.id} className={t.amount < 0 ? 'text-red-600' : 'text-green-700'}>
+                    <li key={t.id} className={t.amount < 0 ? 'text-destructive' : 'text-foreground'}>
                       {t.title}: {Math.abs(t.amount).toLocaleString('fa-IR')} تومان
                     </li>
                   ))}

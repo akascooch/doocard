@@ -341,14 +341,14 @@ export default function EmployeeSalaryPage() {
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">حقوق کارمندان</h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-1">
+        <h1 className="text-2xl font-bold text-foreground dark:text-foreground">حقوق کارمندان</h1>
+        <p className="text-foreground dark:text-foreground mt-1">
           تسویه کمیسیون آرایشگران، انعام پرسنل خدمات، و تأیید درخواست‌های حقوق
         </p>
       </div>
 
       {pendingRequests.length > 0 && (
-        <Card className="bg-white dark:bg-gray-900 border border-amber-300">
+        <Card className="bg-card dark:bg-card border border-border">
           <CardHeader>
             <CardTitle>درخواست‌های در انتظار ({pendingRequests.length})</CardTitle>
             <CardDescription>اسنپ‌شات ثبت‌شده توسط کارمند/پرسنل — قبل از پرداخت اختلاف با موجودی فعلی را بررسی کنید</CardDescription>
@@ -410,7 +410,7 @@ export default function EmployeeSalaryPage() {
                   </Button>
                   <Button
                     size="sm"
-                    className="bg-green-600 text-white"
+                    className="bg-primary text-primary-foreground"
                     onClick={async () => {
                       if (!bankAccountId) {
                         toast({ title: 'خطا', description: 'حساب بانکی را انتخاب کنید', variant: 'destructive' })
@@ -443,7 +443,7 @@ export default function EmployeeSalaryPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-red-600"
+                    className="text-destructive"
                     onClick={async () => {
                       try {
                         await axios.post(`/admin/employee-salary/requests/${r.id}/reject`, {
@@ -490,17 +490,17 @@ export default function EmployeeSalaryPage() {
         </Card>
       )}
 
-      <Card className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+      <Card className="bg-card dark:bg-card border border-border dark:border-border">
         <CardHeader>
-          <CardTitle className="text-gray-900 dark:text-white">پارامترها</CardTitle>
-          <CardDescription className="text-gray-600 dark:text-gray-400">
+          <CardTitle className="text-foreground dark:text-foreground">پارامترها</CardTitle>
+          <CardDescription className="text-foreground dark:text-foreground">
             کارمند، بازه تاریخ و درصد سهم کارمند را انتخاب کنید
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <Label className="text-gray-700 dark:text-gray-300">کارمند</Label>
+              <Label className="text-foreground dark:text-foreground">کارمند</Label>
               <Select value={employeeId} onValueChange={setEmployeeId} disabled={employeesLoading}>
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="انتخاب کارمند" />
@@ -515,7 +515,7 @@ export default function EmployeeSalaryPage() {
               </Select>
             </div>
             <div>
-              <Label className="text-gray-700 dark:text-gray-300">از تاریخ</Label>
+              <Label className="text-foreground dark:text-foreground">از تاریخ</Label>
               <PersianDatePicker
                 value={fromDate}
                 onChange={setFromDate}
@@ -524,7 +524,7 @@ export default function EmployeeSalaryPage() {
               />
             </div>
             <div>
-              <Label className="text-gray-700 dark:text-gray-300">تا تاریخ</Label>
+              <Label className="text-foreground dark:text-foreground">تا تاریخ</Label>
               <PersianDatePicker
                 value={toDate}
                 onChange={setToDate}
@@ -533,7 +533,7 @@ export default function EmployeeSalaryPage() {
               />
             </div>
             <div>
-              <Label className="text-gray-700 dark:text-gray-300">درصد سهم کارمند</Label>
+              <Label className="text-foreground dark:text-foreground">درصد سهم کارمند</Label>
               <Input
                 type="number"
                 min={0}
@@ -548,7 +548,7 @@ export default function EmployeeSalaryPage() {
           <Button
             onClick={handlePreview}
             disabled={loading || employeesLoading}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="bg-primary hover:bg-primary text-primary-foreground"
           >
             {loading ? 'در حال بارگذاری...' : 'پیش‌نمایش'}
           </Button>
@@ -569,10 +569,10 @@ export default function EmployeeSalaryPage() {
       </Card>
 
       {preview && (
-        <Card className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+        <Card className="bg-card dark:bg-card border border-border dark:border-border">
           <CardHeader>
-            <CardTitle className="text-gray-900 dark:text-white">نتیجه پیش‌نمایش</CardTitle>
-            <CardDescription className="text-gray-600 dark:text-gray-400">
+            <CardTitle className="text-foreground dark:text-foreground">نتیجه پیش‌نمایش</CardTitle>
+            <CardDescription className="text-foreground dark:text-foreground">
               {preview.isServiceStaff
                 ? `پرسنل خدمات — ${preview.tipAllocationCount ?? 0} تخصیص انعام`
                 : preview.isSpecialCommission
@@ -582,7 +582,7 @@ export default function EmployeeSalaryPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             {preview.lastCommissionSettlementAt && (
-              <p className="text-sm text-amber-700 dark:text-amber-400">
+              <p className="text-sm text-foreground dark:text-foreground">
                 آخرین تسویه: {formatToJalali(preview.lastCommissionSettlementAt)}
                 {preview.suggestedPeriodStartJalali && (
                   <> — پیشنهاد شروع دوره: {preview.suggestedPeriodStartJalali}</>
@@ -590,39 +590,39 @@ export default function EmployeeSalaryPage() {
               </p>
             )}
             {preview.excludedAlreadySettledAppointments > 0 && (
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-foreground">
                 {preview.excludedAlreadySettledAppointments} نوبت قبلاً در تسویه دیگری لحاظ شده و از این محاسبه حذف شدند.
               </p>
             )}
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="rounded-lg border border-gray-200 dark:border-gray-600 p-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+              <div className="rounded-lg border border-border dark:border-border p-4">
+                <p className="text-sm text-foreground dark:text-foreground">
                   {preview.isServiceStaff ? 'تعداد تخصیص انعام' : 'تعداد نوبت‌ها'}
                 </p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">
+                <p className="text-xl font-bold text-foreground dark:text-foreground">
                   {preview.isServiceStaff
                     ? (preview.tipAllocationCount ?? 0)
                     : preview.totalAppointments}
                 </p>
               </div>
-              <div className="rounded-lg border border-gray-200 dark:border-gray-600 p-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+              <div className="rounded-lg border border-border dark:border-border p-4">
+                <p className="text-sm text-foreground dark:text-foreground">
                   {preview.isServiceStaff ? 'مجموع انعام' : 'مجموع درآمد'}
                 </p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">
+                <p className="text-xl font-bold text-foreground dark:text-foreground">
                   {formatTomansFromRial(preview.isServiceStaff ? preview.totalTipIncome ?? 0 : preview.totalRevenue)}
                 </p>
               </div>
-              <div className="rounded-lg border border-gray-200 dark:border-gray-600 p-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400">سهم کارمند (ناخالص)</p>
-                <p className="text-xl font-bold text-green-600 dark:text-green-400">
+              <div className="rounded-lg border border-border dark:border-border p-4">
+                <p className="text-sm text-foreground dark:text-foreground">سهم کارمند (ناخالص)</p>
+                <p className="text-xl font-bold text-foreground dark:text-foreground">
                   {formatTomansFromRial(preview.payoutGrossBeforeDeduction)}
                 </p>
               </div>
-              <div className="rounded-lg border border-gray-200 dark:border-gray-600 p-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400">سهم پلتفرم</p>
-                <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+              <div className="rounded-lg border border-border dark:border-border p-4">
+                <p className="text-sm text-foreground dark:text-foreground">سهم پلتفرم</p>
+                <p className="text-xl font-bold text-foreground dark:text-foreground">
                   {formatTomansFromRial(preview.platformShare)}
                 </p>
               </div>
@@ -630,26 +630,26 @@ export default function EmployeeSalaryPage() {
 
             {!preview.isServiceStaff && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="rounded-lg border border-amber-300 dark:border-amber-700 p-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400">کسورات هر نوبت</p>
-                <p className="text-xl font-bold text-amber-600 dark:text-amber-400">
+              <div className="rounded-lg border border-border dark:border-border p-4">
+                <p className="text-sm text-foreground dark:text-foreground">کسورات هر نوبت</p>
+                <p className="text-xl font-bold text-foreground dark:text-foreground">
                   {formatTomansFromRial(preview.deductionPerAppointmentAmount)}
                 </p>
               </div>
-              <div className="rounded-lg border border-amber-300 dark:border-amber-700 p-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400">مجموع کسورات نوبت</p>
-                <p className="text-xl font-bold text-amber-600 dark:text-amber-400">
+              <div className="rounded-lg border border-border dark:border-border p-4">
+                <p className="text-sm text-foreground dark:text-foreground">مجموع کسورات نوبت</p>
+                <p className="text-xl font-bold text-foreground dark:text-foreground">
                   {formatTomansFromRial(preview.totalDeduction)}
                 </p>
               </div>
-              <div className="rounded-lg border border-orange-300 dark:border-orange-700 p-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400">برداشت‌های قبلی</p>
-                <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
+              <div className="rounded-lg border border-border dark:border-border p-4">
+                <p className="text-sm text-foreground dark:text-foreground">برداشت‌های قبلی</p>
+                <p className="text-xl font-bold text-foreground dark:text-foreground">
                   {formatTomansFromRial(preview.priorWithdrawalsTotal)}
                 </p>
               </div>
-              <div className="rounded-lg border border-green-300 dark:border-green-700 p-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+              <div className="rounded-lg border border-border dark:border-border p-4">
+                <p className="text-sm text-foreground dark:text-foreground">
                   {Number(preview.netPayable) < 0
                     ? 'بدهی قابل تسویه (منفی)'
                     : 'قابل برداشت از سهم نوبت‌ها'}
@@ -657,8 +657,8 @@ export default function EmployeeSalaryPage() {
                 <p
                   className={`text-xl font-bold ${
                     Number(preview.netPayable) < 0
-                      ? 'text-red-700 dark:text-red-300'
-                      : 'text-green-700 dark:text-green-300'
+                      ? 'text-destructive dark:text-foreground'
+                      : 'text-foreground dark:text-foreground'
                   }`}
                 >
                   {formatTomansFromRial(preview.netPayable)}
@@ -670,16 +670,16 @@ export default function EmployeeSalaryPage() {
             {!preview.isServiceStaff && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {Number(preview.teamShareIncome || 0) > 0 && (
-              <div className="rounded-lg border border-teal-300 dark:border-teal-700 p-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400">سهم انعام تیمی</p>
-                <p className="text-xl font-bold text-teal-700 dark:text-teal-300">
+              <div className="rounded-lg border border-border dark:border-border p-4">
+                <p className="text-sm text-foreground dark:text-foreground">سهم انعام تیمی</p>
+                <p className="text-xl font-bold text-foreground dark:text-foreground">
                   {formatTomansFromRial(preview.teamShareIncome || '0')}
                 </p>
               </div>
               )}
-              <div className="rounded-lg border border-emerald-400 dark:border-emerald-600 p-4 bg-emerald-50/50 dark:bg-emerald-950/20">
-                <p className="text-sm text-gray-600 dark:text-gray-400">جمع قابل تسویه</p>
-                <p className="text-xl font-bold text-emerald-800 dark:text-emerald-300">
+              <div className="rounded-lg border border-border dark:border-border p-4 bg-accent dark:bg-primary">
+                <p className="text-sm text-foreground dark:text-foreground">جمع قابل تسویه</p>
+                <p className="text-xl font-bold text-foreground dark:text-foreground">
                   {formatTomansFromRial(
                     preview.settlementPayable ?? preview.netPayable,
                   )}
@@ -693,15 +693,15 @@ export default function EmployeeSalaryPage() {
 
             {preview.isServiceStaff && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="rounded-lg border border-orange-300 dark:border-orange-700 p-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400">برداشت‌های قبلی</p>
-                <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
+              <div className="rounded-lg border border-border dark:border-border p-4">
+                <p className="text-sm text-foreground dark:text-foreground">برداشت‌های قبلی</p>
+                <p className="text-xl font-bold text-foreground dark:text-foreground">
                   {formatTomansFromRial(preview.priorWithdrawalsTotal)}
                 </p>
               </div>
-              <div className="rounded-lg border border-green-300 dark:border-green-700 p-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400">خالص انعام قابل پرداخت</p>
-                <p className="text-xl font-bold text-green-700 dark:text-green-300">
+              <div className="rounded-lg border border-border dark:border-border p-4">
+                <p className="text-sm text-foreground dark:text-foreground">خالص انعام قابل پرداخت</p>
+                <p className="text-xl font-bold text-foreground dark:text-foreground">
                   {formatTomansFromRial(preview.netPayable)}
                 </p>
               </div>
@@ -710,7 +710,7 @@ export default function EmployeeSalaryPage() {
 
             {preview.priorWithdrawals.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">برداشت‌های دوره</h3>
+                <h3 className="text-lg font-semibold text-foreground dark:text-foreground mb-2">برداشت‌های دوره</h3>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -736,7 +736,7 @@ export default function EmployeeSalaryPage() {
 
             {preview.breakdown.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                <h3 className="text-lg font-semibold text-foreground dark:text-foreground mb-2">
                   {preview.isServiceStaff ? 'جزئیات انعام (روزانه)' : 'جزئیات نوبت‌ها'}
                 </h3>
                 <Table>
@@ -777,7 +777,7 @@ export default function EmployeeSalaryPage() {
               Array.isArray(preview.appointments) &&
               preview.appointments.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                <h3 className="text-lg font-semibold text-foreground dark:text-foreground mb-2">
                   جزئیات نوبت‌ها (مالیات و سهم خالص)
                 </h3>
                 <Table>
@@ -802,7 +802,7 @@ export default function EmployeeSalaryPage() {
                         <TableCell
                           className={
                             Number(a.netShare) < 0
-                              ? 'text-red-600 dark:text-red-400'
+                              ? 'text-destructive dark:text-destructive'
                               : undefined
                           }
                         >
@@ -815,8 +815,8 @@ export default function EmployeeSalaryPage() {
               </div>
             )}
 
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">ثبت تسویه</h3>
+            <div className="border-t border-border dark:border-border pt-4 space-y-4">
+              <h3 className="text-lg font-semibold text-foreground dark:text-foreground">ثبت تسویه</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label>حساب بانکی پرداخت</Label>
@@ -845,7 +845,7 @@ export default function EmployeeSalaryPage() {
                 </Label>
               </div>
               {!preview.isServiceStaff && (
-                <p className="text-sm text-emerald-800 dark:text-emerald-300 font-medium tabular-nums">
+                <p className="text-sm text-foreground dark:text-foreground font-medium tabular-nums">
                   مبلغ تسویه نهایی:{' '}
                   {formatTomansFromRial(
                     preview.settlementPayable ?? preview.netPayable,
@@ -862,7 +862,7 @@ export default function EmployeeSalaryPage() {
               <Button
                 onClick={handleCommit}
                 disabled={committing}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-primary hover:bg-primary text-primary-foreground"
               >
                 {committing
                   ? 'در حال ثبت...'
@@ -884,9 +884,9 @@ export default function EmployeeSalaryPage() {
       )}
 
       {history.length > 0 && (
-        <Card className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+        <Card className="bg-card dark:bg-card border border-border dark:border-border">
           <CardHeader>
-            <CardTitle className="text-gray-900 dark:text-white">تاریخچه تسویه‌ها</CardTitle>
+            <CardTitle className="text-foreground dark:text-foreground">تاریخچه تسویه‌ها</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -910,9 +910,9 @@ export default function EmployeeSalaryPage() {
                     <TableCell>{formatTomansFromRial(h.netPayableRial)}</TableCell>
                     <TableCell>
                       {h.status === 'ACTIVE' ? (
-                        <span className="text-green-600">فعال</span>
+                        <span className="text-foreground">فعال</span>
                       ) : (
-                        <span className="text-gray-500">برگشت‌شده</span>
+                        <span className="text-foreground">برگشت‌شده</span>
                       )}
                     </TableCell>
                     <TableCell>{formatToJalali(h.settledAt)}</TableCell>
@@ -921,7 +921,7 @@ export default function EmployeeSalaryPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="text-red-600"
+                          className="text-destructive"
                           onClick={() => handleReverse(h.id)}
                         >
                           برگشت

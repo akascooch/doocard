@@ -518,7 +518,7 @@ export default function CustomersPage() {
                              onChange={(e: any) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border rounded-md"
             />
-            <MagnifyingGlassIcon className="absolute right-3 top-2.5 h-5 w-5 text-gray-400" />
+            <MagnifyingGlassIcon className="absolute right-3 top-2.5 h-5 w-5 text-foreground" />
           </div>
         </div>
         <div className="rounded-md border">
@@ -627,7 +627,7 @@ export default function CustomersPage() {
            <Button variant="outline" onClick={() => setDeleteConfirm({ open: false, customerId: null })}>
              انصراف
            </Button>
-                       <Button variant="outline" className="text-red-600 border-red-600 hover:bg-red-50" onClick={confirmDelete}>
+                       <Button variant="outline" className="text-foreground border-border hover:bg-accent" onClick={confirmDelete}>
               حذف
             </Button>
          </div>

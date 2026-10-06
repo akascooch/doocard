@@ -181,7 +181,7 @@ export default function EmployeeRequestsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-amber-600" />
+            <Clock className="h-5 w-5 text-foreground" />
             درخواست‌های جدید ({requests.length})
           </CardTitle>
           <CardDescription>
@@ -191,7 +191,7 @@ export default function EmployeeRequestsPage() {
         <CardContent>
           {loading ? (
             <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-main-orange"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-border"></div>
             </div>
           ) : requests.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
@@ -250,7 +250,7 @@ export default function EmployeeRequestsPage() {
                           <Button
                             size="sm"
                             onClick={() => handleConfirm(request.id)}
-                            className="bg-green-600 hover:bg-green-700 text-white"
+                            className="bg-primary hover:bg-primary text-primary-foreground"
                           >
                             <CheckCircle className="h-4 w-4 ml-1" />
                             تأیید
@@ -259,7 +259,7 @@ export default function EmployeeRequestsPage() {
                             size="sm"
                             variant="outline"
                             onClick={() => handleReject(request.id)}
-                            className="text-red-600 hover:text-red-700"
+                            className="text-destructive hover:text-destructive"
                           >
                             <XCircle className="h-4 w-4 ml-1" />
                             رد
@@ -279,7 +279,7 @@ export default function EmployeeRequestsPage() {
       <Dialog open={conflictDialog.open} onOpenChange={(open) => !open && setConflictDialog({ open: false, appointmentId: null, alternatives: [] })}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-amber-600">
+            <DialogTitle className="flex items-center gap-2 text-foreground">
               <AlertCircle className="h-5 w-5" />
               تداخل زمانی!
             </DialogTitle>
@@ -293,7 +293,7 @@ export default function EmployeeRequestsPage() {
               conflictDialog.alternatives.map((slot, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:border-main-orange cursor-pointer transition-colors"
+                  className="flex items-center justify-between p-3 border rounded-lg hover:border-border cursor-pointer transition-colors"
                   onClick={() => handleSelectAlternative(slot)}
                 >
                   <div className="text-right">
@@ -306,7 +306,7 @@ export default function EmployeeRequestsPage() {
                       })}
                     </div>
                   </div>
-                  <Button size="sm" className="bg-main-orange hover:bg-main-orange/90">
+                  <Button size="sm" className="bg-primary hover:bg-accent">
                     انتخاب
                   </Button>
                 </div>

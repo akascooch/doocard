@@ -234,7 +234,7 @@ export function PhoneOtpAuth({
           <div className="flex items-center justify-between text-sm">
             <button
               type="button"
-              className="text-muted-foreground underline-offset-4 hover:underline disabled:no-underline disabled:opacity-50"
+              className="text-muted-foreground underline-offset-4 hover:underline disabled:no-underline disabled:opacity-60"
               disabled={sending || cooldown > 0}
               onClick={() => void sendCode()}
             >

@@ -34,8 +34,8 @@ export default function AccountingPage() {
           <h2 className="text-3xl font-bold tracking-tight">حسابداری</h2>
         </div>
         <div className="space-y-4">
-          <div className="h-8 w-64 bg-gray-200 rounded animate-pulse" />
-          <div className="h-96 bg-gray-200 rounded animate-pulse" />
+          <div className="h-8 w-64 bg-accent rounded animate-pulse" />
+          <div className="h-96 bg-accent rounded animate-pulse" />
         </div>
       </div>
     );

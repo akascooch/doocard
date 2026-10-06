@@ -8,7 +8,7 @@ const Footer: React.FC = () => {
               <div className="max-w-7xl mx-auto">
                 <div className="flex items-center justify-center">
                   <p className="text-sm text-muted-foreground flex items-center gap-2">
-                    <span dir="ltr" className="font-medium text-gray-500">
+                    <span dir="ltr" className="font-medium text-foreground">
                       Powered by TECHOOCH
                     </span>
                     {APP_VERSION ? (

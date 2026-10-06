@@ -20,7 +20,7 @@ export default function BookAppointmentRedirect() {
           <CardTitle className="text-center">در حال انتقال...</CardTitle>
         </CardHeader>
         <CardContent className="flex justify-center py-8">
-          <Loader2 className="h-12 w-12 animate-spin text-main-orange" />
+          <Loader2 className="h-12 w-12 animate-spin text-foreground" />
         </CardContent>
       </Card>
     </div>

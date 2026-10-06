@@ -1,20 +1,18 @@
 /**
- * Glass exemption layer — MUST load after contrast-fix.css and aurora-dashboard.css.
- * Lifts forced solid #ffffff on inverted CTAs for [data-glass] / .glass-chip / .glass-button
- * without rewriting those global hard overrides wholesale.
+ * Glass surfaces use the palette tokens.
+ * Selected state is a 2px ring, never amber or indigo.
  */
 
 :root {
-  --glass-bg: rgb(255 255 255 / 0.05);
-  --glass-bg-hover: rgb(255 255 255 / 0.1);
-  --glass-bg-selected: rgb(255 255 255 / 0.15);
-  --glass-border: rgb(255 255 255 / 0.15);
-  --glass-border-hover: rgb(255 255 255 / 0.25);
-  --glass-border-selected: rgb(255 255 255 / 0.4);
-  --glass-fg: #f4f4f5;
-  --glass-fg-selected: #ffffff;
-  --glass-ring-amber: rgb(253 230 138 / 0.8);
-  --glass-ring-focus: rgb(99 102 241 / 0.5);
+  --glass-bg: hsl(var(--card));
+  --glass-bg-hover: hsl(var(--accent));
+  --glass-bg-selected: hsl(var(--accent));
+  --glass-border: hsl(var(--border));
+  --glass-border-hover: hsl(var(--ring));
+  --glass-border-selected: hsl(var(--ring));
+  --glass-fg: hsl(var(--card-foreground));
+  --glass-fg-selected: hsl(var(--accent-foreground));
+  --glass-ring-focus: hsl(var(--ring));
 }
 
 button.glass-chip[data-chip],
@@ -23,68 +21,16 @@ button[data-glass].glass-button,
 button[data-variant="glass"],
 a[data-glass],
 [data-glass].glass-button {
-  background-color: var(--glass-bg) !important;
-  background-image: none !important;
-  color: var(--glass-fg) !important;
-  border-color: var(--glass-border) !important;
-}
-
-button.glass-chip[data-chip]:hover:not(:disabled):not([data-selected='true']),
-button.glass-button[data-glass]:hover:not(:disabled),
-button[data-glass].glass-button:hover:not(:disabled),
-button[data-variant="glass"]:hover:not(:disabled),
-a[data-glass]:hover,
-[data-glass].glass-button:hover:not(:disabled) {
-  background-color: var(--glass-bg-hover) !important;
-  border-color: var(--glass-border-hover) !important;
+  background-color: var(--glass-bg);
+  color: var(--glass-fg);
+  border-color: var(--glass-border);
 }
 
 button.glass-chip[data-chip][data-selected='true'],
 a[data-glass][data-selected='true'],
 a[data-glass].glass-nav-active {
-  background-color: var(--glass-bg-selected) !important;
-  color: var(--glass-fg-selected) !important;
-  border-color: var(--glass-border-selected) !important;
-}
-
-/* Auth shell historically forces solid white on w-full / submit — exempt glass only. */
-.aurora-auth-shell button.glass-button[data-glass],
-.aurora-auth-shell button[data-glass].glass-button,
-.aurora-auth-shell button[data-variant="glass"],
-.aurora-auth-shell form button[type='submit'][data-glass] {
-  background-color: var(--glass-bg) !important;
-  color: var(--glass-fg) !important;
-  border-color: var(--glass-border) !important;
-}
-
-.aurora-dashboard-canvas button.glass-button[data-glass],
-.aurora-dashboard-canvas button[data-variant="glass"],
-.aurora-dashboard-canvas a[data-glass],
-.aurora-dashboard-canvas button.glass-chip[data-chip] {
-  background-color: var(--glass-bg) !important;
-  color: var(--glass-fg) !important;
-}
-
-.aurora-dashboard-canvas a[data-glass].glass-nav-active,
-.aurora-dashboard-canvas a[data-glass][data-selected='true'] {
-  background-color: var(--glass-bg-selected) !important;
-  color: var(--glass-fg-selected) !important;
-  border-color: var(--glass-border-selected) !important;
-}
-
-/* Form / surface tokens using Tailwind bg-white/* must not be forced to solid #fff.
-   Exclude public booking light-island selects — those stay solid white for readability. */
-.aurora-dashboard-canvas [class*="bg-white\/"],
-.aurora-auth-shell [class*="bg-white\/"],
-button[class*="bg-white\/"]:not(.aurora-public-select-trigger),
-input[class*="bg-white\/"],
-[role="combobox"][class*="bg-white\/"]:not(.aurora-public-select-trigger) {
-  background-color: var(--glass-bg) !important;
-}
-
-.aurora-public-booking button[role="combobox"],
-.aurora-public-booking .aurora-public-select-trigger {
-  background-color: #ffffff !important;
-  color: #111827 !important;
-  border-color: #d1d5db !important;
+  background-color: var(--glass-bg-selected);
+  color: var(--glass-fg-selected);
+  border-color: var(--glass-border-selected);
+  box-shadow: 0 0 0 2px var(--glass-ring-focus);
 }

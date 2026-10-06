@@ -380,13 +380,13 @@ export default function StaffPage() {
                   <span
                     className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${
                       (member.status ?? "active") === "active"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-gray-100 text-gray-600"
+                        ? "bg-accent text-foreground"
+                        : "bg-accent text-foreground"
                     }`}
                   >
                     {(member.status ?? "active") === "active" ? "فعال" : "غیرفعال"}
                   </span>
-                  <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-orange-100 text-orange-700">
+                  <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-accent text-foreground">
                     کمیسیون {member.commissionRate}% · پایه {toThousandTomans(member.baseSalary)}
                   </span>
                 </div>

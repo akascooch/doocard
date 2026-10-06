@@ -203,9 +203,9 @@ export default function SalaryManagement() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-blue-600" />
+              <Users className="h-5 w-5 text-foreground" />
               <div>
-                <p className="text-sm text-gray-600">کل آرایشگران</p>
+                <p className="text-sm text-foreground">کل آرایشگران</p>
                 <p className="text-lg font-bold">{barbers.length}</p>
               </div>
             </div>
@@ -214,9 +214,9 @@ export default function SalaryManagement() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-green-600" />
+              <TrendingUp className="h-5 w-5 text-foreground" />
               <div>
-                <p className="text-sm text-gray-600">آرایشگران فعال</p>
+                <p className="text-sm text-foreground">آرایشگران فعال</p>
                 <p className="text-lg font-bold">{barbers.filter(b => b.isActive).length}</p>
               </div>
             </div>
@@ -225,9 +225,9 @@ export default function SalaryManagement() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-purple-600" />
+              <DollarSign className="h-5 w-5 text-foreground" />
               <div>
-                <p className="text-sm text-gray-600">متوسط درصد حقوق</p>
+                <p className="text-sm text-foreground">متوسط درصد حقوق</p>
                 <p className="text-lg font-bold">
                   {barbers.length > 0 
                     ? formatPercentage(Math.round(barbers.reduce((sum, b) => sum + b.salaryPercentage, 0) / barbers.length))
@@ -241,9 +241,9 @@ export default function SalaryManagement() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-orange-600" />
+              <DollarSign className="h-5 w-5 text-foreground" />
               <div>
-                <p className="text-sm text-gray-600">کل موجودی</p>
+                <p className="text-sm text-foreground">کل موجودی</p>
                 <p className="text-lg font-bold">
                   {formatAmount(barbers.reduce((sum, b) => sum + b.balance, 0))}
                 </p>
@@ -406,16 +406,16 @@ export default function SalaryManagement() {
                         </TableCell>
                         <TableCell>{formatAmount(report.totalIncome)}</TableCell>
                         <TableCell>{formatAmount(report.totalTips)}</TableCell>
-                        <TableCell className="font-bold text-green-600">
+                        <TableCell className="font-bold text-foreground">
                           {formatAmount(report.calculatedSalary)}
                         </TableCell>
-                        <TableCell className="text-amber-600">
+                        <TableCell className="text-foreground">
                           {formatAmount(report.totalDeduction || 0)}
                         </TableCell>
-                        <TableCell className="font-bold text-green-700">
+                        <TableCell className="font-bold text-foreground">
                           {formatAmount(report.payoutNetAfterDeduction ?? (report.calculatedSalary - (report.totalDeduction || 0)))}
                         </TableCell>
-                        <TableCell className="text-blue-600">
+                        <TableCell className="text-foreground">
                           {formatAmount(report.salonShare)}
                         </TableCell>
                         <TableCell className="font-bold">
@@ -466,19 +466,19 @@ export default function SalaryManagement() {
                         <TableCell>{formatAmount(calc.baseSalary)}</TableCell>
                         <TableCell>{formatAmount(calc.tipShare)}</TableCell>
                         <TableCell>{formatAmount(calc.bonus)}</TableCell>
-                        <TableCell className="text-red-600">
+                        <TableCell className="text-destructive">
                           {formatAmount(calc.deductions)}
                         </TableCell>
-                        <TableCell className="text-amber-600">
+                        <TableCell className="text-foreground">
                           {formatAmount(calc.totalDeduction || 0)}
                         </TableCell>
-                        <TableCell className="font-bold text-green-600">
+                        <TableCell className="font-bold text-foreground">
                           {formatAmount(calc.totalSalary)}
                         </TableCell>
-                        <TableCell className="font-bold text-green-700">
+                        <TableCell className="font-bold text-foreground">
                           {formatAmount(calc.payoutNetAfterDeduction ?? (calc.totalSalary - (calc.totalDeduction || 0)))}
                         </TableCell>
-                        <TableCell className="text-blue-600">
+                        <TableCell className="text-foreground">
                           {formatAmount(calc.salonShare)}
                         </TableCell>
                       </TableRow>

@@ -270,10 +270,10 @@ export default function NewAppointmentPage() {
             بازگشت
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-3xl font-bold text-foreground dark:text-foreground">
               ثبت نوبت جدید
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">
+            <p className="text-foreground dark:text-foreground mt-2">
               ایجاد نوبت جدید برای مشتری
             </p>
           </div>
@@ -449,7 +449,7 @@ export default function NewAppointmentPage() {
                   placeholder="مثال: 125,000"
                 />
                 {selectedService && (
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-foreground">
                     قیمت پیش‌فرض: {toThousandTomans(selectedService.price)}
                   </p>
                 )}
@@ -504,7 +504,7 @@ export default function NewAppointmentPage() {
               >
                 {loading ? (
                   <div className="flex items-center gap-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-border"></div>
                     در حال ثبت...
                   </div>
                 ) : (

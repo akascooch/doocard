@@ -114,38 +114,38 @@ export default function TestDatePage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8" dir="ltr">
+    <div className="min-h-screen bg-accent p-8" dir="ltr">
       <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-6">
+        <div className="bg-card rounded-lg shadow-lg p-6">
           <h1 className="text-3xl font-bold mb-4 text-center">
             🧪 Date Testing Page
           </h1>
           
-          <div className="mb-6 p-4 bg-blue-50 border-l-4 border-blue-500 rounded">
+          <div className="mb-6 p-4 bg-accent border-l-4 border-border rounded">
             <h2 className="font-bold text-xl mb-2">Expected Today:</h2>
             <p className="text-lg">Gregorian: <strong>2024-10-19</strong></p>
             <p className="text-lg">Jalali: <strong>1404/07/28</strong></p>
           </div>
 
-          <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded">
+          <div className="mb-6 p-4 bg-accent border-l-4 border-border rounded">
             <h2 className="font-bold text-xl mb-2">Current Result:</h2>
-            <p className="text-2xl font-bold text-red-600">
+            <p className="text-2xl font-bold text-destructive">
               {getCurrentJalaliDate()}
             </p>
-            <p className="text-sm text-gray-600 mt-2">
+            <p className="text-sm text-foreground mt-2">
               If this shows 1404/07/29, the fix is not working!
             </p>
           </div>
 
-          <div className="bg-gray-100 rounded-lg p-4 font-mono text-sm overflow-auto max-h-96">
+          <div className="bg-accent rounded-lg p-4 font-mono text-sm overflow-auto max-h-96">
             <h2 className="font-bold text-lg mb-3">Debug Logs:</h2>
             {logs.map((log, idx) => (
               <div 
                 key={idx} 
                 className={`
-                  ${log.startsWith('===') ? 'font-bold text-blue-600 mt-2' : ''}
-                  ${log.includes('Error') ? 'text-red-600' : ''}
-                  ${log.includes('EXPECTED') ? 'text-green-600' : ''}
+                  ${log.startsWith('===') ? 'font-bold text-foreground mt-2' : ''}
+                  ${log.includes('Error') ? 'text-destructive' : ''}
+                  ${log.includes('EXPECTED') ? 'text-foreground' : ''}
                 `}
               >
                 {log || <br />}
@@ -153,7 +153,7 @@ export default function TestDatePage() {
             ))}
           </div>
 
-          <div className="mt-6 p-4 bg-green-50 border-l-4 border-green-500 rounded">
+          <div className="mt-6 p-4 bg-accent border-l-4 border-border rounded">
             <h2 className="font-bold text-lg mb-2">Instructions:</h2>
             <ol className="list-decimal list-inside space-y-1">
               <li>Check the «Current Result» above</li>
@@ -167,7 +167,7 @@ export default function TestDatePage() {
           <div className="mt-6 flex gap-4">
             <button
               onClick={() => window.location.reload()}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary"
             >
               🔄 Reload Test
             </button>
@@ -177,13 +177,13 @@ export default function TestDatePage() {
                 sessionStorage.clear();
                 window.location.reload();
               }}
-              className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              className="px-6 py-3 bg-accent text-destructive-foreground rounded-lg hover:bg-accent"
             >
               🧹 Clear Storage & Reload
             </button>
             <a
               href="/dashboard/appointments"
-              className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 inline-block"
+              className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary inline-block"
             >
               📅 Go to Appointments
             </a>

@@ -269,7 +269,7 @@ export default function ImportDataPage() {
             id="file-upload-customers"
           />
           <label htmlFor="file-upload-customers" className="cursor-pointer block">
-            <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <Upload className="h-12 w-12 mx-auto mb-4 text-foreground" />
             <p className="text-lg font-medium mb-2">فایل Excel مشتریان را انتخاب کنید</p>
             <p className="text-sm text-muted-foreground">فرمت: .xlsx / .xls — تمپلیت استاندارد</p>
             {customerSelectedFile && (
@@ -403,7 +403,7 @@ export default function ImportDataPage() {
             id="file-upload-appointments"
           />
           <label htmlFor="file-upload-appointments" className="cursor-pointer block">
-            <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <Upload className="h-12 w-12 mx-auto mb-4 text-foreground" />
             <p className="text-lg font-medium mb-2">فایل Excel را انتخاب کنید</p>
             <p className="text-sm text-muted-foreground">فرمت: .xlsx / .xls — فایل خام بدون ویرایش دستی</p>
             {appointmentSelectedFile && (
@@ -468,9 +468,9 @@ export default function ImportDataPage() {
                           <td className="p-2">{g.dbAppointmentCount ?? '—'}</td>
                           <td className="p-2">
                             {g.status === 'count_matched_skipped' ? (
-                              <span className="text-amber-600">حذف (هم‌تعداد)</span>
+                              <span className="text-foreground">حذف (هم‌تعداد)</span>
                             ) : (
-                              <span className="text-green-600">قابل import</span>
+                              <span className="text-foreground">قابل import</span>
                             )}
                           </td>
                           <td className="p-2">{g.duplicateCount > 0 ? g.duplicateCount : '—'}</td>
@@ -596,10 +596,10 @@ function StatCard({
   label: string;
 }) {
   const colors = {
-    green: 'text-green-600',
-    red: 'text-red-600',
-    blue: 'text-blue-600',
-    amber: 'text-amber-600',
+    green: 'text-foreground',
+    red: 'text-destructive',
+    blue: 'text-foreground',
+    amber: 'text-foreground',
   };
   return (
     <Card>
@@ -618,9 +618,9 @@ function StatCard({
 
 function WarningList({ title, items }: { title: string; items: string[] }) {
   return (
-    <Card className="border-amber-200 dark:border-amber-800">
+    <Card className="border-border dark:border-border">
       <CardHeader>
-        <CardTitle className="text-amber-700 flex items-center gap-2 text-base">
+        <CardTitle className="text-foreground flex items-center gap-2 text-base">
           <AlertTriangle className="h-5 w-5" />
           {title}
         </CardTitle>
@@ -628,7 +628,7 @@ function WarningList({ title, items }: { title: string; items: string[] }) {
       <CardContent>
         <ul className="space-y-1 text-sm max-h-48 overflow-auto">
           {items.map((item, i) => (
-            <li key={i} className="text-amber-800 dark:text-amber-300">
+            <li key={i} className="text-foreground dark:text-foreground">
               {item}
             </li>
           ))}

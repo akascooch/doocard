@@ -1,6 +1,4 @@
-/* ========================================== */
-/* GLOBAL BACKGROUND - فقط mainbackground.jpg */
-/* ========================================== */
+/* Layout overflow only. Page color comes from the theme tokens. */
 
 * {
   box-sizing: border-box;
@@ -14,11 +12,6 @@ html {
 }
 
 body {
-  background-image: url('/images/mainbackground.jpg');
-  background-size: cover !important;
-  background-position: center top !important;
-  background-repeat: no-repeat !important;
-  background-attachment: scroll;
   min-height: 100vh;
   overflow-x: hidden !important;
   max-width: 100%;
@@ -27,42 +20,8 @@ body {
   position: relative;
 }
 
-/* Landing / photo pages stay transparent. Do not strip explicit black
-   shells (auth, storefront) or the dashboard canvas. */
-[data-app-wrapper="true"],
-[data-page="login"],
-[data-page="register"],
-.min-h-screen:not(.aurora-dashboard-canvas):not(.aurora-auth-shell):not(.bg-black) {
-  background: transparent !important;
-}
-
-/* Override هر gradient یا background دیگه */
-.bg-gradient-to-br {
-  background: transparent !important;
-}
-
-/* Responsive - mobile با fix برای zoom issue */
-@media (max-width: 768px) {
-  body {
-    background-attachment: scroll;
-    background-size: cover !important;
-    background-position: center top !important;
-    background-repeat: no-repeat !important;
-  }
-}
-
-/* Print - no background */
 @media print {
   body {
-    background: none !important;
+    background-image: none !important;
   }
 }
-
-/* Dashboard Aurora canvas must win over .min-h-screen { background: transparent }.
-   Scoped to .aurora-dashboard-canvas so landing/storefront stay on the body photo. */
-.aurora-dashboard-canvas,
-.aurora-dashboard-canvas.min-h-screen {
-  background-color: #09090b !important;
-  color: #f4f4f5;
-}
-

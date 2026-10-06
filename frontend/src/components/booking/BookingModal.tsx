@@ -486,17 +486,17 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden bg-white/[0.05] backdrop-blur-xl border border-white/10 shadow-2xl text-zinc-100">
+      <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden bg-accent backdrop-blur-xl border border-border shadow-2xl text-foreground">
         {/* Glassmorphism Header */}
-        <div className="relative bg-gradient-to-br from-teal/10 via-light-blue/10 to-main-orange/10 border-b border-white/20 backdrop-blur-md">
-          <div className="absolute inset-0 bg-grid-white/5"></div>
+        <div className="relative bg-gradient-to-br from-accent via-accent to-accent border-b border-border backdrop-blur-md">
+          <div className="absolute inset-0 bg-grid-line"></div>
           <DialogHeader className="relative p-6 pb-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal to-light-blue flex items-center justify-center shadow-lg">
-                <CalendarCheck className="w-6 h-6 text-white" />
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-accent to-accent flex items-center justify-center shadow-lg">
+                <CalendarCheck className="w-6 h-6 text-foreground" />
               </div>
               <div>
-                <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-background to-background dark:from-card dark:to-accent bg-clip-text text-transparent">
                   رزرو نوبت جدید
                 </DialogTitle>
                 <DialogDescription className="text-sm mt-1">
@@ -516,8 +516,8 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                   key={s}
                   className={`h-1 flex-1 rounded-full transition-all duration-300 ${
                     s <= step
-                      ? 'bg-gradient-to-r from-teal to-light-blue shadow-lg shadow-teal/50'
-                      : 'bg-white/[0.04] border border-white/10'
+                      ? 'bg-gradient-to-r from-accent to-accent shadow-lg shadow-black/15'
+                      : 'bg-accent border border-border'
                   }`}
                 />
               ))}
@@ -531,12 +531,12 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
           {step === 1 && (
             <div className="space-y-4">
               <label className="text-sm font-medium mb-3 block flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-teal" />
+                <Sparkles className="w-4 h-4 text-foreground" />
                 لیست خدمات - یک مورد انتخاب کنید
               </label>
               {services.length === 0 ? (
                 <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal mx-auto"></div>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-border mx-auto"></div>
                   <p className="text-sm text-foreground/80 mt-4">در حال بارگذاری خدمات...</p>
                 </div>
               ) : (
@@ -546,8 +546,8 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                       key={service.id}
                       className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
                         formData.serviceId === String(service.id)
-                          ? 'ring-2 ring-teal shadow-lg shadow-teal/20 bg-teal/5'
-                          : 'hover:ring-2 hover:ring-gray-300'
+                          ? 'ring-2 ring-ring shadow-lg shadow-black/15 bg-accent'
+                          : 'hover:ring-2 hover:ring-ring'
                       }`}
                       onClick={() => {
                         setFormData({ ...formData, serviceId: String(service.id), employeeId: '' })
@@ -563,13 +563,13 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                                 <Clock className="w-3 h-3" />
                                 {service.durationMinutes} دقیقه
                               </Badge>
-                              <Badge variant="outline" className="bg-gradient-to-r from-orange-50 to-red-50 text-red-600 border-red-200 font-semibold">
+                              <Badge variant="outline" className="bg-gradient-to-r from-accent to-accent text-foreground border-border font-semibold">
                                 🎁 25% تخفیف
                               </Badge>
                             </div>
                           </div>
                           {formData.serviceId === String(service.id) && (
-                            <CheckCircle className="w-6 h-6 text-teal flex-shrink-0 mr-2" />
+                            <CheckCircle className="w-6 h-6 text-foreground flex-shrink-0 mr-2" />
                           )}
                         </div>
                       </CardContent>
@@ -584,18 +584,18 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
           {step === 2 && (
             <div className="space-y-4">
               <label className="text-sm font-medium mb-3 block flex items-center gap-2">
-                <User className="w-4 h-4 text-light-blue" />
+                <User className="w-4 h-4 text-foreground" />
                 لیست آرایشگران - یک نفر انتخاب کنید
               </label>
               {loadingEmployees ? (
                 <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-light-blue mx-auto"></div>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-border mx-auto"></div>
                   <p className="text-sm text-foreground/80 mt-4">در حال بارگذاری آرایشگران...</p>
                 </div>
               ) : employees.length === 0 ? (
-                <div className="text-center py-12 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800">
-                  <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
-                  <p className="text-amber-700 dark:text-amber-300 font-medium">
+                <div className="text-center py-12 bg-accent dark:bg-primary rounded-xl border border-border dark:border-border">
+                  <AlertCircle className="w-12 h-12 text-foreground mx-auto mb-3" />
+                  <p className="text-foreground dark:text-foreground font-medium">
                     متأسفانه آرایشگری برای این خدمت موجود نیست
                   </p>
                   <Button
@@ -614,8 +614,8 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                       key={employee.id}
                       className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
                         formData.employeeId === String(employee.id)
-                          ? 'ring-2 ring-light-blue shadow-lg shadow-light-blue/20 bg-light-blue/5'
-                          : 'hover:ring-2 hover:ring-gray-300'
+                          ? 'ring-2 ring-ring shadow-lg shadow-black/15 bg-accent'
+                          : 'hover:ring-2 hover:ring-ring'
                       }`}
                       onClick={() => {
                         setFormData({ ...formData, employeeId: String(employee.id) })
@@ -626,16 +626,16 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                           <div className="flex items-center gap-4 flex-1">
                             {/* Avatar with badge */}
                             <div className="relative">
-                              <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-md ${
+                              <div className={`w-14 h-14 rounded-full flex items-center justify-center text-foreground font-bold text-xl shadow-md ${
                                 employee.id === preferredEmployeeId
-                                  ? 'bg-gradient-to-br from-purple-500 to-pink-500'
-                                  : 'bg-gradient-to-br from-light-blue to-teal'
+                                  ? 'bg-gradient-to-br from-primary to-primary'
+                                  : 'bg-gradient-to-br from-accent to-accent'
                               }`}>
                                 {employee.user?.name?.slice(0, 1) || '?'}
                               </div>
                               {employee.id === preferredEmployeeId && (
-                                <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-lg">
-                                  <span className="text-xs font-bold text-white">💜</span>
+                                <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-gradient-to-br from-primary to-primary flex items-center justify-center shadow-lg">
+                                  <span className="text-xs font-bold text-foreground">💜</span>
                                 </div>
                               )}
                             </div>
@@ -645,7 +645,7 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                               <h3 className="font-semibold text-base">{employee.user?.name || 'نام نامشخص'}</h3>
                               <div className="flex gap-2 mt-1 flex-wrap">
                                 {employee.id === preferredEmployeeId && (
-                                  <Badge className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0">
+                                  <Badge className="text-xs bg-gradient-to-r from-primary to-primary text-primary-foreground border-0">
                                     💜 آرایشگر من
                                   </Badge>
                                 )}
@@ -655,7 +655,7 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                                   </Badge>
                                 )}
                                 {index === 0 && employee.id !== preferredEmployeeId && (
-                                  <Badge className="text-xs bg-gradient-to-r from-yellow-400 to-orange-500 text-white border-0">
+                                  <Badge className="text-xs bg-gradient-to-r from-accent to-primary text-primary-foreground border-0">
                                     محبوب‌ترین
                                   </Badge>
                                 )}
@@ -665,7 +665,7 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                           
                           {/* Checkmark */}
                           {formData.employeeId === String(employee.id) && (
-                            <CheckCircle className="w-6 h-6 text-light-blue flex-shrink-0" />
+                            <CheckCircle className="w-6 h-6 text-foreground flex-shrink-0" />
                           )}
                         </div>
                       </CardContent>
@@ -680,11 +680,11 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
           {step === 3 && (
             <div className="space-y-4 overflow-visible">
               <label className="text-sm font-medium mb-3 block flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-teal" />
+                <Calendar className="w-4 h-4 text-foreground" />
                 نحوه انتخاب زمان نوبت
               </label>
               <div className="space-y-3">
-                <label className="flex flex-col gap-2 p-4 rounded-xl border-2 border-white/10 bg-white/5 cursor-pointer transition-all hover:bg-white/10 has-[:checked]:border-teal has-[:checked]:bg-teal/5">
+                <label className="flex flex-col gap-2 p-4 rounded-xl border-2 border-border bg-accent cursor-pointer transition-all hover:bg-accent has-[:checked]:border-border has-[:checked]:bg-accent">
                   <div className="flex items-center gap-3">
                     <input
                       type="radio"
@@ -695,7 +695,7 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                         setDateMode('earliest')
                         fetchEarliestSlotPreview()
                       }}
-                      className="w-4 h-4 text-teal"
+                      className="w-4 h-4 text-foreground"
                     />
                     <span className="font-medium">اولین نوبت ممکن</span>
                   </div>
@@ -709,14 +709,14 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                     </div>
                   )}
                 </label>
-                <label className="flex items-center gap-3 p-4 rounded-xl border-2 border-white/10 bg-white/5 cursor-pointer transition-all hover:bg-white/10 has-[:checked]:border-teal has-[:checked]:bg-teal/5">
+                <label className="flex items-center gap-3 p-4 rounded-xl border-2 border-border bg-accent cursor-pointer transition-all hover:bg-accent has-[:checked]:border-border has-[:checked]:bg-accent">
                   <input
                     type="radio"
                     name="dateMode"
                     value="manual"
                     checked={dateMode === 'manual'}
                     onChange={() => setDateMode('manual')}
-                    className="w-4 h-4 text-teal"
+                    className="w-4 h-4 text-foreground"
                   />
                   <span className="font-medium">انتخاب تاریخ دلخواه</span>
                 </label>
@@ -766,20 +766,20 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
           {step === 4 && (
             <div className="space-y-4">
               <label className="text-sm font-medium block flex items-center gap-2">
-                <Clock className="w-4 h-4 text-teal" />
+                <Clock className="w-4 h-4 text-foreground" />
                 ساعت مناسب را انتخاب کنید
               </label>
-              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-800 dark:text-amber-200">
+              <p className="rounded-lg border border-border bg-primary px-3 py-2 text-xs leading-relaxed text-foreground dark:text-foreground">
                 {PUBLIC_BOOKING_LEAD_HINT_FA}
               </p>
               {loadingSlots ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal mx-auto"></div>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-border mx-auto"></div>
                   <p className="text-sm text-foreground/80 mt-4">در حال بارگذاری...</p>
                 </div>
               ) : timeSlots.length === 0 ? (
-                <div className="text-center py-8 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800">
-                  <p className="text-amber-700 dark:text-amber-300">
+                <div className="text-center py-8 bg-accent dark:bg-primary rounded-xl border border-border dark:border-border">
+                  <p className="text-foreground dark:text-foreground">
                     متأسفانه در این تاریخ زمان خالی موجود نیست
                   </p>
                   <Button
@@ -796,8 +796,8 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                   {/* Available Slots (slots &lt; now+2h disabled when date is today; backend enforces) */}
                   {timeSlots.filter(s => s.available !== false && !isPublicLeadBlockedSlot(s)).length > 0 && (
                     <div>
-                      <p className="text-xs text-gray-500 mb-2 flex items-center">
-                        <div className="w-2 h-2 rounded-full bg-green-500 ml-2"></div>
+                      <p className="text-xs text-foreground mb-2 flex items-center">
+                        <div className="w-2 h-2 rounded-full bg-primary ml-2"></div>
                         زمان‌های خالی ({timeSlots.filter(s => s.available !== false && !isPublicLeadBlockedSlot(s)).length} ساعت)
                       </p>
                       <div className="grid grid-cols-3 gap-3">
@@ -826,8 +826,8 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                   {/* Busy Slots — only truly booked; exclude lead-time (past / min_2h) */}
                   {timeSlots.filter(s => s.available === false && s.reason !== 'min_2h' && s.reason !== 'past').length > 0 && (
                     <div>
-                      <p className="text-xs text-gray-500 mb-2 flex items-center">
-                        <div className="w-2 h-2 rounded-full bg-red-500 ml-2"></div>
+                      <p className="text-xs text-foreground mb-2 flex items-center">
+                        <div className="w-2 h-2 rounded-full bg-destructive ml-2"></div>
                         ساعت‌های رزرو شده ({timeSlots.filter(s => s.available === false && s.reason !== 'min_2h' && s.reason !== 'past').length} ساعت)
                       </p>
                       <div className="grid grid-cols-3 gap-3">
@@ -853,25 +853,25 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
           {/* Step 5: Confirmation */}
           {step === 5 && (
             <div className="space-y-6">
-              <div className="bg-gradient-to-br from-teal/10 to-light-blue/10 rounded-2xl p-6 border-2 border-white/20 shadow-inner">
+              <div className="bg-gradient-to-br from-accent to-accent rounded-2xl p-6 border-2 border-border shadow-inner">
                 <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-teal" />
+                  <CheckCircle className="w-5 h-5 text-foreground" />
                   اطلاعات نوبت شما
                 </h3>
                 <div className="space-y-3">
-                  <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex justify-between py-2 border-b border-border dark:border-border">
                     <span className="text-foreground/80">خدمت:</span>
                     <span className="font-medium">{selectedService?.name}</span>
                   </div>
-                  <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex justify-between py-2 border-b border-border dark:border-border">
                     <span className="text-foreground/80">آرایشگر:</span>
                     <span className="font-medium">{selectedEmployeeName}</span>
                   </div>
-                  <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex justify-between py-2 border-b border-border dark:border-border">
                     <span className="text-foreground/80">تاریخ:</span>
                     <span className="font-medium">{formData.appointmentDate}</span>
                   </div>
-                  <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex justify-between py-2 border-b border-border dark:border-border">
                     <span className="text-foreground/80">ساعت:</span>
                     <span className="font-medium">
                       {earliestDisplayTime ?? timeSlots.find(s => s.time === formData.appointmentTime)?.displayTime ?? formData.appointmentTime}
@@ -879,7 +879,7 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                   </div>
                   <div className="flex justify-between py-2">
                     <span className="text-foreground/80">تخفیف ویژه:</span>
-                    <span className="font-bold text-red-600 flex items-center gap-2">
+                    <span className="font-bold text-destructive flex items-center gap-2">
                       🎁 25% تخفیف
                     </span>
                   </div>
@@ -901,7 +901,7 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
         </div>
 
         {/* Footer */}
-        <div className="border-t border-white/10 bg-white/[0.05] backdrop-blur-xl p-4 flex justify-between">
+        <div className="border-t border-border bg-accent backdrop-blur-xl p-4 flex justify-between">
           {step > 1 && (
             <Button
               variant="outline"
@@ -924,11 +924,11 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                 }
               }}
               disabled={!canGoToNextStep() || loading || loadingEarliest}
-              className="mr-auto bg-gradient-to-r from-teal to-light-blue hover:from-teal/90 hover:to-light-blue/90 gap-2 shadow-lg"
+              className="mr-auto bg-gradient-to-r from-accent to-accent hover:from-accent hover:to-accent gap-2 shadow-lg"
             >
               {step === 3 && dateMode === 'earliest' && loadingEarliest ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-border"></div>
                   در حال پیدا کردن نوبت...
                 </>
               ) : (
@@ -942,11 +942,11 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
             <Button
               onClick={handleSubmit}
               disabled={loading}
-              className="mr-auto bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 gap-2 shadow-lg"
+              className="mr-auto bg-gradient-to-r from-primary to-primary hover:from-primary hover:to-primary gap-2 shadow-lg"
             >
               {loading ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-border"></div>
                   در حال ثبت...
                 </>
               ) : (

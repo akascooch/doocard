@@ -131,9 +131,9 @@ export function SalaryBreakdownPanel({
                   <div
                     className={`shrink-0 tabular-nums ${
                       isFinal
-                        ? 'text-green-700 dark:text-green-400'
+                        ? 'text-foreground dark:text-foreground'
                         : isAdminSettlement
-                          ? 'text-emerald-800 dark:text-emerald-400'
+                          ? 'text-foreground dark:text-foreground'
                           : 'text-foreground'
                     }`}
                   >

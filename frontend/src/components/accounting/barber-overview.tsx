@@ -138,10 +138,10 @@ export function BarberOverview() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">موجودی کل</CardTitle>
-            <BanknotesIcon className="h-4 w-4 text-green-600" />
+            <BanknotesIcon className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-foreground">
               {formatTomansFromRial(stats.currentBalance)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -153,10 +153,10 @@ export function BarberOverview() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">درآمد خدمات</CardTitle>
-            <CurrencyDollarIcon className="h-4 w-4 text-blue-600" />
+            <CurrencyDollarIcon className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="text-2xl font-bold text-foreground">
               {formatTomansFromRial(stats.totalIncome)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -168,10 +168,10 @@ export function BarberOverview() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">تیپ‌های دریافتی</CardTitle>
-            <ArrowUpIcon className="h-4 w-4 text-purple-600" />
+            <ArrowUpIcon className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
+            <div className="text-2xl font-bold text-foreground">
               {formatTomansFromRial(stats.totalTips)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -183,10 +183,10 @@ export function BarberOverview() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">برداشت‌های انجام شده</CardTitle>
-            <ChartBarIcon className="h-4 w-4 text-red-600" />
+            <ChartBarIcon className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+            <div className="text-2xl font-bold text-destructive">
               {formatTomansFromRial(stats.totalWithdrawn)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -205,34 +205,34 @@ export function BarberOverview() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-white/[0.06] border border-white/10 backdrop-blur-md rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-accent border border-border backdrop-blur-md rounded-lg">
             <div>
-              <h3 className="font-medium text-zinc-100">درخواست برداشت</h3>
-              <p className="text-sm text-slate-300">
+              <h3 className="font-medium text-foreground">درخواست برداشت</h3>
+              <p className="text-sm text-foreground">
                 موجودی قابل برداشت: {formatTomansFromRial(stats.availableIncome || 0)}
               </p>
             </div>
             <Button 
               onClick={handleWithdrawalRequest}
               variant="glass"
-              className="text-emerald-300"
+              className="text-foreground"
             >
               <BanknotesIcon className="h-4 w-4 ml-2" />
               درخواست برداشت
             </Button>
           </div>
           
-          <div className="flex items-center justify-between p-4 bg-white/[0.06] border border-white/10 backdrop-blur-md rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-accent border border-border backdrop-blur-md rounded-lg">
             <div>
-              <h3 className="font-medium text-zinc-100">بروزرسانی اطلاعات</h3>
-              <p className="text-sm text-slate-300">
+              <h3 className="font-medium text-foreground">بروزرسانی اطلاعات</h3>
+              <p className="text-sm text-foreground">
                 آخرین بروزرسانی: {new Date().toLocaleTimeString('fa-IR')}
               </p>
             </div>
             <Button 
               onClick={refreshData}
               variant="glass"
-              className="text-sky-300"
+              className="text-foreground"
             >
               <ArrowUpIcon className="h-4 w-4 ml-2" />
               بروزرسانی
@@ -245,28 +245,28 @@ export function BarberOverview() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ArrowUpIcon className="h-5 w-5 text-purple-600" />
+            <ArrowUpIcon className="h-5 w-5 text-foreground" />
             اطلاعات تیپ‌ها
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+            <div className="flex items-center justify-between p-3 bg-accent rounded-lg">
               <span className="font-medium">تیپ‌های دریافتی:</span>
-              <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+              <Badge variant="secondary" className="bg-accent text-foreground">
                 {formatTomansFromRial(stats.totalTips)}
               </Badge>
             </div>
             {stats.todayTips && stats.todayTips > 0 && (
-              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-accent rounded-lg">
                 <span className="font-medium">تیپ‌های امروز:</span>
-                <Badge variant="secondary" className="bg-green-100 text-green-800">
+                <Badge variant="secondary" className="bg-accent text-foreground">
                   {formatTomansFromRial(stats.todayTips)}
                 </Badge>
               </div>
             )}
-            <div className="text-sm text-slate-300 bg-white/[0.06] border border-white/10 backdrop-blur-md p-3 rounded-lg">
-              💡 <strong className="text-zinc-100">نکته:</strong> تیپ‌های روزانه به صورت خودکار به موجودی شما اضافه می‌شوند و می‌توانید از طریق درخواست برداشت، آن‌ها را دریافت کنید.
+            <div className="text-sm text-foreground bg-accent border border-border backdrop-blur-md p-3 rounded-lg">
+              💡 <strong className="text-foreground">نکته:</strong> تیپ‌های روزانه به صورت خودکار به موجودی شما اضافه می‌شوند و می‌توانید از طریق درخواست برداشت، آن‌ها را دریافت کنید.
             </div>
           </div>
         </CardContent>
@@ -277,27 +277,27 @@ export function BarberOverview() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <ArrowUpIcon className="h-5 w-5 text-purple-600" />
+              <ArrowUpIcon className="h-5 w-5 text-foreground" />
               آخرین تراکنش‌های تیپ
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {stats.recentTipTransactions.slice(0, 5).map((tip) => (
-                <div key={tip.id} className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                <div key={tip.id} className="flex items-center justify-between p-3 bg-accent rounded-lg">
                   <div className="flex-1">
                     <p className="font-medium text-sm">{tip.description}</p>
-                    <p className="text-xs text-gray-600">
+                    <p className="text-xs text-foreground">
                       {new Date(tip.date).toLocaleDateString('fa-IR')}
                     </p>
                   </div>
-                  <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+                  <Badge variant="secondary" className="bg-accent text-foreground">
                     +{formatTomansFromRial(tip.amount)}
                   </Badge>
                 </div>
               ))}
               {stats.recentTipTransactions.length > 5 && (
-                <div className="text-center text-sm text-gray-500">
+                <div className="text-center text-sm text-foreground">
                   و {stats.recentTipTransactions.length - 5} تراکنش دیگر...
                 </div>
               )}
@@ -318,12 +318,12 @@ export function BarberOverview() {
           <CardContent>
             <div className="space-y-3">
               {salesChart.map((item, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-white/[0.06] border border-white/10 backdrop-blur-md rounded-lg">
-                  <span className="font-medium text-zinc-100">{item.month}</span>
+                <div key={index} className="flex items-center justify-between p-3 bg-accent border border-border backdrop-blur-md rounded-lg">
+                  <span className="font-medium text-foreground">{item.month}</span>
                   <div className="flex gap-4">
-                    <span className="text-blue-600">فروش: {formatTomansFromRial(item.sales)}</span>
-                    <span className="text-purple-600">تیپ: {formatTomansFromRial(item.tips)}</span>
-                    <span className="text-green-600 font-bold">کل: {formatTomansFromRial(item.total)}</span>
+                    <span className="text-foreground">فروش: {formatTomansFromRial(item.sales)}</span>
+                    <span className="text-foreground">تیپ: {formatTomansFromRial(item.tips)}</span>
+                    <span className="text-foreground font-bold">کل: {formatTomansFromRial(item.total)}</span>
                   </div>
                 </div>
               ))}

@@ -233,64 +233,64 @@ export default function AdminDashboard() {
               className="min-h-20 h-24 flex flex-col items-start justify-center gap-1 hover:shadow-lg transition-all duration-200 group"
               onClick={() => router.push('/dashboard/appointments')}
             >
-              <Calendar className="h-6 w-6 text-amber-300 group-hover:scale-110 transition-transform" />
-              <span className="font-medium text-zinc-100">نوبت‌ها</span>
+              <Calendar className="h-6 w-6 text-foreground group-hover:scale-110 transition-transform" />
+              <span className="font-medium text-foreground">نوبت‌ها</span>
             </Button>
             <Button 
               variant="glass"
               className="min-h-20 h-24 flex flex-col items-start justify-center gap-1 hover:shadow-lg transition-all duration-200 group"
               onClick={() => router.push('/dashboard/customers')}
             >
-              <UsersIcon className="h-6 w-6 text-amber-300 group-hover:scale-110 transition-transform" />
-              <span className="font-medium text-zinc-100">مشتریان</span>
+              <UsersIcon className="h-6 w-6 text-foreground group-hover:scale-110 transition-transform" />
+              <span className="font-medium text-foreground">مشتریان</span>
             </Button>
             <Button 
               variant="glass"
               className="min-h-20 h-24 flex flex-col items-start justify-center gap-1 hover:shadow-lg transition-all duration-200 group"
               onClick={() => router.push('/dashboard/staff')}
             >
-              <UserCogIcon className="h-6 w-6 text-amber-300 group-hover:scale-110 transition-transform" />
-              <span className="font-medium text-zinc-100">کارکنان</span>
+              <UserCogIcon className="h-6 w-6 text-foreground group-hover:scale-110 transition-transform" />
+              <span className="font-medium text-foreground">کارکنان</span>
             </Button>
             <Button 
               variant="glass"
               className="min-h-20 h-24 flex flex-col items-start justify-center gap-1 hover:shadow-lg transition-all duration-200 group"
               onClick={() => router.push('/dashboard/services')}
             >
-              <ScissorsIcon className="h-6 w-6 text-amber-300 group-hover:scale-110 transition-transform" />
-              <span className="font-medium text-zinc-100">خدمات</span>
+              <ScissorsIcon className="h-6 w-6 text-foreground group-hover:scale-110 transition-transform" />
+              <span className="font-medium text-foreground">خدمات</span>
             </Button>
             <Button 
               variant="glass"
               className="min-h-20 h-24 flex flex-col items-start justify-center gap-1 hover:shadow-lg transition-all duration-200 group"
               onClick={() => router.push('/dashboard/accounting')}
             >
-              <AccountingIcon className="h-6 w-6 text-amber-300 group-hover:scale-110 transition-transform" />
-              <span className="font-medium text-zinc-100">حسابداری</span>
+              <AccountingIcon className="h-6 w-6 text-foreground group-hover:scale-110 transition-transform" />
+              <span className="font-medium text-foreground">حسابداری</span>
             </Button>
             <Button 
               variant="glass"
               className="min-h-20 h-24 flex flex-col items-start justify-center gap-1 hover:shadow-lg transition-all duration-200 group"
               onClick={() => router.push('/dashboard/admin/users')}
             >
-              <UsersManagementIcon className="h-6 w-6 text-amber-300 group-hover:scale-110 transition-transform" />
-              <span className="font-medium text-zinc-100">کاربران</span>
+              <UsersManagementIcon className="h-6 w-6 text-foreground group-hover:scale-110 transition-transform" />
+              <span className="font-medium text-foreground">کاربران</span>
             </Button>
             <Button 
               variant="glass"
               className="min-h-20 h-24 flex flex-col items-start justify-center gap-1 hover:shadow-lg transition-all duration-200 group"
               onClick={() => router.push('/dashboard/admin/permissions')}
             >
-              <ShieldIcon className="h-6 w-6 text-amber-300 group-hover:scale-110 transition-transform" />
-              <span className="font-medium text-zinc-100">دسترسی‌ها</span>
+              <ShieldIcon className="h-6 w-6 text-foreground group-hover:scale-110 transition-transform" />
+              <span className="font-medium text-foreground">دسترسی‌ها</span>
             </Button>
             <Button 
               variant="glass"
               className="min-h-20 h-24 flex flex-col items-start justify-center gap-1 hover:shadow-lg transition-all duration-200 group"
               onClick={() => router.push('/dashboard/settings')}
             >
-              <SettingsIcon className="h-6 w-6 text-amber-300 group-hover:scale-110 transition-transform" />
-              <span className="font-medium text-zinc-100">تنظیمات</span>
+              <SettingsIcon className="h-6 w-6 text-foreground group-hover:scale-110 transition-transform" />
+              <span className="font-medium text-foreground">تنظیمات</span>
             </Button>
           </div>
         </CardContent>

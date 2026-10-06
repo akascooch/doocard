@@ -2,12 +2,17 @@ import type { Config } from "tailwindcss"
 import { fontFamily } from "tailwindcss/defaultTheme"
 
 const config = {
+  future: {
+    respectDefaultRingColorOpacity: true,
+  },
   darkMode: ["class", '[data-theme="dark"]'],
   content: [
     './pages/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
     './app/**/*.{ts,tsx}',
     './src/**/*.{ts,tsx}',
+    '!./src/**/*.spec.{ts,tsx}',
+    '!./src/**/__tests__/**/*.{ts,tsx}',
   ],
   prefix: "",
   theme: {
@@ -33,37 +38,37 @@ const config = {
       colors: {
         brand: {
           grey: {
-            DEFAULT: '#9CA3AF',
-            light: '#D1D5DB',
-            dark: '#6B7280',
-            50: '#F9FAFB',
-            100: '#F3F4F6',
-            200: '#E5E7EB',
-            300: '#D1D5DB',
-            400: '#9CA3AF',
-            500: '#6B7280',
-            600: '#4B5563',
-            700: '#374151',
-            800: '#1F2937',
-            900: '#111827',
+            DEFAULT: '#8D99AE',
+            light: '#EDF2F4',
+            dark: '#2B2D42',
+            50: '#EDF2F4',
+            100: '#EDF2F4',
+            200: '#EDF2F4',
+            300: '#8D99AE',
+            400: '#8D99AE',
+            500: '#8D99AE',
+            600: '#2B2D42',
+            700: '#2B2D42',
+            800: '#2B2D42',
+            900: '#2B2D42',
           },
           green: {
-            DEFAULT: '#6ea090',
-            light: '#8eb8a8',
-            dark: '#5a8a7a',
-            50: '#f2f7f5',
-            100: '#e5f0ec',
-            200: '#cce0d9',
-            300: '#b2d1c6',
-            400: '#8eb8a8',
-            500: '#6ea090',
-            600: '#5a8a7a',
-            700: '#4a7165',
-            800: '#3a5a51',
-            900: '#2a433c',
+            DEFAULT: '#2B2D42',
+            light: '#8D99AE',
+            dark: '#2B2D42',
+            50: '#EDF2F4',
+            100: '#EDF2F4',
+            200: '#8D99AE',
+            300: '#8D99AE',
+            400: '#8D99AE',
+            500: '#2B2D42',
+            600: '#2B2D42',
+            700: '#2B2D42',
+            800: '#2B2D42',
+            900: '#2B2D42',
           },
-          dark: '#232220',
-          light: '#e7e8e4',
+          dark: '#2B2D42',
+          light: '#EDF2F4',
         },
         
         // Semantic colors using CSS variables
@@ -110,9 +115,28 @@ const config = {
           DEFAULT: 'hsl(var(--info))',
           foreground: 'hsl(var(--info-foreground))',
         },
+        error: 'hsl(var(--error))',
+        chart: {
+          2: 'hsl(var(--chart-2))',
+        },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
+        // Preflight reads gray.200 (default border) and gray.400 (placeholder).
+        // Point only those two shades at palette tokens so the bundle does not emit Tailwind gray.
+        gray: {
+          200: 'hsl(var(--border))',
+          400: 'hsl(var(--card-foreground))',
+        },
+      },
+      borderColor: {
+        DEFAULT: 'hsl(var(--border))',
+      },
+      ringColor: {
+        DEFAULT: 'hsl(var(--ring))',
+      },
+      ringOffsetColor: {
+        DEFAULT: 'hsl(var(--background))',
       },
       
       // Border Radius
@@ -165,8 +189,7 @@ const config = {
         'xl': '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
         '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)',
         'inner': 'inset 0 2px 4px 0 rgb(0 0 0 / 0.05)',
-        'glow-grey': '0 0 20px rgba(156, 163, 175, 0.3)',
-        'glow-green': '0 0 20px rgba(110, 160, 144, 0.3)',
+        'glow': '0 0 20px rgb(43 45 66 / 0.28)',
       },
       
       // Animations

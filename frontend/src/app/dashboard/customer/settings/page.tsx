@@ -350,7 +350,7 @@ export default function CustomerSettingsPage() {
           </CardHeader>
           <CardContent>
             <div className="flex justify-end">
-              <Button variant="outline" onClick={handleLogout} className="text-red-600 border-red-600 hover:bg-red-50">
+              <Button variant="outline" onClick={handleLogout} className="text-foreground border-border hover:bg-accent">
                 <LogOut className="h-4 w-4 mr-2" />
                 خروج از حساب کاربری
               </Button>

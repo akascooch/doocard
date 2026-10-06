@@ -150,12 +150,12 @@ export default function SlotPicker({
     return (
       <div className="space-y-2">
         {label && (
-          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <Label className="text-sm font-medium text-foreground dark:text-foreground">
             {label}
-            {required && <span className="text-red-500 mr-1">*</span>}
+            {required && <span className="text-destructive mr-1">*</span>}
           </Label>
         )}
-        <div className="p-4 bg-white/[0.04] border border-white/10 rounded-lg text-center text-sm text-slate-300">
+        <div className="p-4 bg-accent border border-border rounded-lg text-center text-sm text-foreground">
           لطفاً ابتدا آرایشگر و تاریخ را انتخاب کنید
         </div>
       </div>
@@ -166,12 +166,12 @@ export default function SlotPicker({
     return (
       <div className="space-y-2">
         {label && (
-          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <Label className="text-sm font-medium text-foreground dark:text-foreground">
             {label}
-            {required && <span className="text-red-500 mr-1">*</span>}
+            {required && <span className="text-destructive mr-1">*</span>}
           </Label>
         )}
-        <div className="h-20 bg-white/[0.04] border border-white/10 rounded-lg animate-pulse"></div>
+        <div className="h-20 bg-accent border border-border rounded-lg animate-pulse"></div>
       </div>
     );
   }
@@ -179,9 +179,9 @@ export default function SlotPicker({
   return (
     <div className="space-y-2" dir="rtl">
       {label && (
-        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <Label className="text-sm font-medium text-foreground dark:text-foreground">
           {label}
-          {required && <span className="text-red-500 mr-1">*</span>}
+          {required && <span className="text-destructive mr-1">*</span>}
         </Label>
       )}
 
@@ -206,7 +206,7 @@ export default function SlotPicker({
               })}
             </div>
           ) : (
-            <div className="p-4 bg-white/[0.04] border border-white/10 rounded-lg text-center text-sm text-slate-300">
+            <div className="p-4 bg-accent border border-border rounded-lg text-center text-sm text-foreground">
               زمان خالی برای این تاریخ موجود نیست
             </div>
           )}
@@ -245,7 +245,7 @@ export default function SlotPicker({
               type="button"
               size="sm"
               onClick={handleManualSubmit}
-              className="bg-main-orange hover:bg-main-orange/90"
+              className="bg-primary hover:bg-accent"
             >
               تأیید
             </Button>
@@ -267,7 +267,7 @@ export default function SlotPicker({
         </div>
       )}
 
-      {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
+      {error && <p className="text-sm text-destructive mt-1">{error}</p>}
 
       {slots.length > 0 && !manualMode && (
         <p className="text-xs text-muted-foreground">

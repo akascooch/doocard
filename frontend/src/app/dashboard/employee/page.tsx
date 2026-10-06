@@ -54,13 +54,13 @@ interface TodayAppointment {
 }
 
 const STATUS_LABEL: Record<string, { label: string; className: string }> = {
-  PENDING: { label: 'در انتظار', className: 'bg-yellow-100 text-yellow-800' },
-  PENDING_CONFIRMATION: { label: 'در انتظار تأیید', className: 'bg-yellow-100 text-yellow-800' },
-  CONFIRMED: { label: 'تأیید شده', className: 'bg-blue-100 text-blue-800' },
-  COMPLETED: { label: 'انجام شده', className: 'bg-green-100 text-green-800' },
-  SETTLED: { label: 'تسویه شده', className: 'bg-green-100 text-green-800' },
-  PAID: { label: 'پرداخت شده', className: 'bg-green-100 text-green-800' },
-  CANCELLED: { label: 'لغو شده', className: 'bg-red-100 text-red-800' },
+  PENDING: { label: 'در انتظار', className: 'bg-accent text-foreground' },
+  PENDING_CONFIRMATION: { label: 'در انتظار تأیید', className: 'bg-accent text-foreground' },
+  CONFIRMED: { label: 'تأیید شده', className: 'bg-accent text-foreground' },
+  COMPLETED: { label: 'انجام شده', className: 'bg-accent text-foreground' },
+  SETTLED: { label: 'تسویه شده', className: 'bg-accent text-foreground' },
+  PAID: { label: 'پرداخت شده', className: 'bg-accent text-foreground' },
+  CANCELLED: { label: 'لغو شده', className: 'bg-accent text-foreground' },
 }
 
 function formatTehranTime(iso?: string) {
@@ -243,7 +243,7 @@ export default function EmployeeDashboard() {
                   >
                     <div className="flex items-start gap-3">
                       {appointment.status === 'CANCELLED' ? (
-                        <AlertCircle className="h-4 w-4 text-red-600 mt-1" />
+                        <AlertCircle className="h-4 w-4 text-destructive mt-1" />
                       ) : (
                         <CheckCircle className="h-4 w-4 text-primary mt-1" />
                       )}
@@ -289,32 +289,32 @@ export default function EmployeeDashboard() {
               className="min-h-20 h-20 flex flex-col items-start justify-center gap-1"
               onClick={() => router.push('/dashboard/employee/appointments')}
             >
-              <Calendar className="h-6 w-6 text-amber-300" />
-              <span className="text-zinc-100">نوبت‌های من</span>
+              <Calendar className="h-6 w-6 text-foreground" />
+              <span className="text-foreground">نوبت‌های من</span>
             </Button>
             <Button
               variant="glass"
               className="min-h-20 h-20 flex flex-col items-start justify-center gap-1"
               onClick={() => router.push('/dashboard/employee/salary-request')}
             >
-              <DollarSign className="h-6 w-6 text-amber-300" />
-              <span className="text-zinc-100">درخواست حقوق</span>
+              <DollarSign className="h-6 w-6 text-foreground" />
+              <span className="text-foreground">درخواست حقوق</span>
             </Button>
             <Button
               variant="glass"
               className="min-h-20 h-20 flex flex-col items-start justify-center gap-1"
               onClick={() => router.push('/dashboard/employee/my-customers')}
             >
-              <Users className="h-6 w-6 text-amber-300" />
-              <span className="text-zinc-100">مشتریان من</span>
+              <Users className="h-6 w-6 text-foreground" />
+              <span className="text-foreground">مشتریان من</span>
             </Button>
             <Button
               variant="glass"
               className="min-h-20 h-20 flex flex-col items-start justify-center gap-1"
               onClick={() => router.push('/dashboard/employee/performance')}
             >
-              <BarChart3 className="h-6 w-6 text-amber-300" />
-              <span className="text-zinc-100">گزارش عملکرد</span>
+              <BarChart3 className="h-6 w-6 text-foreground" />
+              <span className="text-foreground">گزارش عملکرد</span>
             </Button>
           </div>
         </CardContent>

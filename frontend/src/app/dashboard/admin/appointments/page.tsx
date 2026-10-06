@@ -371,8 +371,8 @@ export default function AdminAppointmentsPage() {
                 }
               }}
               className={cn(
-                'text-slate-300',
-                showAdvancedFilters && 'border-white/40 bg-white/15 text-white ring-2 ring-amber-200/80',
+                'text-foreground',
+                showAdvancedFilters && 'border-border bg-accent text-foreground ring-2 ring-ring',
               )}
             >
               <Filter className="h-4 w-4 ml-2" />
@@ -397,12 +397,12 @@ export default function AdminAppointmentsPage() {
                   key={key}
                   selected={dateFilter === key}
                   onClick={() => handlePresetClick(key)}
-                  className="flex items-center gap-2 text-slate-300"
+                  className="flex items-center gap-2 text-foreground"
                 >
                   {Icon && <Icon className="h-4 w-4" />}
                   {label}
                   {dateFilter === key && key === 'today' && stats.total > 0 && (
-                    <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">{stats.total}</span>
+                    <span className="bg-accent px-2 py-0.5 rounded-full text-xs">{stats.total}</span>
                   )}
                 </GlassChip>
               ))}
@@ -487,7 +487,7 @@ export default function AdminAppointmentsPage() {
                   variant="ghost"
                   size="sm"
                   onClick={clearAdvancedFilters}
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  className="text-foreground hover:text-foreground hover:bg-accent"
                 >
                   <X className="h-4 w-4 ml-2" />
                   پاک کردن فیلترها
@@ -502,13 +502,13 @@ export default function AdminAppointmentsPage() {
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="border-l-4 border-l-green-500 bg-gradient-to-br from-green-50 to-white dark:from-green-950/20 dark:to-background">
+        <Card className="border-l-4 border-l-border bg-gradient-to-br from-accent to-card dark:from-primary dark:to-background">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2 text-green-600 dark:text-green-400">
+            <CardDescription className="flex items-center gap-2 text-foreground dark:text-foreground">
               <CheckCircle className="h-5 w-5" />
               نوبت‌های تسویه شده (فیلتر فعلی)
             </CardDescription>
-            <CardTitle className="text-4xl text-green-700 dark:text-green-300">
+            <CardTitle className="text-4xl text-foreground dark:text-foreground">
               {summaryLoading ? '…' : summary.settledCount}
             </CardTitle>
           </CardHeader>
@@ -518,12 +518,12 @@ export default function AdminAppointmentsPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-emerald-600 bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-background">
+        <Card className="border-l-4 border-l-border bg-gradient-to-br from-accent to-card dark:from-primary dark:to-background">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+            <CardDescription className="flex items-center gap-2 text-foreground dark:text-foreground">
               جمع فروش تسویه‌شده
             </CardDescription>
-            <CardTitle className="text-3xl sm:text-4xl text-emerald-800 dark:text-emerald-300 tabular-nums">
+            <CardTitle className="text-3xl sm:text-4xl text-foreground dark:text-foreground tabular-nums">
               {summaryLoading ? '…' : formatTomansFromRial(summary.settledSalesRial)}
             </CardTitle>
           </CardHeader>
@@ -532,7 +532,7 @@ export default function AdminAppointmentsPage() {
               مجموع amount نوبت‌های SETTLED / PAID — محاسبه سمت سرور
             </p>
             {isPartialList && (
-              <p className="text-xs text-amber-700 mt-2">
+              <p className="text-xs text-foreground mt-2">
                 توجه: جدول ناقص است ({appointments.length} از {listMeta.total}). جمع فروش از خلاصه سرور است و کامل است.
               </p>
             )}
@@ -541,7 +541,7 @@ export default function AdminAppointmentsPage() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-blue-500">
+        <Card className="border-l-4 border-l-border">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
@@ -550,31 +550,31 @@ export default function AdminAppointmentsPage() {
             <CardTitle className="text-3xl">{stats.total}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="border-l-4 border-l-amber-500">
+        <Card className="border-l-4 border-l-border">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1">
               <AlertCircle className="h-4 w-4" />
               نیاز به تأیید
             </CardDescription>
-            <CardTitle className="text-3xl text-amber-600">{stats.pending}</CardTitle>
+            <CardTitle className="text-3xl text-foreground">{stats.pending}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="border-l-4 border-l-blue-500">
+        <Card className="border-l-4 border-l-border">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1">
               <CheckCircle className="h-4 w-4" />
               تأیید شده
             </CardDescription>
-            <CardTitle className="text-3xl text-blue-600">{stats.confirmed}</CardTitle>
+            <CardTitle className="text-3xl text-foreground">{stats.confirmed}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="border-l-4 border-l-green-500">
+        <Card className="border-l-4 border-l-border">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1">
               <CheckCircle className="h-4 w-4" />
               تسویه شده
             </CardDescription>
-            <CardTitle className="text-3xl text-green-600">{stats.completed}</CardTitle>
+            <CardTitle className="text-3xl text-foreground">{stats.completed}</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -628,7 +628,7 @@ export default function AdminAppointmentsPage() {
                 </div>
 
                 <div className="flex items-end">
-                  <Button onClick={loadAppointmentsAndSummary} variant="glass" className="w-full text-sky-300">
+                  <Button onClick={loadAppointmentsAndSummary} variant="glass" className="w-full text-foreground">
                     <RefreshCcw className="h-4 w-4 ml-2" />
                     بروزرسانی
                   </Button>
@@ -642,7 +642,7 @@ export default function AdminAppointmentsPage() {
               <CardTitle className="flex items-center justify-between">
                 <span>نوبت‌ها ({filteredAndSortedAppointments.length})</span>
                 {stats.pending > 0 && (
-                  <span className="text-sm font-normal text-amber-600 flex items-center gap-1">
+                  <span className="text-sm font-normal text-foreground flex items-center gap-1">
                     <AlertCircle className="h-4 w-4" />
                     {stats.pending} نوبت نیاز به تأیید دارد
                   </span>
@@ -655,7 +655,7 @@ export default function AdminAppointmentsPage() {
             <CardContent>
               {loading ? (
                 <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-main-orange" />
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-border" />
                 </div>
               ) : (
                 <AppointmentList

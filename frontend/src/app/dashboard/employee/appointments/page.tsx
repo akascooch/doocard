@@ -266,12 +266,12 @@ export default function EmployeeAppointmentsPage() {
                 key={key}
                 selected={filterMode === 'preset' && dateFilter === key}
                 onClick={() => handlePresetClick(key)}
-                className="flex items-center gap-2 min-h-10 text-slate-300"
+                className="flex items-center gap-2 min-h-10 text-foreground"
               >
                 {Icon && <Icon className="h-4 w-4" />}
                 {label}
                 {filterMode === 'preset' && dateFilter === key && key === 'today' && stats.total > 0 && (
-                  <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">{stats.total}</span>
+                  <span className="bg-accent px-2 py-0.5 rounded-full text-xs">{stats.total}</span>
                 )}
               </GlassChip>
             ))}
@@ -279,13 +279,13 @@ export default function EmployeeAppointmentsPage() {
           <Button
             variant="glass"
             size="sm"
-            className="w-full sm:w-auto min-h-10 text-slate-300"
+            className="w-full sm:w-auto min-h-10 text-foreground"
             onClick={() => setAdvancedOpen(true)}
           >
             <SlidersHorizontal className="h-4 w-4 ml-2" />
             فیلتر پیشرفته
             {filterMode !== 'preset' && advancedLabel && (
-              <span className="mr-2 text-xs text-slate-400 truncate max-w-[160px]">
+              <span className="mr-2 text-xs text-foreground truncate max-w-[160px]">
                 ({advancedLabel})
               </span>
             )}
@@ -368,7 +368,7 @@ export default function EmployeeAppointmentsPage() {
       </Dialog>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="border-l-4 border-l-blue-500">
+        <Card className="border-l-4 border-l-border">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1 text-xs sm:text-sm">
               <Calendar className="h-4 w-4" />
@@ -377,31 +377,31 @@ export default function EmployeeAppointmentsPage() {
             <CardTitle className="text-2xl sm:text-3xl">{stats.total}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="border-l-4 border-l-amber-500">
+        <Card className="border-l-4 border-l-border">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1 text-xs sm:text-sm">
               <AlertCircle className="h-4 w-4" />
               نیاز به تأیید
             </CardDescription>
-            <CardTitle className="text-2xl sm:text-3xl text-amber-600">{stats.pending}</CardTitle>
+            <CardTitle className="text-2xl sm:text-3xl text-foreground">{stats.pending}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="border-l-4 border-l-blue-500">
+        <Card className="border-l-4 border-l-border">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1 text-xs sm:text-sm">
               <CheckCircle className="h-4 w-4" />
               تأیید شده
             </CardDescription>
-            <CardTitle className="text-2xl sm:text-3xl text-blue-600">{stats.confirmed}</CardTitle>
+            <CardTitle className="text-2xl sm:text-3xl text-foreground">{stats.confirmed}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="border-l-4 border-l-green-500">
+        <Card className="border-l-4 border-l-border">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1 text-xs sm:text-sm">
               <CheckCircle className="h-4 w-4" />
               تسویه شده
             </CardDescription>
-            <CardTitle className="text-2xl sm:text-3xl text-green-600">{stats.completed}</CardTitle>
+            <CardTitle className="text-2xl sm:text-3xl text-foreground">{stats.completed}</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -453,7 +453,7 @@ export default function EmployeeAppointmentsPage() {
                   </Select>
                 </div>
                 <div className="flex items-end">
-                  <Button onClick={() => loadAppointments()} variant="glass" className="w-full min-h-10 text-sky-300">
+                  <Button onClick={() => loadAppointments()} variant="glass" className="w-full min-h-10 text-foreground">
                     <RefreshCcw className="h-4 w-4 ml-2" />
                     بروزرسانی
                   </Button>
@@ -467,7 +467,7 @@ export default function EmployeeAppointmentsPage() {
               <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-lg">
                 <span>نوبت‌ها ({filteredAndSortedAppointments.length})</span>
                 {stats.pending > 0 && (
-                  <span className="text-sm font-normal text-amber-600 flex items-center gap-1">
+                  <span className="text-sm font-normal text-foreground flex items-center gap-1">
                     <AlertCircle className="h-4 w-4" />
                     {stats.pending} نوبت نیاز به تأیید دارد
                   </span>
@@ -480,7 +480,7 @@ export default function EmployeeAppointmentsPage() {
             <CardContent>
               {loading ? (
                 <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-main-orange" />
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-border" />
                 </div>
               ) : (
                 <AppointmentList

@@ -303,7 +303,7 @@ export function Salaries() {
                   <td className="p-2 font-bold">{b.name}</td>
                   <td className="p-2">{formatTomansFromRial(b.totalIncome)}</td>
                   <td className="p-2">{formatTomansFromRial(b.totalWithdrawn)}</td>
-                  <td className="p-2 font-bold text-blue-700">{formatTomansFromRial(b.balance)}</td>
+                  <td className="p-2 font-bold text-foreground">{formatTomansFromRial(b.balance)}</td>
                   <td className="p-2">
                     <Button size="sm" variant="outline" onClick={() => openWithdrawDialog(b)} disabled={b.balance <= 0}>درخواست برداشت</Button>
                   </td>
@@ -525,10 +525,10 @@ export function Salaries() {
                         <span
                           className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                             salary.status === 'REJECTED'
-                              ? 'bg-red-100 text-red-800'
+                              ? 'bg-accent text-foreground'
                               : salary.isPaid
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-yellow-100 text-yellow-800'
+                              ? 'bg-accent text-foreground'
+                              : 'bg-accent text-foreground'
                           }`}
                         >
                           {salary.status === 'REJECTED'

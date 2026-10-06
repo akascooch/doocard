@@ -115,7 +115,7 @@ export function ServiceTipLinesTable({
                 </TableCell>
                 <TableCell>{line.barberName || 'نامشخص'}</TableCell>
                 <TableCell>{tipTypeLabel(line.tipRecipientType)}</TableCell>
-                <TableCell className="tabular-nums font-medium text-green-700 dark:text-green-400">
+                <TableCell className="tabular-nums font-medium text-foreground dark:text-foreground">
                   {formatTomansFromRial(line.myShareRial)}
                 </TableCell>
                 {showExtras && (

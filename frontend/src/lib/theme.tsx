@@ -1,12 +1,9 @@
 'use client';
 
 /**
- * LEGACY file — not the live theme source of truth.
- * Live mechanism: next-themes in `frontend/src/components/providers.tsx`
- * (storage key `doocard-theme`, default dark).
- *
- * ThemeProvider is a pass-through so leftover imports do not fight next-themes.
- * ThemeToggle / useTheme delegate to next-themes.
+ * DEPRECATED — DO NOT IMPORT.
+ * Not the live theme control. RoleBasedSidebar ThemeModeToggle is the shared switch.
+ * Live mechanism: next-themes in src/components/providers.tsx.
  */
 
 import { useTheme as useNextTheme } from 'next-themes';

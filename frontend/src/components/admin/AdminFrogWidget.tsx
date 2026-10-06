@@ -34,8 +34,8 @@ const STATUS_LABEL: Record<FrogStatus, string> = {
 }
 
 function StatusIcon({ status }: { status: FrogStatus }) {
-  if (status === "DONE") return <CheckCircle2 className="h-5 w-5 text-green-500" />
-  if (status === "IN_PROGRESS") return <PlayCircle className="h-5 w-5 text-amber-500" />
+  if (status === "DONE") return <CheckCircle2 className="h-5 w-5 text-foreground" />
+  if (status === "IN_PROGRESS") return <PlayCircle className="h-5 w-5 text-foreground" />
   return <Circle className="h-5 w-5 text-muted-foreground" />
 }
 
@@ -212,7 +212,7 @@ export function AdminFrogWidget() {
       </CardHeader>
       <CardContent className="space-y-4">
         {rollover && items.length === 0 && selectedDate === calendarToday ? (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-3">
+          <div className="rounded-xl border border-border bg-primary p-4 space-y-3">
             <p className="text-sm text-foreground">
               قورباغه دیروز تمام نشده: <strong>{rollover.title}</strong>
             </p>

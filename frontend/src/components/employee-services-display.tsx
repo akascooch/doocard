@@ -22,7 +22,7 @@ export function EmployeeServicesDisplay({
 }: EmployeeServicesDisplayProps) {
   if (!services || services.length === 0) {
     return (
-      <div className="flex items-center gap-2 text-gray-400 text-sm">
+      <div className="flex items-center gap-2 text-foreground text-sm">
         <Scissors className="h-4 w-4" />
         <span>خدماتی هنوز وصل نشده</span>
       </div>
@@ -38,7 +38,7 @@ export function EmployeeServicesDisplay({
         <Badge 
           key={service.id}
           variant="secondary" 
-          className="text-xs bg-blue-100 text-blue-800 hover:bg-blue-200"
+          className="text-xs bg-accent text-foreground hover:bg-accent"
           title={`${service.name} - ${service.price.toLocaleString('fa-IR')} تومان`}
         >
           {service.name}

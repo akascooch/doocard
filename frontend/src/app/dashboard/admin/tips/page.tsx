@@ -438,7 +438,7 @@ export default function AdminTipsPage() {
                   {formatTomansFromRial(preview.reconciliationDifferenceRial)}
                 </div>
                 {preview.rejectedEmployeeIds.length > 0 && (
-                  <div className="text-amber-700">
+                  <div className="text-foreground">
                     ردشده: {preview.rejectedEmployeeIds.join('، ')}
                   </div>
                 )}

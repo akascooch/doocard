@@ -97,7 +97,7 @@ export default function AdminDebtorsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">بدهکاران</h1>
+          <h1 className="text-2xl font-bold text-foreground dark:text-foreground">بدهکاران</h1>
           <p className="text-sm text-muted-foreground mt-1">
             مشتریان دارای حداقل یک بدهی باز (تسویه‌نشده)
           </p>
@@ -111,7 +111,7 @@ export default function AdminDebtorsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-main-orange" />
+            <AlertCircle className="h-5 w-5 text-foreground" />
             فهرست بدهکاران
           </CardTitle>
           <CardDescription>
@@ -121,7 +121,7 @@ export default function AdminDebtorsPage() {
         <CardContent>
           {loading ? (
             <div className="flex justify-center py-10">
-              <Loader2 className="h-8 w-8 animate-spin text-main-orange" />
+              <Loader2 className="h-8 w-8 animate-spin text-foreground" />
             </div>
           ) : debtors.length === 0 ? (
             <p className="text-center text-muted-foreground py-10">بدهی بازی ثبت نشده است</p>
@@ -143,7 +143,7 @@ export default function AdminDebtorsPage() {
                     <TableCell className="font-medium">{d.name}</TableCell>
                     <TableCell>{d.phone || '—'}</TableCell>
                     <TableCell>{d.openDebtCount}</TableCell>
-                    <TableCell className="text-main-orange font-semibold">
+                    <TableCell className="text-foreground font-semibold">
                       {formatTomansFromRial(d.totalOpenRial)}
                     </TableCell>
                     <TableCell>
@@ -176,7 +176,7 @@ export default function AdminDebtorsPage() {
           ) : (
             <div className="space-y-3">
               <p className="text-sm">
-                جمع: <span className="font-bold text-main-orange">{formatTomansFromRial(detailTotal)}</span>
+                جمع: <span className="font-bold text-foreground">{formatTomansFromRial(detailTotal)}</span>
               </p>
               {details.length === 0 ? (
                 <p className="text-muted-foreground text-sm">موردی نیست</p>

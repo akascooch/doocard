@@ -367,7 +367,7 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
       <Card>
         <CardContent className="p-8">
           <div className="flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-main-orange" />
+            <Loader2 className="h-8 w-8 animate-spin text-foreground" />
           </div>
         </CardContent>
       </Card>
@@ -437,7 +437,7 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
           )}
 
           {offlineCustomerLabel && (
-            <div className="text-sm text-amber-700 bg-amber-50 dark:bg-amber-900/20 rounded-lg p-2">
+            <div className="text-sm text-foreground bg-accent dark:bg-primary rounded-lg p-2">
               مشتری آفلاین: {offlineCustomerLabel}{' '}
               <span className="text-xs">(در انتظار همگام‌سازی)</span>
             </div>
@@ -452,7 +452,7 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
               placeholder="مثال: ۱۴۰۳/۰۷/۲۱"
               className="jalali-date-picker"
             />
-            {errors.date && <p className="text-sm text-red-500 mt-1">{errors.date}</p>}
+            {errors.date && <p className="text-sm text-destructive mt-1">{errors.date}</p>}
           </div>
 
           {/* Time Slot Picker */}
@@ -481,8 +481,8 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
 
           {/* Summary (only show price for non-customers) */}
           {formData.serviceIds.length > 0 && (
-            <div className="bg-white/[0.06] border border-white/10 backdrop-blur-md rounded-lg p-4 space-y-2">
-              <h3 className="font-semibold text-zinc-100">خلاصه نوبت:</h3>
+            <div className="bg-accent border border-border backdrop-blur-md rounded-lg p-4 space-y-2">
+              <h3 className="font-semibold text-foreground">خلاصه نوبت:</h3>
               <div className="text-sm space-y-1">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">تعداد سرویس:</span>
@@ -495,7 +495,7 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
                 {role !== 'CUSTOMER' && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">مجموع قیمت:</span>
-                    <span className="font-bold text-main-orange">
+                    <span className="font-bold text-foreground">
                       {new Intl.NumberFormat('fa-IR').format(totalPrice / 10)} تومان
                     </span>
                   </div>
@@ -509,7 +509,7 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
             type="submit"
             disabled={loading}
             data-cy="submit-appointment"
-            className="w-full bg-main-orange hover:bg-main-orange/90"
+            className="w-full bg-primary hover:bg-accent"
           >
             {loading ? (
               <>

@@ -26,11 +26,14 @@ import {
   Target,
   Activity,
   Gift,
+  Moon,
+  Sun,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { LogoutButton } from './LogoutButton'
 import { AppLogo } from '@/components/common/AppLogo'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useTheme } from 'next-themes'
 
 interface RoleBasedSidebarProps {
   isCollapsed?: boolean
@@ -327,6 +330,42 @@ const customerMenuItems = [
   },
 ]
 
+function ThemeModeToggle({ iconOnly }: { iconOnly: boolean }) {
+  const { resolvedTheme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const isDark = mounted && resolvedTheme === 'dark'
+  const label = !mounted ? 'تم' : isDark ? 'حالت تاریک' : 'حالت روشن'
+  const action = isDark
+    ? 'حالت تاریک فعال است. تغییر به حالت روشن'
+    : 'حالت روشن فعال است. تغییر به حالت تاریک'
+
+  return (
+    <button
+      type="button"
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
+      aria-pressed={mounted ? isDark : undefined}
+      aria-label={mounted ? action : 'تغییر تم'}
+      title={label}
+      className={cn(
+        'flex min-h-11 w-full items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-medium text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        iconOnly && 'justify-center px-2'
+      )}
+    >
+      {isDark ? (
+        <Moon className="h-5 w-5 shrink-0" aria-hidden />
+      ) : (
+        <Sun className="h-5 w-5 shrink-0" aria-hidden />
+      )}
+      {!iconOnly && <span>{label}</span>}
+    </button>
+  )
+}
+
 export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = false, userRole = 'CUSTOMER' }: RoleBasedSidebarProps) {
   const pathname = usePathname()
   const [isHovered, setIsHovered] = useState(false)
@@ -353,7 +392,7 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
   return (
     <div 
       className={cn(
-        "flex h-full flex-col gap-4 bg-black border-l border-white/10 transition-all duration-300 ease-out shadow-2xl selection:bg-white/30",
+        "flex h-full flex-col gap-4 border-l border-border bg-card text-card-foreground shadow-sm transition-all duration-300 ease-out",
         isCollapsed && !isHovered ? "w-20" : "w-72",
         isMobile && "w-80"
       )}
@@ -361,8 +400,8 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
       onMouseLeave={() => !isCollapsed && setIsHovered(false)}
     >
       {/* Header */}
-      <div className="flex h-16 items-center justify-between border-b border-white/10 px-4">
-        <Link href="/" className="flex items-center gap-3 font-semibold text-white/60 transition-colors duration-200 hover:text-white">
+      <div className="flex h-16 items-center justify-between border-b border-border px-4">
+        <Link href="/" className="flex items-center gap-3 font-semibold text-card-foreground/80 transition-colors duration-200 hover:text-card-foreground">
           <div className="w-10 h-10">
             <AppLogo size="sm" animated={false} />
           </div>
@@ -373,9 +412,9 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
         {isMobile && onToggle && (
           <button
             onClick={onToggle}
-            className="p-2 rounded-xl hover:bg-white/10 transition-colors duration-200"
+            className="rounded-xl p-2 transition-colors duration-200 hover:bg-accent"
           >
-            <X className="h-6 w-6 text-white/70" />
+            <X className="h-6 w-6 text-card-foreground" />
           </button>
         )}
       </div>
@@ -384,15 +423,7 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
       {(!isCollapsed || isHovered) && !isMobile && (
         <div className="px-4 animate-fade-in">
           <div 
-            className={cn(
-              "inline-flex items-center px-3 py-1.5 rounded-full text-xs font-extrabold shadow-lg ring-1 ring-white/20",
-              userRole === 'ADMIN' && "bg-gradient-to-r from-purple-400 to-pink-400",
-              userRole === 'ACCOUNTANT' && "bg-gradient-to-r from-amber-400 to-orange-400",
-              userRole === 'EMPLOYEE' && "bg-gradient-to-r from-blue-400 to-cyan-400",
-              userRole === 'SERVICE' && "bg-gradient-to-r from-teal-400 to-emerald-400",
-              userRole === 'CUSTOMER' && "bg-gradient-to-r from-green-400 to-teal-400"
-            )}
-            style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
+            className="inline-flex items-center rounded-full bg-primary px-3 py-1.5 text-xs font-extrabold text-primary-foreground"
           >
             {userRole === 'ADMIN' && 'مدیر سیستم'}
             {userRole === 'ACCOUNTANT' && 'حسابدار'}
@@ -426,18 +457,18 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
                 className={cn(
                   'group relative flex items-center gap-4 rounded-2xl px-4 py-3 text-sm font-medium transition-colors duration-200',
                   isActive
-                    ? 'glass-nav-active border border-white/40 bg-white/15 text-white shadow-sm ring-2 ring-amber-200/80 backdrop-blur-md'
-                    : 'border border-transparent bg-transparent text-white/80 hover:border-white/10 hover:bg-[#1A1A1A] hover:text-white',
+                    ? 'border border-ring bg-accent text-accent-foreground shadow-sm ring-2 ring-ring'
+                    : 'border border-transparent bg-transparent text-card-foreground/80 hover:border-border hover:bg-accent hover:text-accent-foreground',
                   isCollapsed && !isHovered && !isMobile && 'justify-center px-2'
                 )}
                 title={isCollapsed && !isHovered && !isMobile ? item.title : undefined}
               >
                 {isActive && (
-                  <span className="absolute inset-y-2 right-1 w-0.5 rounded-full bg-amber-200/80" aria-hidden />
+                  <span className="absolute inset-y-2 right-1 w-0.5 rounded-full bg-ring" aria-hidden />
                 )}
                 <Icon className={cn(
                   "h-5 w-5 flex-shrink-0 transition-colors duration-200",
-                  isActive ? "text-white" : "text-white/70 group-hover:text-white"
+                  isActive ? "text-accent-foreground" : "text-card-foreground group-hover:text-accent-foreground"
                 )} />
                 {isVisible && (
                   <div className="flex-1 min-w-0">
@@ -445,7 +476,7 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
                     {(!isCollapsed || isHovered) && !isMobile && (
                       <span className={cn(
                         "mt-0.5 block text-xs leading-relaxed",
-                        isActive ? "text-white/60" : "text-white/40"
+                        isActive ? "text-accent-foreground" : "text-card-foreground"
                       )}>
                         {item.description}
                       </span>
@@ -459,7 +490,8 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
       </div>
 
       {/* Footer */}
-      <div className="mt-auto border-t border-white/10 p-4">
+      <div className="mt-auto space-y-2 border-t border-border p-4">
+        <ThemeModeToggle iconOnly={isCollapsed && !isHovered && !isMobile} />
         <LogoutButton isCollapsed={isCollapsed} isHovered={isHovered} isMobile={isMobile} />
       </div>
     </div>

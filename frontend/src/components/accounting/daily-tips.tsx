@@ -148,9 +148,9 @@ export function DailyTips() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">وضعیت تخصیص</CardTitle>
             {stats?.isDivided ? (
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <CheckCircle2 className="h-4 w-4 text-foreground" />
             ) : (
-              <AlertCircle className="h-4 w-4 text-yellow-600" />
+              <AlertCircle className="h-4 w-4 text-foreground" />
             )}
           </CardHeader>
           <CardContent>
