@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { PushNotificationsService } from '../push-notifications/push-notifications.service';
+import { accountingExpenseWhere } from '../admin/operating-expense.where';
 
 describe('AccountingService', () => {
   let service: AccountingService;
@@ -139,6 +140,17 @@ describe('AccountingService', () => {
       expect(result.totalIncome).toBe(1000);
       expect(result.totalExpense).toBe(400);
       expect(result.netProfit).toBe(600);
+      const expenseWhere = mockPrismaService.transaction.aggregate.mock.calls[1][0].where;
+      expect(expenseWhere).toEqual(accountingExpenseWhere());
+      expect(expenseWhere.type).toBe('EXPENSE');
+      expect(expenseWhere.NOT.OR[0].sourceType.in).toEqual([
+        'CHEQUE_LEAF_PAYROLL',
+        'SALARY_REQUEST',
+      ]);
+      expect(expenseWhere.NOT.OR[0].sourceType.in).not.toContain('CHEQUE_LEAF');
+      expect(expenseWhere.NOT.OR[1].category.code.in).toEqual(['EMPLOYEE_WITHDRAWAL']);
+      const incomeWhere = mockPrismaService.transaction.aggregate.mock.calls[0][0].where;
+      expect(incomeWhere).toEqual({ deletedAt: null, type: 'INCOME' });
     });
   });
 

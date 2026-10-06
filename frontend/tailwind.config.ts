@@ -110,6 +110,7 @@ const config = {
         warning: {
           DEFAULT: 'hsl(var(--warning))',
           solid: 'hsl(var(--warning-solid))',
+          text: 'hsl(var(--warning-text))',
           foreground: 'hsl(var(--warning-foreground))',
         },
         info: {

@@ -1,9 +1,10 @@
 import { AdminFinancialService } from './admin-financial.service';
 import {
   operatingExpenseWhere,
-  STAFF_WAGE_EXPENSE_SOURCE_TYPES,
+  PAYROLL_WITHDRAWAL_CATEGORY_CODES,
+  PAYROLL_WITHDRAWAL_SOURCE_TYPES,
+  UNCATEGORIZED_EXPENSE_LABEL,
 } from './operating-expense.where';
-import { EMPLOYEE_EXPENSE_CATEGORY_CODES } from '../common/constants/employee-commission.constants';
 
 describe('AdminFinancialService expense aggregation', () => {
   const prisma = {
@@ -30,11 +31,12 @@ describe('AdminFinancialService expense aggregation', () => {
     jest.clearAllMocks();
   });
 
-  it('includes EXPENSE rows with null categoryId (cleared cheques) in the monthly category chart', async () => {
+  it('keeps an ordinary categorized expense and buckets missing categories as سایر', async () => {
     const start = new Date('2026-01-01T00:00:00.000Z');
     const end = new Date('2026-01-31T23:59:59.000Z');
     prisma.transaction.groupBy.mockResolvedValue([
       { categoryId: null, _sum: { amount: 250000n } },
+      { categoryId: 99, _sum: { amount: 50000n } },
       { categoryId: 3, _sum: { amount: 100000n } },
     ]);
     prisma.transactionCategory.findMany.mockResolvedValue([{ id: 3, name: 'اجاره' }]);
@@ -51,9 +53,11 @@ describe('AdminFinancialService expense aggregation', () => {
     expect(where.categoryId).toBeUndefined();
     expect(JSON.stringify(where)).not.toContain('"10"');
     expect(rows).toEqual([
-      { name: 'وصول چک / بدون دسته', total: '250000' },
+      { name: UNCATEGORIZED_EXPENSE_LABEL, total: '300000' },
       { name: 'اجاره', total: '100000' },
     ]);
+    expect(rows.map((row: { name: string }) => row.name)).toContain('اجاره');
+    expect(UNCATEGORIZED_EXPENSE_LABEL).toBe('سایر');
   });
 
   it('sums operating EXPENSE rows with the same predicate as the category chart', async () => {
@@ -71,7 +75,7 @@ describe('AdminFinancialService expense aggregation', () => {
     expect(totalWhere.categoryId).toBeUndefined();
   });
 
-  it('uses one predicate that drops staff wages and keeps operating cheques', () => {
+  it('excludes only payroll withdrawal markers and keeps operating cheques', () => {
     const where = operatingExpenseWhere(
       new Date('2026-03-21T00:00:00.000Z'),
       new Date('2026-04-20T23:59:59.000Z'),
@@ -79,9 +83,21 @@ describe('AdminFinancialService expense aggregation', () => {
     const excluded = where.NOT as {
       OR: Array<{ sourceType?: { in: string[] }; category?: { code: { in: string[] } } }>;
     };
-    expect(excluded.OR[0].sourceType?.in).toEqual([...STAFF_WAGE_EXPENSE_SOURCE_TYPES]);
+    expect(excluded.OR[0].sourceType?.in).toEqual([...PAYROLL_WITHDRAWAL_SOURCE_TYPES]);
+    expect(excluded.OR[0].sourceType?.in).toEqual([
+      'CHEQUE_LEAF_PAYROLL',
+      'SALARY_REQUEST',
+    ]);
     expect(excluded.OR[0].sourceType?.in).not.toContain('CHEQUE_LEAF');
-    expect(excluded.OR[1].category?.code.in).toEqual([...EMPLOYEE_EXPENSE_CATEGORY_CODES]);
+    expect(excluded.OR[0].sourceType?.in).not.toContain('COMMISSION_SETTLEMENT');
+    expect(excluded.OR[1].category?.code.in).toEqual([
+      ...PAYROLL_WITHDRAWAL_CATEGORY_CODES,
+    ]);
+    expect(excluded.OR[1].category?.code.in).toEqual(['EMPLOYEE_WITHDRAWAL']);
+    expect(excluded.OR[1].category?.code.in).not.toContain('PAYROLL');
+    expect(excluded.OR[1].category?.code.in).not.toContain('SALARY_ADVANCE');
+    expect(excluded.OR[1].category?.code.in).not.toContain('COMMISSION_SETTLEMENT');
+    expect(where.type).toBe('EXPENSE');
     expect(where.occurredAt).toEqual({
       gte: new Date('2026-03-21T00:00:00.000Z'),
       lte: new Date('2026-04-20T23:59:59.000Z'),

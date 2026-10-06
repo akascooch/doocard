@@ -79,7 +79,8 @@
     --color-success: #0E7A4A;
     --color-success-soft: #E7F6EE;
     --color-success-foreground: #FFFFFF;
-    --color-warning: #8A5A00;
+    --color-warning: #5C3A00;
+    --color-warning-text: #5C3A00;
     --color-warning-solid: #5C3A00;
     --color-warning-soft: #FFF4D6;
     --color-warning-foreground: #FFFFFF;
@@ -115,8 +116,9 @@
     --error: 353 86% 54%;
     --success: 152 79% 27%;
     --success-foreground: 0 0% 100%;
-    --warning: 39 100% 27%;
+    --warning: 38 100% 18%;
     --warning-solid: 38 100% 18%;
+    --warning-text: 38 100% 18%;
     --warning-foreground: 0 0% 100%;
     --info: 212 65% 32%;
     --info-foreground: 0 0% 100%;
@@ -210,7 +212,8 @@
     --color-success: #0E7A4A;
     --color-success-soft: #123D2C;
     --color-success-foreground: #FFFFFF;
-    --color-warning: #8A5A00;
+    --color-warning: #5C3A00;
+    --color-warning-text: #FFCB70;
     --color-warning-solid: #5C3A00;
     --color-warning-soft: #3A2C10;
     --color-warning-foreground: #FFFFFF;
@@ -245,8 +248,9 @@
     --error: 353 86% 54%;
     --success: 152 79% 27%;
     --success-foreground: 0 0% 100%;
-    --warning: 39 100% 27%;
+    --warning: 38 100% 18%;
     --warning-solid: 38 100% 18%;
+    --warning-text: 38 100% 72%;
     --warning-foreground: 0 0% 100%;
     --info: 212 65% 32%;
     --info-foreground: 0 0% 100%;
@@ -495,7 +499,7 @@
   }
   
   .badge-warning {
-    @apply bg-warning/10 text-warning border border-warning/20;
+    @apply bg-warning/10 text-warning-text border border-warning/20;
   }
   
   .badge-destructive {

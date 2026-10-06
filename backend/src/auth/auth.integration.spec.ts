@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { PrismaTestService } from '../../tests/prisma-test.service';
-import { TestModule } from '../../tests/test.module';
 import { AuthModule } from './auth.module';
 import { PrismaService } from '../prisma/prisma.service';
 import request from 'supertest';
@@ -40,7 +39,6 @@ describe('Auth Integration Tests', () => {
         email: `john_${Date.now()}@example.com`,
         phone: `0912${Date.now().toString().slice(-7)}`,
         password: 'password123',
-        role: 'CUSTOMER',
         birthdate: '1990-01-01',
         notes: 'Test customer',
       };
@@ -56,7 +54,7 @@ describe('Auth Integration Tests', () => {
         name: registerData.name,
         email: registerData.email,
         phone: registerData.phone,
-        role: registerData.role,
+        role: 'CUSTOMER',
       });
 
       // Verify user was created in database
@@ -73,7 +71,7 @@ describe('Auth Integration Tests', () => {
       expect(customer).toBeTruthy();
     });
 
-    it('should register a new employee successfully', async () => {
+    it('should reject a privileged role on public register', async () => {
       const registerData = {
         name: 'Jane Smith',
         email: `jane_${Date.now()}@example.com`,
@@ -82,19 +80,10 @@ describe('Auth Integration Tests', () => {
         role: 'EMPLOYEE',
       };
 
-      const response = await request(app.getHttpServer())
+      await request(app.getHttpServer())
         .post('/auth/register')
         .send(registerData)
-        .expect(201);
-
-      expect(response.body.user.role).toBe('EMPLOYEE');
-
-      // Verify employee profile was created
-      const employee = await prismaTestService.employee.findFirst({
-        where: { userId: response.body.user.id },
-      });
-      expect(employee).toBeTruthy();
-      expect(employee.specialty).toBe('General');
+        .expect(400);
     });
 
     it('should return 409 when user already exists', async () => {
@@ -103,7 +92,6 @@ describe('Auth Integration Tests', () => {
         email: `dup_${Date.now()}@example.com`,
         phone: `0912${Date.now().toString().slice(-7)}`,
         password: 'password123',
-        role: 'CUSTOMER',
       };
 
       // First registration
@@ -125,7 +113,6 @@ describe('Auth Integration Tests', () => {
         email: 'invalid-email',
         phone: '',
         password: '123',
-        role: 'INVALID_ROLE',
       };
 
       const res = await request(app.getHttpServer())

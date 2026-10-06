@@ -18,6 +18,7 @@ import {
   CHEQUE_LEAF_PAYROLL_SOURCE_TYPE,
   EMPLOYEE_WITHDRAWAL_CATEGORY_CODE,
 } from '../common/constants/employee-commission.constants';
+import { accountingExpenseWhere } from '../admin/operating-expense.where';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { PushNotificationsService } from '../push-notifications/push-notifications.service';
@@ -844,7 +845,9 @@ export class AccountingService {
   // ==================== REPORTS & AGGREGATIONS ====================
 
   /**
-   * Get financial summary for a period
+   * Period summary. Expense uses the same payroll-withdrawal exclusion as the
+   * yearly chart (`accountingExpenseWhere`). Income is unchanged. totalExpense
+   * therefore drops only برداشت حقوق rows, not other expenses.
    */
   async getSummary(from?: string, to?: string) {
     const where: any = { deletedAt: null };
@@ -862,7 +865,10 @@ export class AccountingService {
         _count: true
       }),
       this.prisma.transaction.aggregate({
-        where: { ...where, type: 'EXPENSE' },
+        where: accountingExpenseWhere(
+          from ? new Date(from) : undefined,
+          to ? new Date(to) : undefined,
+        ),
         _sum: { amount: true },
         _count: true
       }),

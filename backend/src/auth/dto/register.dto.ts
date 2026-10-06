@@ -1,4 +1,12 @@
 import { IsEmail, IsNotEmpty, IsString, IsOptional, IsDateString, ValidateIf, IsInt } from 'class-validator';
+import { UserRole } from '@prisma/client';
+
+/**
+ * Public self-registration. `role` is not a field: the global ValidationPipe
+ * (whitelist + forbidNonWhitelisted) rejects any client-supplied role.
+ * The only role this path may create is CUSTOMER, hardcoded in AuthService.
+ */
+export const PUBLIC_REGISTER_ROLE = UserRole.CUSTOMER;
 
 export class RegisterDto {
   @IsString()
@@ -26,10 +34,6 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   notes?: string;
-
-  @IsString()
-  @IsNotEmpty()
-  role: string;
 
   @IsOptional()
   @IsInt()

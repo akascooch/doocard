@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
+import { PUBLIC_REGISTER_ROLE, RegisterDto } from './dto/register.dto';
 import {
   getJwtAccessExpiresIn,
   getRefreshCookieMaxAgeMs,
@@ -282,6 +282,11 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto) {
+    const suppliedRole = (registerDto as RegisterDto & { role?: unknown }).role;
+    if (suppliedRole !== undefined) {
+      throw new BadRequestException('نقش در ثبت‌نام عمومی مجاز نیست');
+    }
+
     try {
       // Check if user already exists
       const existingUser = await this.prisma.user.findFirst({
@@ -309,7 +314,7 @@ export class AuthService {
           phone: registerDto.phone,
           email: registerDto.email,
           password: hashedPassword,
-          role: registerDto.role as any,
+          role: PUBLIC_REGISTER_ROLE,
         },
         select: {
           id: true,
@@ -323,58 +328,46 @@ export class AuthService {
       });
 
 
-      // Create profile based on role
-        if (registerDto.role === 'CUSTOMER') {
-          // Resolve preferred employee
-          let resolvedEmployeeId: number | null = null;
-          if (registerDto.preferredEmployeeId) {
-            const employee = await tx.employee.findUnique({ where: { id: registerDto.preferredEmployeeId } });
-            resolvedEmployeeId = employee ? employee.id : null;
-          }
-          if (!resolvedEmployeeId) {
-            const defaultEmployee = await tx.employee.findFirst({ where: { isDefault: true, isActive: true } });
-            if (defaultEmployee) {
-              resolvedEmployeeId = defaultEmployee.id;
-            } else {
-              const firstEmployee = await tx.employee.findFirst({ where: { isActive: true } });
-              if (firstEmployee) {
-                resolvedEmployeeId = firstEmployee.id;
-              }
+        let resolvedEmployeeId: number | null = null;
+        if (registerDto.preferredEmployeeId) {
+          const employee = await tx.employee.findUnique({ where: { id: registerDto.preferredEmployeeId } });
+          resolvedEmployeeId = employee ? employee.id : null;
+        }
+        if (!resolvedEmployeeId) {
+          const defaultEmployee = await tx.employee.findFirst({ where: { isDefault: true, isActive: true } });
+          if (defaultEmployee) {
+            resolvedEmployeeId = defaultEmployee.id;
+          } else {
+            const firstEmployee = await tx.employee.findFirst({ where: { isActive: true } });
+            if (firstEmployee) {
+              resolvedEmployeeId = firstEmployee.id;
             }
           }
-
-          registeredPreferredEmployeeId = resolvedEmployeeId;
-          await tx.customer.create({
-            data: {
-              userId: user.id,
-              preferredEmployeeId: resolvedEmployeeId,
-            },
-          });
-        } else if (registerDto.role === 'EMPLOYEE') {
-          await tx.employee.create({
-            data: {
-              userId: user.id,
-            },
-          });
         }
+
+        registeredPreferredEmployeeId = resolvedEmployeeId;
+        await tx.customer.create({
+          data: {
+            userId: user.id,
+            preferredEmployeeId: resolvedEmployeeId,
+          },
+        });
 
         return user;
       });
 
-      if (registerDto.role === 'CUSTOMER') {
-        try {
-          await this.customerRegistrationSms.handleNewCustomer({
-            name: result.name || registerDto.name,
-            phone: result.phone || registerDto.phone,
-            userId: result.id,
-            source: 'self_register',
-            preferredEmployeeId: registeredPreferredEmployeeId,
-          });
-        } catch (err: any) {
-          this.logger.error(
-            '[CustomerRegistration SMS error] ' + (err?.message || 'unknown'),
-          );
-        }
+      try {
+        await this.customerRegistrationSms.handleNewCustomer({
+          name: result.name || registerDto.name,
+          phone: result.phone || registerDto.phone,
+          userId: result.id,
+          source: 'self_register',
+          preferredEmployeeId: registeredPreferredEmployeeId,
+        });
+      } catch (err: any) {
+        this.logger.error(
+          '[CustomerRegistration SMS error] ' + (err?.message || 'unknown'),
+        );
       }
 
       return { user: result, message: 'کاربر با موفقیت ثبت‌نام شد' };

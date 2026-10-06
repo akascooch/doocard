@@ -234,7 +234,6 @@ describe('AuthService', () => {
       email: 'newuser@example.com',
       phone: '09987654321',
       password: 'password123',
-      role: 'CUSTOMER',
       birthdate: '1990-01-01',
       notes: 'Test customer',
     };
@@ -257,7 +256,7 @@ describe('AuthService', () => {
           phone: registerDto.phone,
           email: registerDto.email,
           password: expect.any(String),
-          role: registerDto.role,
+          role: 'CUSTOMER',
         },
         select: expect.any(Object),
       });
@@ -269,28 +268,15 @@ describe('AuthService', () => {
       });
     });
 
-    it('should successfully register a new employee', async () => {
-      (bcrypt.hash as unknown as jest.Mock).mockResolvedValue('hashed');
-      const employeeRegisterDto = {
-        ...registerDto,
-        role: 'EMPLOYEE',
-      };
-
-      mockPrismaService.user.findFirst.mockResolvedValue(null);
-      mockPrismaService.user.create.mockResolvedValue({
-        ...mockUser,
-        role: 'EMPLOYEE',
-      });
-      mockPrismaService.employee.create.mockResolvedValue({ id: 1, userId: 1 });
-
-      const result = await service.register(employeeRegisterDto);
-
-      expect(result.user.role).toBe('EMPLOYEE');
-      expect(mockPrismaService.employee.create).toHaveBeenCalledWith({
-        data: {
-          userId: mockUser.id,
-        },
-      });
+    it('rejects a client-supplied privileged role before creating a user', async () => {
+      await expect(
+        service.register({ ...registerDto, role: 'ADMIN' } as typeof registerDto),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.register({ ...registerDto, role: 'EMPLOYEE' } as typeof registerDto),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.user.create).not.toHaveBeenCalled();
+      expect(mockPrismaService.employee.create).not.toHaveBeenCalled();
     });
 
     it('should throw ConflictException when user already exists', async () => {

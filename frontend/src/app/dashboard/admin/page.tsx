@@ -167,7 +167,7 @@ export default function AdminDashboard() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-sm font-medium">کارکنان</CardTitle>
             <div className="h-10 w-10 rounded-xl bg-warning/10 flex items-center justify-center group-hover:bg-warning/20 transition-colors">
-              <UserCog className="h-5 w-5 text-warning" />
+              <UserCog className="h-5 w-5 text-warning-text" />
             </div>
           </CardHeader>
           <CardContent>
@@ -182,7 +182,7 @@ export default function AdminDashboard() {
         <Card  className="group hover:shadow-lg transition-all duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-sm font-medium">در انتظار تأیید</CardTitle>
-            <Clock className="h-5 w-5 text-warning" />
+            <Clock className="h-5 w-5 text-warning-text" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">{stats.pendingAppointments}</div>

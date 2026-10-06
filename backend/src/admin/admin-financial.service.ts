@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { AppointmentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { getJalaliMonthRanges } from '../common/utils/date-utils';
-import { operatingExpenseWhere } from './operating-expense.where';
+import {
+  operatingExpenseWhere,
+  UNCATEGORIZED_EXPENSE_LABEL,
+} from './operating-expense.where';
 
 const SETTLED_STATUSES: AppointmentStatus[] = [
   AppointmentStatus.COMPLETED,
@@ -103,9 +106,19 @@ export class AdminFinancialService {
     });
     const byId = new Map(categories.map((c) => [c.id, c.name]));
 
-    const result = groups.map((g) => ({
-      name: g.categoryId == null ? 'وصول چک / بدون دسته' : byId.get(g.categoryId) ?? 'بدون دسته',
-      total: String(g._sum.amount ?? 0),
+    const merged = new Map<string, bigint>();
+    for (const group of groups) {
+      const name =
+        group.categoryId == null
+          ? UNCATEGORIZED_EXPENSE_LABEL
+          : byId.get(group.categoryId) ?? UNCATEGORIZED_EXPENSE_LABEL;
+      const amount = BigInt(group._sum.amount ?? 0);
+      merged.set(name, (merged.get(name) ?? 0n) + amount);
+    }
+
+    const result = [...merged.entries()].map(([name, total]) => ({
+      name,
+      total: String(total),
     }));
     result.sort((a, b) => {
       const diff = BigInt(b.total) - BigInt(a.total);

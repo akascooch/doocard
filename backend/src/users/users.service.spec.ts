@@ -96,6 +96,25 @@ describe('UsersService', () => {
       }));
     });
 
+    it('should create an ADMIN from the staff path without forcing CUSTOMER', async () => {
+      const adminDto = { ...createUserDto, role: 'ADMIN' };
+      const adminUser = { ...mockUser, role: 'ADMIN' };
+
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+      mockPrismaService.user.findFirst.mockResolvedValue(null);
+      mockPrismaService.user.create.mockResolvedValue(adminUser);
+      (bcrypt.hash as unknown as jest.Mock).mockResolvedValue('hashedPassword' as never);
+
+      const result = await service.create(adminDto);
+
+      expect(result.role).toBe('ADMIN');
+      expect(mockPrismaService.user.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ role: 'ADMIN' }),
+      });
+      expect(mockPrismaService.customer.create).not.toHaveBeenCalled();
+      expect(mockPrismaService.employee.create).not.toHaveBeenCalled();
+    });
+
     it('should create employee when role is EMPLOYEE', async () => {
       const employeeDto = { ...createUserDto, role: 'EMPLOYEE' };
       const employeeUser = { ...mockUser, role: 'EMPLOYEE' };
