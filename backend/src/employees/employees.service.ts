@@ -4,7 +4,9 @@ import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { AssignServicesToEmployeeDto } from './dto/employee-service.dto';
 import { mapEmployeesToListItems, mapEmployeeToListItem } from './mappers/employee-list.mapper';
+import { excludePassword } from '../common/utils/exclude-password';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class EmployeesService {
@@ -40,7 +42,10 @@ export class EmployeesService {
       }
 
       // Hash password if provided
-      const hashedPassword = password ? await bcrypt.hash(password, 10) : await bcrypt.hash('123456', 10);
+      const hashedPassword = await bcrypt.hash(
+        password || crypto.randomBytes(16).toString('hex'),
+        10,
+      );
 
       // Create user first
       const user = await this.prisma.user.create({
@@ -66,7 +71,7 @@ export class EmployeesService {
         }
       });
 
-      return employee;
+      return excludePassword(employee);
     } catch (error) {
       if (error instanceof ConflictException) {
         throw error;
@@ -91,7 +96,7 @@ export class EmployeesService {
       }
     });
 
-    return mapEmployeesToListItems(employees);
+    return excludePassword(mapEmployeesToListItems(employees));
   }
 
   async findAllOld() {
@@ -275,7 +280,7 @@ export class EmployeesService {
       throw new NotFoundException('Employee not found');
     }
 
-    return employee;
+    return excludePassword(employee);
   }
 
   async update(id: number, updateEmployeeDto: UpdateEmployeeDto) {
@@ -334,7 +339,7 @@ export class EmployeesService {
         }
       });
 
-      return updatedEmployee;
+      return excludePassword(updatedEmployee);
     });
   }
 
@@ -406,7 +411,7 @@ export class EmployeesService {
       }
     });
 
-    return mapEmployeesToListItems(employees);
+    return excludePassword(mapEmployeesToListItems(employees));
   }
 
   async getEmployeeStats(employeeId: number) {

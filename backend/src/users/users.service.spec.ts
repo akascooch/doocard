@@ -80,7 +80,8 @@ describe('UsersService', () => {
 
       const result = await service.create(createUserDto);
 
-      expect(result).toEqual(mockUser);
+      expect(result.password).toBeUndefined();
+      expect(result).toEqual(expect.objectContaining({ id: mockUser.id, name: mockUser.name, phone: mockUser.phone }));
       expect(mockPrismaService.user.create).toHaveBeenCalledWith({
         data: {
           name: createUserDto.name,
@@ -127,7 +128,8 @@ describe('UsersService', () => {
 
       const result = await service.create(employeeDto);
 
-      expect(result).toEqual(employeeUser);
+      expect(result.password).toBeUndefined();
+      expect(result).toEqual(expect.objectContaining({ id: employeeUser.id, role: 'EMPLOYEE' }));
       expect(mockPrismaService.employee.create).toHaveBeenCalledWith(expect.objectContaining({
         data: expect.objectContaining({ userId: employeeUser.id }),
       }));
@@ -158,7 +160,8 @@ describe('UsersService', () => {
 
       const result = await service.create(dtoWithoutEmail);
 
-      expect(result).toEqual(mockUser);
+      expect(result.password).toBeUndefined();
+      expect(result).toEqual(expect.objectContaining({ id: mockUser.id, phone: mockUser.phone }));
       expect(mockPrismaService.user.create).toHaveBeenCalledWith({
         data: {
           name: dtoWithoutEmail.name,
@@ -198,7 +201,8 @@ describe('UsersService', () => {
 
       const result = await service.findAll();
 
-      expect(result).toEqual(mockUsers);
+      expect(result[0].password).toBeUndefined();
+      expect(result).toEqual([expect.objectContaining({ id: mockUser.id, name: mockUser.name })]);
       expect(mockPrismaService.user.findMany).toHaveBeenCalledWith(expect.objectContaining({ orderBy: { createdAt: 'desc' } }));
     });
 
@@ -217,7 +221,8 @@ describe('UsersService', () => {
 
       const result = await service.findOne(1);
 
-      expect(result).toEqual(mockUser);
+      expect(result.password).toBeUndefined();
+      expect(result).toEqual(expect.objectContaining({ id: mockUser.id, email: mockUser.email }));
       expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 1 } }));
     });
 
@@ -243,7 +248,8 @@ describe('UsersService', () => {
 
       const result = await service.update(1, updateUserDto);
 
-      expect(result).toEqual(updatedUser);
+      expect(result.password).toBeUndefined();
+      expect(result).toEqual(expect.objectContaining({ id: updatedUser.id, name: 'John Updated' }));
       expect(mockPrismaService.user.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 1 } }));
     });
 

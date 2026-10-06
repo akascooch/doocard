@@ -162,6 +162,7 @@ describe('EmployeesService', () => {
       const result = await service.findOne(1);
 
       expect(result).toEqual(mockEmployeeWithRelations);
+      expect(result.user).not.toHaveProperty('password');
       expect(mockPrismaService.employee.findUnique).toHaveBeenCalledWith({
         where: { id: 1 },
         include: {
@@ -199,6 +200,27 @@ describe('EmployeesService', () => {
           }
         },
       });
+    });
+
+    it('omits password hashes on the employee and nested customer users', async () => {
+      mockPrismaService.employee.findUnique.mockResolvedValue({
+        ...mockEmployee,
+        user: { ...mockEmployee.user, password: 'hashed-employee' },
+        appointments: [
+          {
+            id: 4,
+            customer: { id: 3, user: { id: 9, name: 'Guest', password: 'hashed-customer' } },
+          },
+        ],
+        salaries: [],
+        tips: [],
+      });
+
+      const result = await service.findOne(1);
+
+      expect(result.user).not.toHaveProperty('password');
+      expect(result.appointments[0].customer.user).not.toHaveProperty('password');
+      expect(result.user.name).toBe('John Doe');
     });
 
     it('should throw NotFoundException when employee not found', async () => {

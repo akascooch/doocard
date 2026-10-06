@@ -140,7 +140,7 @@ export class CustomersController {
   }
 
   @Delete(':id')
-  @Roles('ADMIN', 'EMPLOYEE')
+  @Roles('ADMIN')
   async remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.remove(id);
   }

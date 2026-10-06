@@ -13,6 +13,7 @@ import { QuickCreateCustomerDto } from './dto/quick-create-customer.dto';
 import { CustomerRegistrationSmsService } from '../sms/customer-registration-sms.service';
 import { normalizeIranMobile } from '../common/utils/phone.util';
 import * as bcrypt from 'bcrypt';
+import { excludePassword } from '../common/utils/exclude-password';
 import * as crypto from 'crypto';
 
 type AuthUser = { id?: number; sub?: number; role?: string };
@@ -40,7 +41,10 @@ export class CustomersService {
       }
 
       // Hash password if provided
-      const hashedPassword = password ? await bcrypt.hash(password, 10) : await bcrypt.hash('123456', 10);
+      const hashedPassword = await bcrypt.hash(
+        password || crypto.randomBytes(16).toString('hex'),
+        10,
+      );
 
       // Create user first
       const user = await this.prisma.user.create({
@@ -95,7 +99,7 @@ export class CustomersService {
         this.logger.error('[CustomerRegistration SMS error] ' + (err?.message || 'unknown'));
       }
 
-      return customer;
+      return excludePassword(customer);
     } catch (error) {
       if (error instanceof ConflictException) {
         throw error;
@@ -105,7 +109,7 @@ export class CustomersService {
   }
 
   async findAll(preferredEmployeeId?: number) {
-    return this.prisma.customer.findMany({
+    const customers = await this.prisma.customer.findMany({
       where: preferredEmployeeId != null ? { preferredEmployeeId } : undefined,
       include: {
         user: true,
@@ -122,6 +126,7 @@ export class CustomersService {
         createdAt: 'desc'
       }
     });
+    return excludePassword(customers);
   }
 
   async findOne(id: number, currentUser?: AuthUser) {
@@ -153,7 +158,7 @@ export class CustomersService {
       throw new NotFoundException('Customer not found');
     }
 
-    return customer;
+    return excludePassword(customer);
   }
 
   async getMyProfile(userId: number): Promise<CustomerProfileResponseDto> {
@@ -220,7 +225,7 @@ export class CustomersService {
       throw new NotFoundException('Customer not found');
     }
 
-    return user.customer;
+    return excludePassword(user.customer);
   }
 
   async update(
@@ -330,7 +335,7 @@ export class CustomersService {
         }
       });
 
-      return updatedCustomer;
+      return excludePassword(updatedCustomer);
     });
   }
 
@@ -439,7 +444,7 @@ export class CustomersService {
       } catch (err: any) {
         this.logger.error('[CustomerRegistration SMS error] ' + (err?.message || 'unknown'));
       }
-      return customer;
+      return excludePassword(customer);
     }
 
     const randomPassword = crypto.randomBytes(32).toString('hex');
@@ -493,7 +498,7 @@ export class CustomersService {
       this.logger.error('[CustomerRegistration SMS error] ' + (err?.message || 'unknown'));
     }
 
-    return customer;
+    return excludePassword(customer);
   }
 
   /** Default / first-active preferred employee (existing field isDefault). */
@@ -568,11 +573,12 @@ export class CustomersService {
       return existing;
     }
 
-    return this.prisma.customer.update({
+    const updated = await this.prisma.customer.update({
       where: { id: customerId },
       data: { preferredEmployeeId: actorEmployeeId },
       include: { user: true },
     });
+    return excludePassword(updated);
   }
 
   async searchCustomers(query: string) {
@@ -618,7 +624,7 @@ export class CustomersService {
       }
     });
 
-    return customers;
+    return excludePassword(customers);
   }
 
   async getCustomerStats(customerId: number) {

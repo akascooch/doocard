@@ -86,7 +86,7 @@ export class UsersController {
       return { success: false, message: 'User not found' };
     }
 
-    console.log('✅ User found:', user);
+    console.log('✅ User found:', user.id);
 
     // بررسی دسترسی حذف
     if (!currentUser || currentUser.role !== 'ADMIN') {
@@ -126,7 +126,7 @@ export class UsersController {
     this.assertStaffOrSelf(req.user, id);
     try {
       const result = await this.usersService.update(id, updateUserDto, req.user);
-      console.log('✅ Update result:', result);
+      console.log('✅ Update result id:', result?.id);
       return {
         success: true,
         data: result,

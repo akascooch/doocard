@@ -386,6 +386,90 @@ describe('AppointmentsService', () => {
       );
     });
 
+    it('binds a customer booking to the JWT profile and ignores a spoofed customerId', async () => {
+      mockCalendarService.toGregorian.mockReturnValue(new Date(Date.UTC(2030, 0, 1)));
+      mockCalendarService.ensureExists.mockResolvedValue({ id: 9 });
+      mockPrismaService.customer.findUnique.mockImplementation(async (args: { where: { userId?: number; id?: number } }) => {
+        if (args.where.userId === 10) {
+          return { id: 55, userId: 10 };
+        }
+        if (args.where.id === 55) {
+          return {
+            id: 55,
+            userId: 10,
+            user: { id: 10, name: 'Own', phone: '09120000000', role: 'CUSTOMER' },
+          };
+        }
+        return null;
+      });
+      mockPrismaService.employee.findUnique.mockResolvedValue({
+        id: 1,
+        isActive: true,
+        user: { id: 2, name: 'Jane Smith', role: 'EMPLOYEE' },
+        employeeServices: [{ serviceId: 1 }],
+      });
+      mockPrismaService.service.findUnique.mockResolvedValue({
+        id: 1,
+        name: 'Haircut',
+        price: 50000,
+        durationMinutes: 30,
+      });
+      mockPrismaService.customer.updateMany.mockResolvedValue({ count: 0 });
+      let createdCustomerId: number | undefined;
+      mockPrismaService.$transaction.mockImplementation(async (fn: (tx: any) => unknown) => {
+        const tx = {
+          $executeRaw: jest.fn().mockResolvedValue(undefined),
+          appointment: {
+            findFirst: jest.fn().mockResolvedValue(null),
+            create: jest.fn().mockImplementation(async ({ data }: { data: { customerId: number } }) => {
+              createdCustomerId = data.customerId;
+              return { ...appointmentRow, ...data, status: 'PENDING_CONFIRMATION' };
+            }),
+          },
+          blockedTime: { findFirst: jest.fn().mockResolvedValue(null) },
+        };
+        await fn(tx);
+        return { ...appointmentRow, customerId: 55, status: 'PENDING_CONFIRMATION' };
+      });
+
+      await service.create(
+        {
+          customerId: 999,
+          employeeId: 1,
+          services: [{ serviceId: 1 }],
+          jalaliDate: '1408-10-11',
+          time: '11:00',
+        } as any,
+        { id: 10, role: 'CUSTOMER' },
+      );
+
+      expect(createdCustomerId).toBe(55);
+      expect(mockPrismaService.customer.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ id: 55 }) }),
+      );
+      const lookedUpIds = mockPrismaService.customer.findUnique.mock.calls.map(
+        (call: [{ where: { id?: number } }]) => call[0].where.id,
+      );
+      expect(lookedUpIds).not.toContain(999);
+    });
+
+    it('rejects a customer actor who has no customer profile', async () => {
+      mockPrismaService.customer.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.create(
+          {
+            customerId: 999,
+            employeeId: 1,
+            services: [{ serviceId: 1 }],
+            jalaliDate: '1408-10-11',
+            time: '11:00',
+          } as any,
+          { id: 10, role: 'CUSTOMER' },
+        ),
+      ).rejects.toThrow('Customer profile not found');
+    });
+
     it('uses the service duration when the payload omits durationMin', async () => {
       const created = await mockStaffCreate(30);
       await service.create(

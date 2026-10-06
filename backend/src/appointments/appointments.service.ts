@@ -315,6 +315,21 @@ export class AppointmentsService {
       }
     }
 
+    if (isCustomerRole(currentUser)) {
+      const userId = actorUserId(currentUser);
+      if (!userId) {
+        throw new NotFoundException('Customer profile not found');
+      }
+      const ownCustomer = await this.prisma.customer.findUnique({
+        where: { userId },
+        select: { id: true },
+      });
+      if (!ownCustomer) {
+        throw new NotFoundException('Customer profile not found');
+      }
+      dto.customerId = ownCustomer.id;
+    }
+
     // Validate customer
     const customer = await this.prisma.customer.findUnique({
       where: { id: dto.customerId },

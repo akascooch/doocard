@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CustomerRegistrationSmsService } from '../sms/customer-registration-sms.service';
+import { excludePassword } from '../common/utils/exclude-password';
 import * as bcrypt from 'bcrypt';
 
 type UserActor = { id?: number; role?: string };
@@ -124,14 +125,14 @@ export class UsersService {
       }
     }
 
-    return user;
+    return excludePassword(user);
   }
 
   async findAll(actor?: UserActor) {
     if (actor && actor.role !== 'ADMIN') {
       throw new ForbiddenException('دسترسی به فهرست کاربران مجاز نیست');
     }
-    return this.prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       include: {
         customer: true,
         employee: true,
@@ -140,6 +141,7 @@ export class UsersService {
         createdAt: 'desc',
       },
     });
+    return excludePassword(users);
   }
 
   async findOne(id: number, actor?: UserActor) {
@@ -156,7 +158,7 @@ export class UsersService {
       throw new NotFoundException('کاربر یافت نشد');
     }
 
-    return user;
+    return excludePassword(user);
   }
 
   async findByPhone(phone: string) {
@@ -266,7 +268,7 @@ export class UsersService {
         },
       });
 
-      return finalUser!;
+      return excludePassword(finalUser!);
     } catch (err: any) {
       // Map phone unique violations only; never treat name as unique.
       if (err?.code === 'P2002') {
