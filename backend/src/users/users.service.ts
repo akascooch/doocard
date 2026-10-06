@@ -1,9 +1,20 @@
-import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CustomerRegistrationSmsService } from '../sms/customer-registration-sms.service';
 import * as bcrypt from 'bcrypt';
+
+type UserActor = { id?: number; role?: string };
+
+const USER_STAFF_ROLES = new Set(['ADMIN', 'EMPLOYEE', 'SERVICE', 'ACCOUNTANT', 'MANAGER']);
+
+function assertUserActor(actor: UserActor | undefined, targetId: number): void {
+  if (!actor) return;
+  if (actor.role && USER_STAFF_ROLES.has(actor.role)) return;
+  if (actor.role === 'CUSTOMER' && actor.id === targetId) return;
+  throw new ForbiddenException('دسترسی به این کاربر مجاز نیست');
+}
 
 @Injectable()
 export class UsersService {
@@ -117,7 +128,10 @@ export class UsersService {
     return user;
   }
 
-  async findAll() {
+  async findAll(actor?: UserActor) {
+    if (actor && !(actor.role && USER_STAFF_ROLES.has(actor.role))) {
+      throw new ForbiddenException('دسترسی به فهرست کاربران مجاز نیست');
+    }
     return this.prisma.user.findMany({
       include: {
         customer: true,
@@ -129,7 +143,8 @@ export class UsersService {
     });
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, actor?: UserActor) {
+    assertUserActor(actor, id);
     const user = await this.prisma.user.findUnique({
       where: { id },
       include: {
@@ -165,7 +180,17 @@ export class UsersService {
     });
   }
 
-  async update(id: number, updateUserDto: UpdateUserDto) {
+  async update(id: number, updateUserDto: UpdateUserDto, actor?: UserActor) {
+    assertUserActor(actor, id);
+    if (actor && actor.role !== 'ADMIN') {
+      if (
+        updateUserDto.role !== undefined ||
+        updateUserDto.password !== undefined ||
+        updateUserDto.isActive !== undefined
+      ) {
+        throw new ForbiddenException('تغییر نقش یا وضعیت از این مسیر مجاز نیست');
+      }
+    }
     const user = await this.prisma.user.findUnique({
       where: { id },
     });
@@ -337,7 +362,10 @@ export class UsersService {
     });
   }
 
-  async changePassword(id: number, newPassword: string) {
+  async changePassword(id: number, newPassword: string, actor?: UserActor) {
+    if (actor && actor.role !== 'ADMIN' && actor.id !== id) {
+      throw new ForbiddenException('شما فقط مجاز به تغییر رمز عبور خود هستید');
+    }
     const user = await this.prisma.user.findUnique({
       where: { id },
     });

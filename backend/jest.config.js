@@ -1,3 +1,5 @@
+// Unit specs under src are mocked. `npm run test:unit` does not call
+// scripts/setup-test-database.ts. Integration specs stay on `npm run test:integration`.
 module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: 'src',

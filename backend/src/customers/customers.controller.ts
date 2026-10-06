@@ -99,7 +99,7 @@ export class CustomersController {
   @Roles('ADMIN', 'EMPLOYEE', 'CUSTOMER')
   async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     await this.assertCustomerRecordAccess(id, req.user);
-    return this.service.findOne(id);
+    return this.service.findOne(id, req.user);
   }
 
   @Patch(':id')
@@ -111,6 +111,14 @@ export class CustomersController {
   ) {
     const currentUser = req.user;
     await this.assertCustomerRecordAccess(id, currentUser);
+    if (currentUser?.role === 'CUSTOMER') {
+      const supplied = updateCustomerDto as UpdateCustomerDto & {
+        userId?: unknown;
+        customerId?: unknown;
+      };
+      delete supplied.userId;
+      delete supplied.customerId;
+    }
     // Non-admins cannot reassign preferred barber via this endpoint
     if (
       currentUser.role !== 'ADMIN' &&

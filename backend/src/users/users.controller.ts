@@ -12,6 +12,8 @@ import {
   Query,
   UseGuards,
   ForbiddenException,
+  UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
@@ -32,7 +34,7 @@ export class UsersController {
   async create(@Body() createUserDto: CreateUserDto, @Req() req: any) {
     const currentUser = req.user;
     if (!currentUser || currentUser.role !== 'ADMIN') {
-      throw new Error('فقط ادمین می‌تواند کاربر جدید ایجاد کند');
+      throw new ForbiddenException('فقط ادمین می‌تواند کاربر جدید ایجاد کند');
     }
     try {
       const user = await this.usersService.create(createUserDto);
@@ -52,7 +54,7 @@ export class UsersController {
     this.assertCanListUsers(req.user);
     console.log('🔍 GET /users called by role:', req.user?.role);
     
-    const result = await this.usersService.findAll();
+    const result = await this.usersService.findAll(req.user);
     console.log('✅ Users result:', result.length, 'users');
     return result;
   }
@@ -60,14 +62,15 @@ export class UsersController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   getProfile(@Req() req: any) {
-    return this.usersService.findOne(req.user?.userId || req.user?.id);
+    const id = req.user?.userId || req.user?.id;
+    return this.usersService.findOne(id, req.user);
   }
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     this.assertStaffOrSelf(req.user, id);
-    return this.usersService.findOne(id);
+    return this.usersService.findOne(id, req.user);
   }
 
   @Delete(':id')
@@ -77,7 +80,7 @@ export class UsersController {
     console.log('🗑️ Delete request for user:', id, 'by:', currentUser);
     
     // پیدا کردن کاربر
-    const user = await this.usersService.findOne(id);
+    const user = await this.usersService.findOne(id, currentUser);
     if (!user) {
       console.log('❌ User not found:', id);
       return { success: false, message: 'User not found' };
@@ -88,7 +91,7 @@ export class UsersController {
     // بررسی دسترسی حذف
     if (!currentUser || currentUser.role !== 'ADMIN') {
       console.log('❌ Unauthorized delete attempt');
-      throw new Error('شما مجاز به حذف کاربران نیستید');
+      throw new ForbiddenException('شما مجاز به حذف کاربران نیستید');
     }
 
     try {
@@ -122,7 +125,7 @@ export class UsersController {
     console.log('🔧 PATCH /users/:id called with id:', id, 'by role:', req.user?.role);
     this.assertStaffOrSelf(req.user, id);
     try {
-      const result = await this.usersService.update(id, updateUserDto);
+      const result = await this.usersService.update(id, updateUserDto, req.user);
       console.log('✅ Update result:', result);
       return {
         success: true,
@@ -137,10 +140,13 @@ export class UsersController {
 
   @Post('sync-role')
   @UseGuards(JwtAuthGuard)
-  async syncUserRole(@Body() body) {
+  async syncUserRole(@Body() body, @Req() req: any) {
+    if (req.user?.role !== 'ADMIN') {
+      throw new ForbiddenException('فقط ادمین می‌تواند نقش کاربر را همگام کند');
+    }
     const { userId, role } = body;
     // پیدا کردن کاربر
-    const user = await this.usersService.findOne(Number(userId));
+    const user = await this.usersService.findOne(Number(userId), req.user);
     if (!user) return { success: false, message: 'User not found' };
     
     if (role === 'CUSTOMER') {
@@ -179,9 +185,16 @@ export class UsersController {
 
   @Get('sync-role/check')
   @UseGuards(JwtAuthGuard)
-  async checkUserRole(@Query('userId') userId: string, @Query('role') role: string) {
+  async checkUserRole(
+    @Query('userId') userId: string,
+    @Query('role') role: string,
+    @Req() req: any,
+  ) {
+    if (req.user?.role !== 'ADMIN') {
+      throw new ForbiddenException('فقط ادمین می‌تواند نقش کاربر را بررسی کند');
+    }
     // پیدا کردن کاربر
-    const user = await this.usersService.findOne(Number(userId));
+    const user = await this.usersService.findOne(Number(userId), req.user);
     if (!user) return { exists: false };
     if (role === 'CUSTOMER') {
       const exists = await this.prisma.customer.findFirst({ where: { userId: user.id } });
@@ -195,19 +208,21 @@ export class UsersController {
 
   @Post('convert-to-employee/:id')
   @UseGuards(JwtAuthGuard)
-  async convertToEmployee(@Param('id', ParseIntPipe) id: number) {
+  async convertToEmployee(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    if (req.user?.role !== 'ADMIN') {
+      throw new ForbiddenException('فقط ادمین می‌تواند مشتری را به کارمند تبدیل کند');
+    }
     // پیدا کردن کاربر
-    const user = await this.usersService.findOne(id);
+    const user = await this.usersService.findOne(id, req.user);
     if (!user) {
       throw new NotFoundException('کاربر یافت نشد');
     }
 
     if (user.role !== 'CUSTOMER') {
-      throw new Error('فقط کاربران مشتری قابل تبدیل به کارمند هستند');
+      throw new BadRequestException('فقط کاربران مشتری قابل تبدیل به کارمند هستند');
     }
 
-    // تبدیل نقش کاربر به EMPLOYEE
-    await this.usersService.update(id, { role: 'EMPLOYEE' });
+    await this.usersService.update(id, { role: 'EMPLOYEE' }, req.user);
 
     // حذف از جدول مشتریان
     await this.prisma.customer.deleteMany({ where: { userId: user.id } });
@@ -226,7 +241,7 @@ export class UsersController {
     return { 
       success: true, 
       message: 'کاربر با موفقیت به کارمند تبدیل شد',
-      user: await this.usersService.findOne(id)
+      user: await this.usersService.findOne(id, req.user)
     };
   }
 
@@ -243,7 +258,7 @@ export class UsersController {
     
     // بررسی دسترسی - ادمین می‌تواند رمز هر کسی را تغییر دهد، کاربران فقط رمز خود
     if (!currentUser) {
-      throw new Error('کاربر احراز هویت نشده است');
+      throw new UnauthorizedException('کاربر احراز هویت نشده است');
     }
     
     if (currentUser.role !== 'ADMIN' && currentUser.id !== id) {
@@ -251,7 +266,7 @@ export class UsersController {
     }
 
     try {
-      const _result = await this.usersService.changePassword(id, body.password);
+      const _result = await this.usersService.changePassword(id, body.password, currentUser);
       console.log('✅ Password changed successfully for user:', id);
       return {
         success: true,

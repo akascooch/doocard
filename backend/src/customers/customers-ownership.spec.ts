@@ -26,7 +26,7 @@ describe('customer record ownership', () => {
 
     await controller.findOne(55, { user: { id: 10, role: 'CUSTOMER' } });
 
-    expect(service.findOne).toHaveBeenCalledWith(55);
+    expect(service.findOne).toHaveBeenCalledWith(55, { id: 10, role: 'CUSTOMER' });
   });
 
   it('rejects a customer whose user id equals another customer primary key', async () => {
@@ -59,7 +59,26 @@ describe('customer record ownership', () => {
     await controller.findOne(55, { user: { id: 1, role: 'ADMIN' } });
 
     expect(prisma.customer.findUnique).not.toHaveBeenCalled();
-    expect(service.findOne).toHaveBeenCalledWith(55);
+    expect(service.findOne).toHaveBeenCalledWith(55, { id: 1, role: 'ADMIN' });
+  });
+
+  it('ignores a forged userId when a customer updates their own row', async () => {
+    prisma.customer.findUnique.mockResolvedValue({ userId: 10 });
+
+    await controller.update(
+      55,
+      { notes: 'ok', userId: 999, customerId: 77 } as never,
+      { user: { id: 10, role: 'CUSTOMER' } },
+    );
+
+    expect(service.update).toHaveBeenCalledWith(
+      55,
+      expect.objectContaining({ notes: 'ok' }),
+      { id: 10, role: 'CUSTOMER' },
+    );
+    const dto = service.update.mock.calls[0][1] as { userId?: unknown; customerId?: unknown };
+    expect(dto.userId).toBeUndefined();
+    expect(dto.customerId).toBeUndefined();
   });
 });
 
@@ -87,5 +106,44 @@ describe('CustomersService customer update ownership', () => {
       service.update(55, { notes: 'x' } as never, { id: 10, role: 'CUSTOMER' }),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('does not write a forged userId onto the owned customer', async () => {
+    const tx = {
+      user: { update: jest.fn() },
+      customer: { update: jest.fn().mockResolvedValue({ id: 55, userId: 10 }) },
+    };
+    prisma.customer.findUnique.mockResolvedValue({
+      id: 55,
+      userId: 10,
+      user: { phone: '09120000000' },
+    });
+    prisma.$transaction.mockImplementation(async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx));
+
+    await service.update(
+      55,
+      { notes: 'ok', userId: 999, customerId: 77, preferredEmployeeId: 3 } as never,
+      { id: 10, role: 'CUSTOMER' },
+    );
+
+    expect(tx.customer.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 55 },
+        data: expect.objectContaining({ notes: 'ok' }),
+      }),
+    );
+    const data = tx.customer.update.mock.calls[0][0].data as Record<string, unknown>;
+    expect(data.userId).toBeUndefined();
+    expect(data.customerId).toBeUndefined();
+    expect(data.preferredEmployeeId).toBeUndefined();
+    expect(tx.user.update).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 from the service when the customer row is missing', async () => {
+    prisma.customer.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.findOne(55, { id: 10, role: 'CUSTOMER' }),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

@@ -125,7 +125,7 @@ export class CustomersService {
     });
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, currentUser?: AuthUser) {
     const customer = await this.prisma.customer.findUnique({
       where: { id },
       include: {
@@ -148,6 +148,13 @@ export class CustomersService {
 
     if (!customer) {
       throw new NotFoundException('Customer not found');
+    }
+
+    if (currentUser?.role === 'CUSTOMER') {
+      const actorId = Number(currentUser.id ?? currentUser.sub);
+      if (!Number.isInteger(actorId) || customer.userId !== actorId) {
+        throw new ForbiddenException('دسترسی به اطلاعات این مشتری مجاز نیست');
+      }
     }
 
     return customer;
@@ -240,6 +247,13 @@ export class CustomersService {
       if (!Number.isInteger(actorId) || customer.userId !== actorId) {
         throw new ForbiddenException('دسترسی به اطلاعات این مشتری مجاز نیست');
       }
+      const supplied = updateCustomerDto as UpdateCustomerDto & {
+        userId?: unknown;
+        customerId?: unknown;
+      };
+      delete supplied.userId;
+      delete supplied.customerId;
+      delete supplied.preferredEmployeeId;
     }
     if (role === 'EMPLOYEE' || role === 'SERVICE') {
       const actorEmployeeId = await this.resolveActorEmployeeId(currentUser);
