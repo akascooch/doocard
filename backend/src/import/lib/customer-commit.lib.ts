@@ -70,6 +70,7 @@ export async function commitEligibleCustomerRows(
           email: row.email,
           password: await hashUnreachableCustomerBootstrap(),
           role: 'CUSTOMER',
+          phoneVerifiedAt: null,
         },
       });
 

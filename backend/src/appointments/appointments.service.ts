@@ -68,6 +68,19 @@ export interface ServiceSnapshot {
   serviceName?: string;
 }
 
+export const PRICE_OVERRIDE_REASON_REQUIRED_FA = 'ثبت دلیل برای تغییر قیمت یا مدت الزامی است';
+
+export function resolvePriceOverrideReason(
+  reason: string | undefined,
+  required: boolean,
+): string | undefined {
+  const trimmed = typeof reason === 'string' ? reason.trim() : '';
+  if (trimmed.length > 500 || (required && trimmed.length === 0)) {
+    throw new BadRequestException(PRICE_OVERRIDE_REASON_REQUIRED_FA);
+  }
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 /** Slot grid and booking window (Asia/Tehran business hours). */
 const BOOKING_DURATION_MIN = 60;
 const BUSINESS_HOUR_START = 10;
@@ -904,6 +917,8 @@ export class AppointmentsService {
     if (dto.status !== undefined) updateData.status = dto.status;
 
     // Handle services update
+    let priceOrDurationOverride = false;
+    let serverDurationTotal = 0;
     if (dto.services) {
       const servicesSnapshot: ServiceSnapshot[] = [];
       let totalDuration = 0;
@@ -917,9 +932,27 @@ export class AppointmentsService {
           throw new NotFoundException(`Service with ID ${serviceDto.serviceId} not found`);
         }
 
+        const serverPrice = bookingPriceRialFromServicePrice(service.price);
+        const serverDuration = bookingDurationMinFromService(service.durationMinutes);
+        if (serverDuration != null) {
+          serverDurationTotal += serverDuration;
+        }
+        if (
+          serviceDto.priceAtBooking !== undefined &&
+          serviceDto.priceAtBooking !== serverPrice
+        ) {
+          priceOrDurationOverride = true;
+        }
+        if (
+          serviceDto.durationMin !== undefined &&
+          serviceDto.durationMin !== serverDuration
+        ) {
+          priceOrDurationOverride = true;
+        }
+
         const priceAtBooking = serviceDto.priceAtBooking !== undefined
           ? serviceDto.priceAtBooking
-          : Math.floor(service.price * 10);
+          : serverPrice ?? Math.floor(service.price * 10);
 
         const durationMin = serviceDto.durationMin !== undefined
           ? serviceDto.durationMin
@@ -939,6 +972,21 @@ export class AppointmentsService {
       if (!dto.durationMin) {
         updateData.durationMin = totalDuration;
       }
+    }
+
+    if (dto.durationMin !== undefined) {
+      const baseline = dto.services ? serverDurationTotal : existing.durationMin;
+      if (dto.durationMin !== baseline) {
+        priceOrDurationOverride = true;
+      }
+    }
+
+    const priceOverrideReason = resolvePriceOverrideReason(
+      dto.priceOverrideReason,
+      priceOrDurationOverride,
+    );
+    if (priceOverrideReason) {
+      updateData.priceOverrideReason = priceOverrideReason;
     }
 
     // Check overlap if employee or time changed
@@ -1308,6 +1356,15 @@ export class AppointmentsService {
       throw new BadRequestException('نمی‌توان نوبت لغو شده را تسویه کرد');
     }
 
+    const serverAmount = (Array.isArray(appointment.services) ? appointment.services : []).reduce(
+      (sum: number, row: { priceAtBooking?: number }) => sum + (Number(row.priceAtBooking) || 0),
+      0,
+    );
+    const priceOverrideReason = resolvePriceOverrideReason(
+      dto.priceOverrideReason,
+      Number(dto.amount) !== serverAmount,
+    );
+
     // Resolve paid / debt split (RIAL integers — codebase uses BigInt, not Prisma.Decimal)
     const totalRial = BigInt(dto.amount);
     let paidRial: bigint;
@@ -1527,6 +1584,7 @@ export class AppointmentsService {
           paidAt: new Date(),
           paidBy: adminUser.sub || adminUser.id,
           status: 'SETTLED',
+          ...(priceOverrideReason ? { priceOverrideReason } : {}),
           notes: dto.notes ? `${appointment.notes || ''}\n${dto.notes}` : appointment.notes,
         },
         include: APPOINTMENT_DETAIL_INCLUDE,
@@ -2185,6 +2243,7 @@ export class AppointmentsService {
       deletedAt: appointment.deletedAt,
       durationMin: appointment.durationMin,
       notes: appointment.notes,
+      priceOverrideReason: appointment.priceOverrideReason ?? null,
       paidAt: appointment.paidAt,
       paidBy: appointment.paidBy,
       paymentMethod: appointment.paymentMethod,

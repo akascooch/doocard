@@ -14,7 +14,8 @@ describe('OtpService', () => {
       update: jest.fn(),
       findFirst: jest.fn(),
     },
-    user: { findUnique: jest.fn() },
+    user: { findUnique: jest.fn(), update: jest.fn().mockResolvedValue({}) },
+    $transaction: jest.fn(),
   };
   const config = { get: jest.fn() };
   const adapter = {
@@ -236,11 +237,61 @@ describe('OtpService', () => {
     });
 
     expect(result.isNewUser).toBe(false);
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 9 },
+      data: { phoneVerifiedAt: expect.any(Date) },
+    });
     expect(auth.issueSession).toHaveBeenCalledWith(
       existing,
       undefined,
       undefined,
       undefined,
     );
+  });
+
+  it('sets phoneVerifiedAt on a new customer created by a successful OTP login', async () => {
+    prisma.otpChallenge.findFirst.mockResolvedValue({
+      id: 'ch-new',
+      expiresAt: new Date(Date.now() + 60_000),
+      attempts: 0,
+      codeHash: require('crypto')
+        .createHash('sha256')
+        .update('test-secret:09120000000:12345')
+        .digest('hex'),
+    });
+    prisma.otpChallenge.update.mockResolvedValue({});
+    prisma.user.findUnique.mockResolvedValue(null);
+    const userCreate = jest.fn().mockResolvedValue({
+      id: 4,
+      name: 'مشتری 0000',
+      email: null,
+      phone: '09120000000',
+      role: 'CUSTOMER',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    prisma.$transaction = jest.fn(async (fn: (tx: unknown) => unknown) =>
+      fn({
+        user: { create: userCreate },
+        employee: { findFirst: jest.fn().mockResolvedValue(null) },
+        customer: { create: jest.fn().mockResolvedValue({ id: 1 }) },
+      }),
+    );
+    auth.issueSession.mockResolvedValue({ access_token: 'a', refresh_token: 'r' });
+
+    const before = Date.now();
+    const result = await service.verifyOtp({
+      phone: '09120000000',
+      code: '12345',
+      purpose: 'LOGIN',
+    });
+    const after = Date.now();
+
+    expect(result.isNewUser).toBe(true);
+    const verifiedAt = userCreate.mock.calls[0][0].data.phoneVerifiedAt as Date;
+    expect(verifiedAt).toBeInstanceOf(Date);
+    expect(verifiedAt.getTime()).toBeGreaterThanOrEqual(before);
+    expect(verifiedAt.getTime()).toBeLessThanOrEqual(after);
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 });

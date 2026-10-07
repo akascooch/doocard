@@ -11,6 +11,7 @@ import { SmsOutboundService } from '../sms/sms-outbound.service';
 import { SmsTemplateService } from '../sms/sms-template.service';
 import { TipAlertService } from '../sms/tip-alert.service';
 import { APPOINTMENT_NOT_FOUND_FA } from './appointment-access.util';
+import { PRICE_OVERRIDE_REASON_REQUIRED_FA } from './appointments.service';
 
 describe('AppointmentsService', () => {
   let service: AppointmentsService;
@@ -61,6 +62,9 @@ describe('AppointmentsService', () => {
     service: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
+    },
+    transaction: {
+      findFirst: jest.fn(),
     },
     $transaction: jest.fn(),
   };
@@ -647,6 +651,56 @@ describe('AppointmentsService', () => {
         service.update(999, { notes: 'x' } as any, { id: 1, role: 'ADMIN' }),
       ).rejects.toThrow(NotFoundException);
     });
+
+    it('requires a reason when staff price or duration differs from the service', async () => {
+      mockPrismaService.appointment.findFirst.mockResolvedValue(appointmentRow);
+      mockPrismaService.service.findUnique.mockResolvedValue({
+        id: 1,
+        price: 50000,
+        durationMinutes: 30,
+        name: 'Haircut',
+      });
+
+      await expect(
+        service.update(
+          1,
+          { services: [{ serviceId: 1, priceAtBooking: 111, durationMin: 45 }] } as any,
+          { id: 1, role: 'ADMIN' },
+        ),
+      ).rejects.toThrow(PRICE_OVERRIDE_REASON_REQUIRED_FA);
+      expect(mockPrismaService.appointment.update).not.toHaveBeenCalled();
+    });
+
+    it('persists priceOverrideReason when a staff override is justified', async () => {
+      mockPrismaService.appointment.findFirst.mockResolvedValue(appointmentRow);
+      mockPrismaService.service.findUnique.mockResolvedValue({
+        id: 1,
+        price: 50000,
+        durationMinutes: 30,
+        name: 'Haircut',
+      });
+      mockPrismaService.appointment.update.mockResolvedValue({
+        ...appointmentRow,
+        durationMin: 45,
+        priceOverrideReason: 'desk extension',
+      });
+
+      const result = await service.update(
+        1,
+        {
+          services: [{ serviceId: 1, durationMin: 45 }],
+          priceOverrideReason: '  desk extension  ',
+        } as any,
+        { id: 1, role: 'ADMIN' },
+      );
+
+      expect(mockPrismaService.appointment.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ priceOverrideReason: 'desk extension' }),
+        }),
+      );
+      expect(result.priceOverrideReason).toBe('desk extension');
+    });
   });
 
   describe('remove', () => {
@@ -694,6 +748,59 @@ describe('AppointmentsService', () => {
       await expect(
         service.settle(1, { amount: 1 } as any, { id: 1, role: 'ADMIN' }),
       ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('requires a reason when the settlement amount differs from the service total', async () => {
+      mockPrismaService.appointment.findFirst.mockResolvedValue(appointmentRow);
+
+      await expect(
+        service.settle(
+          1,
+          { amount: 1, paymentMethod: 'CASH' } as any,
+          { id: 1, role: 'ADMIN' },
+        ),
+      ).rejects.toThrow(PRICE_OVERRIDE_REASON_REQUIRED_FA);
+    });
+
+    it('persists priceOverrideReason on an overridden settlement', async () => {
+      mockPrismaService.appointment.findFirst.mockResolvedValue(appointmentRow);
+      mockPrismaService.transaction.findFirst.mockResolvedValue(null);
+      const update = jest.fn().mockResolvedValue({
+        ...appointmentRow,
+        status: 'SETTLED',
+        priceOverrideReason: 'manager discount',
+      });
+      mockPrismaService.$transaction.mockImplementation(async (fn: (tx: any) => unknown) =>
+        fn({
+          $queryRaw: jest.fn(),
+          appointment: {
+            findUnique: jest.fn().mockResolvedValue({ ...appointmentRow, deletedAt: null }),
+            update,
+          },
+          transaction: {
+            findFirst: jest.fn().mockResolvedValue(null),
+            create: jest.fn().mockRejectedValue(new Error('stop-after-persist')),
+          },
+        }),
+      );
+
+      await expect(
+        service.settle(
+          1,
+          {
+            amount: 100,
+            paymentMethod: 'CASH',
+            accountId: 1,
+            priceOverrideReason: ' manager discount ',
+          } as any,
+          { id: 1, role: 'ADMIN' },
+        ),
+      ).rejects.toThrow('stop-after-persist');
+      expect(update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ priceOverrideReason: 'manager discount' }),
+        }),
+      );
     });
   });
 

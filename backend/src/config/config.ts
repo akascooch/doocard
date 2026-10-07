@@ -1,4 +1,8 @@
 import { registerAs } from '@nestjs/config';
+import {
+  DEFAULT_JWT_EXPIRES_IN,
+  DEFAULT_JWT_REFRESH_EXPIRES_IN,
+} from '../auth/auth-token.config';
 
 export default registerAs('app', () => ({
   port: parseInt(process.env.PORT, 10) || 3001,
@@ -19,8 +23,8 @@ export default registerAs('app', () => ({
   // JWT
   jwt: {
     secret: process.env.JWT_SECRET,
-    expiresIn: process.env.JWT_EXPIRES_IN || '24h',
-    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '365d',
+    expiresIn: process.env.JWT_EXPIRES_IN || DEFAULT_JWT_EXPIRES_IN,
+    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || DEFAULT_JWT_REFRESH_EXPIRES_IN,
   },
   
   // Security

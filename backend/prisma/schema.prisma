@@ -15,6 +15,7 @@ model User {
   id                            Int                        @id @default(autoincrement())
   name                          String
   phone                         String                     @unique
+  phoneVerifiedAt               DateTime?
   role                          UserRole                   @default(CUSTOMER)
   permissions                   Permission[]
   paidAppointments              Appointment[]              @relation("AppointmentPaidBy")
@@ -204,6 +205,7 @@ model Appointment {
   deletedAt                        DateTime?
   durationMin                      Int
   notes                            String?
+  priceOverrideReason              String?
   paidAt                           DateTime?
   paidBy                           Int?
   paymentMethod                    PaymentMethod?

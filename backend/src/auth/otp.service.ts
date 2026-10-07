@@ -168,7 +168,15 @@ export class OtpService {
       },
     });
     const isNewUser = !existing;
-    const user = existing ?? (await this.createCustomer(phone, dto.name));
+    const user = existing
+      ? existing
+      : await this.createCustomer(phone, dto.name, now);
+    if (existing) {
+      await this.prisma.user.update({
+        where: { id: existing.id },
+        data: { phoneVerifiedAt: now },
+      });
+    }
     const session = await this.authService.issueSession(
       user,
       ipAddress,
@@ -178,7 +186,7 @@ export class OtpService {
     return { ...session, isNewUser };
   }
 
-  private async createCustomer(phone: string, name?: string) {
+  private async createCustomer(phone: string, name: string | undefined, verifiedAt: Date) {
 
     const displayName = name?.trim() && name.trim().length >= 2
       ? name.trim()
@@ -192,6 +200,7 @@ export class OtpService {
           phone,
           password: hashedPassword,
           role: UserRole.CUSTOMER,
+          phoneVerifiedAt: verifiedAt,
         },
         select: {
           id: true,

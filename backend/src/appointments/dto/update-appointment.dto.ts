@@ -5,7 +5,8 @@ import {
   IsString, 
   IsArray, 
   ValidateNested,
-  IsEnum 
+  IsEnum,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { AppointmentServiceDto } from './appointment-service.dto';
@@ -36,6 +37,11 @@ export class UpdateAppointmentDto {
   @Type(() => Number)
   @IsOptional()
   durationMin?: number;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  priceOverrideReason?: string;
 
   @IsString()
   @IsOptional()

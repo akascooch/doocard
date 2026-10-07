@@ -69,6 +69,8 @@ describe('import bootstrap passwords', () => {
     expect(created).toHaveLength(2);
     expect(created[0].role).toBe('CUSTOMER');
     expect(created[1].role).toBe('CUSTOMER');
+    expect(created[0].phoneVerifiedAt).toBeNull();
+    expect(created[1].phoneVerifiedAt).toBeNull();
     expect(created[0].password).not.toBe(created[1].password);
     expect(String(created[0].password).startsWith('$2')).toBe(true);
     for (const row of created) {

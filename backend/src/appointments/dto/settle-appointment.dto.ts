@@ -8,6 +8,7 @@ import {
   IsArray,
   IsInt,
   IsPositive,
+  MaxLength,
   ValidateNested,
   ValidateIf,
 } from 'class-validator';
@@ -57,6 +58,12 @@ export class SettleAppointmentDto {
   @Min(0, { message: 'مبلغ باید بزرگتر یا مساوی صفر باشد' })
   @IsNotEmpty()
   amount: number; // RIAL - total charged amount
+
+  /** Required when amount differs from the server-computed service total. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  priceOverrideReason?: string;
 
   /** RIAL paid now (cash/card/…). Optional; defaults from paymentMethod when omitted with debtAmount. */
   @IsNumber()

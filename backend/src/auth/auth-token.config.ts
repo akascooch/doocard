@@ -2,7 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { addTtlToDate, parseTtlToMilliseconds } from '../common/utils/ttl.util';
 
 export const DEFAULT_JWT_EXPIRES_IN = '24h';
-export const DEFAULT_JWT_REFRESH_EXPIRES_IN = '365d';
+export const DEFAULT_JWT_REFRESH_EXPIRES_IN = '30d';
 export const REMEMBER_ME_REFRESH_TTL = '90d';
 export const STAFF_REMEMBER_ROLES = [
   'ADMIN',
@@ -15,7 +15,7 @@ export const STAFF_REMEMBER_ROLES = [
 const FALLBACK_ACCESS_MS = parseTtlToMilliseconds(DEFAULT_JWT_EXPIRES_IN, 24 * 60 * 60 * 1000);
 const FALLBACK_REFRESH_MS = parseTtlToMilliseconds(
   DEFAULT_JWT_REFRESH_EXPIRES_IN,
-  365 * 24 * 60 * 60 * 1000,
+  30 * 24 * 60 * 60 * 1000,
 );
 
 export function getJwtAccessExpiresIn(config: ConfigService): string {
