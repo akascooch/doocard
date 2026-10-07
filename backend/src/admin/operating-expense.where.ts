@@ -1,27 +1,29 @@
 import { Prisma } from '@prisma/client';
 import {
   CHEQUE_LEAF_PAYROLL_SOURCE_TYPE,
-  EMPLOYEE_WITHDRAWAL_CATEGORY_CODE,
+  COMMISSION_SETTLEMENT_SOURCE_TYPE,
+  EMPLOYEE_EXPENSE_CATEGORY_CODES,
+  EMPLOYEE_WITHDRAWAL_LEGACY_CATEGORY_CODE,
   SALARY_REQUEST_SOURCE_TYPE,
 } from '../common/constants/employee-commission.constants';
 
 /**
- * Payroll / employee-withdrawal markers only.
- * CHEQUE_LEAF (operating cheque, no staff marker) is not in this list.
- * Commission, salary-advance, and generic payroll category codes are not
- * excluded as whole categories — a row is dropped only when it carries one
- * of these markers.
+ * Staff-pay markers only. Operating cheques stay (`CHEQUE_LEAF` is absent).
+ * Import sources are not excluded as a whole; a row drops only when it
+ * carries one of these source types or category codes.
  */
 export const PAYROLL_WITHDRAWAL_SOURCE_TYPES = [
   CHEQUE_LEAF_PAYROLL_SOURCE_TYPE,
   SALARY_REQUEST_SOURCE_TYPE,
+  COMMISSION_SETTLEMENT_SOURCE_TYPE,
 ] as const;
 
 export const PAYROLL_WITHDRAWAL_CATEGORY_CODES = [
-  EMPLOYEE_WITHDRAWAL_CATEGORY_CODE,
+  ...EMPLOYEE_EXPENSE_CATEGORY_CODES,
+  EMPLOYEE_WITHDRAWAL_LEGACY_CATEGORY_CODE,
 ] as const;
 
-export const UNCATEGORIZED_EXPENSE_LABEL = 'سایر';
+export const UNCATEGORIZED_EXPENSE_LABEL = 'بدون دسته‌بندی';
 
 export function payrollWithdrawalExclusion(): Prisma.TransactionWhereInput {
   return {

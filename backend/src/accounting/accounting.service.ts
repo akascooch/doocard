@@ -847,7 +847,8 @@ export class AccountingService {
   /**
    * Period summary. Expense uses the same payroll-withdrawal exclusion as the
    * yearly chart (`accountingExpenseWhere`). Income is unchanged. totalExpense
-   * therefore drops only برداشت حقوق rows, not other expenses.
+   * drops staff withdrawals, salary settlement, salary advances, and salary
+   * cheques. Operating expenses, including operating cheques, stay.
    */
   async getSummary(from?: string, to?: string) {
     const where: any = { deletedAt: null };

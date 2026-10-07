@@ -31,15 +31,19 @@ describe('AdminFinancialService expense aggregation', () => {
     jest.clearAllMocks();
   });
 
-  it('keeps an ordinary categorized expense and buckets missing categories as سایر', async () => {
+  it('keeps an ordinary categorized expense and buckets missing categories separately from سایر', async () => {
     const start = new Date('2026-01-01T00:00:00.000Z');
     const end = new Date('2026-01-31T23:59:59.000Z');
     prisma.transaction.groupBy.mockResolvedValue([
       { categoryId: null, _sum: { amount: 250000n } },
       { categoryId: 99, _sum: { amount: 50000n } },
       { categoryId: 3, _sum: { amount: 100000n } },
+      { categoryId: 2, _sum: { amount: 40000n } },
     ]);
-    prisma.transactionCategory.findMany.mockResolvedValue([{ id: 3, name: 'اجاره' }]);
+    prisma.transactionCategory.findMany.mockResolvedValue([
+      { id: 3, name: 'اجاره' },
+      { id: 2, name: 'سایر' },
+    ]);
 
     const rows = await (service as any).getMonthlyExpenseByCategory(start, end);
 
@@ -55,9 +59,11 @@ describe('AdminFinancialService expense aggregation', () => {
     expect(rows).toEqual([
       { name: UNCATEGORIZED_EXPENSE_LABEL, total: '300000' },
       { name: 'اجاره', total: '100000' },
+      { name: 'سایر', total: '40000' },
     ]);
     expect(rows.map((row: { name: string }) => row.name)).toContain('اجاره');
-    expect(UNCATEGORIZED_EXPENSE_LABEL).toBe('سایر');
+    expect(rows.filter((row: { name: string }) => row.name === 'سایر')).toHaveLength(1);
+    expect(UNCATEGORIZED_EXPENSE_LABEL).toBe('بدون دسته‌بندی');
   });
 
   it('sums operating EXPENSE rows with the same predicate as the category chart', async () => {
@@ -87,16 +93,20 @@ describe('AdminFinancialService expense aggregation', () => {
     expect(excluded.OR[0].sourceType?.in).toEqual([
       'CHEQUE_LEAF_PAYROLL',
       'SALARY_REQUEST',
+      'COMMISSION_SETTLEMENT',
     ]);
     expect(excluded.OR[0].sourceType?.in).not.toContain('CHEQUE_LEAF');
-    expect(excluded.OR[0].sourceType?.in).not.toContain('COMMISSION_SETTLEMENT');
+    expect(excluded.OR[0].sourceType?.in).not.toContain('EXCEL_IMPORT:PAYS');
     expect(excluded.OR[1].category?.code.in).toEqual([
       ...PAYROLL_WITHDRAWAL_CATEGORY_CODES,
     ]);
-    expect(excluded.OR[1].category?.code.in).toEqual(['EMPLOYEE_WITHDRAWAL']);
-    expect(excluded.OR[1].category?.code.in).not.toContain('PAYROLL');
-    expect(excluded.OR[1].category?.code.in).not.toContain('SALARY_ADVANCE');
-    expect(excluded.OR[1].category?.code.in).not.toContain('COMMISSION_SETTLEMENT');
+    expect(excluded.OR[1].category?.code.in).toEqual([
+      'EMPLOYEE_WITHDRAWAL',
+      'COMMISSION_SETTLEMENT',
+      'SALARY_ADVANCE',
+      'PAYROLL',
+      'EMPLOYEE_WITHDRAWAL_LEGACY',
+    ]);
     expect(where.type).toBe('EXPENSE');
     expect(where.occurredAt).toEqual({
       gte: new Date('2026-03-21T00:00:00.000Z'),

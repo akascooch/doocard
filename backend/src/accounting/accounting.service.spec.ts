@@ -146,9 +146,17 @@ describe('AccountingService', () => {
       expect(expenseWhere.NOT.OR[0].sourceType.in).toEqual([
         'CHEQUE_LEAF_PAYROLL',
         'SALARY_REQUEST',
+        'COMMISSION_SETTLEMENT',
       ]);
       expect(expenseWhere.NOT.OR[0].sourceType.in).not.toContain('CHEQUE_LEAF');
-      expect(expenseWhere.NOT.OR[1].category.code.in).toEqual(['EMPLOYEE_WITHDRAWAL']);
+      expect(expenseWhere.NOT.OR[0].sourceType.in).not.toContain('EXCEL_IMPORT:PAYS');
+      expect(expenseWhere.NOT.OR[1].category.code.in).toEqual([
+        'EMPLOYEE_WITHDRAWAL',
+        'COMMISSION_SETTLEMENT',
+        'SALARY_ADVANCE',
+        'PAYROLL',
+        'EMPLOYEE_WITHDRAWAL_LEGACY',
+      ]);
       const incomeWhere = mockPrismaService.transaction.aggregate.mock.calls[0][0].where;
       expect(incomeWhere).toEqual({ deletedAt: null, type: 'INCOME' });
     });
