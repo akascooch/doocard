@@ -34,6 +34,15 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 type ServiceStaff = { id: number; name: string }
 
@@ -129,6 +138,9 @@ export default function AdminTipsPage() {
   const [summary, setSummary] = useState<ReportSummary | null>(null)
   const [items, setItems] = useState<ReportItem[]>([])
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [voidTarget, setVoidTarget] = useState<ReportItem | null>(null)
+  const [voidReason, setVoidReason] = useState('')
+  const [voiding, setVoiding] = useState(false)
 
   const loadStaff = useCallback(async () => {
     setLoadingStaff(true)
@@ -283,6 +295,37 @@ export default function AdminTipsPage() {
       })
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const canVoidManual = (row: ReportItem) =>
+    row.origin === 'MANUAL' && row.allocations.every((allocation) => !allocation.paid)
+
+  const submitVoid = async () => {
+    if (!voidTarget) return
+    const reason = voidReason.trim()
+    if (!reason) {
+      toast({ title: 'خطا', description: 'دلیل ابطال الزامی است', variant: 'destructive' })
+      return
+    }
+    setVoiding(true)
+    try {
+      await axios.post(`/admin/tips/${voidTarget.sourceId}/void`, { reason })
+      toast({ title: 'انعام دستی ابطال شد' })
+      setVoidTarget(null)
+      setVoidReason('')
+      await loadReport()
+    } catch (e: unknown) {
+      const msg =
+        (e as { response?: { data?: { message?: string | string[] } } })?.response?.data
+          ?.message || 'ابطال ناموفق بود'
+      toast({
+        title: 'خطا',
+        description: Array.isArray(msg) ? msg.join('، ') : String(msg),
+        variant: 'destructive',
+      })
+    } finally {
+      setVoiding(false)
     }
   }
 
@@ -698,22 +741,37 @@ export default function AdminTipsPage() {
                                 : '—'}
                           </TableCell>
                           <TableCell>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() =>
-                                setExpanded((p) => ({
-                                  ...p,
-                                  [row.sourceKey]: !p[row.sourceKey],
-                                }))
-                              }
-                            >
-                              {expanded[row.sourceKey] ? (
-                                <ChevronUp className="h-4 w-4" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4" />
-                              )}
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              {canVoidManual(row) ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-destructive"
+                                  onClick={() => {
+                                    setVoidTarget(row)
+                                    setVoidReason('')
+                                  }}
+                                >
+                                  ابطال
+                                </Button>
+                              ) : null}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  setExpanded((p) => ({
+                                    ...p,
+                                    [row.sourceKey]: !p[row.sourceKey],
+                                  }))
+                                }
+                              >
+                                {expanded[row.sourceKey] ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                         {expanded[row.sourceKey] && (
@@ -775,6 +833,39 @@ export default function AdminTipsPage() {
           )}
         </div>
       )}
+      <AlertDialog
+        open={voidTarget != null}
+        onOpenChange={(open) => {
+          if (!open && !voiding) {
+            setVoidTarget(null)
+            setVoidReason('')
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ابطال انعام دستی</AlertDialogTitle>
+            <AlertDialogDescription>
+              این کار رکورد را حذف نمی‌کند. انعام از گزارش فعال خارج می‌شود و دلیل ابطال ذخیره می‌گردد.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="void-tip-reason">دلیل ابطال</Label>
+            <Textarea
+              id="void-tip-reason"
+              value={voidReason}
+              maxLength={500}
+              onChange={(e) => setVoidReason(e.target.value)}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={voiding}>انصراف</AlertDialogCancel>
+            <Button type="button" variant="destructive" disabled={voiding} onClick={() => void submitVoid()}>
+              {voiding ? 'در حال ابطال...' : 'ابطال'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

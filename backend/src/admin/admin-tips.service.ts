@@ -1,7 +1,9 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { Prisma, TipRecipientType, TipSourceStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -605,5 +607,38 @@ export class AdminTipsService {
     if (role !== 'ADMIN') {
       throw new ForbiddenException('فقط ادمین می‌تواند انعام دستی ثبت کند');
     }
+  }
+
+  async voidManual(id: number, actorUserId: number, reason: string) {
+    const trimmed = typeof reason === 'string' ? reason.trim() : '';
+    if (!trimmed || trimmed.length > 500) {
+      throw new BadRequestException('ثبت دلیل ابطال انعام الزامی است');
+    }
+
+    const source = await this.prisma.tipSource.findUnique({
+      where: { id },
+      include: { allocations: { select: { paidInSettlementId: true } } },
+    });
+    if (!source || source.origin !== 'MANUAL') {
+      throw new NotFoundException('انعام دستی یافت نشد');
+    }
+    if (source.status === TipSourceStatus.VOIDED) {
+      throw new ConflictException('این انعام قبلاً ابطال شده است');
+    }
+    if (source.allocations.some((row) => row.paidInSettlementId != null)) {
+      throw new ConflictException('انعام متصل به تسویه حقوق قابل ابطال نیست');
+    }
+
+    await this.prisma.tipSource.update({
+      where: { id },
+      data: {
+        status: TipSourceStatus.VOIDED,
+        voidedAt: new Date(),
+        voidedByUserId: actorUserId,
+        voidReason: trimmed,
+      },
+    });
+
+    return { ok: true, tipSourceId: id, status: TipSourceStatus.VOIDED };
   }
 }

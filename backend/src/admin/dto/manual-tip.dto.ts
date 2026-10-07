@@ -47,3 +47,9 @@ export class CreateManualTipDto extends PreviewManualTipDto {
   @MaxLength(120)
   idempotencyKey: string;
 }
+
+export class VoidManualTipDto {
+  @IsString()
+  @MaxLength(500)
+  reason: string;
+}

@@ -3,6 +3,8 @@ import {
   Body,
   Controller,
   Get,
+  Param,
+  ParseIntPipe,
   Post,
   Query,
   Req,
@@ -12,7 +14,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { PermissionGuard } from '../common/guards/permission.guard';
 import { AdminTipsService } from './admin-tips.service';
-import { CreateManualTipDto, PreviewManualTipDto } from './dto/manual-tip.dto';
+import { CreateManualTipDto, PreviewManualTipDto, VoidManualTipDto } from './dto/manual-tip.dto';
 
 @Controller('admin/tips')
 @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -76,5 +78,20 @@ export class AdminTipsController {
       throw new BadRequestException('کاربر احراز هویت نشده است');
     }
     return this.adminTipsService.create(dto, userId);
+  }
+
+  @Post(':id/void')
+  @Roles('ADMIN')
+  async voidTip(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: VoidManualTipDto,
+    @Req() req: { user?: { id?: number; sub?: number; role?: string } },
+  ) {
+    this.adminTipsService.assertCanCreate(req.user?.role || '');
+    const userId = req.user?.id ?? req.user?.sub;
+    if (!userId) {
+      throw new BadRequestException('کاربر احراز هویت نشده است');
+    }
+    return this.adminTipsService.voidManual(id, userId, dto.reason);
   }
 }
