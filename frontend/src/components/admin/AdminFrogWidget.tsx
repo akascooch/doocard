@@ -183,7 +183,7 @@ export function AdminFrogWidget() {
   return (
     <Card className="border-primary/30" data-cy="admin-frog-widget">
       <CardHeader className="space-y-3">
-        <Badge variant="warning" className="w-fit normal-case tracking-normal">
+        <Badge variant="default" className="w-fit normal-case tracking-normal">
           قورباغه امروزت رو قورت بده!
         </Badge>
         <CardTitle className="text-2xl">

@@ -15,20 +15,15 @@ type AuthSplitShellProps = {
   children: ReactNode
 }
 
-function BrandMark({ compact = false }: { compact?: boolean }) {
-  const px = compact ? 40 : 48
+function BrandMark() {
   return (
-    <div className="flex items-center gap-3">
-      <div
-        className={`relative overflow-hidden rounded-2xl bg-card p-1 shadow-sm ring-1 ring-border ${
-          compact ? 'h-10 w-10' : 'h-12 w-12'
-        }`}
-      >
+    <div className="mx-auto flex w-full max-w-[11rem] flex-col items-center gap-3 text-center sm:max-w-[13rem]">
+      <div className="relative h-28 w-28 overflow-hidden rounded-3xl bg-card p-2 shadow-sm ring-1 ring-border sm:h-36 sm:w-36">
         <Image
           src="/logo/logo-512.png"
           alt="Doocard"
-          width={px}
-          height={px}
+          width={144}
+          height={144}
           className="h-full w-full object-contain"
           priority
         />
@@ -57,7 +52,7 @@ export function AuthSplitShell({
           transition={{ duration: 0.8, ease: 'easeOut' }}
           className="w-full max-w-md space-y-5 sm:space-y-7 lg:space-y-6"
         >
-          <BrandMark compact />
+          <BrandMark />
           <div dir="rtl" className="space-y-2 text-right">
             <h1 className="text-[1.65rem] font-medium tracking-tight text-foreground sm:text-3xl">
               {title}

@@ -121,7 +121,8 @@ export default function HomePage() {
           <div className="relative z-10 mx-auto flex min-h-[88vh] max-w-5xl flex-col items-center justify-center px-4 py-16 text-center sm:py-20">
             <AppLogo
               size="lg"
-              className="mx-auto mb-4 h-24 w-24 object-contain sm:h-32 sm:w-32"
+              centered
+              className="mb-4 h-48 w-48 object-contain sm:h-64 sm:w-64"
               priority
             />
             <p className="mb-6 text-[11px] tracking-[0.42em] text-foreground">
