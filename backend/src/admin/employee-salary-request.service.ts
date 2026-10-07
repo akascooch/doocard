@@ -176,7 +176,7 @@ export class EmployeeSalaryRequestService {
       await this.pushNotificationsService.sendToRole('ADMIN', {
         title,
         body: message,
-        icon: '/logo/logo-512.png',
+        icon: '/logo/doocard-icon-512.png',
         data: {
           url: '/dashboard/admin/employee-salary',
           salaryRequestId: requestId,
@@ -210,7 +210,7 @@ export class EmployeeSalaryRequestService {
       await this.pushNotificationsService.sendToUser(employeeUserId, {
         title,
         body: message,
-        icon: '/logo/logo-512.png',
+        icon: '/logo/doocard-icon-512.png',
         data: {
           url: '/dashboard/employee/salary-request',
           salaryRequestId: requestId,

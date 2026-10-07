@@ -76,7 +76,7 @@ export class TipAlertService {
             await this.pushNotifications.sendToUser(userId, {
               title,
               body: inAppMessage,
-              icon: '/logo/logo-512.png',
+              icon: '/logo/doocard-icon-512.png',
               data: { url: '/dashboard/employee/salary-request', relatedEntity: dedupeBase },
             });
           }

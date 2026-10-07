@@ -12,7 +12,7 @@ interface AppLogoProps {
   priority?: boolean
 }
 
-const IMAGE_SRC = '/images/mainlogo.png'
+const IMAGE_SRC = '/logo/doocard-mark-1024.png'
 
 export function AppLogo({ 
   size = 'md', 

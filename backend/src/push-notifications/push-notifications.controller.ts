@@ -62,7 +62,7 @@ export class PushNotificationsController {
     await this.service.sendToUser(req.user.id, {
       title: '🧪 تست نوتیفیکیشن',
       body: 'این یک پیام تستی است. اگر این را دیدید، سیستم کار می‌کند! ✅',
-      icon: '/logo/logo-512.png',
+      icon: '/logo/doocard-icon-512.png',
       data: { url: '/dashboard', test: true },
     });
     
@@ -108,7 +108,7 @@ export class PushNotificationsController {
     return this.service.sendToUser(dto.userId, {
       title: dto.title,
       body: dto.body,
-      icon: '/logo/logo-512.png',
+      icon: '/logo/doocard-icon-512.png',
       data: { url: dto.url || '/dashboard' },
     });
   }

@@ -367,7 +367,7 @@
 
       // Check Icons
       try {
-        const iconTest = await fetch('/logo/applogo-192.png', { method: 'HEAD' });
+        const iconTest = await fetch('/logo/doocard-icon-192.png', { method: 'HEAD' });
         updateStatus('آیکون‌ها', iconTest.ok, iconTest.ok ? 'موجود' : 'یافت نشد');
       } catch (e) {
         updateStatus('آیکون‌ها', false, 'خطا');

@@ -8,7 +8,7 @@
  */
 const VERSION = '2.0.3.7';
 const SW_NAME = `doocard-sw-${VERSION}`;
-const DEFAULT_ICON = '/logo/logo-512.png';
+const DEFAULT_ICON = '/logo/doocard-icon-192.png';
 const DEFAULT_URL = '/dashboard';
 
 const log = (...args) => {

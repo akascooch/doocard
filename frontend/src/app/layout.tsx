@@ -18,8 +18,13 @@ export const metadata: Metadata = {
   robots: "index, follow",
   metadataBase: new URL('https://www.doocardbarbershop.com'),
   icons: {
-    icon: '/favicon.ico',
-    shortcut: '/favicon.ico'
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/logo/doocard-icon-32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/logo/doocard-icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: '/logo/doocard-apple-touch-180.png',
+    shortcut: '/favicon.ico',
   },
   openGraph: {
     title: "آرایشگاه مردانه دوکارد",
@@ -65,10 +70,9 @@ export default function RootLayout({ children }: RootLayoutProps) {
         
         {/* Favicon and Icons - High Quality */}
         <link rel="icon" href="/favicon.ico" />
-        <link rel="apple-touch-icon" href="/logo/applogo-2048.jpg" />
-        <link rel="icon" type="image/jpeg" sizes="2048x2048" href="/logo/applogo-2048.jpg" />
-        <link rel="icon" type="image/jpeg" sizes="4096x4096" href="/logo/applogo-4096.jpg" />
-        <link rel="icon" type="image/jpeg" sizes="512x512" href="/logo/applogo-512.jpg" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/logo/doocard-icon-32.png" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/logo/doocard-icon-192.png" />
+        <link rel="apple-touch-icon" href="/logo/doocard-apple-touch-180.png" />
 
         {/* Cache Busting Meta Tags */}
         <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -85,7 +89,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <meta name="apple-mobile-web-app-title" content="Doocard" />
         <meta name="application-name" content="Doocard Salon" />
         <meta name="msapplication-TileColor" content="#2B2D42" />
-        <meta name="msapplication-TileImage" content="/logo/applogo-2048.jpg" />
+        <meta name="msapplication-TileImage" content="/logo/doocard-icon-192.png" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
         
         {/* PWA Display Settings */}

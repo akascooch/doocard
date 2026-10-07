@@ -2493,7 +2493,7 @@ export class AppointmentsService {
         await this.pushNotificationsService.sendToRole('ADMIN', {
           title: 'نوبت جدید ثبت شد',
           body: `${appointment.customer?.user?.name} خدمات ${serviceNames} را برای ${dateTime} رزرو کرد.`,
-          icon: '/logo/logo-512.png',
+          icon: '/logo/doocard-icon-512.png',
           data: { 
             url: `/dashboard/appointments`,
             appointmentId: appointment.id,
@@ -2522,7 +2522,7 @@ export class AppointmentsService {
           await this.pushNotificationsService.sendToUser(appointment.employee.userId, {
             title: employeeTitle,
             body: employeeMessage,
-            icon: '/logo/logo-512.png',
+            icon: '/logo/doocard-icon-512.png',
             data: {
               url: `/dashboard/appointments`,
               appointmentId: appointment.id,
@@ -2552,7 +2552,7 @@ export class AppointmentsService {
           await this.pushNotificationsService.sendToUser(appointment.customer.userId, {
             title: custTitle,
             body: custMessage,
-            icon: '/logo/logo-512.png',
+            icon: '/logo/doocard-icon-512.png',
             data: {
               url: `/dashboard/appointments`,
               appointmentId: appointment.id,
@@ -2591,7 +2591,7 @@ export class AppointmentsService {
           await this.pushNotificationsService.sendToUser(appointment.customer.userId, {
             title: customerTitle,
             body: customerMessage,
-            icon: '/logo/logo-512.png',
+            icon: '/logo/doocard-icon-512.png',
             data: {
               url: `/dashboard/appointments`,
               appointmentId: appointment.id,
@@ -2641,7 +2641,7 @@ export class AppointmentsService {
           await this.pushNotificationsService.sendToUser(appointment.customer.userId, {
             title: customerTitle,
             body: customerMessage,
-            icon: '/logo/logo-512.png',
+            icon: '/logo/doocard-icon-512.png',
             data: {
               url: '/dashboard/appointments',
               appointmentId: appointment.id,
@@ -2680,7 +2680,7 @@ export class AppointmentsService {
             await this.pushNotificationsService.sendToUser(barberUserId, {
               title: barberTitle,
               body: barberMessage,
-              icon: '/logo/logo-512.png',
+              icon: '/logo/doocard-icon-512.png',
               data: {
                 url: '/dashboard/employee/salary-request',
                 relatedEntity,

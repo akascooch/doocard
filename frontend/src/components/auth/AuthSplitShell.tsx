@@ -20,7 +20,7 @@ function BrandMark() {
     <div className="mx-auto flex w-full max-w-[11rem] flex-col items-center gap-3 text-center sm:max-w-[13rem]">
       <div className="relative h-28 w-28 overflow-hidden rounded-3xl bg-card p-2 shadow-sm ring-1 ring-border sm:h-36 sm:w-36">
         <Image
-          src="/logo/logo-512.png"
+          src="/logo/doocard-mark-1024.png"
           alt="Doocard"
           width={144}
           height={144}

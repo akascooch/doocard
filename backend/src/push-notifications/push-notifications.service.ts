@@ -238,9 +238,8 @@ export class PushNotificationsService {
       const notificationPayload = {
         title: payload.title,
         body: payload.body,
-        // logo-512.png exists under Frontend/public/logo; logo-192.png does not.
-        icon: payload.icon || '/logo/logo-512.png',
-        badge: payload.badge || '/logo/logo-512.png',
+        icon: payload.icon || '/logo/doocard-icon-192.png',
+        badge: payload.badge || '/logo/doocard-icon-192.png',
         data: {
           url: payload.url || '/dashboard',
           timestamp: Date.now(),

@@ -221,7 +221,7 @@ export class AccountingService {
       await this.pushNotificationsService.sendToRole('ADMIN', {
         title,
         body: message,
-        icon: '/logo/logo-512.png',
+        icon: '/logo/doocard-icon-512.png',
         data: {
           url: '/dashboard/admin/accounting',
           transactionId,
