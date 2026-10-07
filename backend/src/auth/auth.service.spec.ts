@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
-import { AuthService } from './auth.service';
+import { AuthService, REFRESH_TOKEN_INVALID_FA } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CustomerRegistrationSmsService } from '../sms/customer-registration-sms.service';
 import * as bcrypt from 'bcrypt';
@@ -46,6 +46,7 @@ describe('AuthService', () => {
       create: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       delete: jest.fn(),
     },
     $transaction: jest.fn(),
@@ -331,6 +332,82 @@ describe('AuthService', () => {
 
     it('rejects names shorter than 2 characters', async () => {
       await expect(service.updateOwnName(1, 'ا')).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('refreshAccessToken', () => {
+    const future = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const sessionUser = {
+      id: 5,
+      role: 'CUSTOMER',
+      email: 'a@example.com',
+      phone: '09120000000',
+      password: 'stored-hash',
+      name: 'A',
+    };
+
+    it('rotates a valid token without revoking sibling sessions', async () => {
+      mockJwtService.sign.mockReturnValue('access-token');
+      mockPrismaService.refreshToken.findUnique.mockResolvedValue({
+        id: 3,
+        token: 'presented',
+        userId: 5,
+        isRevoked: false,
+        expiresAt: future,
+        user: sessionUser,
+      });
+      mockPrismaService.refreshToken.create.mockResolvedValue({ id: 4 });
+      mockPrismaService.refreshToken.update.mockResolvedValue({ id: 3 });
+
+      const result = await service.refreshAccessToken('presented', '127.0.0.1', 'jest');
+
+      expect(result.access_token).toBe('access-token');
+      expect(result.user).not.toHaveProperty('password');
+      expect(mockPrismaService.refreshToken.update).toHaveBeenCalledWith({
+        where: { id: 3 },
+        data: expect.objectContaining({ isRevoked: true }),
+      });
+      expect(mockPrismaService.refreshToken.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ userId: 5, expiresAt: future }),
+      });
+      expect(mockPrismaService.refreshToken.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('revokes every live session when a revoked token is presented again', async () => {
+      mockPrismaService.refreshToken.findUnique.mockResolvedValue({
+        id: 9,
+        token: 'stolen',
+        userId: 8,
+        isRevoked: true,
+        expiresAt: future,
+        user: { ...sessionUser, id: 8 },
+      });
+
+      await expect(service.refreshAccessToken('stolen')).rejects.toThrow(REFRESH_TOKEN_INVALID_FA);
+      expect(mockPrismaService.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: 8, isRevoked: false },
+        data: expect.objectContaining({ isRevoked: true }),
+      });
+      expect(mockPrismaService.refreshToken.create).not.toHaveBeenCalled();
+    });
+
+    it('uses the same 401 message when the token is unknown', async () => {
+      mockPrismaService.refreshToken.findUnique.mockResolvedValue(null);
+
+      await expect(service.refreshAccessToken('missing')).rejects.toThrow(REFRESH_TOKEN_INVALID_FA);
+      expect(mockPrismaService.refreshToken.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('logoutAllDevices', () => {
+    it('revokes every live refresh row for the user', async () => {
+      mockPrismaService.refreshToken.updateMany.mockResolvedValue({ count: 3 });
+
+      await expect(service.logoutAllDevices(4)).resolves.toEqual({ success: true });
+      expect(mockPrismaService.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: 4, isRevoked: false },
+        data: expect.objectContaining({ isRevoked: true }),
+      });
     });
   });
 });

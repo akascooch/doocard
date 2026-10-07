@@ -42,6 +42,9 @@ describe('UsersService', () => {
       upsert: jest.fn(),
       updateMany: jest.fn(),
     },
+    refreshToken: {
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
   };
 
   const mockCustomerRegistrationSms = {
@@ -272,6 +275,61 @@ describe('UsersService', () => {
 
       expect(result.name).toBe('New Name');
       expect(result.email).toBe(mockUser.email);
+      expect(mockPrismaService.refreshToken.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('revokes live sessions when the role changes', async () => {
+      mockPrismaService.user.findUnique
+        .mockResolvedValueOnce(mockUser)
+        .mockResolvedValueOnce({ ...mockUser, role: 'EMPLOYEE' });
+      mockPrismaService.user.update.mockResolvedValue({ ...mockUser, role: 'EMPLOYEE' });
+      mockPrismaService.employee.upsert.mockResolvedValue({ id: 2, userId: 1 });
+
+      await service.update(1, { role: 'EMPLOYEE' }, { id: 1, role: 'ADMIN' });
+
+      expect(mockPrismaService.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: 1, isRevoked: false },
+        data: expect.objectContaining({ isRevoked: true }),
+      });
+    });
+
+    it('revokes live sessions when isActive is submitted', async () => {
+      mockPrismaService.user.findUnique
+        .mockResolvedValueOnce(mockUser)
+        .mockResolvedValueOnce(mockUser);
+      mockPrismaService.user.update.mockResolvedValue(mockUser);
+
+      await service.update(1, { isActive: false }, { id: 1, role: 'ADMIN' });
+
+      expect(mockPrismaService.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: 1, isRevoked: false },
+        data: expect.objectContaining({ isRevoked: true }),
+      });
+    });
+  });
+
+  describe('changePassword', () => {
+    it('revokes live sessions and omits the password from the result', async () => {
+      (bcrypt.hash as unknown as jest.Mock).mockResolvedValue('new-hash' as never);
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.user.update.mockResolvedValue({
+        ...mockUser,
+        password: 'new-hash',
+        refreshTokens: [{ token: 'live' }],
+      });
+
+      const result = await service.changePassword(1, 'replacement-secret', {
+        id: 1,
+        role: 'CUSTOMER',
+      });
+
+      expect(result.password).toBeUndefined();
+      expect(result).not.toHaveProperty('refreshTokens');
+      expect(JSON.stringify(result)).not.toContain('new-hash');
+      expect(mockPrismaService.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: 1, isRevoked: false },
+        data: expect.objectContaining({ isRevoked: true }),
+      });
     });
   });
 

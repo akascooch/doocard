@@ -4,6 +4,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CustomerRegistrationSmsService } from '../sms/customer-registration-sms.service';
 import { excludePassword } from '../common/utils/exclude-password';
+import { revokeAllRefreshTokensForUser } from '../auth/refresh-token.revocation';
 import * as bcrypt from 'bcrypt';
 
 type UserActor = { id?: number; role?: string };
@@ -268,6 +269,14 @@ export class UsersService {
         },
       });
 
+      const roleChanged =
+        updateUserDto.role !== undefined && updateUserDto.role !== user.role;
+      const passwordChanged = Boolean(updateUserDto.password);
+      const activeFlagChanged = updateUserDto.isActive !== undefined;
+      if (roleChanged || passwordChanged || activeFlagChanged) {
+        await revokeAllRefreshTokensForUser(this.prisma, id);
+      }
+
       return excludePassword(finalUser!);
     } catch (err: any) {
       // Map phone unique violations only; never treat name as unique.
@@ -387,7 +396,12 @@ export class UsersService {
       },
     });
 
-    return updatedUser;
+    await revokeAllRefreshTokensForUser(this.prisma, id);
+
+    const sanitized = excludePassword(updatedUser) as Record<string, unknown>;
+    delete sanitized.refreshTokens;
+    delete sanitized.password;
+    return sanitized;
   }
 
   /**

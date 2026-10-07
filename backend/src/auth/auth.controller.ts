@@ -140,6 +140,25 @@ export class AuthController {
     };
   }
 
+  @Post('logout-all')
+  @UseGuards(JwtAuthGuard)
+  async logoutAll(
+    @Req() req: { user?: { id?: number } },
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException('احراز هویت نامعتبر است');
+    }
+    await this.authService.logoutAllDevices(userId);
+    res.clearCookie('refresh_token', { path: '/' });
+    res.clearCookie('token', { path: '/' });
+    return {
+      success: true,
+      message: 'از همه دستگاه‌ها خارج شدید',
+    };
+  }
+
   @Post('otp/request')
   @UseGuards(ThrottlerGuard)
   @Throttle({ short: { limit: 3, ttl: 900_000 } })

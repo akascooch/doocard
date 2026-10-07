@@ -107,13 +107,14 @@ export async function buildReferenceIndexes(prisma: PrismaClient) {
   }
 
   const customers = await prisma.customer.findMany({
-    include: { user: { select: { id: true, name: true, phone: true } } },
+    include: { user: { select: { id: true, name: true, phone: true, role: true } } },
   });
   const customersByPhone = new Map<
     string,
     { customerId: number; userId: number; name: string }
   >();
   for (const c of customers) {
+    if (STAFF_IMPORT_ROLES.has(c.user.role)) continue;
     const phone = normalizePhone(c.user.phone);
     if (phone) {
       customersByPhone.set(phone, {
@@ -213,6 +214,25 @@ async function ensureCalendarDate(
   return created.id;
 }
 
+const STAFF_IMPORT_ROLES = new Set([
+  'ADMIN',
+  'EMPLOYEE',
+  'ACCOUNTANT',
+  'MANAGER',
+  'SERVICE',
+]);
+
+export const PHONE_COLLISION_STAFF_ACCOUNT = 'phone-collision-staff-account';
+
+export class StaffPhoneCollisionError extends Error {
+  readonly reason = PHONE_COLLISION_STAFF_ACCOUNT;
+
+  constructor() {
+    super(PHONE_COLLISION_STAFF_ACCOUNT);
+    this.name = 'StaffPhoneCollisionError';
+  }
+}
+
 export async function ensureCustomer(
   tx: Prisma.TransactionClient,
   phone: string,
@@ -221,6 +241,9 @@ export async function ensureCustomer(
 ): Promise<{ customerId: number; userId: number }> {
   if (cache.has(phone)) return cache.get(phone)!;
   let user = await tx.user.findUnique({ where: { phone }, include: { customer: true } });
+  if (user && STAFF_IMPORT_ROLES.has(user.role)) {
+    throw new StaffPhoneCollisionError();
+  }
   if (!user) {
     user = await tx.user.create({
       data: {
@@ -331,6 +354,7 @@ export interface AppointmentCommitResult {
   created: number;
   skippedDuplicate: number;
   failed: number;
+  failureReasons: string[];
 }
 
 export async function commitEligibleAppointmentRows(
@@ -344,7 +368,12 @@ export async function commitEligibleAppointmentRows(
     throw new Error('Missing ADMIN or default BankAccount — cannot commit import');
   }
 
-  const result: AppointmentCommitResult = { created: 0, skippedDuplicate: 0, failed: 0 };
+  const result: AppointmentCommitResult = {
+    created: 0,
+    skippedDuplicate: 0,
+    failed: 0,
+    failureReasons: [],
+  };
   const serviceCache = new Map<string, ServiceRef>();
   for (const [k, v] of indexes.servicesByName) {
     serviceCache.set(k, { serviceId: v.id, durationMinutes: v.durationMinutes });
@@ -486,8 +515,11 @@ export async function commitEligibleAppointmentRows(
           }
 
           result.created++;
-        } catch {
+        } catch (error) {
           result.failed++;
+          if (error instanceof StaffPhoneCollisionError) {
+            result.failureReasons.push(error.reason);
+          }
         }
       }
     }, TX_OPTS);

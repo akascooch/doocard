@@ -12,9 +12,13 @@ import {
   getRememberMeRefreshExpiresAt,
   shouldApplyRememberMe,
 } from './auth-token.config';
+import { revokeAllRefreshTokensForUser } from './refresh-token.revocation';
 import { CustomerRegistrationSmsService } from '../sms/customer-registration-sms.service';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
+
+/** Same text for an unknown token and a revoked replay, so the response does not confirm that a token existed. */
+export const REFRESH_TOKEN_INVALID_FA = 'رفرش توکن معتبر نیست';
 
 @Injectable()
 export class AuthService {
@@ -180,11 +184,12 @@ export class AuthService {
 
     // Validate token
     if (!storedToken) {
-      throw new UnauthorizedException('رفرش توکن معتبر نیست');
+      throw new UnauthorizedException(REFRESH_TOKEN_INVALID_FA);
     }
 
     if (storedToken.isRevoked) {
-      throw new UnauthorizedException('رفرش توکن لغو شده است');
+      await revokeAllRefreshTokensForUser(this.prisma, storedToken.userId);
+      throw new UnauthorizedException(REFRESH_TOKEN_INVALID_FA);
     }
 
     if (storedToken.expiresAt < new Date()) {
@@ -243,6 +248,17 @@ export class AuthService {
       });
     }
 
+    return { success: true };
+  }
+
+  /**
+   * Revoke every live refresh session for the authenticated user.
+   */
+  async logoutAllDevices(userId: number): Promise<{ success: true }> {
+    if (!Number.isInteger(userId) || userId <= 0) {
+      throw new UnauthorizedException('احراز هویت نامعتبر است');
+    }
+    await revokeAllRefreshTokensForUser(this.prisma, userId);
     return { success: true };
   }
 
