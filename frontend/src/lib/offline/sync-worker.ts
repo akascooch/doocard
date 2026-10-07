@@ -129,6 +129,9 @@ async function syncAppointmentSettle(
     accountId: payload.accountId,
     notes: payload.notes,
     externalRef: payload.externalRef,
+    ...(payload.priceOverrideReason
+      ? { priceOverrideReason: payload.priceOverrideReason }
+      : {}),
   };
 
   await api.post(`/appointments/${appointmentId}/settle`, settleBody);

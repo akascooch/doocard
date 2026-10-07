@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccountingService } from '../accounting/accounting.service';
@@ -748,6 +748,18 @@ describe('AppointmentsService', () => {
       await expect(
         service.settle(1, { amount: 1 } as any, { id: 1, role: 'ADMIN' }),
       ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('rejects a non-admin settlement amount override', async () => {
+      mockPrismaService.appointment.findFirst.mockResolvedValue(appointmentRow);
+
+      await expect(
+        service.settle(
+          1,
+          { amount: 1, paymentMethod: 'CASH', priceOverrideReason: 'discount' } as any,
+          { id: 2, role: 'ACCOUNTANT' },
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
     it('requires a reason when the settlement amount differs from the service total', async () => {

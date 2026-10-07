@@ -32,6 +32,7 @@ import { shouldUseOfflineQueue, queueAppointmentSettle } from '@/lib/offline/syn
 import { isOfflineModeEnabled } from '@/lib/offline/feature-flag';
 import { cacheFromResponse, getReferenceCache, REFERENCE_KEYS } from '@/lib/offline/reference-cache';
 import { checkServerReachability } from '@/lib/offline/connectivity';
+import { getCurrentUser } from '@/lib/auth';
 
 /** Barber-only tax per appointment (تومان). Salon tax is not deducted from barber payroll. */
 const BARBER_APPOINTMENT_DEDUCTION_TOMAN = 80000;
@@ -139,6 +140,9 @@ export default function PaymentModal({
     items: Array<{ id: string; title: string; pointsRequired: number | null }>;
   } | null>(null);
   const [assigningPackageId, setAssigningPackageId] = useState<string | null>(null);
+  const [serverAmount, setServerAmount] = useState(0);
+  const [priceOverrideReason, setPriceOverrideReason] = useState('');
+  const canEditSettlementAmount = getCurrentUser()?.role === 'ADMIN';
 
   useEffect(() => {
     if (isOpen && appointmentId) {
@@ -186,6 +190,8 @@ export default function PaymentModal({
         (sum, s) => sum + (s.priceAtBooking || 0),
         0,
       );
+      setServerAmount(calculatedAmount);
+      setPriceOverrideReason('');
 
       setFormData({
         amount: calculatedAmount,
@@ -346,6 +352,26 @@ export default function PaymentModal({
 
       try {
         setLoading(true);
+        const offlineOverride =
+          formData.amount !== serverAmount ? priceOverrideReason.trim() : '';
+        if (formData.amount !== serverAmount) {
+          if (!canEditSettlementAmount) {
+            toast({
+              title: 'خطا',
+              description: 'فقط مدیر می‌تواند مبلغ تسویه را تغییر دهد',
+              variant: 'destructive',
+            });
+            return;
+          }
+          if (!offlineOverride) {
+            toast({
+              title: 'خطا',
+              description: 'ثبت دلیل برای تغییر مبلغ تسویه الزامی است',
+              variant: 'destructive',
+            });
+            return;
+          }
+        }
         await queueAppointmentSettle({
           externalRef: settleExternalRef,
           appointmentRef: { kind: 'server', appointmentId },
@@ -353,6 +379,7 @@ export default function PaymentModal({
           paymentMethod: formData.paymentMethod,
           accountId: formData.accountId,
           notes: formData.notes || undefined,
+          ...(offlineOverride ? { priceOverrideReason: offlineOverride } : {}),
         });
 
         toast({
@@ -438,6 +465,27 @@ export default function PaymentModal({
     try {
       setLoading(true);
 
+      const overrideReason =
+        formData.amount !== serverAmount ? priceOverrideReason.trim() : '';
+      if (formData.amount !== serverAmount) {
+        if (!canEditSettlementAmount) {
+          toast({
+            title: 'خطا',
+            description: 'فقط مدیر می‌تواند مبلغ تسویه را تغییر دهد',
+            variant: 'destructive',
+          });
+          return;
+        }
+        if (!overrideReason) {
+          toast({
+            title: 'خطا',
+            description: 'ثبت دلیل برای تغییر مبلغ تسویه الزامی است',
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+
       const payload: Record<string, unknown> = {
         amount: formData.amount, // Already in RIAL
         paidAmount: formData.paidAmount,
@@ -447,6 +495,7 @@ export default function PaymentModal({
         accountId: formData.paidAmount > 0 ? formData.accountId : undefined,
         notes: formData.notes || undefined,
         externalRef: generateIdempotencyKey(),
+        ...(overrideReason ? { priceOverrideReason: overrideReason } : {}),
       };
 
       if (formData.tipAmount > 0) {
@@ -749,30 +798,47 @@ export default function PaymentModal({
               </div>
             </div>
 
-            {/* Amount Input - Editable */}
             <div className="space-y-2">
-              <MoneyInput
-                value={formData.amount}
-                onChange={(amount) => {
-                  const method = formData.paymentMethod;
-                  if (method === 'DEBT') {
-                    setFormData({ ...formData, amount, paidAmount: 0, debtAmount: amount });
-                  } else {
-                    setFormData({
-                      ...formData,
-                      amount,
-                      paidAmount: Math.max(0, amount - formData.debtAmount),
-                      debtAmount: Math.min(formData.debtAmount, amount),
-                    });
-                  }
-                }}
-                label="مبلغ نهایی *"
-                placeholder="مثال: 500,000"
-                required
-              />
-              <p className="text-xs text-foreground dark:text-foreground bg-accent dark:bg-primary rounded px-2 py-1">
-                مبلغ قابل ویرایش است در صورت تغییر توافق با مشتری
-              </p>
+              {canEditSettlementAmount ? (
+                <MoneyInput
+                  value={formData.amount}
+                  onChange={(amount) => {
+                    const method = formData.paymentMethod;
+                    if (method === 'DEBT') {
+                      setFormData({ ...formData, amount, paidAmount: 0, debtAmount: amount });
+                    } else {
+                      setFormData({
+                        ...formData,
+                        amount,
+                        paidAmount: Math.max(0, amount - formData.debtAmount),
+                        debtAmount: Math.min(formData.debtAmount, amount),
+                      });
+                    }
+                  }}
+                  label="مبلغ نهایی *"
+                  placeholder="مثال: 500,000"
+                  required
+                />
+              ) : (
+                <div className="space-y-1">
+                  <Label>مبلغ نهایی</Label>
+                  <p className="rounded-md border border-border bg-muted px-3 py-2 text-sm font-medium">
+                    {formatTomansFromRial(formData.amount)}
+                  </p>
+                </div>
+              )}
+              {canEditSettlementAmount && formData.amount !== serverAmount ? (
+                <div className="space-y-1">
+                  <Label htmlFor="price-override-reason">دلیل تغییر مبلغ *</Label>
+                  <Textarea
+                    id="price-override-reason"
+                    value={priceOverrideReason}
+                    maxLength={500}
+                    onChange={(e) => setPriceOverrideReason(e.target.value)}
+                    placeholder="دلیل تفاوت با جمع خدمات"
+                  />
+                </div>
+              ) : null}
             </div>
 
             <MoneyInput

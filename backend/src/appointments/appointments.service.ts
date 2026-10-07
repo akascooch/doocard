@@ -1360,9 +1360,13 @@ export class AppointmentsService {
       (sum: number, row: { priceAtBooking?: number }) => sum + (Number(row.priceAtBooking) || 0),
       0,
     );
+    const amountDiffers = Number(dto.amount) !== serverAmount;
+    if (amountDiffers && adminUser?.role !== 'ADMIN') {
+      throw new ForbiddenException('فقط مدیر می‌تواند مبلغ تسویه را تغییر دهد');
+    }
     const priceOverrideReason = resolvePriceOverrideReason(
       dto.priceOverrideReason,
-      Number(dto.amount) !== serverAmount,
+      amountDiffers,
     );
 
     // Resolve paid / debt split (RIAL integers — codebase uses BigInt, not Prisma.Decimal)

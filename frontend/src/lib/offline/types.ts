@@ -75,6 +75,7 @@ export interface AppointmentSettlePayload {
   paymentMethod: AppointmentSettlePaymentMethod;
   accountId?: number;
   notes?: string;
+  priceOverrideReason?: string;
 }
 
 export type OfflineOperationPayload =
