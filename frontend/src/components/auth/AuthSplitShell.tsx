@@ -4,7 +4,7 @@ import { ReactNode } from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '2.0.9'
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '2.0.29'
 
 type AuthSplitShellProps = {
   title: string
