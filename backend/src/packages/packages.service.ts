@@ -1,11 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { CustomerPackageStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  LOYALTY_MIN_REDEEM_POINTS,
-  LOYALTY_RIALS_PER_POINT,
-  parsePositiveRial,
-} from '../packages/packages.constants';
+import { parsePositiveRial } from '../packages/packages.constants';
 import { AssignPackageDto, ConsumePackageDto, CreatePackageTemplateDto, UpdatePackageTemplateDto } from './dto/packages.dto';
 
 function serializeTemplate(row: {

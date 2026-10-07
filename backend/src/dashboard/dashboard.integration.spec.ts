@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { INestApplication } from '@nestjs/common';
 import { PrismaTestService } from '../../tests/prisma-test.service';
 import { DashboardModule } from './dashboard.module';
@@ -11,7 +13,7 @@ describe('Dashboard Integration Tests', () => {
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [DashboardModule],
+      imports: [ConfigModule.forRoot({ isGlobal: true }), ScheduleModule.forRoot(), DashboardModule],
     })
       .overrideProvider(PrismaService)
       .useClass(PrismaTestService)
@@ -60,7 +62,7 @@ describe('Dashboard Integration Tests', () => {
           name: 'Haircut',
           price: 50.0,
           durationMinutes: 30,
-          category: 'Hair',
+          description: 'Hair',
         },
       });
 
@@ -73,6 +75,8 @@ describe('Dashboard Integration Tests', () => {
             serviceId: service.id,
             scheduledAt: new Date('2024-01-15T10:00:00Z'),
             status: 'COMPLETED',
+          durationMin: 30,
+          services: [],
           },
           {
             customerId: customer.id,
@@ -80,6 +84,8 @@ describe('Dashboard Integration Tests', () => {
             serviceId: service.id,
             scheduledAt: new Date('2024-01-16T10:00:00Z'),
             status: 'PENDING',
+          durationMin: 30,
+          services: [],
           },
         ],
       });
@@ -88,8 +94,8 @@ describe('Dashboard Integration Tests', () => {
       const firstAppointment = await prismaTestService.appointment.findFirst({ orderBy: { id: 'asc' } });
       await prismaTestService.transaction.createMany({
         data: [
-          { type: 'SERVICE', amount: 50.0, method: 'CASH', relatedId: firstAppointment!.id, createdAt: new Date('2024-01-15T11:00:00Z') },
-          { type: 'TIP', amount: 10.0, method: 'CASH', relatedId: firstAppointment!.id, createdAt: new Date('2024-01-15T11:05:00Z') },
+          { type: 'SERVICE', amount: 50.0, paymentMethod: 'CASH', relatedId: firstAppointment!.id, createdAt: new Date('2024-01-15T11:00:00Z') },
+          { type: 'TIP', amount: 10.0, paymentMethod: 'CASH', relatedId: firstAppointment!.id, createdAt: new Date('2024-01-15T11:05:00Z') },
         ],
       });
     });
@@ -131,7 +137,7 @@ describe('Dashboard Integration Tests', () => {
           name: 'Haircut',
           price: 50.0,
           durationMinutes: 30,
-          category: 'Hair',
+          description: 'Hair',
         },
       });
 
@@ -144,6 +150,8 @@ describe('Dashboard Integration Tests', () => {
             serviceId: service.id,
             scheduledAt: new Date('2024-01-15T10:00:00Z'),
             status: 'COMPLETED',
+          durationMin: 30,
+          services: [],
           },
           {
             customerId: customer.id,
@@ -151,6 +159,8 @@ describe('Dashboard Integration Tests', () => {
             serviceId: service.id,
             scheduledAt: new Date('2024-01-16T10:00:00Z'),
             status: 'PENDING',
+          durationMin: 30,
+          services: [],
           },
         ],
       });
@@ -214,15 +224,15 @@ describe('Dashboard Integration Tests', () => {
         },
       });
       const employee = await prismaTestService.employee.create({ data: { userId: empUser.id } });
-      const service = await prismaTestService.service.create({ data: { name: 'Service A', price: 100, durationMinutes: 30, category: 'Hair' } });
+      const service = await prismaTestService.service.create({ data: { name: 'Service A', price: 100, durationMinutes: 30, description: 'Hair' } });
       const appt = await prismaTestService.appointment.create({
-        data: { customerId: customer.id, employeeId: employee.id, serviceId: service.id, scheduledAt: new Date('2024-01-15T10:00:00Z'), status: 'COMPLETED' },
+        data: { customerId: customer.id, employeeId: employee.id, serviceId: service.id, scheduledAt: new Date('2024-01-15T10:00:00Z'), status: 'COMPLETED', durationMin: 30, services: [] },
       });
       await prismaTestService.transaction.createMany({
         data: [
-          { type: 'SERVICE', amount: 100.0, method: 'CASH', relatedId: appt.id, createdAt: new Date('2024-01-15T11:00:00Z') },
-          { type: 'TIP', amount: 20.0, method: 'CASH', relatedId: appt.id, createdAt: new Date('2024-01-15T11:05:00Z') },
-          { type: 'EXPENSE', amount: 30.0, method: 'CASH', createdAt: new Date('2024-01-15T12:00:00Z') },
+          { type: 'SERVICE', amount: 100.0, paymentMethod: 'CASH', relatedId: appt.id, createdAt: new Date('2024-01-15T11:00:00Z') },
+          { type: 'TIP', amount: 20.0, paymentMethod: 'CASH', relatedId: appt.id, createdAt: new Date('2024-01-15T11:05:00Z') },
+          { type: 'EXPENSE', amount: 30.0, paymentMethod: 'CASH', createdAt: new Date('2024-01-15T12:00:00Z') },
         ],
       });
     });
@@ -345,13 +355,13 @@ describe('Dashboard Integration Tests', () => {
             name: 'Haircut',
             price: 50.0,
             durationMinutes: 30,
-            category: 'Hair',
+            description: 'Hair',
           },
           {
             name: 'Facial',
             price: 80.0,
             durationMinutes: 60,
-            category: 'Skin',
+            description: 'Skin',
           },
         ],
       });

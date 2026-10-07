@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { PrismaTestService } from '../../tests/prisma-test.service';
 import { AuthModule } from './auth.module';
 import { PrismaService } from '../prisma/prisma.service';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import request from 'supertest';
 
 describe('Auth Integration Tests', () => {
@@ -15,11 +16,18 @@ describe('Auth Integration Tests', () => {
     })
       .overrideProvider(PrismaService)
       .useClass(PrismaTestService)
+      .overrideGuard(ThrottlerGuard)
+      .useValue({ canActivate: () => true })
       .overrideGuard(require('../auth/guards/jwt-auth.guard').JwtAuthGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }));
     prismaTestService = moduleFixture.get<PrismaService>(PrismaService) as unknown as PrismaTestService;
     await app.init();
   });
@@ -48,7 +56,7 @@ describe('Auth Integration Tests', () => {
         .send(registerData)
         .expect(201);
 
-      expect(response.body).toHaveProperty('message', 'ثبت نام با موفقیت انجام شد');
+      expect(response.body).toHaveProperty('message', 'کاربر با موفقیت ثبت‌نام شد');
       expect(response.body).toHaveProperty('user');
       expect(response.body.user).toMatchObject({
         name: registerData.name,
@@ -138,8 +146,9 @@ describe('Auth Integration Tests', () => {
     });
 
     it('should login with email successfully', async () => {
+      const user = await prismaTestService.user.findFirst();
       const loginData = {
-        identifier: (await prismaTestService.user.findFirst()).email,
+        identifier: user.email,
         password: 'password123',
       };
 
@@ -150,12 +159,13 @@ describe('Auth Integration Tests', () => {
 
       expect(response.body).toHaveProperty('access_token');
       expect(response.body).toHaveProperty('user');
-      expect(['test@example.com', 'admin@test.com']).toContain(response.body.user.email);
+      expect(response.body.user.email).toBe(user.email);
     });
 
     it('should login with phone number successfully', async () => {
+      const user = await prismaTestService.user.findFirst();
       const loginData = {
-        identifier: (await prismaTestService.user.findFirst()).phone,
+        identifier: user.phone,
         password: 'password123',
       };
 
@@ -166,7 +176,7 @@ describe('Auth Integration Tests', () => {
 
       expect(response.body).toHaveProperty('access_token');
       expect(response.body).toHaveProperty('user');
-      expect(response.body.user.phone).toBe('09123456789');
+      expect(response.body.user.phone).toBe(user.phone);
     });
 
     it('should return 401 with invalid credentials', async () => {

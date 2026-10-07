@@ -50,10 +50,13 @@ export function assertIsolatedTestDatabaseUrl(raw: string | undefined): string {
 /**
  * Prisma client for integration specs. Construction validates the URL and does
  * not connect. Connecting happens only in onModuleInit, and only outside dry-run.
- * resetDatabase never deletes rows unless INTEGRATION_ALLOW_RESET=1, which this
- * build still refuses so a local run cannot wipe a database by accident.
+ * resetDatabase truncates public tables only after the URL checks pass and
+ * current_database() matches that isolated test database. _prisma_migrations
+ * is left in place. Dry-run does not connect or delete.
  */
 export class PrismaTestService extends PrismaClient {
+  private static loggedTarget = false;
+
   constructor() {
     const dryRun = process.env.INTEGRATION_DRY_RUN === '1';
     const url = dryRun
@@ -80,7 +83,7 @@ export class PrismaTestService extends PrismaClient {
   }
 
   async resetDatabase(): Promise<void> {
-    assertIsolatedTestDatabaseUrl(process.env.TEST_DATABASE_URL || (
+    const url = assertIsolatedTestDatabaseUrl(process.env.TEST_DATABASE_URL || (
       process.env.INTEGRATION_DRY_RUN === '1'
         ? 'postgresql://prisma:disabled@127.0.0.1:5432/doocard_test?schema=public'
         : undefined
@@ -88,8 +91,39 @@ export class PrismaTestService extends PrismaClient {
     if (process.env.INTEGRATION_DRY_RUN === '1') {
       return;
     }
-    throw new IntegrationHarnessError(
-      'INTEGRATION_SKIPPED: resetDatabase did not delete rows. Set INTEGRATION_DRY_RUN=1 for a no-op harness, or provision schema manually on the isolated test database. Automatic table wipes are disabled.',
-    );
+
+    const expectedName = decodeURIComponent(new URL(url).pathname.replace(/^\//, ''));
+    const current = await this.$queryRaw<Array<{ current_database: string }>>`
+      SELECT current_database()
+    `;
+    const actual = current[0]?.current_database;
+    if (!actual || actual !== expectedName || !/test/i.test(actual)) {
+      throw new IntegrationHarnessError(
+        'INTEGRATION_SKIPPED: connected database does not match the isolated test database. No rows were deleted.',
+      );
+    }
+    if (!PrismaTestService.loggedTarget) {
+      console.log(`PrismaTestService isolated database: ${actual}`);
+      PrismaTestService.loggedTarget = true;
+    }
+
+    const tables = await this.$queryRaw<Array<{ tablename: string }>>`
+      SELECT tablename
+      FROM pg_tables
+      WHERE schemaname = 'public'
+        AND tablename <> '_prisma_migrations'
+    `;
+    const names = tables.map((row) => row.tablename);
+    if (names.some((name) => !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name))) {
+      throw new IntegrationHarnessError(
+        'INTEGRATION_SKIPPED: unexpected table name. No rows were deleted.',
+      );
+    }
+    if (names.length === 0) {
+      return;
+    }
+
+    const list = names.map((name) => `"${name}"`).join(', ');
+    await this.$executeRawUnsafe(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE`);
   }
 }

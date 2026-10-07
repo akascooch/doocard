@@ -272,14 +272,19 @@ describe('SmsQueue Integration Tests', () => {
       const mockAppointment = {
         id: appointmentId,
         scheduledAt: new Date(),
-        services: [],
+        services: [{ serviceName: 'خدمت تست' }],
         customer: {
           user: {
             name: 'تست',
             phone: '09123456789',
           },
         },
-        employee: null,
+        employee: {
+          user: {
+            name: 'آرایشگر',
+            phone: '09987654321',
+          },
+        },
       };
 
       mockPrismaService.appointment.findUnique.mockResolvedValue(
@@ -293,6 +298,7 @@ describe('SmsQueue Integration Tests', () => {
       jest.spyOn(smsService, 'sendSms').mockResolvedValue({
         success: false,
         error: 'Max retries exceeded',
+        providerResponse: { status: 'failed' },
       });
 
       const job = {

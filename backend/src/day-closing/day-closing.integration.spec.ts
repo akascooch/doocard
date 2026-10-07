@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigModule } from '@nestjs/config';
 import { INestApplication } from '@nestjs/common';
 import { PrismaTestService } from '../../tests/prisma-test.service';
 import { DayClosingModule } from './day-closing.module';
@@ -11,7 +12,7 @@ describe('Day Closing Integration Tests', () => {
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [DayClosingModule],
+      imports: [ConfigModule.forRoot({ isGlobal: true }), DayClosingModule],
     })
       .overrideProvider(PrismaService)
       .useClass(PrismaTestService)
@@ -32,6 +33,15 @@ describe('Day Closing Integration Tests', () => {
 
   beforeEach(async () => {
     await prismaTestService.resetDatabase();
+    await prismaTestService.user.create({
+      data: {
+        name: 'Gate Admin',
+        email: `gate_admin_${Date.now()}@example.com`,
+        phone: `0910${String(Date.now()).slice(-7)}`,
+        password: 'hashed',
+        role: 'ADMIN',
+      },
+    });
   });
 
   describe('POST /day-closing/:date/close', () => {
@@ -43,7 +53,7 @@ describe('Day Closing Integration Tests', () => {
           email: `test_${Date.now()}@example.com`,
           phone: `0912${Date.now().toString().slice(-7)}`,
           password: 'hashed',
-          role: 'CUSTOMER',
+          role: 'ADMIN',
         },
       });
 
@@ -60,7 +70,7 @@ describe('Day Closing Integration Tests', () => {
           name: 'Haircut',
           price: 50.0,
           durationMinutes: 30,
-          category: 'Hair',
+          description: 'Hair',
         },
       });
 
@@ -72,6 +82,8 @@ describe('Day Closing Integration Tests', () => {
             serviceId: service.id,
             scheduledAt: new Date('2024-01-15T10:00:00Z'),
             status: 'COMPLETED',
+          durationMin: 30,
+          services: [],
           },
       });
       const appt2 = await prismaTestService.appointment.create({
@@ -81,13 +93,15 @@ describe('Day Closing Integration Tests', () => {
             serviceId: service.id,
             scheduledAt: new Date('2024-01-15T14:00:00Z'),
             status: 'COMPLETED',
+          durationMin: 30,
+          services: [],
           },
       });
       await prismaTestService.transaction.createMany({
         data: [
-          { amount: 50.0, type: 'SERVICE', method: 'CASH', relatedId: appt1.id, createdAt: new Date('2024-01-15T11:00:00Z') },
-          { amount: 50.0, type: 'SERVICE', method: 'CARD', relatedId: appt2.id, createdAt: new Date('2024-01-15T15:00:00Z') },
-          { amount: 10.0, type: 'TIP', method: 'CASH', relatedId: appt1.id, createdAt: new Date('2024-01-15T11:05:00Z') },
+          { amount: 50.0, type: 'SERVICE', paymentMethod: 'CASH', relatedId: appt1.id, createdAt: new Date('2024-01-15T11:00:00Z') },
+          { amount: 50.0, type: 'SERVICE', paymentMethod: 'CARD', relatedId: appt2.id, createdAt: new Date('2024-01-15T15:00:00Z') },
+          { amount: 10.0, type: 'TIP', paymentMethod: 'CASH', relatedId: appt1.id, createdAt: new Date('2024-01-15T11:05:00Z') },
         ],
       });
     });

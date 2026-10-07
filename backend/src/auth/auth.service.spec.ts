@@ -397,6 +397,22 @@ describe('AuthService', () => {
       await expect(service.refreshAccessToken('missing')).rejects.toThrow(REFRESH_TOKEN_INVALID_FA);
       expect(mockPrismaService.refreshToken.updateMany).not.toHaveBeenCalled();
     });
+
+    it('uses the same 401 message when the token is expired', async () => {
+      mockPrismaService.refreshToken.findUnique.mockResolvedValue({
+        id: 3,
+        token: 'expired',
+        userId: 5,
+        isRevoked: false,
+        expiresAt: new Date(Date.now() - 60_000),
+        user: sessionUser,
+      });
+
+      await expect(service.refreshAccessToken('expired')).rejects.toThrow(REFRESH_TOKEN_INVALID_FA);
+      expect(mockPrismaService.refreshToken.delete).toHaveBeenCalledWith({ where: { id: 3 } });
+      expect(mockPrismaService.refreshToken.updateMany).not.toHaveBeenCalled();
+      expect(mockPrismaService.refreshToken.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('logoutAllDevices', () => {

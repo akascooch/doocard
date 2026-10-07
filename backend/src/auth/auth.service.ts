@@ -193,11 +193,10 @@ export class AuthService {
     }
 
     if (storedToken.expiresAt < new Date()) {
-      // Token expired - delete it
       await this.prisma.refreshToken.delete({
         where: { id: storedToken.id },
       });
-      throw new UnauthorizedException('رفرش توکن منقضی شده است');
+      throw new UnauthorizedException(REFRESH_TOKEN_INVALID_FA);
     }
 
     const { password: _password, ...user } = storedToken.user;

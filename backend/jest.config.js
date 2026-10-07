@@ -2,7 +2,7 @@
 // `npm run test:integration` runs scripts/setup-test-database.ts first.
 // That script requires TEST_DATABASE_URL and does not open a connection.
 module.exports = {
-  moduleFileExtensions: ['js', 'json', 'ts'],
+  moduleFileExtensions: ['ts', 'js', 'json'],
   rootDir: 'src',
   testRegex: '.*\\.(spec|integration)\\.ts$',
   transform: {

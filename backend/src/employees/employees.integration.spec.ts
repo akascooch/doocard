@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { INestApplication } from '@nestjs/common';
 import { PrismaTestService } from '../../tests/prisma-test.service';
 import { EmployeesModule } from './employees.module';
@@ -11,7 +13,7 @@ describe('Employees Integration Tests', () => {
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [EmployeesModule],
+      imports: [ConfigModule.forRoot({ isGlobal: true }), ScheduleModule.forRoot(), EmployeesModule],
     })
       .overrideProvider(PrismaService)
       .useClass(PrismaTestService)
@@ -358,7 +360,7 @@ describe('Employees Integration Tests', () => {
           name: 'Haircut',
           price: 50.0,
           durationMinutes: 30,
-          category: 'Hair',
+          description: 'Hair',
         },
       });
 
@@ -426,7 +428,7 @@ describe('Employees Integration Tests', () => {
           name: 'Haircut',
           price: 50.0,
           durationMinutes: 30,
-          category: 'Hair',
+          description: 'Hair',
         },
       });
 
@@ -454,7 +456,7 @@ describe('Employees Integration Tests', () => {
     it('should return 404 when employee not found', async () => {
       await request(app.getHttpServer())
         .get('/employees/999/services')
-        .expect(200);
+        .expect(404);
     });
   });
 
@@ -467,7 +469,7 @@ describe('Employees Integration Tests', () => {
           name: 'Haircut',
           price: 50.0,
           durationMinutes: 30,
-          category: 'Hair',
+          description: 'Hair',
         },
       });
 

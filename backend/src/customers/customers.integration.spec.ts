@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigModule } from '@nestjs/config';
 import { INestApplication } from '@nestjs/common';
 import { PrismaTestService } from '../../tests/prisma-test.service';
 import { CustomersModule } from './customers.module';
@@ -13,7 +14,7 @@ describe('Customers Integration Tests', () => {
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [CustomersModule],
+      imports: [ConfigModule.forRoot({ isGlobal: true }), CustomersModule],
     })
       .overrideProvider(PrismaService)
       .useClass(PrismaTestService)

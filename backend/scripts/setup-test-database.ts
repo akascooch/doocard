@@ -21,7 +21,7 @@ try {
   }
   assertIsolatedTestDatabaseUrl(process.env.TEST_DATABASE_URL);
   console.log(
-    'Isolated TEST_DATABASE_URL accepted. No connection was opened and no schema command was run. resetDatabase will not delete rows unless a future explicit wipe is added.',
+    'Isolated TEST_DATABASE_URL accepted. This script did not connect or migrate. Integration resetDatabase truncates only that loopback test database after current_database() matches.',
   );
 } catch (error) {
   finish(error);
