@@ -77,7 +77,13 @@ web_modules/
 # Next.js build output
 .next/
 .next
+.next.bak-*/
 out
+
+# Local scratch and generated asset drops
+tmp/
+frontend/tmp/
+frontend/public/logo/new/
 
 # Nuxt.js build / generate output
 .nuxt
