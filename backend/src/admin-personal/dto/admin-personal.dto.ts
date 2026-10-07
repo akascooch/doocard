@@ -123,12 +123,19 @@ export function enumForCategoryName(name: string): ExpenseCategory {
   }
 }
 
+export const PERSONAL_ENTRY_DIRECTIONS = ['INCOME', 'EXPENSE'] as const;
+export type PersonalEntryDirection = (typeof PERSONAL_ENTRY_DIRECTIONS)[number];
+
 export class CreatePersonalExpenseDto {
   @Transform(({ value }) => (typeof value === 'number' ? String(value) : String(value ?? '').trim()))
   @IsString()
   @Matches(/^\d+$/, { message: 'مبلغ باید عدد صحیح ریال باشد' })
   @MaxLength(14)
   amount: string;
+
+  @IsOptional()
+  @IsIn(PERSONAL_ENTRY_DIRECTIONS)
+  direction?: PersonalEntryDirection;
 
   @ValidateIf((o: CreatePersonalExpenseDto) => !o.categoryId)
   @IsIn(EXPENSE_CATEGORIES)
@@ -164,6 +171,10 @@ export class ListPersonalExpensesQueryDto {
   @IsString()
   @Matches(DATE_KEY_RE)
   to?: string;
+
+  @IsOptional()
+  @IsIn(PERSONAL_ENTRY_DIRECTIONS)
+  direction?: PersonalEntryDirection;
 
   @IsOptional()
   @IsIn(EXPENSE_CATEGORIES)

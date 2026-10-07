@@ -43,9 +43,12 @@ const ENUM_LABELS: Record<string, string> = {
 /** Same cap as backend MAX_AMOUNT_RIAL — integer rials only. */
 const MAX_AMOUNT_RIAL = 99_999_999_999_999
 
+type EntryDirection = "INCOME" | "EXPENSE"
+
 type Expense = {
   id: string
   amount: string
+  direction?: EntryDirection
   category: string
   categoryId?: string | null
   categoryName?: string | null
@@ -80,6 +83,8 @@ function formatAmountRial(amount: string): string {
 }
 
 export default function AdminPersonalExpensesPage() {
+  const [direction, setDirection] = useState<EntryDirection>("EXPENSE")
+  const [directionFilter, setDirectionFilter] = useState<"ALL" | EntryDirection>("ALL")
   const [amount, setAmount] = useState("")
   const [categoryId, setCategoryId] = useState("")
   const [categories, setCategories] = useState<DynamicCategory[]>([])
@@ -97,7 +102,14 @@ export default function AdminPersonalExpensesPage() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [items, setItems] = useState<Expense[]>([])
-  const [summary, setSummary] = useState({ today: "0", week: "0", month: "0" })
+  const [summary, setSummary] = useState({
+    today: "0",
+    week: "0",
+    month: "0",
+    income: "0",
+    expense: "0",
+    balance: "0",
+  })
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const pageSize = 10
@@ -121,6 +133,7 @@ export default function AdminPersonalExpensesPage() {
       const params: Record<string, string | number> = { page: nextPage, pageSize }
       if (fromJalali) params.from = jalaliToDateKey(fromJalali)
       if (toJalali) params.to = jalaliToDateKey(toJalali)
+      if (directionFilter !== "ALL") params.direction = directionFilter
       const [listRes, sumRes] = await Promise.all([
         api.get("/admin/personal/expenses", { params }),
         api.get("/admin/personal/expenses/summary"),
@@ -132,13 +145,16 @@ export default function AdminPersonalExpensesPage() {
         today: String(sumRes.data.today ?? "0"),
         week: String(sumRes.data.week ?? "0"),
         month: String(sumRes.data.month ?? "0"),
+        income: String(sumRes.data.income ?? "0"),
+        expense: String(sumRes.data.expense ?? "0"),
+        balance: String(sumRes.data.balance ?? "0"),
       })
     } catch (error) {
       notifyError("هزینه‌های شخصی", getApiErrorMessage(error, "بارگذاری ناموفق بود"))
     } finally {
       setLoading(false)
     }
-  }, [fromJalali, toJalali])
+  }, [fromJalali, toJalali, directionFilter])
 
   useEffect(() => {
     void (async () => {
@@ -173,12 +189,13 @@ export default function AdminPersonalExpensesPage() {
     try {
       await api.post("/admin/personal/expenses", {
         amount: parsed.value,
+        direction,
         categoryId,
         title: title.trim(),
         description: description.trim() || undefined,
         dateKey: dateKey || undefined,
       })
-      notifySuccess("ثبت شد", "هزینه شخصی به تنخواه سالن اضافه شد")
+      notifySuccess("ثبت شد", direction === "INCOME" ? "درآمد شخصی ثبت شد" : "هزینه شخصی ثبت شد")
       setAmount("")
       setTitle("")
       setDescription("")
@@ -248,13 +265,19 @@ export default function AdminPersonalExpensesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">هزینه‌های شخصی و تنخواه</h1>
+        <h1 className="text-3xl font-bold">تنخواه و هزینه شخصی</h1>
         <p className="text-muted-foreground mt-1">
-          ثبت سریع هزینه‌های روزمره سالن — جدا از فاکتور و نوبت مشتریان. واحد: ریال.
+          دفتر خصوصی شما، جدا از حسابداری سالن. موجودی برابر درآمد منهای هزینه است. واحد: ریال.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader>
+            <CardDescription>موجودی</CardDescription>
+            <CardTitle data-cy="expense-balance" className="text-xl break-words">{formatAmountRial(summary.balance)}</CardTitle>
+          </CardHeader>
+        </Card>
         <Card>
           <CardHeader>
             <CardDescription>امروز</CardDescription>
@@ -274,6 +297,9 @@ export default function AdminPersonalExpensesPage() {
           </CardHeader>
         </Card>
       </div>
+      <p className="text-sm text-muted-foreground">
+        کل درآمد {formatAmountRial(summary.income)} · کل هزینه {formatAmountRial(summary.expense)}
+      </p>
 
       <Card>
         <CardHeader>
@@ -283,6 +309,14 @@ export default function AdminPersonalExpensesPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant={direction === "INCOME" ? "default" : "outline"} onClick={() => setDirection("INCOME")}>
+              درآمد
+            </Button>
+            <Button type="button" variant={direction === "EXPENSE" ? "default" : "outline"} onClick={() => setDirection("EXPENSE")}>
+              هزینه
+            </Button>
+          </div>
           <div className="space-y-2">
             <Label>مبلغ (ریال)</Label>
             <Input
@@ -383,7 +417,7 @@ export default function AdminPersonalExpensesPage() {
             <Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
           <Button type="button" disabled={saving} onClick={() => void submit()} data-cy="expense-submit">
-            {saving ? "در حال ثبت..." : "ثبت هزینه"}
+            {saving ? "در حال ثبت..." : direction === "INCOME" ? "ثبت درآمد" : "ثبت هزینه"}
           </Button>
         </CardContent>
       </Card>
@@ -398,6 +432,19 @@ export default function AdminPersonalExpensesPage() {
             <PersianDatePicker value={fromJalali} onChange={setFromJalali} label="از تاریخ" />
             <PersianDatePicker value={toJalali} onChange={setToJalali} label="تا تاریخ" />
           </div>
+          <div className="flex flex-wrap gap-2">
+            {(["ALL", "INCOME", "EXPENSE"] as const).map((value) => (
+              <Button
+                key={value}
+                type="button"
+                size="sm"
+                variant={directionFilter === value ? "default" : "outline"}
+                onClick={() => setDirectionFilter(value)}
+              >
+                {value === "ALL" ? "همه" : value === "INCOME" ? "درآمد" : "هزینه"}
+              </Button>
+            ))}
+          </div>
           {loading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin" />
@@ -411,7 +458,7 @@ export default function AdminPersonalExpensesPage() {
                   <div className="min-w-0">
                     <p className="font-medium break-words">{item.title}</p>
                     <p className="text-sm text-muted-foreground">
-                      {formatAmountRial(item.amount)} · {item.categoryName || ENUM_LABELS[item.category] || item.category}
+                      {item.direction === "INCOME" ? "درآمد" : "هزینه"} · {formatAmountRial(item.amount)} · {item.categoryName || ENUM_LABELS[item.category] || item.category}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">

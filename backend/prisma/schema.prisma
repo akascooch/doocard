@@ -1289,25 +1289,32 @@ model AdminExpenseCategory {
   @@map("admin_expense_categories")
 }
 
-/// Admin petty-cash / personal spend — not linked to customer invoices.
+enum AdminPersonalEntryDirection {
+  INCOME
+  EXPENSE
+}
+
+/// Per-user personal ledger. Not linked to salon transactions or customer invoices.
 model AdminPersonalExpense {
-  id          String                       @id @default(uuid())
+  id          String                        @id @default(uuid())
   userId      Int
   amount      BigInt
+  direction   AdminPersonalEntryDirection   @default(EXPENSE)
   category    AdminPersonalExpenseCategory
   categoryId  String?
   title       String
   description String?
   dateKey     String
-  occurredAt  DateTime                     @default(now())
-  createdAt   DateTime                     @default(now())
-  updatedAt   DateTime                     @updatedAt
+  occurredAt  DateTime                      @default(now())
+  createdAt   DateTime                      @default(now())
+  updatedAt   DateTime                      @updatedAt
   deletedAt   DateTime?
-  user        User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  categoryRel AdminExpenseCategory?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  user        User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryRel AdminExpenseCategory?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   @@index([userId, dateKey])
   @@index([userId, category])
+  @@index([userId, direction])
   @@index([userId, occurredAt])
   @@index([userId, deletedAt])
   @@index([categoryId])

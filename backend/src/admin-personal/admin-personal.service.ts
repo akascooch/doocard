@@ -130,6 +130,7 @@ function serializeExpense(row: {
   id: string;
   userId: number;
   amount: bigint;
+  direction?: 'INCOME' | 'EXPENSE';
   category: string;
   categoryId?: string | null;
   title: string;
@@ -145,6 +146,7 @@ function serializeExpense(row: {
     id: row.id,
     userId: row.userId,
     amount: row.amount.toString(),
+    direction: row.direction ?? 'EXPENSE',
     category: row.category,
     categoryId: row.categoryId ?? null,
     categoryName: row.categoryRel?.name ?? null,
@@ -418,10 +420,12 @@ export class AdminPersonalService {
       throw new BadRequestException('دسته‌بندی الزامی است');
     }
 
+    const direction = dto.direction === 'INCOME' ? 'INCOME' : 'EXPENSE';
     const row = await this.prisma.adminPersonalExpense.create({
       data: {
         userId,
         amount,
+        direction,
         category,
         categoryId,
         title: dto.title.trim(),
@@ -451,6 +455,7 @@ export class AdminPersonalService {
       userId,
       deletedAt: null,
     };
+    if (query.direction) where.direction = query.direction;
     if (query.category) where.category = query.category;
     if (query.categoryId) where.categoryId = query.categoryId;
     if (query.from || query.to) {
@@ -574,31 +579,42 @@ export class AdminPersonalService {
     });
   }
 
+  private async directionTotals(where: Prisma.AdminPersonalExpenseWhereInput) {
+    const groups = await this.prisma.adminPersonalExpense.groupBy({
+      by: ['direction'],
+      where,
+      _sum: { amount: true },
+    });
+    let income = 0n;
+    let expense = 0n;
+    for (const group of groups) {
+      const amount = group._sum.amount ?? 0n;
+      if (group.direction === 'INCOME') income = amount;
+      else expense += amount;
+    }
+    return { income, expense, balance: income - expense };
+  }
+
   async expenseSummary(userId: number) {
     const today = tehranDateKey();
     const weekStart = shiftDateKey(today, -6);
     const monthStart = monthStartKey(today);
     const owned = { userId, deletedAt: null as Date | null };
 
-    const [todaySum, weekSum, monthSum] = await Promise.all([
-      this.prisma.adminPersonalExpense.aggregate({
-        where: { ...owned, dateKey: today },
-        _sum: { amount: true },
-      }),
-      this.prisma.adminPersonalExpense.aggregate({
-        where: { ...owned, dateKey: { gte: weekStart, lte: today } },
-        _sum: { amount: true },
-      }),
-      this.prisma.adminPersonalExpense.aggregate({
-        where: { ...owned, dateKey: { gte: monthStart, lte: today } },
-        _sum: { amount: true },
-      }),
+    const [todaySum, weekSum, monthSum, allSum] = await Promise.all([
+      this.directionTotals({ ...owned, dateKey: today }),
+      this.directionTotals({ ...owned, dateKey: { gte: weekStart, lte: today } }),
+      this.directionTotals({ ...owned, dateKey: { gte: monthStart, lte: today } }),
+      this.directionTotals(owned),
     ]);
 
     return {
-      today: (todaySum._sum.amount ?? 0n).toString(),
-      week: (weekSum._sum.amount ?? 0n).toString(),
-      month: (monthSum._sum.amount ?? 0n).toString(),
+      income: allSum.income.toString(),
+      expense: allSum.expense.toString(),
+      balance: allSum.balance.toString(),
+      today: todaySum.expense.toString(),
+      week: weekSum.expense.toString(),
+      month: monthSum.expense.toString(),
       todayKey: today,
     };
   }

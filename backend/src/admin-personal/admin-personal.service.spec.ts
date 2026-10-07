@@ -127,6 +127,7 @@ describe('AdminPersonalService', () => {
       delete: jest.fn(),
       update: jest.fn(),
       aggregate: jest.fn(),
+      groupBy: jest.fn(),
     },
     adminExpenseCategory: {
       findMany: jest.fn(),
@@ -439,6 +440,7 @@ describe('AdminPersonalService', () => {
       id: 'e1',
       userId: 1,
       amount: 1250000n,
+      direction: 'EXPENSE',
       category: 'PETTY_CASH',
       title: 'نان',
       description: null,
@@ -455,6 +457,12 @@ describe('AdminPersonalService', () => {
       dateKey: '2026-09-13',
     });
     expect(row.amount).toBe('1250000');
+    expect(row.direction).toBe('EXPENSE');
+    expect(prisma.adminPersonalExpense.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ userId: 1, direction: 'EXPENSE' }),
+      }),
+    );
     expect(prisma.transaction.create).not.toHaveBeenCalled();
     expect(prisma.transaction.update).not.toHaveBeenCalled();
     expect(prisma.order.create).not.toHaveBeenCalled();
@@ -464,14 +472,25 @@ describe('AdminPersonalService', () => {
   });
 
   it('summarizes today/week/month as decimal strings scoped to owner', async () => {
-    prisma.adminPersonalExpense.aggregate
-      .mockResolvedValueOnce({ _sum: { amount: 100n } })
-      .mockResolvedValueOnce({ _sum: { amount: 300n } })
-      .mockResolvedValueOnce({ _sum: { amount: 900n } });
+    prisma.adminPersonalExpense.groupBy
+      .mockResolvedValueOnce([{ direction: 'EXPENSE', _sum: { amount: 100n } }])
+      .mockResolvedValueOnce([{ direction: 'EXPENSE', _sum: { amount: 300n } }])
+      .mockResolvedValueOnce([{ direction: 'EXPENSE', _sum: { amount: 900n } }])
+      .mockResolvedValueOnce([
+        { direction: 'INCOME', _sum: { amount: 2000n } },
+        { direction: 'EXPENSE', _sum: { amount: 500n } },
+      ]);
     const sum = await service.expenseSummary(4);
-    expect(sum).toMatchObject({ today: '100', week: '300', month: '900' });
-    expect(prisma.adminPersonalExpense.aggregate.mock.calls[0][0].where.userId).toBe(4);
-    expect(prisma.adminPersonalExpense.aggregate.mock.calls[0][0].where.deletedAt).toBeNull();
+    expect(sum).toMatchObject({
+      today: '100',
+      week: '300',
+      month: '900',
+      income: '2000',
+      expense: '500',
+      balance: '1500',
+    });
+    expect(prisma.adminPersonalExpense.groupBy.mock.calls[0][0].where.userId).toBe(4);
+    expect(prisma.adminPersonalExpense.groupBy.mock.calls[0][0].where.deletedAt).toBeNull();
   });
 
   it('soft-deletes own expense only and hides other owners', async () => {
