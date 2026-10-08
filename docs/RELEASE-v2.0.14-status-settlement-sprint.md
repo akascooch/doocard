@@ -31,7 +31,7 @@ Closeout removed `/tmp/doocard-frontend-v2.0.14-node20.tar.gz`, `/tmp/doocard-ba
 | Item | Value |
 |---|---|
 | Branch | `release/v2.0.29` |
-| Feature commit | filled in after the commit is created |
+| Feature commit | `44d705f9c1918b93a366ff26617dba4f715abaa3` |
 | Ready tag | `v2.0.29-ready` |
 | Prior HEAD | `2f993450e1a916db16aa1be4cf2dfda294ddfb2e` |
 | Migration | `20261008160000_booking_group_and_settlement_audit` (additive columns only) |
