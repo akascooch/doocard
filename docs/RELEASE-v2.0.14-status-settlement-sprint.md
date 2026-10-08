@@ -39,3 +39,13 @@ Closeout removed `/tmp/doocard-frontend-v2.0.14-node20.tar.gz`, `/tmp/doocard-ba
 Phase 3 local verification, before this commit, passed: backend `tsc --noEmit`, frontend `tsc --noEmit`, Jest 12 suites / 90 tests, frontend date tests 11, `nest build`, `next build` 66/66, Prisma 83 migrations up to date on local database `Doocard`. HTTP checks B1–B3 and B6 passed. B4 linked cheque stayed one `CHEQUE_LEAF` document; an unlinked MANUAL expense of 999000009 rial stayed and a second `CHEQUE_LEAF` of the same amount was created. That edge was not changed. B5 kept `CHEQUE_DUE_SMS_ENABLED` off; issued `STAFF_SALARY` and `GUARANTEE` leaves are still included in the plan. Customer UI booked two simultaneous services with two barbers, prices 10000000 and 30000000 rial, one shared `bookingGroupId`. A single-service booking from the same UI had `bookingGroupId` null. Settlement button showed disabled text `در حال تسویه...`. Barber history showed only own/shared appointments and hid foreign private notes. The legacy staff form still saves several services for one barber as one appointment. Toast overlap at the bottom of the settle dialog was recorded and not fixed.
 
 Owner decisions still open: reminder inclusion for salary and guarantee cheques, and whether clearing an unlinked manual expense should be blocked. The legacy one-appointment form is a later alignment, not part of this release.
+
+## v2.0.29 production closeout (2026-10-08)
+
+| Item | Value |
+|---|---|
+| Production tag | `v2.0.29-prod` |
+| Commit | `c038abb2847985267546655c0464ebc7634f879d` |
+| Frontend BUILD_ID | `O0Q0yo8v1ytFqAS_r-6uz` |
+| Database | 83 migrations applied, through `20261008160000_booking_group_and_settlement_audit` |
+| Health | 200, database up, Redis `PONG` |

@@ -5,6 +5,29 @@ Do not git-pull `/var/www/doocard`. Never `rsync --delete`. Never unmask apache2
 
 ---
 
+## 2026-10-08 — Phase 5 closeout (`v2.0.29-prod`)
+
+| Field | Value |
+|------|--------|
+| Status | **SUCCESS** — cycle **CLOSED** |
+| Production commit | `c038abb2847985267546655c0464ebc7634f879d` (tag `v2.0.29-prod`) |
+| Feature commit | `44d705f9c1918b93a366ff26617dba4f715abaa3` |
+| Branch | `release/v2.0.29` |
+| Frontend BUILD_ID | `O0Q0yo8v1ytFqAS_r-6uz` (source == standalone) |
+| Previous BUILD_ID | `f9kxnxD05K_i1GXS5ZXe1` |
+| Database | 83 migrations applied. Latest `20261008160000_booking_group_and_settlement_audit` |
+| Backup | `/var/backup/doocard_pre_v2.0.29.sql` (51,101,756 bytes) |
+| Rollback | `/var/backups/doocard/dist-pre-v2.0.29` and `/var/backups/doocard/standalone-pre-v2.0.29` |
+| Method | Ubuntu source overlay and build. No git-pull, no `rsync --delete`, `.env` untouched. |
+| PM2 | backend pid **2400478** (started 20:20:11 +0330); frontend pid **2400517** (Ready 20:20:17 +0330, 167ms) |
+| Health | `http://127.0.0.1:3001/api/health` **200**, database up. Public `/api/health` and dashboard RSC **200**. |
+| Redis | active, `PONG`, no reconnect lines in the backend error log |
+| Price script | 30 open appointments scanned, 0 updated |
+| Residuals | missing `sharp`; duplicate push endpoint 409; nginx scanner denies; `connect() 111` only during the 20:15 and 20:20 reload window |
+| Production git | dirty `main` left untouched |
+
+---
+
 ## 2026-09-22 — Phase 11 closeout (`v2.0.10-glass-buttons`)
 
 | Field | Value |

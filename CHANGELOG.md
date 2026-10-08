@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.29 — 2026-10-08 production closeout
+
+Production baseline is commit `c038abb2847985267546655c0464ebc7634f879d` (tag `v2.0.29-prod`), feature commit `44d705f9c1918b93a366ff26617dba4f715abaa3`. Frontend BUILD_ID `O0Q0yo8v1ytFqAS_r-6uz`. Database `doocard` has 83 applied migrations, through `20261008160000_booking_group_and_settlement_audit`. The production git tree was not updated.
+
+- Multi-barber booking groups and settlement amount audit are live. Open-appointment price correction scanned 30 rows and changed 0.
+- Health 200, Redis `PONG`, nginx active. Known residuals: missing `sharp` in the frontend image optimizer, and duplicate push-subscription endpoints.
+
 ## 2.0.29 — 2026-10-07
 
 Production overlay is live. Build ID `f9kxnxD05K_i1GXS5ZXe1`. Migration `20261007143000_personal_entry_direction` is applied. The production git tree was not updated.
