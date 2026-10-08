@@ -342,6 +342,7 @@ export default function AppointmentList({
       <p
         className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap break-words line-clamp-2 max-w-[16rem]"
         title={text}
+        data-testid="appointment-notes"
       >
         <span className="font-medium text-foreground/70">یادداشت: </span>
         {text}
@@ -383,10 +384,11 @@ export default function AppointmentList({
           <div
             key={appointment.id}
             className="rounded-lg border bg-card p-4 space-y-3 shadow-sm"
+            data-testid="appointment-card"
           >
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="font-semibold">{appointment.customerName}</p>
+                <p className="font-semibold" data-testid="appointment-customer-name">{appointment.customerName}</p>
                 <p className="text-sm text-muted-foreground">{getServiceLabel(appointment)}</p>
               </div>
               {getStatusBadge(appointment.status)}
@@ -436,7 +438,7 @@ export default function AppointmentList({
           </TableHeader>
           <TableBody>
             {appointments.map((appointment) => (
-              <TableRow key={appointment.id}>
+              <TableRow key={appointment.id} data-testid="appointment-row">
                 <TableCell className="font-medium">
                   <div>
                     <div data-cy="appointment-when">{formatAppointmentWhenTehran(appointment.scheduledAt)}</div>
@@ -444,7 +446,7 @@ export default function AppointmentList({
                 </TableCell>
                 <TableCell>
                   <div>
-                    <div>{appointment.customerName}</div>
+                    <div data-testid="appointment-customer-name">{appointment.customerName}</div>
                     {renderNotes(appointment.notes)}
                     {renderPackageHint(appointment)}
                   </div>

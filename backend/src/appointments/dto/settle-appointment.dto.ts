@@ -59,7 +59,7 @@ export class SettleAppointmentDto {
   @IsNotEmpty()
   amount: number; // RIAL - total charged amount
 
-  /** Required when amount differs from the server-computed service total. */
+  /** Optional. Checkout no longer requires a typed reason; amount changes are audited server-side. */
   @IsOptional()
   @IsString()
   @MaxLength(500)

@@ -215,6 +215,10 @@ model Appointment {
   financiallyLockedAt              DateTime?
   calendarDateId                   Int?
   clientOpId                       String?                                   @unique
+  /// Links appointments created by one multi-barber submission. Null for single bookings.
+  bookingGroupId                   String?
+  /// Append-only checkout amount overrides. Does not replace priceOverrideReason.
+  settlementAmountAudits           Json?
   appointmentServices              AppointmentService[]
   commissionSettlementAppointments EmployeeCommissionSettlementAppointment[]
   tipRecipientType                 TipRecipientType?
@@ -242,6 +246,7 @@ model Appointment {
   @@index([deletedAt])
   @@index([calendarDateId])
   @@index([financiallyLockedAt])
+  @@index([bookingGroupId])
   @@map("appointments")
 }
 

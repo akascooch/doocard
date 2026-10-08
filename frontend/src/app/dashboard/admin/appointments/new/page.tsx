@@ -38,6 +38,8 @@ import MoneyInput from '@/components/ui/MoneyInput'
 import { toThousandTomans } from '@/lib/money'
 import { type EmployeeListItem, getEmployeeDisplayName, normalizeEmployeeList } from '@/lib/employee'
 import { effectiveServiceDurationMin } from '@/lib/booking-duration'
+import { buildAppointmentCreateBody, type ExtraBookingLine } from '@/lib/booking-selections'
+import { formatTomansFromRial } from '@/lib/money'
 
 interface Customer {
   id: number
@@ -85,6 +87,8 @@ export default function NewAppointmentPage() {
     tipAmount: 0
   }
   const [formData, setFormData] = useState(initialFormState)
+  const [extraLines, setExtraLines] = useState<ExtraBookingLine[]>([])
+  const groupKeyRef = useRef<string | null>(null)
   const timeSlotRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -221,20 +225,20 @@ export default function NewAppointmentPage() {
         return
       }
       const service = services.find((row) => row.id.toString() === formData.serviceId)
-      await axios.post('/appointments', {
+      if (extraLines.length > 0 && !groupKeyRef.current) {
+        groupKeyRef.current = crypto.randomUUID()
+      }
+      await axios.post('/appointments', buildAppointmentCreateBody({
         customerId: Number(formData.customerId),
         employeeId: parseInt(formData.employeeId, 10),
-        services: [
-          {
-            serviceId: parseInt(formData.serviceId, 10),
-            priceAtBooking: service ? service.price : undefined,
-            durationMin: service ? effectiveServiceDurationMin(service) : undefined,
-          },
-        ],
+        serviceId: parseInt(formData.serviceId, 10),
+        durationMin: service ? effectiveServiceDurationMin(service) : undefined,
         jalaliDate,
         time,
         notes: formData.notes || undefined,
-      })
+        extras: extraLines,
+        clientOpId: groupKeyRef.current || undefined,
+      }))
       
       toast({
         title: 'موفق',
@@ -358,7 +362,7 @@ export default function NewAppointmentPage() {
                             } catch (err: any) {
                               toast({
                                 title: 'خطا',
-                                description: err.response?.data?.message || 'خطا در ثبت مشتری',
+                                description: err.response?.data?.message_fa || err.response?.data?.message || 'خطا در ثبت مشتری',
                                 variant: 'destructive',
                               })
                             } finally {
@@ -413,11 +417,47 @@ export default function NewAppointmentPage() {
                   <SelectContent>
                     {services.map((service) => (
                       <SelectItem key={service.id} value={service.id.toString()}>
-                        {service.name} - {service.price.toLocaleString('fa-IR')} تومان
+                        {service.name} - {formatTomansFromRial(service.price)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {extraLines.map((line, index) => (
+                  <div key={index} className="grid gap-2 rounded-lg border border-border p-3">
+                    <Label>خدمت و آرایشگر {index + 2}</Label>
+                    <Select
+                      value={line.serviceId || undefined}
+                      onValueChange={(value) => setExtraLines((rows) => rows.map((row, i) => i === index ? { ...row, serviceId: value } : row))}
+                    >
+                      <SelectTrigger><SelectValue placeholder="خدمت" /></SelectTrigger>
+                      <SelectContent>
+                        {services.map((service) => (
+                          <SelectItem key={service.id} value={service.id.toString()}>{service.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={line.employeeId || undefined}
+                      onValueChange={(value) => setExtraLines((rows) => rows.map((row, i) => i === index ? { ...row, employeeId: value } : row))}
+                    >
+                      <SelectTrigger><SelectValue placeholder="آرایشگر" /></SelectTrigger>
+                      <SelectContent>
+                        {employees.map((employee) => (
+                          <SelectItem key={employee.id} value={employee.id.toString()}>
+                            {employee.user?.name || 'آرایشگر'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setExtraLines((rows) => [...rows, { serviceId: '', employeeId: '' }])}
+                >
+                  افزودن خدمت با آرایشگر دیگر
+                </Button>
               </div>
 
               {/* Date Selection */}

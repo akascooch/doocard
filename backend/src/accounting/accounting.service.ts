@@ -1297,6 +1297,63 @@ export class AccountingService {
     return `وصول چک | برگه #${leaf.leafNumber} | دسته چک ${serial} | دریافت‌کننده: ${payee} | نوع: ${cat}`;
   }
 
+  private async findSingleLinkedManualExpense(leafId: number) {
+    const matches = await this.prisma.transaction.findMany({
+      where: {
+        deletedAt: null,
+        type: TransactionType.EXPENSE,
+        OR: [
+          { sourceType: 'MANUAL', sourceId: leafId },
+          { meta: { path: ['chequeLeafId'], equals: leafId } },
+        ],
+      },
+      take: 2,
+    });
+    if (matches.length > 1) {
+      throw new BadRequestException(
+        'چند هزینهٔ دستی به این چک وصل است؛ قبل از وصول یکی را مشخص کنید',
+      );
+    }
+    return matches[0] ?? null;
+  }
+
+  private async convertLinkedChequeExpense(
+    transactionId: number,
+    leaf: {
+      id: number;
+      leafNumber: number;
+      payee: string | null;
+      category?: ChequeLeafCategory | null;
+      chequebook?: { serialNumber?: string | null; id: number } | null;
+    },
+  ): Promise<number | null> {
+    const txn = await this.prisma.transaction.findFirst({
+      where: { id: transactionId, deletedAt: null },
+    });
+    if (!txn || this.isChequePayrollTransaction(txn)) {
+      return txn ? transactionId : null;
+    }
+    const previousMeta =
+      txn.meta && typeof txn.meta === 'object' && !Array.isArray(txn.meta)
+        ? txn.meta
+        : {};
+    await this.prisma.transaction.update({
+      where: { id: txn.id },
+      data: {
+        sourceType: 'CHEQUE_LEAF',
+        sourceId: leaf.id,
+        paymentMethod: PaymentMethod.CHEQUE,
+        description: txn.description || this.buildChequeClearedDescription(leaf),
+        meta: {
+          ...previousMeta,
+          chequeLeafId: leaf.id,
+          convertedFromExistingExpense: true,
+        },
+      },
+    });
+    return txn.id;
+  }
+
   private async ensureClearedChequeLedgerTransaction(
     leaf: {
       id: number;
@@ -1871,15 +1928,36 @@ export class AccountingService {
       throw new BadRequestException('برای وصول چک باید مبلغ معتبر ثبت شده باشد');
     }
 
-    // Ordinary (non-staff) clearance keeps the existing ledger helper.
+    // Ordinary clearance reuses a linked manual expense instead of inserting a second row.
     let ordinaryClearanceTxnId: number | undefined;
     if (
       becomingCleared &&
       !isStaffPayroll &&
       !wasStaffPayroll &&
-      dto.transactionId == null &&
-      existing.transactionId == null
+      dto.transactionId == null
     ) {
+      ordinaryClearanceTxnId = existing.transactionId
+        ? await this.convertLinkedChequeExpense(existing.transactionId, {
+            id: existing.id,
+            leafNumber: existing.leafNumber,
+            payee: dto.payee !== undefined ? dto.payee : existing.payee,
+            category: nextCategory,
+            chequebook: existing.chequebook,
+          })
+        : null;
+      if (ordinaryClearanceTxnId == null) {
+        const linked = await this.findSingleLinkedManualExpense(existing.id);
+        if (linked) {
+          ordinaryClearanceTxnId = await this.convertLinkedChequeExpense(linked.id, {
+            id: existing.id,
+            leafNumber: existing.leafNumber,
+            payee: dto.payee !== undefined ? dto.payee : existing.payee,
+            category: nextCategory,
+            chequebook: existing.chequebook,
+          });
+        }
+      }
+      if (ordinaryClearanceTxnId == null && existing.transactionId == null) {
       ordinaryClearanceTxnId = await this.ensureClearedChequeLedgerTransaction(
         {
           id: existing.id,
@@ -1896,6 +1974,7 @@ export class AccountingService {
         },
         userId,
       );
+      }
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {

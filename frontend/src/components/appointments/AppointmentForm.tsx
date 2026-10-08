@@ -187,6 +187,7 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
       const selectedServices = services.filter(s => formData.serviceIds.includes(s.id));
       const servicesPayload = selectedServices.map(s => ({
         serviceId: s.id,
+        // Catalog rial only. The server recalculates and does not trust this total.
         priceAtBooking: s.price,
         durationMin: effectiveServiceDurationMin(s),
       }));

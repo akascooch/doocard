@@ -84,11 +84,14 @@ export function QuickRegisterCustomerForm() {
       setPhoneError('');
     } catch (error: any) {
       const status = error?.response?.status;
+      const data = error?.response?.data;
       const message =
-        error?.response?.data?.message ||
-        (Array.isArray(error?.response?.data?.message)
-          ? error.response.data.message.join('، ')
-          : null);
+        data?.message_fa ||
+        (typeof data?.message === 'string'
+          ? data.message
+          : Array.isArray(data?.message)
+            ? data.message.join('، ')
+            : null);
 
       if (status === 409) {
         toast({

@@ -12,8 +12,8 @@ import { SMS_EVENT_KEYS } from './sms-event-keys';
 /** Hard-required reminder recipients for cheque due dates. */
 export const CHEQUE_DUE_REMINDER_PHONES = ['09370504588', '09121013686'] as const;
 
-export type ChequeDueOffsetDays = 0 | 1 | 2;
-export type ChequeReminderStage = 't_minus_2' | 't_minus_1' | 't_zero';
+export type ChequeDueOffsetDays = 0 | 1 | 2 | 3;
+export type ChequeReminderStage = 't_minus_3' | 't_minus_2' | 't_minus_1' | 't_zero';
 
 export type ChequeDueReminderPlanItem = {
   leafId: number;
@@ -44,20 +44,24 @@ type ChequebookSnippet = {
 };
 
 const STAGE_BY_OFFSET: Record<ChequeDueOffsetDays, ChequeReminderStage> = {
+  3: 't_minus_3',
   2: 't_minus_2',
   1: 't_minus_1',
   0: 't_zero',
 };
 
 const STAGE_LABEL_FA: Record<ChequeReminderStage, string> = {
+  t_minus_3: '۳ روز آینده',
   t_minus_2: '۲ روز آینده',
   t_minus_1: 'فردا',
   t_zero: 'امروز',
 };
 
 /**
- * Daily cheque due-date reminders (T-2 through T-0) via SmsOutboundService.
- * Pure planner is exportable for dry-run tests without sending.
+ * Daily cheque due-date reminders (T-3 through T-0) via SmsOutboundService.
+ * Each run plans only the offset whose due day is that many days ahead.
+ * A missed earlier offset is not replayed, and a past due date is not backfilled.
+ * Sending still requires CHEQUE_DUE_SMS_ENABLED === 'true'.
  */
 @Injectable()
 export class ChequeDueSmsReminderService {
@@ -177,7 +181,7 @@ export class ChequeDueSmsReminderService {
     dryRun?: boolean;
   }): Promise<ChequeDueReminderPlanItem[]> {
     const today = ChequeDueSmsReminderService.todayYmdTehran(options?.now);
-    const offsets: ChequeDueOffsetDays[] = [2, 1, 0];
+    const offsets: ChequeDueOffsetDays[] = [3, 2, 1, 0];
     const plan: ChequeDueReminderPlanItem[] = [];
 
     for (const offsetDays of offsets) {

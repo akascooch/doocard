@@ -116,6 +116,22 @@ function parseJalaliYmdParts(jalaliDate: string): JalaliDateParts | null {
 }
 
 /**
+ * Jalali YYYY/MM/DD or YYYY-MM-DD with exactly three fields.
+ * Rejects extra segments. Does not let an overflowing day roll into another year.
+ */
+export function parseStrictJalaliYmd(jalaliDate: string): JalaliDateParts | null {
+  if (!jalaliDate || typeof jalaliDate !== 'string') return null;
+  const english = persianToEnglishDigits(jalaliDate).trim();
+  const match = english.match(/^(\d{4})[/-](\d{2})[/-](\d{2})$/);
+  if (!match) return null;
+  const jy = Number(match[1]);
+  const jm = Number(match[2]);
+  const jd = Number(match[3]);
+  if (!safeToGregorian(jy, jm, jd)) return null;
+  return { jy, jm, jd };
+}
+
+/**
  * Format a Gregorian date to Jalali (Persian) date string
  * Uses jalaali-js for accurate conversion (dayjs jalaliday has bugs with dates)
  * @param date - Date object, ISO string, or timestamp
@@ -600,17 +616,25 @@ export const jalaliToApiDate = (jalaliDate: string): string | null => {
 
 /**
  * Convert a picker date to the Gregorian YYYY-MM-DD the slots API expects.
- * Years >= 1700 are treated as already-Gregorian so ISO dates are not re-parsed as Jalali.
+ * Slash dates are Jalali. A dash date with year >= 1700 stays Gregorian (SlotPicker ISO).
+ * A string that is not exactly three Y-M-D fields is rejected.
  */
 export const slotsApiDateFromPicker = (date: string): string | null => {
   if (!date) return null;
-  const normalized = persianToEnglishDigits(date).replace(/\//g, '-');
-  const year = Number(normalized.slice(0, 4));
-  if (!Number.isFinite(year)) return null;
-  if (year >= 1700) {
-    return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
+  const english = persianToEnglishDigits(date).trim();
+  const strict = parseStrictJalaliYmd(english);
+  const dashed = english.replace(/\//g, '-');
+  if (!strict && !/^\d{4}-\d{2}-\d{2}$/.test(dashed)) return null;
+  if (english.includes('/')) {
+    return strict ? jalaliToGregorian(formatJalaliParts(strict, '/')) : null;
   }
-  return jalaliToGregorian(date);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dashed)) return null;
+  const year = Number(dashed.slice(0, 4));
+  if (year >= 1700) {
+    const [gy, gm, gd] = dashed.split('-').map(Number);
+    return isValidGregorianYmd(gy, gm, gd) ? dashed : null;
+  }
+  return strict ? jalaliToGregorian(formatJalaliParts(strict, '/')) : null;
 };
 
 /** Jalali date + HH:mm → ISO with +03:30 */

@@ -141,8 +141,15 @@ export default function PaymentModal({
   } | null>(null);
   const [assigningPackageId, setAssigningPackageId] = useState<string | null>(null);
   const [serverAmount, setServerAmount] = useState(0);
-  const [priceOverrideReason, setPriceOverrideReason] = useState('');
+  const [extrasOpen, setExtrasOpen] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ amount?: string; account?: string; payment?: string }>({});
   const canEditSettlementAmount = getCurrentUser()?.role === 'ADMIN';
+
+  useEffect(() => {
+    if (!isOpen || loadingData || !appointment || canEditSettlementAmount) return;
+    const trigger = document.querySelector<HTMLElement>('[data-settlement-payment]');
+    trigger?.focus();
+  }, [isOpen, loadingData, appointment, canEditSettlementAmount]);
 
   useEffect(() => {
     if (isOpen && appointmentId) {
@@ -191,7 +198,6 @@ export default function PaymentModal({
         0,
       );
       setServerAmount(calculatedAmount);
-      setPriceOverrideReason('');
 
       setFormData({
         amount: calculatedAmount,
@@ -352,25 +358,9 @@ export default function PaymentModal({
 
       try {
         setLoading(true);
-        const offlineOverride =
-          formData.amount !== serverAmount ? priceOverrideReason.trim() : '';
-        if (formData.amount !== serverAmount) {
-          if (!canEditSettlementAmount) {
-            toast({
-              title: 'خطا',
-              description: 'فقط مدیر می‌تواند مبلغ تسویه را تغییر دهد',
-              variant: 'destructive',
-            });
-            return;
-          }
-          if (!offlineOverride) {
-            toast({
-              title: 'خطا',
-              description: 'ثبت دلیل برای تغییر مبلغ تسویه الزامی است',
-              variant: 'destructive',
-            });
-            return;
-          }
+        if (formData.amount !== serverAmount && !canEditSettlementAmount) {
+          setFieldErrors({ amount: 'فقط مدیر می‌تواند مبلغ تسویه را تغییر دهد' });
+          return;
         }
         await queueAppointmentSettle({
           externalRef: settleExternalRef,
@@ -379,7 +369,6 @@ export default function PaymentModal({
           paymentMethod: formData.paymentMethod,
           accountId: formData.accountId,
           notes: formData.notes || undefined,
-          ...(offlineOverride ? { priceOverrideReason: offlineOverride } : {}),
         });
 
         toast({
@@ -403,22 +392,15 @@ export default function PaymentModal({
     }
 
     if (formData.paidAmount > 0 && !formData.accountId) {
-      toast({
-        title: 'خطا',
-        description: 'انتخاب حساب بانکی برای مبلغ پرداختی الزامی است',
-        variant: 'destructive',
-      });
+      setFieldErrors({ account: 'انتخاب حساب بانکی برای مبلغ پرداختی الزامی است' });
       return;
     }
 
     if (formData.paidAmount + formData.debtAmount !== formData.amount) {
-      toast({
-        title: 'خطا',
-        description: 'جمع مبلغ پرداختی و بدهی باید برابر مبلغ کل باشد',
-        variant: 'destructive',
-      });
+      setFieldErrors({ amount: 'جمع مبلغ پرداختی و بدهی باید برابر مبلغ کل باشد' });
       return;
     }
+    setFieldErrors({});
 
     if (formData.paidAmount > 0 && formData.paymentMethod === 'DEBT') {
       toast({
@@ -465,25 +447,10 @@ export default function PaymentModal({
     try {
       setLoading(true);
 
-      const overrideReason =
-        formData.amount !== serverAmount ? priceOverrideReason.trim() : '';
-      if (formData.amount !== serverAmount) {
-        if (!canEditSettlementAmount) {
-          toast({
-            title: 'خطا',
-            description: 'فقط مدیر می‌تواند مبلغ تسویه را تغییر دهد',
-            variant: 'destructive',
-          });
-          return;
-        }
-        if (!overrideReason) {
-          toast({
-            title: 'خطا',
-            description: 'ثبت دلیل برای تغییر مبلغ تسویه الزامی است',
-            variant: 'destructive',
-          });
-          return;
-        }
+      if (formData.amount !== serverAmount && !canEditSettlementAmount) {
+        setFieldErrors({ amount: 'فقط مدیر می‌تواند مبلغ تسویه را تغییر دهد' });
+        setLoading(false);
+        return;
       }
 
       const payload: Record<string, unknown> = {
@@ -495,7 +462,6 @@ export default function PaymentModal({
         accountId: formData.paidAmount > 0 ? formData.accountId : undefined,
         notes: formData.notes || undefined,
         externalRef: generateIdempotencyKey(),
-        ...(overrideReason ? { priceOverrideReason: overrideReason } : {}),
       };
 
       if (formData.tipAmount > 0) {
@@ -611,7 +577,7 @@ export default function PaymentModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="flex max-h-[min(90dvh,40rem)] w-[calc(100vw-1.5rem)] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-[550px]">
+      <DialogContent className="flex max-h-[90dvh] w-[calc(100vw-1rem)] max-w-[32rem] flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="shrink-0 px-6 pt-6">
           <DialogTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5 text-foreground" />
@@ -628,7 +594,7 @@ export default function PaymentModal({
           </div>
         ) : appointment ? (
           <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-4">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pb-4">
             {serverOffline && isOfflineModeEnabled() && (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
@@ -684,7 +650,7 @@ export default function PaymentModal({
             )}
 
             {/* Services Summary */}
-            <div className="bg-accent border border-border backdrop-blur-md rounded-lg p-3">
+            <div className="order-1 bg-accent border border-border backdrop-blur-md rounded-lg p-3">
               <p className="text-sm font-medium mb-2">سرویس‌های انجام شده:</p>
               <ul className="text-sm space-y-1">
                 {getAppointmentServices(appointment).map((service, idx) => (
@@ -704,7 +670,7 @@ export default function PaymentModal({
               </div>
             </div>
 
-            <div className="rounded-lg border border-border dark:border-border p-3 space-y-3">
+            <div className={`order-7 rounded-lg border border-border dark:border-border p-3 space-y-3 ${extrasOpen ? '' : 'hidden'}`}>
               <button
                 type="button"
                 className="w-full text-sm font-medium flex items-center justify-between gap-2"
@@ -798,9 +764,11 @@ export default function PaymentModal({
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="order-2 space-y-2">
               {canEditSettlementAmount ? (
                 <MoneyInput
+                  autoFocus
+                  error={fieldErrors.amount}
                   value={formData.amount}
                   onChange={(amount) => {
                     const method = formData.paymentMethod;
@@ -825,23 +793,25 @@ export default function PaymentModal({
                   <p className="rounded-md border border-border bg-muted px-3 py-2 text-sm font-medium">
                     {formatTomansFromRial(formData.amount)}
                   </p>
+                  {fieldErrors.amount ? (
+                    <p className="text-sm text-destructive" role="alert">{fieldErrors.amount}</p>
+                  ) : null}
                 </div>
               )}
-              {canEditSettlementAmount && formData.amount !== serverAmount ? (
-                <div className="space-y-1">
-                  <Label htmlFor="price-override-reason">دلیل تغییر مبلغ *</Label>
-                  <Textarea
-                    id="price-override-reason"
-                    value={priceOverrideReason}
-                    maxLength={500}
-                    onChange={(e) => setPriceOverrideReason(e.target.value)}
-                    placeholder="دلیل تفاوت با جمع خدمات"
-                  />
-                </div>
-              ) : null}
             </div>
 
+            <button
+              type="button"
+              className="order-6 flex w-full items-center justify-between rounded-lg border border-border px-3 py-2 text-sm font-medium"
+              aria-expanded={extrasOpen}
+              onClick={() => setExtrasOpen((open) => !open)}
+            >
+              <span>انعام و فروشگاه</span>
+              <ChevronDown className={`h-4 w-4 transition-transform ${extrasOpen ? 'rotate-180' : ''}`} />
+            </button>
+
             <MoneyInput
+              className="order-4"
               value={formData.paidAmount}
               onChange={(paidAmount) => {
                 const clamped = Math.min(Math.max(0, paidAmount), formData.amount);
@@ -861,6 +831,7 @@ export default function PaymentModal({
               placeholder="مثال: 300,000"
             />
             <MoneyInput
+              className="order-4"
               value={formData.debtAmount}
               onChange={(debtAmount) => {
                 const clamped = Math.min(Math.max(0, debtAmount), formData.amount);
@@ -880,7 +851,7 @@ export default function PaymentModal({
               placeholder="مثال: 200,000"
             />
 
-            <div className="bg-accent dark:bg-primary rounded-lg p-3 text-sm">
+            <div className={`order-7 bg-accent dark:bg-primary rounded-lg p-3 text-sm ${extrasOpen ? '' : 'hidden'}`}>
               <p className="font-medium mb-1">خلاصه سهم آرایشگر (برای تسویه حقوق)</p>
               <p>کسورات مالیات سهم آرایشگر هر نوبت: {toTomans(BARBER_APPOINTMENT_DEDUCTION_TOMAN * 10)}</p>
               <p className="text-muted-foreground mt-1">
@@ -890,6 +861,7 @@ export default function PaymentModal({
 
             {/* Tip Amount */}
             <MoneyInput
+              className={`order-7 ${extrasOpen ? '' : 'hidden'}`}
               value={formData.tipAmount}
               onChange={(tipAmount) =>
                 setFormData({
@@ -906,7 +878,7 @@ export default function PaymentModal({
             />
 
             {formData.tipAmount > 0 && (
-              <div className="space-y-3 rounded-lg border border-border dark:border-border p-3">
+              <div className={`order-7 space-y-3 rounded-lg border border-border dark:border-border p-3 ${extrasOpen ? '' : 'hidden'}`}>
                 <div>
                   <Label>نوع گیرنده انعام *</Label>
                   <Select
@@ -1008,8 +980,11 @@ export default function PaymentModal({
             )}
 
             {/* Payment Method */}
-            <div>
+            <div className="order-3">
               <Label>روش پرداخت *</Label>
+              {fieldErrors.payment ? (
+                <p className="mb-1 text-sm text-destructive" role="alert">{fieldErrors.payment}</p>
+              ) : null}
               <Select
                 value={formData.paymentMethod}
                 onValueChange={(val) => {
@@ -1034,7 +1009,7 @@ export default function PaymentModal({
                   }
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger data-settlement-payment="">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1048,8 +1023,11 @@ export default function PaymentModal({
 
             {/* Bank Account (hidden when no paid portion) */}
             {formData.paidAmount > 0 && (
-              <div>
+              <div className="order-5">
                 <Label>حساب بانکی *</Label>
+                {fieldErrors.account ? (
+                  <p className="mb-1 text-sm text-destructive" role="alert">{fieldErrors.account}</p>
+                ) : null}
                 <Select
                   value={formData.accountId?.toString() || ''}
                   onValueChange={(val) =>
@@ -1072,7 +1050,7 @@ export default function PaymentModal({
 
             {/* DEBT Alert */}
             {formData.debtAmount > 0 && (
-              <Alert>
+              <Alert className="order-5">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   {formData.paidAmount > 0
@@ -1083,7 +1061,7 @@ export default function PaymentModal({
             )}
 
             {/* Notes */}
-            <div>
+            <div className={`order-7 ${extrasOpen ? '' : 'hidden'}`}>
               <Label>یادداشت (اختیاری)</Label>
               <Textarea
                 value={formData.notes}
@@ -1102,6 +1080,7 @@ export default function PaymentModal({
               <Button
                 type="submit"
                 disabled={loading}
+                aria-busy={loading}
                 className="bg-primary hover:bg-accent"
               >
                 {loading ? (

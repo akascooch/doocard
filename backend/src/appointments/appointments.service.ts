@@ -52,14 +52,17 @@ import {
   assertEmployeeNotImpersonating,
   assertEmployeeOwnsAppointment,
   isCustomerRole,
+  hideForeignCustomerNotes,
   isEmployeeRole,
   scopedEmployeeListId,
 } from './appointment-access.util';
 import { StockNotificationService } from '../waitlist/stock-notification.service';
+import { randomUUID } from 'crypto';
 import {
   bookingDurationMinFromService,
   bookingPriceRialFromServicePrice,
 } from './booking-price.util';
+import { findSameBarberOverlap } from './booking-group.util';
 
 export interface ServiceSnapshot {
   serviceId: number;
@@ -197,6 +200,14 @@ export class AppointmentsService {
    * Run SMS after the HTTP response path continues. Never rejects into callers.
    * Deduped SmsOutboundService still records smsEvent; failures are logged only.
    */
+  private enqueuePush(label: string, work: () => Promise<unknown>) {
+    void Promise.resolve()
+      .then(work)
+      .catch((e: any) => {
+        console.error(`⚠️ Push ${label} failed after enqueue:`, e?.message || e);
+      });
+  }
+
   private enqueueAppointmentSms(label: string, work: () => Promise<void>) {
     void Promise.resolve()
       .then(work)
@@ -249,11 +260,335 @@ export class AppointmentsService {
       .filter((w) => w.start < w.end);
   }
 
+  private async resolveSchedule(input: {
+    jalaliDate?: string;
+    time?: string;
+    scheduledAt?: string;
+  }): Promise<{ scheduledAt: Date; calendarDateId: number }> {
+    if (input.jalaliDate && input.time) {
+      const clock = normalizeBookingClockTime(input.time);
+      if (!clock) {
+        throw new BadRequestException(SLOT_TIME_INSTRUCTION_FA);
+      }
+      const gregorianDate = this.calendarService.toGregorian(input.jalaliDate);
+      let isoWithTZ: string;
+      try {
+        isoWithTZ = tehranIsoFromUtcMidnightAndTime(gregorianDate, clock);
+      } catch {
+        throw new BadRequestException('زمان نوبت نامعتبر است');
+      }
+      const scheduledAt = new Date(isoWithTZ);
+      const calendarDate = await this.calendarService.ensureExists({
+        jalaliDate: input.jalaliDate,
+      });
+      return { scheduledAt, calendarDateId: calendarDate.id };
+    }
+    if (input.scheduledAt) {
+      const scheduledAt = new Date(input.scheduledAt);
+      const gregorianDate = new Date(Date.UTC(
+        scheduledAt.getUTCFullYear(),
+        scheduledAt.getUTCMonth(),
+        scheduledAt.getUTCDate(),
+        0, 0, 0, 0,
+      ));
+      const calendarDate = await this.calendarService.ensureExists({ gregorianDate });
+      return { scheduledAt, calendarDateId: calendarDate.id };
+    }
+    throw new BadRequestException('Either (jalaliDate + time) or scheduledAt must be provided');
+  }
+
+  private async findBookingGroupByKey(clientOpId: string) {
+    const byOp = await this.prisma.appointment.findUnique({
+      where: { clientOpId },
+      include: APPOINTMENT_DETAIL_INCLUDE,
+    });
+    if (byOp?.bookingGroupId) {
+      return this.prisma.appointment.findMany({
+        where: { bookingGroupId: byOp.bookingGroupId, deletedAt: null },
+        include: APPOINTMENT_DETAIL_INCLUDE,
+        orderBy: { id: 'asc' },
+      });
+    }
+    if (byOp) return [byOp];
+    return this.prisma.appointment.findMany({
+      where: { bookingGroupId: clientOpId, deletedAt: null },
+      include: APPOINTMENT_DETAIL_INCLUDE,
+      orderBy: { id: 'asc' },
+    });
+  }
+
+  private async presentBookingGroup(rows: any[], currentUser?: any) {
+    for (const row of rows) {
+      await this.assertAppointmentReadAccess(row, currentUser);
+    }
+    return {
+      bookingGroupId: rows[0]?.bookingGroupId ?? null,
+      appointments: await this.presentMany(rows, currentUser),
+    };
+  }
+
+  /**
+   * One submission, one appointment per service+barber, one transaction.
+   * Same start time is simultaneous across barbers. A repeated clientOpId
+   * returns the same rows and does not notify again.
+   */
+  private async createBookingGroup(dto: CreateAppointmentDto, currentUser?: any) {
+    const selections = dto.selections ?? [];
+    if (selections.length === 0) {
+      throw new BadRequestException('حداقل یک سرویس باید انتخاب شود');
+    }
+
+    const clientOpId = dto.clientOpId?.trim();
+    if (clientOpId) {
+      const existing = await this.findBookingGroupByKey(clientOpId);
+      if (existing.length > 0) {
+        return this.presentBookingGroup(existing, currentUser);
+      }
+    }
+
+    const nowUtc = new Date();
+    const isStaff = currentUser?.role === 'ADMIN' || currentUser?.role === 'EMPLOYEE';
+    let actorEmployeeId: number | null = null;
+    if (isEmployeeRole(currentUser)) {
+      const actorEmployee = await this.requireEmployeeActor(currentUser);
+      actorEmployeeId = actorEmployee.id;
+    }
+
+    if (isCustomerRole(currentUser)) {
+      const userId = actorUserId(currentUser);
+      if (!userId) {
+        throw new NotFoundException('Customer profile not found');
+      }
+      const ownCustomer = await this.prisma.customer.findUnique({
+        where: { userId },
+        select: { id: true },
+      });
+      if (!ownCustomer) {
+        throw new NotFoundException('Customer profile not found');
+      }
+      dto.customerId = ownCustomer.id;
+    }
+
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: dto.customerId },
+      include: { user: true },
+    });
+    if (!customer) {
+      throw new NotFoundException(`Customer with ID ${dto.customerId} not found`);
+    }
+
+    const lines: Array<{
+      employeeId: number;
+      scheduledAt: Date;
+      endAt: Date;
+      calendarDateId: number;
+      snapshot: ServiceSnapshot;
+    }> = [];
+
+    for (const selection of selections) {
+      if (actorEmployeeId != null) {
+        assertEmployeeNotImpersonating(selection.employeeId, actorEmployeeId);
+      }
+      const schedule = await this.resolveSchedule({
+        jalaliDate: selection.jalaliDate ?? dto.jalaliDate,
+        time: selection.time ?? dto.time,
+        scheduledAt: selection.scheduledAt ?? (selection.jalaliDate || selection.time ? undefined : dto.scheduledAt),
+      });
+      if (!isStaff) {
+        const minAllowedAtUtc = new Date(nowUtc.getTime() + 2 * 60 * 60 * 1000);
+        if (schedule.scheduledAt < minAllowedAtUtc) {
+          throw new BadRequestException(
+            'زمان رزرو باید حداقل ۲ ساعت از زمان فعلی جلوتر باشد',
+          );
+        }
+      }
+
+      const employee = await this.prisma.employee.findUnique({
+        where: { id: selection.employeeId },
+        include: {
+          user: true,
+          employeeServices: { select: { serviceId: true } },
+        },
+      });
+      if (!employee) {
+        throw new NotFoundException(`Employee with ID ${selection.employeeId} not found`);
+      }
+      if (!employee.isActive || employee.user?.role !== 'EMPLOYEE') {
+        throw new BadRequestException('این آرایشگر برای رزرو در دسترس نیست');
+      }
+      if (!employee.employeeServices.some((row) => row.serviceId === selection.serviceId)) {
+        throw new BadRequestException('این آرایشگر خدمت انتخاب‌شده را ارائه نمی‌دهد');
+      }
+
+      const service = await this.prisma.service.findUnique({
+        where: { id: selection.serviceId },
+      });
+      if (!service) {
+        throw new NotFoundException(`Service with ID ${selection.serviceId} not found`);
+      }
+      const serverPrice = bookingPriceRialFromServicePrice(service.price);
+      const serverDuration = bookingDurationMinFromService(service.durationMinutes);
+      if (serverPrice == null || serverDuration == null) {
+        throw new BadRequestException('قیمت یا مدت سرویس برای رزرو معتبر نیست');
+      }
+      lines.push({
+        employeeId: selection.employeeId,
+        scheduledAt: schedule.scheduledAt,
+        endAt: new Date(schedule.scheduledAt.getTime() + serverDuration * 60 * 1000),
+        calendarDateId: schedule.calendarDateId,
+        snapshot: {
+          serviceId: service.id,
+          priceAtBooking: serverPrice,
+          durationMin: serverDuration,
+          serviceName: service.name,
+        },
+      });
+    }
+
+    if (findSameBarberOverlap(lines.map((line) => ({
+      employeeId: line.employeeId,
+      start: line.scheduledAt,
+      end: line.endAt,
+    })))) {
+      throw new BadRequestException({
+        statusCode: 409,
+        message: 'تداخل زمانی! این زمان دیگر رزرو شده است',
+        error: 'SLOT_CONFLICT',
+        internalCode: 'SLOT_CONFLICT',
+      });
+    }
+
+    const bookingGroupId = clientOpId || randomUUID();
+    let initialStatus: 'PENDING' | 'PENDING_CONFIRMATION' = 'PENDING';
+    if (currentUser?.role === 'CUSTOMER') {
+      initialStatus = 'PENDING_CONFIRMATION';
+    }
+
+    let created: any[];
+    try {
+      created = await this.prisma.$transaction(async (tx) => {
+        const employeeIds = [...new Set(lines.map((line) => line.employeeId))].sort((a, b) => a - b);
+        for (const employeeId of employeeIds) {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(CONCAT('employee:', ${employeeId}::text)))`;
+        }
+        const rows = [];
+        for (let index = 0; index < lines.length; index++) {
+          const line = lines[index];
+          const overlapping = await tx.appointment.findFirst({
+            where: {
+              employeeId: line.employeeId,
+              status: { notIn: ['CANCELLED'] },
+              deletedAt: null,
+              OR: [
+                {
+                  AND: [
+                    { scheduledAt: { lte: line.scheduledAt } },
+                    {
+                      scheduledAt: {
+                        gte: new Date(
+                          line.scheduledAt.getTime() - line.snapshot.durationMin * 60 * 1000,
+                        ),
+                      },
+                    },
+                  ],
+                },
+                {
+                  AND: [
+                    { scheduledAt: { gte: line.scheduledAt } },
+                    { scheduledAt: { lt: line.endAt } },
+                  ],
+                },
+              ],
+            },
+          });
+          if (overlapping) {
+            const overlappingEnd = new Date(
+              overlapping.scheduledAt.getTime() + overlapping.durationMin * 60 * 1000,
+            );
+            if (this.intervalsOverlap(line.scheduledAt, line.endAt, overlapping.scheduledAt, overlappingEnd)) {
+              throw new BadRequestException({
+                statusCode: 409,
+                message: 'تداخل زمانی! این زمان دیگر رزرو شده است',
+                error: 'SLOT_CONFLICT',
+                internalCode: 'SLOT_CONFLICT',
+              });
+            }
+          }
+          const blockedTime = await tx.blockedTime.findFirst({
+            where: {
+              employeeId: line.employeeId,
+              startAt: { lt: line.endAt },
+              endAt: { gt: line.scheduledAt },
+            },
+          });
+          if (blockedTime) {
+            throw new BadRequestException(
+              `این زمان مسدود شده است. دلیل: ${blockedTime.reason || 'نامشخص'}`,
+            );
+          }
+          rows.push(await tx.appointment.create({
+            data: {
+              customerId: dto.customerId,
+              employeeId: line.employeeId,
+              calendarDateId: line.calendarDateId,
+              services: [line.snapshot] as any,
+              scheduledAt: line.scheduledAt,
+              durationMin: line.snapshot.durationMin,
+              status: initialStatus,
+              notes: dto.notes,
+              bookingGroupId,
+              clientOpId: index === 0 ? clientOpId || null : null,
+            },
+            include: APPOINTMENT_DETAIL_INCLUDE,
+          }));
+        }
+        return rows;
+      }, { maxWait: 5_000, timeout: 30_000 });
+    } catch (error: any) {
+      if (error?.code === 'P2002' && clientOpId) {
+        const replay = await this.findBookingGroupByKey(clientOpId);
+        if (replay.length > 0) {
+          return this.presentBookingGroup(replay, currentUser);
+        }
+      }
+      throw error;
+    }
+
+    const distinctEmployees = new Set(lines.map((line) => line.employeeId));
+    if (distinctEmployees.size === 1) {
+      try {
+        await this.prisma.customer.updateMany({
+          where: { id: dto.customerId, preferredEmployeeId: null },
+          data: { preferredEmployeeId: lines[0].employeeId },
+        });
+      } catch (error: any) {
+        console.warn('[PREFERRED] attach preferredEmployeeId failed:', error?.message || error);
+      }
+    }
+
+    for (const appointment of created) {
+      try {
+        await this.notifyAppointmentCreated(appointment);
+      } catch (error: any) {
+        console.warn('[NOTIFY] Appointment created notify failed:', error?.message || error);
+      }
+      this.enqueueAppointmentSms('Created', () => this.sendAppointmentCreatedSms(appointment));
+    }
+
+    return this.presentBookingGroup(created, currentUser);
+  }
+
   /**
    * Reserve slot with PostgreSQL advisory lock (concurrent-safe)
    * Creates appointment with atomic slot reservation
    */
-  async create(dto: CreateAppointmentDto, currentUser?: any) {
+  async create(dto: CreateAppointmentDto, currentUser?: any): Promise<any> {
+    if (dto.selections?.length) {
+      return this.createBookingGroup(dto, currentUser);
+    }
+    if (!dto.services?.length) {
+      throw new BadRequestException('حداقل یک سرویس باید انتخاب شود');
+    }
 
     if (isEmployeeRole(currentUser)) {
       const actorEmployee = await this.requireEmployeeActor(currentUser);
@@ -269,52 +604,11 @@ export class AppointmentsService {
       });
       if (existing) {
         await this.assertAppointmentReadAccess(existing, currentUser);
-        return this.formatAppointment(existing);
+        return this.presentOne(existing, currentUser);
       }
     }
 
-    // Parse date input (jalaliDate + time OR scheduledAt)
-    let scheduledAt: Date;
-    let calendarDateId: number | undefined;
-
-    if (dto.jalaliDate && dto.time) {
-      // Parse Jalali date + time (Iran timezone: UTC+3:30)
-      const clock = normalizeBookingClockTime(dto.time);
-      if (!clock) {
-        throw new BadRequestException(SLOT_TIME_INSTRUCTION_FA);
-      }
-      const gregorianDate = this.calendarService.toGregorian(dto.jalaliDate);
-      
-      let isoWithTZ: string;
-      try {
-        isoWithTZ = tehranIsoFromUtcMidnightAndTime(gregorianDate, clock);
-      } catch {
-        throw new BadRequestException('زمان نوبت نامعتبر است');
-      }
-      scheduledAt = new Date(isoWithTZ);
-
-      // Get calendar_date_id
-      const calendarDate = await this.calendarService.ensureExists({ jalaliDate: dto.jalaliDate });
-      calendarDateId = calendarDate.id;
-      
-    } else if (dto.scheduledAt) {
-      // Parse ISO date-time
-      scheduledAt = new Date(dto.scheduledAt);
-      
-      // Extract date and get calendar_date_id
-      const gregorianDate = new Date(Date.UTC(
-        scheduledAt.getUTCFullYear(),
-        scheduledAt.getUTCMonth(),
-        scheduledAt.getUTCDate(),
-        0, 0, 0, 0
-      ));
-      
-      const calendarDate = await this.calendarService.ensureExists({ gregorianDate });
-      calendarDateId = calendarDate.id;
-      
-    } else {
-      throw new BadRequestException('Either (jalaliDate + time) or scheduledAt must be provided');
-    }
+    const { scheduledAt, calendarDateId } = await this.resolveSchedule(dto);
 
     // Min 2h lead time (UTC comparison against Asia/Tehran "now").
     const nowUtc = new Date();
@@ -391,7 +685,7 @@ export class AppointmentsService {
     const servicesSnapshot: ServiceSnapshot[] = [];
     let totalDuration = 0;
 
-    for (const serviceDto of dto.services) {
+    for (const serviceDto of dto.services ?? []) {
       const service = await this.prisma.service.findUnique({
         where: { id: serviceDto.serviceId },
       });
@@ -402,24 +696,16 @@ export class AppointmentsService {
 
       const serverPrice = bookingPriceRialFromServicePrice(service.price);
       const serverDuration = bookingDurationMinFromService(service.durationMinutes);
-      let priceAtBooking: number;
-      let durationMin: number;
-      if (isCustomerRole(currentUser)) {
-        if (serverPrice == null || serverDuration == null) {
-          throw new BadRequestException('قیمت یا مدت سرویس برای رزرو آنلاین معتبر نیست');
-        }
-        priceAtBooking = serverPrice;
-        durationMin = serverDuration;
-      } else {
-        priceAtBooking =
-          serviceDto.priceAtBooking !== undefined
-            ? serviceDto.priceAtBooking
-            : serverPrice ?? Math.floor(service.price * 10);
-        durationMin =
-          serviceDto.durationMin !== undefined
-            ? serviceDto.durationMin
-            : service.durationMinutes;
+      if (serverPrice == null || (isCustomerRole(currentUser) && serverDuration == null)) {
+        throw new BadRequestException('قیمت یا مدت سرویس برای رزرو آنلاین معتبر نیست');
       }
+      // Client totals are ignored. Service.price is already rial.
+      const priceAtBooking = serverPrice;
+      const durationMin = isCustomerRole(currentUser)
+        ? serverDuration!
+        : serviceDto.durationMin !== undefined
+          ? serviceDto.durationMin
+          : service.durationMinutes;
 
       servicesSnapshot.push({
         serviceId: service.id,
@@ -578,7 +864,7 @@ export class AppointmentsService {
     }
     this.enqueueAppointmentSms('Created', () => this.sendAppointmentCreatedSms(appointment));
 
-    return this.formatAppointment(appointment);
+    return this.presentOne(appointment, currentUser);
   }
 
   /** Build jalaliDate, time, serviceNames for SMS. Uses calendarDate when present else toJalali(scheduledAt). */
@@ -814,7 +1100,7 @@ export class AppointmentsService {
     const count = await this.prisma.appointment.count({ where });
 
     return {
-      data: appointments.map((a) => this.formatAppointment(a)),
+      data: await this.presentMany(appointments, currentUser),
       total: count,
       skip,
       take,
@@ -883,7 +1169,7 @@ export class AppointmentsService {
 
     await this.assertAppointmentReadAccess(appointment, currentUser);
 
-    return this.formatAppointment(appointment);
+    return this.presentOne(appointment, currentUser);
   }
 
   /**
@@ -923,7 +1209,7 @@ export class AppointmentsService {
       const servicesSnapshot: ServiceSnapshot[] = [];
       let totalDuration = 0;
 
-      for (const serviceDto of dto.services) {
+      for (const serviceDto of dto.services ?? []) {
         const service = await this.prisma.service.findUnique({
           where: { id: serviceDto.serviceId },
         });
@@ -950,9 +1236,12 @@ export class AppointmentsService {
           priceOrDurationOverride = true;
         }
 
+        if (serverPrice == null) {
+          throw new BadRequestException('قیمت سرویس برای رزرو معتبر نیست');
+        }
         const priceAtBooking = serviceDto.priceAtBooking !== undefined
           ? serviceDto.priceAtBooking
-          : serverPrice ?? Math.floor(service.price * 10);
+          : serverPrice;
 
         const durationMin = serviceDto.durationMin !== undefined
           ? serviceDto.durationMin
@@ -1013,7 +1302,7 @@ export class AppointmentsService {
       },
     });
 
-    return this.formatAppointment(updated);
+    return this.presentOne(updated, currentUser);
   }
 
   /**
@@ -1364,10 +1653,16 @@ export class AppointmentsService {
     if (amountDiffers && adminUser?.role !== 'ADMIN') {
       throw new ForbiddenException('فقط مدیر می‌تواند مبلغ تسویه را تغییر دهد');
     }
-    const priceOverrideReason = resolvePriceOverrideReason(
-      dto.priceOverrideReason,
-      amountDiffers,
-    );
+    const settlementAuditEntry = amountDiffers
+      ? {
+          actorId: Number(adminUser?.id ?? adminUser?.sub) || null,
+          at: new Date().toISOString(),
+          oldAmount: serverAmount,
+          newAmount: Number(dto.amount),
+          appointmentId: id,
+          origin: 'checkout' as const,
+        }
+      : null;
 
     // Resolve paid / debt split (RIAL integers — codebase uses BigInt, not Prisma.Decimal)
     const totalRial = BigInt(dto.amount);
@@ -1588,7 +1883,16 @@ export class AppointmentsService {
           paidAt: new Date(),
           paidBy: adminUser.sub || adminUser.id,
           status: 'SETTLED',
-          ...(priceOverrideReason ? { priceOverrideReason } : {}),
+          ...(settlementAuditEntry
+            ? {
+                settlementAmountAudits: [
+                  ...(Array.isArray(appointment.settlementAmountAudits)
+                    ? appointment.settlementAmountAudits
+                    : []),
+                  settlementAuditEntry,
+                ],
+              }
+            : {}),
           notes: dto.notes ? `${appointment.notes || ''}\n${dto.notes}` : appointment.notes,
         },
         include: APPOINTMENT_DETAIL_INCLUDE,
@@ -1898,7 +2202,7 @@ export class AppointmentsService {
     await this.notifyAppointmentCancelled(updated);
     this.enqueueAppointmentSms('Cancelled', () => this.sendAppointmentCancelledSms(updated));
 
-    return this.formatAppointment(updated);
+    return this.presentOne(updated, currentUser);
   }
 
   /**
@@ -1990,7 +2294,7 @@ export class AppointmentsService {
     }
     this.enqueueAppointmentSms('Confirm', () => this.sendAppointmentConfirmedSms(updated));
 
-    return this.formatAppointment(updated);
+    return this.presentOne(updated, currentUser);
   }
 
   /**
@@ -2201,6 +2505,18 @@ export class AppointmentsService {
     };
   }
 
+  private async presentMany(rows: any[], currentUser?: any) {
+    const formatted = rows.map((row) => this.formatAppointment(row));
+    if (!isEmployeeRole(currentUser)) return formatted;
+    const actor = await this.requireEmployeeActor(currentUser);
+    return formatted.map((row) => hideForeignCustomerNotes(row, actor.id));
+  }
+
+  private async presentOne(row: any, currentUser?: any) {
+    const [presented] = await this.presentMany([row], currentUser);
+    return presented;
+  }
+
   private formatAppointment(appointment: any) {
     const services = Array.isArray(appointment.services)
       ? (appointment.services as ServiceSnapshot[])
@@ -2248,6 +2564,8 @@ export class AppointmentsService {
       durationMin: appointment.durationMin,
       notes: appointment.notes,
       priceOverrideReason: appointment.priceOverrideReason ?? null,
+      bookingGroupId: appointment.bookingGroupId ?? null,
+      settlementAmountAudits: appointment.settlementAmountAudits ?? null,
       paidAt: appointment.paidAt,
       paidBy: appointment.paidBy,
       paymentMethod: appointment.paymentMethod,
@@ -2492,9 +2810,8 @@ export class AppointmentsService {
       // Send via WebSocket (for online users)
       this.notificationsGateway.sendToRole('ADMIN', notification);
 
-      // 🔔 Send Push Notification to ADMIN role (for offline users)
-      try {
-        await this.pushNotificationsService.sendToRole('ADMIN', {
+      this.enqueuePush('admin-created', () =>
+        this.pushNotificationsService.sendToRole('ADMIN', {
           title: 'نوبت جدید ثبت شد',
           body: `${appointment.customer?.user?.name} خدمات ${serviceNames} را برای ${dateTime} رزرو کرد.`,
           icon: '/logo/doocard-icon-512.png',
@@ -2502,10 +2819,8 @@ export class AppointmentsService {
             url: `/dashboard/appointments`,
             appointmentId: appointment.id,
           },
-        });
-      } catch (pushError) {
-        console.error('⚠️ Failed to send push notification to ADMIN:', pushError.message);
-      }
+        }),
+      );
 
       // Send to assigned employee
       if (appointment.employeeId && appointment.employee?.userId) {
@@ -2522,8 +2837,8 @@ export class AppointmentsService {
 
         this.notificationsGateway.sendToUser(appointment.employee.userId, empNotification);
 
-        try {
-          await this.pushNotificationsService.sendToUser(appointment.employee.userId, {
+        this.enqueuePush('employee-created', () =>
+          this.pushNotificationsService.sendToUser(appointment.employee.userId, {
             title: employeeTitle,
             body: employeeMessage,
             icon: '/logo/doocard-icon-512.png',
@@ -2531,10 +2846,8 @@ export class AppointmentsService {
               url: `/dashboard/appointments`,
               appointmentId: appointment.id,
             },
-          });
-        } catch (pushError) {
-          console.error('⚠️ Failed to send push notification to employee:', pushError.message);
-        }
+          }),
+        );
       }
 
       // Notify the customer (in-app + websocket + push)
@@ -2552,8 +2865,8 @@ export class AppointmentsService {
 
         this.notificationsGateway.sendToUser(appointment.customer.userId, custNotification);
 
-        try {
-          await this.pushNotificationsService.sendToUser(appointment.customer.userId, {
+        this.enqueuePush('customer-created', () =>
+          this.pushNotificationsService.sendToUser(appointment.customer.userId, {
             title: custTitle,
             body: custMessage,
             icon: '/logo/doocard-icon-512.png',
@@ -2561,10 +2874,8 @@ export class AppointmentsService {
               url: `/dashboard/appointments`,
               appointmentId: appointment.id,
             },
-          });
-        } catch (pushError) {
-          console.error('⚠️ Failed to send push notification to customer:', pushError.message);
-        }
+          }),
+        );
       }
     } catch (error) {
       console.error('❌ Error sending appointment created notification:', error);
@@ -2591,8 +2902,8 @@ export class AppointmentsService {
 
         this.notificationsGateway.sendToUser(appointment.customer.userId, notification);
 
-        try {
-          await this.pushNotificationsService.sendToUser(appointment.customer.userId, {
+        this.enqueuePush('customer-confirmed', () =>
+          this.pushNotificationsService.sendToUser(appointment.customer.userId, {
             title: customerTitle,
             body: customerMessage,
             icon: '/logo/doocard-icon-512.png',
@@ -2600,10 +2911,8 @@ export class AppointmentsService {
               url: `/dashboard/appointments`,
               appointmentId: appointment.id,
             },
-          });
-        } catch (pushError) {
-          console.error('⚠️ Failed to send confirmation push notification to customer:', pushError.message);
-        }
+          }),
+        );
       }
 
       // Notify admin
@@ -2641,8 +2950,8 @@ export class AppointmentsService {
           relatedEntity: `appointment:${appointment.id}`,
         });
         this.notificationsGateway.sendToUser(appointment.customer.userId, notification);
-        try {
-          await this.pushNotificationsService.sendToUser(appointment.customer.userId, {
+        this.enqueuePush('customer-settled', () =>
+          this.pushNotificationsService.sendToUser(appointment.customer.userId, {
             title: customerTitle,
             body: customerMessage,
             icon: '/logo/doocard-icon-512.png',
@@ -2650,13 +2959,8 @@ export class AppointmentsService {
               url: '/dashboard/appointments',
               appointmentId: appointment.id,
             },
-          });
-        } catch (pushError: any) {
-          console.error(
-            '⚠️ Failed to send settlement push to customer:',
-            pushError?.message || pushError,
-          );
-        }
+          }),
+        );
       }
 
       const barberUserId = appointment.employee?.userId;
@@ -2680,8 +2984,8 @@ export class AppointmentsService {
             relatedEntity,
           });
           this.notificationsGateway.sendToUser(barberUserId, notification);
-          try {
-            await this.pushNotificationsService.sendToUser(barberUserId, {
+          this.enqueuePush('barber-settled', () =>
+            this.pushNotificationsService.sendToUser(barberUserId, {
               title: barberTitle,
               body: barberMessage,
               icon: '/logo/doocard-icon-512.png',
@@ -2689,13 +2993,8 @@ export class AppointmentsService {
                 url: '/dashboard/employee/salary-request',
                 relatedEntity,
               },
-            });
-          } catch (pushError: any) {
-            console.error(
-              '⚠️ Failed to send settlement push to barber:',
-              pushError?.message || pushError,
-            );
-          }
+            }),
+          );
         }
 
         // [REQ-1] settlement SMS intentionally disabled — in-app & Web Push only.

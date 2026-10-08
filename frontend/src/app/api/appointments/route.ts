@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const API_BASE_URL = 'http://localhost:3001'
+const API_BASE_URL = (
+  process.env.BACKEND_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://127.0.0.1:3001'
+).replace(/\/api\/?$/, '')
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
     const token = request.headers.get('authorization')
-    
-    const response = await fetch(`${API_BASE_URL}/api/appointments`, {
+    const response = await fetch(`${API_BASE_URL}/api/appointments${request.nextUrl.search}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

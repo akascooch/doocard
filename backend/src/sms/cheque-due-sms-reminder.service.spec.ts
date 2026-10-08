@@ -117,11 +117,22 @@ describe('ChequeDueSmsReminderService', () => {
     );
   });
 
-  it('builds T-2 / T-1 / T-0 plan with bank fields (no send)', async () => {
+  it('builds T-3 / T-2 / T-1 / T-0 plan with bank fields (no send)', async () => {
     const now = new Date('2026-07-25T12:00:00+03:30');
     const today = ChequeDueSmsReminderService.todayYmdTehran(now);
 
     prisma.chequeLeaf.findMany
+      .mockResolvedValueOnce([
+        {
+          id: 8,
+          leafNumber: 99,
+          amount: 400n,
+          payee: 'Y',
+          dueDate: new Date(),
+          category: 'NORMAL',
+          chequebook: { serialNumber: 'CB-1', startNumber: 1, endNumber: 25, bankAccount },
+        },
+      ])
       .mockResolvedValueOnce([
         {
           id: 9,
@@ -157,11 +168,12 @@ describe('ChequeDueSmsReminderService', () => {
       ]);
 
     const plan = await service.buildPlan({ now });
-    expect(plan).toHaveLength(6);
-    expect(plan.map((p) => p.offsetDays).sort()).toEqual([0, 0, 1, 1, 2, 2]);
+    expect(plan).toHaveLength(8);
+    expect(plan.map((p) => p.offsetDays).sort()).toEqual([0, 0, 1, 1, 2, 2, 3, 3]);
     expect([...new Set(plan.map((p) => p.stage))].sort()).toEqual([
       't_minus_1',
       't_minus_2',
+      't_minus_3',
       't_zero',
     ]);
     expect(plan.filter((p) => p.offsetDays === 2)[0].dueDate).toBe(
@@ -170,7 +182,7 @@ describe('ChequeDueSmsReminderService', () => {
     expect(plan.every((p) => p.dedupeKey.startsWith('cheque:reminder:'))).toBe(true);
     expect(
       plan.every((p) =>
-        /^cheque:reminder:\d+:t_(minus_2|minus_1|zero):\d{4}\/\d{2}\/\d{2}:\d{4}$/.test(
+        /^cheque:reminder:\d+:t_(minus_3|minus_2|minus_1|zero):\d{4}\/\d{2}\/\d{2}:\d{4}$/.test(
           p.dedupeKey,
         ),
       ),
@@ -194,6 +206,32 @@ describe('ChequeDueSmsReminderService', () => {
       }),
     );
     expect(smsOutbound.sendIfAllowed).not.toHaveBeenCalled();
+  });
+
+  it('plans only the next upcoming offset and does not replay a missed earlier day', async () => {
+    const now = new Date('2026-07-25T12:00:00+03:30');
+    const today = ChequeDueSmsReminderService.todayYmdTehran(now);
+    const tomorrow = ChequeDueSmsReminderService.addDaysYmd(today, 1);
+    const { start } = ChequeDueSmsReminderService.dayBoundsTehran(tomorrow);
+    prisma.chequeLeaf.findMany.mockImplementation(async (args: { where: { dueDate: { gte: Date } } }) => {
+      if (args.where.dueDate.gte.getTime() === start.getTime()) {
+        return [{
+          id: 21,
+          leafNumber: 21,
+          amount: 1000n,
+          payee: 'Next',
+          dueDate: start,
+          category: 'NORMAL',
+          chequebook: { serialNumber: 'CB-1', bankAccount },
+        }];
+      }
+      return [];
+    });
+
+    const plan = await service.buildPlan({ now });
+    expect(plan.map((item) => item.offsetDays)).toEqual([1, 1]);
+    expect(plan.every((item) => item.stage === 't_minus_1')).toBe(true);
+    expect(plan.some((item) => item.offsetDays === 3 || item.offsetDays === 2 || item.offsetDays === 0)).toBe(false);
   });
 
   it('dryRun does not call outbound send when flag is on', async () => {

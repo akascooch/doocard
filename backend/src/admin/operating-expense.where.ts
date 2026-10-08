@@ -34,6 +34,10 @@ export function payrollWithdrawalExclusion(): Prisma.TransactionWhereInput {
           code: { in: [...PAYROLL_WITHDRAWAL_CATEGORY_CODES] },
         },
       },
+      {
+        sourceType: 'CHEQUE_LEAF',
+        chequeLeaves: { some: { category: 'GUARANTEE' } },
+      },
     ],
   };
 }

@@ -1,11 +1,11 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import DatePicker, { DateObject } from 'react-multi-date-picker';
 import type { Value } from 'react-multi-date-picker';
 import persian from 'react-date-object/calendars/persian';
 import persian_fa from 'react-date-object/locales/persian_fa';
-import { persianToEnglishDigits } from '@/lib/date';
+import { englishToPersianDigits, formatJalaliParts, parseStrictJalaliYmd, persianToEnglishDigits } from '@/lib/date';
 import { Label } from './label';
 
 interface PersianDatePickerProps {
@@ -57,7 +57,21 @@ export default function PersianDatePicker({
   disablePortal = false,
 }: PersianDatePickerProps) {
   const [dateValue, setDateValue] = useState<Value>(null);
+  const [draft, setDraft] = useState('');
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  const focusedRef = useRef(false);
+
+  const toDateObject = (dateStr?: string) => {
+    const parts = dateStr ? parseStrictJalaliYmd(dateStr) : null;
+    if (!parts) return null;
+    return new DateObject({
+      calendar: persian,
+      locale: persian_fa,
+      year: parts.jy,
+      month: parts.jm,
+      day: parts.jd,
+    });
+  };
 
   useEffect(() => {
     if (typeof document !== 'undefined') setPortalTarget(document.body);
@@ -92,61 +106,49 @@ export default function PersianDatePicker({
     document.head.appendChild(style);
   }, [disablePortal]);
 
-  // Convert string value to DateObject when value prop changes
+  // Only a strict Jalali Y-M-D becomes a DateObject. An extra segment such as
+  // "1405/07/161405/10/03" must not be split into an overflowing day.
   useEffect(() => {
-    if (value) {
-      try {
-        // Normalize Persian digits to English
-        const normalizedValue = persianToEnglishDigits(value);
-        const [year, month, day] = normalizedValue.split('/').map(Number);
-        
-        if (year && month && day) {
-          setDateValue(new DateObject({
-            calendar: persian,
-            locale: persian_fa,
-            year,
-            month,
-            day,
-          }));
-        }
-      } catch (error) {
-        console.error('Error parsing date value:', error);
-        setDateValue(null);
-      }
-    } else {
-      setDateValue(null);
+    const parts = value ? parseStrictJalaliYmd(value) : null;
+    setDateValue(parts ? toDateObject(value) : null);
+    if (!focusedRef.current) {
+      setDraft(parts ? formatJalaliParts(parts, '/') : '');
     }
   }, [value]);
 
-  const handleChange = (date: Value) => {
-    setDateValue(date);
+  const commitJalali = (raw: string) => {
+    const parts = parseStrictJalaliYmd(raw);
+    if (!parts) return;
+    const canonical = formatJalaliParts(parts, '/');
+    setDraft(canonical);
+    setDateValue(toDateObject(canonical));
+    onChange(canonical);
+  };
 
+  const handleChange = (date: Value) => {
     if (date && typeof date === 'object' && 'format' in date) {
-      // Always emit English digits YYYY/MM/DD so consumers can parse reliably
-      const formatted = persianToEnglishDigits((date as DateObject).format(format));
-      onChange(formatted);
+      commitJalali(persianToEnglishDigits((date as DateObject).format(format)));
     } else if (!date) {
+      setDateValue(null);
+      setDraft('');
       onChange('');
     }
   };
 
-  const getMinMaxDate = (dateStr?: string) => {
-    if (!dateStr) return undefined;
-    
-    try {
-      const normalizedDate = persianToEnglishDigits(dateStr);
-      const [year, month, day] = normalizedDate.split('/').map(Number);
-      return new DateObject({
-        calendar: persian,
-        locale: persian_fa,
-        year,
-        month,
-        day,
-      });
-    } catch {
-      return undefined;
-    }
-  };
+  const getMinMaxDate = (dateStr?: string) => toDateObject(dateStr) ?? undefined;
+
+  const inputClass = `
+          rmdp-input
+          w-full px-4 py-2 rounded-lg border text-right
+          ${error
+            ? 'border-destructive focus:ring-destructive focus:border-destructive'
+            : 'border-border focus:border-border focus:ring-ring'
+          }
+          ${disabled ? 'bg-accent cursor-not-allowed' : 'bg-accent backdrop-blur-md'}
+          focus:ring-1 focus:outline-none
+          transition-colors duration-200
+          text-sm
+        `;
 
   return (
     <div className={`space-y-2 ${className} ${disablePortal ? 'relative overflow-visible' : ''}`} data-cy="jalali-date-picker">
@@ -163,23 +165,37 @@ export default function PersianDatePicker({
         calendar={persian}
         locale={persian_fa}
         format={format}
-        placeholder={placeholder}
-        disabled={disabled}
         minDate={getMinMaxDate(minDate)}
         maxDate={getMinMaxDate(maxDate)}
-        editable
-        inputClass={`
-          rmdp-input
-          w-full px-4 py-2 rounded-lg border text-right
-          ${error 
-            ? 'border-destructive focus:ring-destructive focus:border-destructive'
-            : 'border-border focus:border-border focus:ring-ring'
-          }
-          ${disabled ? 'bg-accent cursor-not-allowed' : 'bg-accent backdrop-blur-md'}
-          focus:ring-1 focus:outline-none
-          transition-colors duration-200
-          text-sm
-        `}
+        render={(_stringValue, openCalendar) => (
+          <input
+            className={inputClass}
+            value={englishToPersianDigits(draft)}
+            placeholder={placeholder}
+            disabled={disabled}
+            onFocus={() => {
+              focusedRef.current = true;
+              openCalendar();
+            }}
+            onBlur={() => {
+              focusedRef.current = false;
+              const typed = parseStrictJalaliYmd(draft);
+              const current = value ? parseStrictJalaliYmd(value) : null;
+              const parts = typed || current;
+              setDraft(parts ? formatJalaliParts(parts, '/') : '');
+            }}
+            onChange={(event) => {
+              const next = persianToEnglishDigits(event.target.value);
+              setDraft(next);
+              if (!next.trim()) {
+                setDateValue(null);
+                onChange('');
+                return;
+              }
+              commitJalali(next);
+            }}
+          />
+        )}
         containerClassName="w-full"
         calendarPosition="bottom-right"
         weekDays={['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج']}

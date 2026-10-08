@@ -4,6 +4,7 @@ describe('GET /customers mine scope [R6]', () => {
   const service = {
     findAll: jest.fn(),
     searchCustomers: jest.fn(),
+    findVisibleToStaff: jest.fn(),
   };
   const prisma = {
     employee: { findUnique: jest.fn() },
@@ -18,11 +19,12 @@ describe('GET /customers mine scope [R6]', () => {
     jest.clearAllMocks();
     service.findAll.mockResolvedValue([mineCustomer, otherCustomer]);
     service.searchCustomers.mockResolvedValue([mineCustomer, otherCustomer]);
+    service.findVisibleToStaff.mockResolvedValue([mineCustomer]);
     prisma.employee.findUnique.mockResolvedValue({ id: 7, isActive: true, userId: 50 });
     controller = new CustomersController(service as never, prisma as never);
   });
 
-  it('EMPLOYEE + mine=1 lists customers with preferredEmployeeId = that employee id', async () => {
+  it('EMPLOYEE lists only customers owned by or served by that employee', async () => {
     await controller.findAll(undefined, undefined, '1', {
       user: { id: 50, role: 'EMPLOYEE' },
     });
@@ -30,20 +32,17 @@ describe('GET /customers mine scope [R6]', () => {
     expect(prisma.employee.findUnique).toHaveBeenCalledWith({
       where: { userId: 50 },
     });
-    expect(service.findAll).toHaveBeenCalledWith(7);
-    expect(service.searchCustomers).not.toHaveBeenCalled();
+    expect(service.findVisibleToStaff).toHaveBeenCalledWith(7, undefined);
+    expect(service.findAll).not.toHaveBeenCalled();
   });
 
-  it('EMPLOYEE + mine=1 search filters by preferredEmployeeId = employee.id (JWT user.id lookup)', async () => {
+  it('EMPLOYEE search stays inside the same staff scope', async () => {
     const result = await controller.findAll('علی', undefined, '1', {
       user: { id: 50, role: 'EMPLOYEE' },
     });
-
-    expect(prisma.employee.findUnique).toHaveBeenCalledWith({
-      where: { userId: 50 },
-    });
-    expect(service.searchCustomers).toHaveBeenCalledWith('علی');
+    expect(service.findVisibleToStaff).toHaveBeenCalledWith(7, 'علی');
     expect(result).toEqual([mineCustomer]);
+    expect(service.searchCustomers).not.toHaveBeenCalled();
   });
 
   it('ADMIN without mine returns the unscoped catalog', async () => {
@@ -55,12 +54,12 @@ describe('GET /customers mine scope [R6]', () => {
     expect(service.findAll).toHaveBeenCalledWith(undefined);
   });
 
-  it('EMPLOYEE without mine=1 returns the unscoped catalog', async () => {
+  it('EMPLOYEE without mine=1 still cannot read the unscoped catalog', async () => {
     await controller.findAll(undefined, undefined, undefined, {
       user: { id: 50, role: 'EMPLOYEE' },
     });
 
-    expect(prisma.employee.findUnique).not.toHaveBeenCalled();
-    expect(service.findAll).toHaveBeenCalledWith(undefined);
+    expect(service.findVisibleToStaff).toHaveBeenCalledWith(7, undefined);
+    expect(service.findAll).not.toHaveBeenCalled();
   });
 });

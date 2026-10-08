@@ -64,6 +64,18 @@ export function assertEmployeeOwnsAppointment(
   }
 }
 
+/** Shared-appointment readers may see the visit, not the owner's private note. */
+export function hideForeignCustomerNotes<T extends {
+  customer?: { preferredEmployeeId?: number | null; notes?: string | null } | null;
+}>(row: T, actorEmployeeId: number): T {
+  const customer = row?.customer;
+  if (!customer || customer.preferredEmployeeId === actorEmployeeId) return row;
+  return {
+    ...row,
+    customer: { ...customer, notes: null },
+  };
+}
+
 export function assertCustomerOwnsAppointment(
   authenticatedCustomerId: number,
   appointmentCustomerId: number | null | undefined,

@@ -225,7 +225,7 @@ export default function AdminCustomersPage() {
     } catch (error: any) {
       toast({
         title: 'خطا',
-        description: error.response?.data?.message || 'خطا در ایجاد مشتری',
+        description: error.response?.data?.message_fa || error.response?.data?.message || 'خطا در ایجاد مشتری',
         variant: 'destructive',
       })
     }

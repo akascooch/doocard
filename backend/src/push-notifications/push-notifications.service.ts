@@ -10,6 +10,22 @@ export interface PushSubscription {
   };
 }
 
+/** Socket bound for one push provider call. web-push applies no timeout unless this is set. */
+export const PUSH_HTTP_TIMEOUT_MS = 8_000;
+
+export function isPushDeliveryDisabled(): boolean {
+  return process.env.DOOCARD_PUSH_TRANSPORT === 'disabled';
+}
+
+export function assertPushTransportAllowed(): void {
+  if (!isPushDeliveryDisabled()) return;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'DOOCARD_PUSH_TRANSPORT=disabled is refused when NODE_ENV=production',
+    );
+  }
+}
+
 export interface NotificationPayload {
   title: string;
   body: string;
@@ -24,6 +40,12 @@ export class PushNotificationsService {
   private readonly logger = new Logger(PushNotificationsService.name);
 
   constructor(private readonly prisma: PrismaService) {
+    assertPushTransportAllowed();
+    if (isPushDeliveryDisabled()) {
+      this.logger.warn(
+        'Push delivery is disabled for this process (DOOCARD_PUSH_TRANSPORT=disabled). No push provider will be contacted.',
+      );
+    }
     // Configure web-push with VAPID keys
     // Prefer VAPID_SUBJECT; fall back to VAPID_EMAIL (used in .env.example files).
     const vapidSubject =
@@ -224,6 +246,10 @@ export class PushNotificationsService {
    */
   private async sendNotification(subscription: any, payload: NotificationPayload, retryCount: number = 0) {
     const MAX_RETRIES = 2;
+
+    if (isPushDeliveryDisabled()) {
+      return { success: true, disabled: true };
+    }
     
     try {
       const pushSubscription: PushSubscription = {
@@ -255,6 +281,7 @@ export class PushNotificationsService {
       // Configure options based on provider
       const options: any = {
         TTL: 60 * 60 * 24 * 7, // 7 days
+        timeout: PUSH_HTTP_TIMEOUT_MS,
       };
 
       if (isApplePush) {

@@ -13,6 +13,7 @@ describe('AccountingService cheque clearance ledger', () => {
     },
     transaction: {
       findFirst: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
       create: jest.fn(),
       update: jest.fn(),
     },
@@ -126,6 +127,44 @@ describe('AccountingService cheque clearance ledger', () => {
 
     await service.updateChequeLeaf(42, { status: ChequeLeafStatus.CLEARED } as any, 1);
     expect(createSpy).not.toHaveBeenCalled();
+  });
+
+  it('converts a linked manual expense instead of inserting a second cheque document', async () => {
+    prisma.chequeLeaf.findFirst.mockResolvedValue({
+      ...leafBase,
+      category: ChequeLeafCategory.NORMAL,
+      transactionId: 80,
+    });
+    prisma.transaction.findFirst.mockResolvedValueOnce({
+      id: 80,
+      sourceType: 'MANUAL',
+      description: 'اجاره',
+      meta: {},
+      deletedAt: null,
+    });
+    const createSpy = jest.spyOn(service, 'createTransaction');
+    prisma.transaction.update.mockResolvedValue({ id: 80 });
+    prisma.chequeLeaf.update.mockResolvedValue({
+      ...leafBase,
+      category: ChequeLeafCategory.NORMAL,
+      status: ChequeLeafStatus.CLEARED,
+      transactionId: 80,
+      transaction: { id: 80, type: 'EXPENSE', amount: 150000n, occurredAt: new Date(), description: 'اجاره' },
+    });
+
+    await service.updateChequeLeaf(42, { status: ChequeLeafStatus.CLEARED } as any, 1);
+
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(prisma.transaction.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 80 },
+        data: expect.objectContaining({
+          sourceType: 'CHEQUE_LEAF',
+          sourceId: 42,
+          paymentMethod: 'CHEQUE',
+        }),
+      }),
+    );
   });
 
   it('reverseChequeClearedAccounting soft-deletes txn and reopens ISSUED', async () => {

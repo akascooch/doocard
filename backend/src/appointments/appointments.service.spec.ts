@@ -97,6 +97,7 @@ describe('AppointmentsService', () => {
 
   const mockPushNotifications = {
     sendToRole: jest.fn().mockResolvedValue({ sent: 0, failed: 0 }),
+    sendToUser: jest.fn().mockResolvedValue({ sent: 0, failed: 0 }),
   };
 
   beforeEach(async () => {
@@ -311,6 +312,58 @@ describe('AppointmentsService', () => {
       resolveSms?.({ success: true });
     });
 
+    it('returns create without waiting for a hanging push provider', async () => {
+      mockPushNotifications.sendToRole.mockReturnValue(new Promise(() => undefined));
+      mockPushNotifications.sendToUser.mockReturnValue(new Promise(() => undefined));
+      mockCalendarService.toGregorian.mockReturnValue(new Date(Date.UTC(2021, 2, 21)));
+      mockCalendarService.toJalali.mockReturnValue('1400-01-01');
+      mockCalendarService.ensureExists.mockResolvedValue({ id: 9 });
+      mockPrismaService.customer.findUnique.mockResolvedValue({
+        id: 1,
+        user: { id: 1, name: 'John Doe', phone: '09123456789', email: 'john@example.com', role: 'CUSTOMER' },
+      });
+      mockPrismaService.employee.findUnique.mockResolvedValue({
+        id: 1,
+        isActive: true,
+        user: { id: 2, name: 'Jane Smith', phone: '09987654321', role: 'EMPLOYEE' },
+        employeeServices: [{ serviceId: 1 }],
+      });
+      mockPrismaService.service.findUnique.mockResolvedValue({
+        id: 1,
+        name: 'Haircut',
+        price: 50000,
+        durationMinutes: 30,
+      });
+      mockPrismaService.customer.updateMany.mockResolvedValue({ count: 0 });
+      mockPrismaService.$transaction.mockImplementation(async (fn: (tx: any) => unknown) => {
+        const tx = {
+          $executeRaw: jest.fn().mockResolvedValue(undefined),
+          appointment: {
+            findFirst: jest.fn().mockResolvedValue(null),
+            create: jest.fn().mockResolvedValue({ ...appointmentRow, status: 'PENDING' }),
+          },
+          blockedTime: { findFirst: jest.fn().mockResolvedValue(null) },
+        };
+        return fn(tx);
+      });
+
+      const started = Date.now();
+      const result = await service.create(
+        {
+          customerId: 1,
+          employeeId: 1,
+          services: [{ serviceId: 1 }],
+          jalaliDate: '1400-01-01',
+          time: '14:30',
+        } as any,
+        { id: 1, role: 'ADMIN' },
+      );
+      expect(Date.now() - started).toBeLessThan(500);
+      expect(result.id).toBe(1);
+      mockPushNotifications.sendToRole.mockResolvedValue({ sent: 0, failed: 0 });
+      mockPushNotifications.sendToUser.mockResolvedValue({ sent: 0, failed: 0 });
+    });
+
     async function mockStaffCreate(durationMinutes = 30) {
       mockCalendarService.toGregorian.mockReturnValue(new Date(Date.UTC(2021, 2, 21)));
       mockCalendarService.ensureExists.mockResolvedValue({ id: 9 });
@@ -490,7 +543,7 @@ describe('AppointmentsService', () => {
     });
 
     it.each(['ADMIN', 'EMPLOYEE'])(
-      'keeps %s desk price and duration when the client supplies them',
+      'uses the canonical rial service price for %s and keeps a supplied duration',
       async (role) => {
         const created = await mockStaffCreate(30);
         await service.create(
@@ -508,7 +561,7 @@ describe('AppointmentsService', () => {
           durationMin: number;
           services: Array<{ priceAtBooking: number; durationMin: number }>;
         };
-        expect(row.services[0].priceAtBooking).toBe(111);
+        expect(row.services[0].priceAtBooking).toBe(50000);
         expect(row.services[0].durationMin).toBe(45);
         expect(row.durationMin).toBe(45);
       },
@@ -566,7 +619,7 @@ describe('AppointmentsService', () => {
         { id: 10, role: 'CUSTOMER' },
       );
 
-      expect(created?.services[0].priceAtBooking).toBe(500000);
+      expect(created?.services[0].priceAtBooking).toBe(50000);
       expect(created?.services[0].durationMin).toBe(30);
       expect(created?.durationMin).toBe(30);
     });
@@ -762,31 +815,73 @@ describe('AppointmentsService', () => {
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
-    it('requires a reason when the settlement amount differs from the service total', async () => {
-      mockPrismaService.appointment.findFirst.mockResolvedValue(appointmentRow);
-
-      await expect(
-        service.settle(
-          1,
-          { amount: 1, paymentMethod: 'CASH' } as any,
-          { id: 1, role: 'ADMIN' },
-        ),
-      ).rejects.toThrow(PRICE_OVERRIDE_REASON_REQUIRED_FA);
-    });
-
-    it('persists priceOverrideReason on an overridden settlement', async () => {
+    it('writes a checkout audit and does not require a typed reason when the amount differs', async () => {
       mockPrismaService.appointment.findFirst.mockResolvedValue(appointmentRow);
       mockPrismaService.transaction.findFirst.mockResolvedValue(null);
       const update = jest.fn().mockResolvedValue({
         ...appointmentRow,
         status: 'SETTLED',
-        priceOverrideReason: 'manager discount',
       });
       mockPrismaService.$transaction.mockImplementation(async (fn: (tx: any) => unknown) =>
         fn({
           $queryRaw: jest.fn(),
           appointment: {
             findUnique: jest.fn().mockResolvedValue({ ...appointmentRow, deletedAt: null }),
+            update,
+          },
+          transaction: {
+            findFirst: jest.fn().mockResolvedValue(null),
+            create: jest.fn().mockRejectedValue(new Error('stop-after-persist')),
+          },
+        }),
+      );
+
+      await expect(
+        service.settle(
+          1,
+          { amount: 100, paymentMethod: 'CASH', accountId: 1 } as any,
+          { id: 9, role: 'ADMIN' },
+        ),
+      ).rejects.toThrow('stop-after-persist');
+      expect(update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            settlementAmountAudits: [
+              expect.objectContaining({
+                actorId: 9,
+                oldAmount: 500000,
+                newAmount: 100,
+                appointmentId: 1,
+                origin: 'checkout',
+              }),
+            ],
+          }),
+        }),
+      );
+      const persisted = update.mock.calls[0][0].data;
+      expect(persisted.priceOverrideReason).toBeUndefined();
+    });
+
+    it('does not rewrite an existing priceOverrideReason during settlement', async () => {
+      mockPrismaService.appointment.findFirst.mockResolvedValue({
+        ...appointmentRow,
+        priceOverrideReason: 'historical desk note',
+      });
+      mockPrismaService.transaction.findFirst.mockResolvedValue(null);
+      const update = jest.fn().mockResolvedValue({
+        ...appointmentRow,
+        status: 'SETTLED',
+        priceOverrideReason: 'historical desk note',
+      });
+      mockPrismaService.$transaction.mockImplementation(async (fn: (tx: any) => unknown) =>
+        fn({
+          $queryRaw: jest.fn(),
+          appointment: {
+            findUnique: jest.fn().mockResolvedValue({
+              ...appointmentRow,
+              deletedAt: null,
+              priceOverrideReason: 'historical desk note',
+            }),
             update,
           },
           transaction: {
@@ -808,11 +903,7 @@ describe('AppointmentsService', () => {
           { id: 1, role: 'ADMIN' },
         ),
       ).rejects.toThrow('stop-after-persist');
-      expect(update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ priceOverrideReason: 'manager discount' }),
-        }),
-      );
+      expect(update.mock.calls[0][0].data.priceOverrideReason).toBeUndefined();
     });
   });
 

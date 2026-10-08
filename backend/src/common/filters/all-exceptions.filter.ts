@@ -25,6 +25,8 @@ interface StructuredError {
     id?: number | string;
   };
   fieldErrors?: Record<string, string>;
+  /** Set only for the duplicate-phone conflict. Never copies customer identity. */
+  phoneExists?: true;
 }
 
 @Catch()
@@ -95,7 +97,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
           ? exceptionResponse
           : exceptionResponse.message || exception.message;
 
-      return {
+      const structured: StructuredError = {
         status,
         error: exceptionResponse.error || this.getErrorName(status),
         message_fa: toUserFacingFaMessage(message, status),
@@ -107,6 +109,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
         suggestions: this.getSuggestions(status, exceptionResponse),
         fieldErrors: exceptionResponse.fieldErrors,
       };
+      if (exceptionResponse?.phoneExists === true) {
+        structured.phoneExists = true;
+      }
+      return structured;
     }
 
     // Handle Prisma errors

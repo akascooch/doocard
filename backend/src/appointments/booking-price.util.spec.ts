@@ -4,10 +4,12 @@ import {
 } from './booking-price.util';
 
 describe('booking price helpers', () => {
-  it('converts toman service price to rial with the desk formula', () => {
-    expect(bookingPriceRialFromServicePrice(50000)).toBe(500000);
-    expect(bookingPriceRialFromServicePrice(10.5)).toBe(105);
+  it('keeps the canonical rial service price, including a 3,000,000 toman service', () => {
+    expect(bookingPriceRialFromServicePrice(50000)).toBe(50000);
+    expect(bookingPriceRialFromServicePrice(10.5)).toBe(10);
     expect(bookingPriceRialFromServicePrice(0)).toBe(0);
+    // 3,000,000 toman is stored as 30,000,000 rial. A second ×10 would show 30,000,000 toman.
+    expect(bookingPriceRialFromServicePrice(30_000_000)).toBe(30_000_000);
   });
 
   it('rejects invalid price and duration', () => {

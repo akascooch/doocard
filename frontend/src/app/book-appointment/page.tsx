@@ -14,6 +14,8 @@ import { getCurrentUser, isAuthenticated } from '@/lib/auth'
 import { getErrorMessage } from '@/lib/error-handler'
 import { getCurrentJalaliDate, parseFromJalali, persianToEnglishDigits, tehranHHmmFromIso, slotsApiDateFromPicker } from '@/lib/date'
 import { effectiveServiceDurationMin } from '@/lib/booking-duration'
+import { buildAppointmentCreateBody, type ExtraBookingLine } from '@/lib/booking-selections'
+import { formatTomansFromRial } from '@/lib/money'
 import {
   clearBookingDraft,
   readBookingDraft,
@@ -62,6 +64,8 @@ export default function BookAppointmentPage() {
 
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [extraLines, setExtraLines] = useState<ExtraBookingLine[]>([])
+  const groupKeyRef = useRef<string | null>(null)
   const [identitySkipped, setIdentitySkipped] = useState(false)
   const [services, setServices] = useState<Service[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -207,17 +211,19 @@ export default function BookAppointmentPage() {
       }
 
       const jalaliDateFormatted = persianToEnglishDigits(formData.appointmentDate).replace(/\//g, '-')
-      await api.post('/appointments', {
-        services: [{
-          serviceId: selected.id,
-          priceAtBooking: selected.price,
-          durationMin: effectiveServiceDurationMin(selected),
-        }],
-        employeeId: parseInt(formData.employeeId, 10),
+      if (extraLines.length > 0 && !groupKeyRef.current) {
+        groupKeyRef.current = crypto.randomUUID()
+      }
+      await api.post('/appointments', buildAppointmentCreateBody({
         customerId,
+        employeeId: parseInt(formData.employeeId, 10),
+        serviceId: selected.id,
+        durationMin: effectiveServiceDurationMin(selected),
         jalaliDate: jalaliDateFormatted,
         time: timeStr,
-      })
+        extras: extraLines,
+        clientOpId: groupKeyRef.current || undefined,
+      }))
 
       clearBookingDraft()
       toast({
@@ -352,8 +358,48 @@ export default function BookAppointmentPage() {
                     <p><strong>نام:</strong> {selectedService.name}</p>
                     <p><strong>توضیحات:</strong> {selectedService.description}</p>
                     <p><strong>مدت زمان:</strong> {selectedService.durationMinutes} دقیقه</p>
+                    <p><strong>قیمت:</strong> {formatTomansFromRial(selectedService.price)}</p>
                   </div>
                 )}
+                {extraLines.map((line, index) => (
+                  <div key={index} className="grid gap-2 rounded-lg border border-border p-3">
+                    <Label>خدمت و آرایشگر همزمان {index + 2}</Label>
+                    <Select
+                      value={line.serviceId || undefined}
+                      onValueChange={(value) => setExtraLines((rows) => rows.map((row, i) => i === index ? { ...row, serviceId: value } : row))}
+                    >
+                      <SelectTrigger><SelectValue placeholder="خدمت" /></SelectTrigger>
+                      <SelectContent>
+                        {services.map((service) => (
+                          <SelectItem key={service.id} value={service.id.toString()}>{service.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={line.employeeId || undefined}
+                      onValueChange={(value) => setExtraLines((rows) => rows.map((row, i) => i === index ? { ...row, employeeId: value } : row))}
+                    >
+                      <SelectTrigger><SelectValue placeholder="آرایشگر" /></SelectTrigger>
+                      <SelectContent>
+                        {employees.map((employee) => (
+                          <SelectItem key={employee.id} value={employee.id.toString()}>
+                            {employee?.user?.name || employee?.name || 'آرایشگر'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" variant="outline" onClick={() => setExtraLines((rows) => rows.filter((_, i) => i !== index))}>
+                      حذف
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setExtraLines((rows) => [...rows, { serviceId: '', employeeId: '' }])}
+                >
+                  افزودن خدمت با آرایشگر دیگر
+                </Button>
               </div>
             )}
 

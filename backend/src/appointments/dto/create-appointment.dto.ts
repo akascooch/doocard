@@ -8,9 +8,35 @@ import {
   ValidateNested,
   ArrayMinSize,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { AppointmentServiceDto } from './appointment-service.dto';
+
+/** One service + one barber. Omitted time inherits the parent schedule. */
+export class BarberServiceSelectionDto {
+  @IsNumber()
+  @Type(() => Number)
+  @IsNotEmpty()
+  serviceId: number;
+
+  @IsNumber()
+  @Type(() => Number)
+  @IsNotEmpty()
+  employeeId: number;
+
+  @IsString()
+  @IsOptional()
+  jalaliDate?: string;
+
+  @IsString()
+  @IsOptional()
+  time?: string;
+
+  @IsDateString()
+  @IsOptional()
+  scheduledAt?: string;
+}
 
 export class CreateAppointmentDto {
   @IsNumber()
@@ -23,12 +49,21 @@ export class CreateAppointmentDto {
   @IsOptional()
   employeeId?: number; // Optional - can be null if employee not assigned yet
 
+  @ValidateIf((dto: CreateAppointmentDto) => !dto.selections?.length)
   @IsArray()
   @ValidateNested({ each: true })
   @ArrayMinSize(1, { message: 'حداقل یک سرویس باید انتخاب شود' })
   @Type(() => AppointmentServiceDto)
   @IsNotEmpty()
-  services: AppointmentServiceDto[]; // Multi-service support
+  services?: AppointmentServiceDto[]; // Same-barber services on one appointment
+
+  /** When present, each pair becomes its own appointment in one transaction. */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @ArrayMinSize(1)
+  @Type(() => BarberServiceSelectionDto)
+  selections?: BarberServiceSelectionDto[];
 
   // Date input: Accept either jalali_date + time OR scheduled_at (ISO)
   @IsString()

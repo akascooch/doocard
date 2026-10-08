@@ -15,6 +15,7 @@ interface MoneyInputProps {
   required?: boolean;
   min?: number;
   max?: number;
+  autoFocus?: boolean;
 }
 
 /**
@@ -48,6 +49,7 @@ export default function MoneyInput({
   required = false,
   min = 0,
   max,
+  autoFocus = false,
 }: MoneyInputProps) {
   // Display value in Tomans (user-friendly format)
   const [displayValue, setDisplayValue] = useState('');
@@ -105,6 +107,7 @@ export default function MoneyInput({
       <div className="relative w-full">
         <input
           type="text"
+          autoFocus={autoFocus}
           value={displayValue}
           onChange={handleChange}
           placeholder={placeholder}

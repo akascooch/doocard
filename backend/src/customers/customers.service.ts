@@ -18,6 +18,12 @@ import * as crypto from 'crypto';
 
 type AuthUser = { id?: number; sub?: number; role?: string };
 
+export const PHONE_EXISTS_FA = 'این شماره قبلاً ثبت شده است';
+
+function isStaffBarber(role?: string) {
+  return role === 'EMPLOYEE' || role === 'SERVICE';
+}
+
 @Injectable()
 export class CustomersService {
   private readonly logger = new Logger(CustomersService.name);
@@ -27,9 +33,13 @@ export class CustomersService {
     private readonly customerRegistrationSms: CustomerRegistrationSmsService,
   ) {}
 
-  async create(createCustomerDto: CreateCustomerDto) {
+  async create(createCustomerDto: CreateCustomerDto, currentUser?: AuthUser) {
     try {
-      const { name, phone, email, password, birthdate, notes, preferredEmployeeId } = createCustomerDto;
+      const { name, phone, email, password, birthdate, notes } = createCustomerDto;
+      let preferredEmployeeId = createCustomerDto.preferredEmployeeId;
+      if (isStaffBarber(currentUser?.role)) {
+        preferredEmployeeId = await this.resolveActorEmployeeId(currentUser);
+      }
 
       // Check if user with this phone already exists
       const existingUser = await this.prisma.user.findUnique({
@@ -37,6 +47,9 @@ export class CustomersService {
       });
 
       if (existingUser) {
+        if (isStaffBarber(currentUser?.role)) {
+          throw new ConflictException({ phoneExists: true, message: PHONE_EXISTS_FA });
+        }
         throw new ConflictException('User with this phone number already exists');
       }
 
@@ -108,6 +121,39 @@ export class CustomersService {
     }
   }
 
+  async findVisibleToStaff(employeeId: number, search?: string) {
+    const customers = await this.prisma.customer.findMany({
+      where: {
+        OR: [
+          { preferredEmployeeId: employeeId },
+          { appointments: { some: { employeeId, deletedAt: null } } },
+        ],
+        ...(search
+          ? {
+              user: {
+                OR: [
+                  { name: { contains: search, mode: 'insensitive' as const } },
+                  { phone: { contains: search } },
+                ],
+              },
+            }
+          : {}),
+      },
+      include: {
+        user: true,
+        preferredEmployee: { include: { user: true } },
+        _count: { select: { appointments: { where: { deletedAt: null, employeeId } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    const rows = excludePassword(customers);
+    return rows.map((customer) =>
+      customer.preferredEmployeeId === employeeId
+        ? customer
+        : { ...customer, notes: null },
+    );
+  }
+
   async findAll(preferredEmployeeId?: number) {
     const customers = await this.prisma.customer.findMany({
       where: preferredEmployeeId != null ? { preferredEmployeeId } : undefined,
@@ -158,6 +204,15 @@ export class CustomersService {
       throw new NotFoundException('Customer not found');
     }
 
+    if (isStaffBarber(currentUser?.role)) {
+      const actorEmployeeId = await this.resolveActorEmployeeId(currentUser);
+      const allowed = await this.staffCanReadCustomer(customer, actorEmployeeId);
+      if (!allowed || actorEmployeeId == null) {
+        throw new NotFoundException('Customer not found');
+      }
+      return excludePassword(this.redactCustomerForStaff(customer, actorEmployeeId));
+    }
+
     return excludePassword(customer);
   }
 
@@ -200,7 +255,7 @@ export class CustomersService {
     return response;
   }
 
-  async findByPhone(phone: string) {
+  async findByPhone(phone: string, currentUser?: AuthUser) {
     const user = await this.prisma.user.findUnique({
       where: { phone },
       include: {
@@ -223,6 +278,15 @@ export class CustomersService {
 
     if (!user || !user.customer) {
       throw new NotFoundException('Customer not found');
+    }
+
+    if (isStaffBarber(currentUser?.role)) {
+      const actorEmployeeId = await this.resolveActorEmployeeId(currentUser);
+      const allowed = await this.staffCanReadCustomer(user.customer, actorEmployeeId);
+      if (!allowed || actorEmployeeId == null) {
+        throw new NotFoundException('Customer not found');
+      }
+      return excludePassword(this.redactCustomerForStaff(user.customer, actorEmployeeId));
     }
 
     return excludePassword(user.customer);
@@ -395,17 +459,13 @@ export class CustomersService {
       if (!employee?.isActive) {
         throw new BadRequestException('آرایشگر انتخاب‌شده معتبر نیست');
       }
-      // EMPLOYEE/SERVICE may only set preferred to themselves unless ADMIN
-      if (
-        (role === 'EMPLOYEE' || role === 'SERVICE') &&
-        actorEmployeeId != null &&
-        employee.id !== actorEmployeeId
-      ) {
-        // Booking with another barber: still allow attaching that barber (validated).
-        preferredForCreate = employee.id;
+      if (isStaffBarber(role)) {
+        preferredForCreate = actorEmployeeId;
       } else {
         preferredForCreate = employee.id;
       }
+    } else if (isStaffBarber(role) && actorEmployeeId != null) {
+      preferredForCreate = actorEmployeeId;
     } else if (actorEmployeeId != null) {
       preferredForCreate = actorEmployeeId;
     } else {
@@ -419,6 +479,12 @@ export class CustomersService {
 
     if (existingUser) {
       if (existingUser.customer) {
+        if (isStaffBarber(role)) {
+          const ownerId = existingUser.customer.preferredEmployeeId;
+          if (ownerId != null && ownerId !== actorEmployeeId) {
+            throw new ConflictException({ phoneExists: true, message: PHONE_EXISTS_FA });
+          }
+        }
         return this.attachPreferredIfNull(existingUser.customer.id, preferredForCreate);
       }
       if (existingUser.role !== 'CUSTOMER') {
@@ -479,6 +545,13 @@ export class CustomersService {
           include: { customer: true },
         });
         if (raced?.customer) {
+          if (
+            isStaffBarber(role) &&
+            raced.customer.preferredEmployeeId != null &&
+            raced.customer.preferredEmployeeId !== actorEmployeeId
+          ) {
+            throw new ConflictException({ phoneExists: true, message: PHONE_EXISTS_FA });
+          }
           return this.attachPreferredIfNull(raced.customer.id, preferredForCreate);
         }
         throw new ConflictException('این شماره قبلاً ثبت شده است');
@@ -524,6 +597,49 @@ export class CustomersService {
   ) {
     if (!employeeId) return null;
     return this.attachPreferredIfNull(customerId, employeeId);
+  }
+
+  private async staffCanReadCustomer(
+    customer: {
+      id: number;
+      preferredEmployeeId?: number | null;
+      appointments?: Array<{ employeeId?: number | null; deletedAt?: Date | null }>;
+    },
+    actorEmployeeId: number | null,
+  ) {
+    if (actorEmployeeId == null) return false;
+    if (customer.preferredEmployeeId === actorEmployeeId) return true;
+    if (
+      customer.appointments?.some(
+        (row) => row.employeeId === actorEmployeeId && !row.deletedAt,
+      )
+    ) {
+      return true;
+    }
+    const appointment = await this.prisma.appointment.findFirst({
+      where: {
+        customerId: customer.id,
+        employeeId: actorEmployeeId,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+    return appointment != null;
+  }
+
+  private redactCustomerForStaff<T extends {
+    preferredEmployeeId?: number | null;
+    notes?: string | null;
+    appointments?: Array<{ employeeId?: number | null; deletedAt?: Date | null; notes?: string | null }>;
+  }>(customer: T, actorEmployeeId: number): T {
+    const appointments = (customer.appointments ?? []).filter(
+      (row) => row.employeeId === actorEmployeeId && !row.deletedAt,
+    );
+    return {
+      ...customer,
+      notes: customer.preferredEmployeeId === actorEmployeeId ? customer.notes : null,
+      appointments,
+    };
   }
 
   /** Resolve Employee id from authenticated user; never from client body. */

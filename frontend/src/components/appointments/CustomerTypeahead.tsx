@@ -201,7 +201,8 @@ export default function CustomerTypeahead({
       setNewCustomerForm({ name: '', phone: '', email: '' });
     } catch (error: any) {
       console.error('Error creating customer:', error);
-      const apiMessage = error.response?.data?.message;
+      const apiMessage =
+        error.response?.data?.message_fa || error.response?.data?.message;
       toast({
         title: '❌ خطا',
         description: Array.isArray(apiMessage)

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Dialog,
@@ -10,6 +10,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
 import { GlassChip } from '@/components/ui/glass-chip'
 import { Badge } from '@/components/ui/badge'
@@ -29,6 +31,7 @@ import axios from '@/lib/axios'
 import { parseFromJalali, persianToEnglishDigits, getCurrentJalaliDate, getJalaliWeekdayName, addDaysToJalali, isJalaliDateBefore, englishToPersianDigits, tehranHHmmFromIso, slotsApiDateFromPicker } from '@/lib/date'
 import { getCurrentUser } from '@/lib/auth'
 import { effectiveServiceDurationMin } from '@/lib/booking-duration'
+import { buildAppointmentCreateBody, type ExtraBookingLine } from '@/lib/booking-selections'
 import {
   PUBLIC_BOOKING_LEAD_HINT_FA,
   isPublicLeadBlockedSlot,
@@ -92,6 +95,8 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
   } | null>(null)
   const [loadingEarliestPreview, setLoadingEarliestPreview] = useState(false)
 
+  const [extraLines, setExtraLines] = useState<ExtraBookingLine[]>([])
+  const groupKeyRef = useRef<string | null>(null)
   const [formData, setFormData] = useState({
     serviceId: '',
     employeeId: '',
@@ -392,7 +397,6 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
       // Build services payload (format expected by backend)
       const servicesPayload = [{
         serviceId: selectedService.id,
-        priceAtBooking: selectedService.price, // Already in RIAL
         durationMin: effectiveServiceDurationMin(selectedService),
       }]
 
@@ -410,14 +414,20 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
       const jalaliDateFormatted = persianToEnglishDigits(formData.appointmentDate).replace(/\//g, '-')
 
       // Build payload matching AppointmentForm format
-      const payload = {
-        services: servicesPayload,
-        employeeId: parseInt(formData.employeeId),
-        customerId: customerId,
-        jalaliDate: jalaliDateFormatted, // "YYYY-MM-DD" format (e.g., "1404-08-12")
-        time: timeStr, // "HH:mm" format (e.g., "14:30")
-        notes: formData.notes || undefined,
+      if (extraLines.length > 0 && !groupKeyRef.current) {
+        groupKeyRef.current = crypto.randomUUID()
       }
+      const payload = buildAppointmentCreateBody({
+        customerId,
+        employeeId: parseInt(formData.employeeId, 10),
+        serviceId: selectedService.id,
+        durationMin: servicesPayload[0].durationMin,
+        jalaliDate: jalaliDateFormatted,
+        time: timeStr,
+        notes: formData.notes || undefined,
+        extras: extraLines,
+        clientOpId: groupKeyRef.current || undefined,
+      })
 
       const response = await axios.post('/appointments', payload)
 
@@ -678,6 +688,42 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
                   ))}
                 </div>
               )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setExtraLines((rows) => [...rows, { serviceId: '', employeeId: '' }])}
+              >
+                افزودن خدمت با آرایشگر دیگر
+              </Button>
+              {extraLines.map((line, index) => (
+                <div key={index} className="grid gap-2 rounded-lg border border-border p-3">
+                  <Label>خدمت همزمان {index + 2}</Label>
+                  <Select
+                    value={line.serviceId || undefined}
+                    onValueChange={(value) => setExtraLines((rows) => rows.map((row, i) => i === index ? { ...row, serviceId: value } : row))}
+                  >
+                    <SelectTrigger><SelectValue placeholder="خدمت" /></SelectTrigger>
+                    <SelectContent>
+                      {services.map((service) => (
+                        <SelectItem key={service.id} value={String(service.id)}>{service.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={line.employeeId || undefined}
+                    onValueChange={(value) => setExtraLines((rows) => rows.map((row, i) => i === index ? { ...row, employeeId: value } : row))}
+                  >
+                    <SelectTrigger><SelectValue placeholder="آرایشگر" /></SelectTrigger>
+                    <SelectContent>
+                      {employees.map((employee) => (
+                        <SelectItem key={employee.id} value={String(employee.id)}>
+                          {employee.user?.name || 'آرایشگر'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
             </div>
           )}
 

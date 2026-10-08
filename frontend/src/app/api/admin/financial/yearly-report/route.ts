@@ -15,11 +15,13 @@ export async function GET(request: NextRequest) {
     const year = searchParams.get('year') ?? '1404'
     const url = `${API_BASE_URL}/api/admin/financial/yearly-report?year=${encodeURIComponent(year)}`
 
+    const financial = request.headers.get('x-financial-access-token')
     const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
+        ...(financial ? { 'x-financial-access-token': financial } : {}),
       },
     })
 

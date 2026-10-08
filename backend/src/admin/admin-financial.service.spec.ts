@@ -107,6 +107,14 @@ describe('AdminFinancialService expense aggregation', () => {
       'PAYROLL',
       'EMPLOYEE_WITHDRAWAL_LEGACY',
     ]);
+    expect(excluded.OR[2]).toEqual({
+      sourceType: 'CHEQUE_LEAF',
+      chequeLeaves: { some: { category: 'GUARANTEE' } },
+    });
+    expect(JSON.stringify(where)).not.toContain('BLANK');
+    expect(JSON.stringify(where)).not.toContain('CANCELLED');
+    expect(JSON.stringify(where)).not.toContain('BOUNCED');
+    expect(JSON.stringify(where)).not.toContain('ISSUED');
     expect(where.type).toBe('EXPENSE');
     expect(where.occurredAt).toEqual({
       gte: new Date('2026-03-21T00:00:00.000Z'),

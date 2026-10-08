@@ -32,8 +32,8 @@ export class CustomersController {
 
   @Post()
   @Roles('ADMIN', 'EMPLOYEE')
-  async create(@Body() createCustomerDto: CreateCustomerDto) {
-    return this.service.create(createCustomerDto);
+  async create(@Body() createCustomerDto: CreateCustomerDto, @Req() req: any) {
+    return this.service.create(createCustomerDto, req.user);
   }
 
   @Post('quick')
@@ -50,6 +50,12 @@ export class CustomersController {
     @Query('mine') mine?: string,
     @Req() req?: any,
   ) {
+    const role = req?.user?.role;
+    if (role === 'EMPLOYEE' || role === 'SERVICE') {
+      const employeeId = await this.resolveActorEmployeeId(req?.user);
+      return this.service.findVisibleToStaff(employeeId, search);
+    }
+
     const scopedId = await this.resolveScopedPreferredEmployeeId(
       req?.user,
       preferredEmployeeId,
@@ -82,20 +88,21 @@ export class CustomersController {
   }
 
   @Get('phone/:phone')
-  @Roles('ADMIN', 'EMPLOYEE')
-  async findByPhone(@Param('phone') phone: string) {
-    return this.service.findByPhone(phone);
+  @Roles('ADMIN', 'EMPLOYEE', 'SERVICE')
+  async findByPhone(@Param('phone') phone: string, @Req() req: any) {
+    return this.service.findByPhone(phone, req.user);
   }
 
   /** Open (unsettled) debts for a customer — used by settlement UI warning. */
   @Get(':id/open-debts')
-  @Roles('ADMIN', 'EMPLOYEE', 'ACCOUNTANT')
-  async getOpenDebts(@Param('id', ParseIntPipe) id: number) {
+  @Roles('ADMIN', 'EMPLOYEE', 'SERVICE', 'ACCOUNTANT')
+  async getOpenDebts(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    await this.assertCustomerRecordAccess(id, req.user);
     return this.service.getOpenDebts(id);
   }
 
   @Get(':id')
-  @Roles('ADMIN', 'EMPLOYEE', 'CUSTOMER')
+  @Roles('ADMIN', 'EMPLOYEE', 'SERVICE', 'CUSTOMER')
   async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     await this.assertCustomerRecordAccess(id, req.user);
     return this.service.findOne(id, req.user);
@@ -155,12 +162,26 @@ export class CustomersController {
     currentUser?: { id?: number; role?: string },
   ): Promise<void> {
     const role = currentUser?.role;
-    if (
-      role === 'ADMIN' ||
-      role === 'EMPLOYEE' ||
-      role === 'SERVICE' ||
-      role === 'ACCOUNTANT'
-    ) {
+    if (role === 'ADMIN' || role === 'ACCOUNTANT') {
+      return;
+    }
+    if (role === 'EMPLOYEE' || role === 'SERVICE') {
+      const employeeId = await this.resolveActorEmployeeId(currentUser);
+      const customer = await this.prisma.customer.findUnique({
+        where: { id },
+        select: { preferredEmployeeId: true },
+      });
+      if (!customer) {
+        throw new NotFoundException('Customer not found');
+      }
+      if (customer.preferredEmployeeId === employeeId) return;
+      const appointment = await this.prisma.appointment.findFirst({
+        where: { customerId: id, employeeId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!appointment) {
+        throw new NotFoundException('Customer not found');
+      }
       return;
     }
 
@@ -175,10 +196,23 @@ export class CustomersController {
     throw new NotFoundException('Customer not found');
   }
 
+  private async resolveActorEmployeeId(user?: { id?: number; sub?: number }): Promise<number> {
+    const userId = user?.id ?? user?.sub;
+    if (!userId) {
+      throw new BadRequestException('احراز هویت نامعتبر است');
+    }
+    const emp = await this.prisma.employee.findUnique({
+      where: { userId: Number(userId) },
+    });
+    if (!emp?.isActive) {
+      throw new BadRequestException('پروفایل کارمند یافت نشد یا غیرفعال است');
+    }
+    return emp.id;
+  }
+
   /**
    * ADMIN: optional query preferredEmployeeId.
-   * EMPLOYEE/SERVICE: scoped only when mine=1/true or preferredEmployeeId=me
-   * (keeps appointment customer search unscoped).
+   * EMPLOYEE/SERVICE lists are always limited to owned or personally served customers.
    */
   private async resolveScopedPreferredEmployeeId(
     user?: { id?: number; sub?: number; role?: string },
