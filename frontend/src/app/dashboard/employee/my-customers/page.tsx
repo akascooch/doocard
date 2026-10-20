@@ -20,10 +20,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Edit, Phone, Search, Users } from 'lucide-react';
+import { Edit, History, Phone, Search, Users } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import axios from '@/lib/axios';
 import { formatToJalali } from '@/lib/date';
+import { formatRials } from '@/lib/money';
+import { getCurrentUser } from '@/lib/auth';
 import { normalizeIranMobileClient } from '@/components/customers/QuickRegisterCustomerForm';
 
 interface MyCustomerRow {
@@ -36,6 +38,37 @@ interface MyCustomerRow {
 }
 
 const IRAN_MOBILE_RE = /^09\d{9}$/;
+const VISIT_PAGE_SIZE = 20;
+
+const PAYMENT_LABEL: Record<string, string> = {
+  CASH: 'نقد',
+  CARD: 'کارت',
+  ONLINE: 'آنلاین',
+  TRANSFER: 'انتقال',
+  CHEQUE: 'چک',
+  CARD2CARD: 'کارت به کارت',
+  DEBT: 'بدهی',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  PENDING: 'در انتظار',
+  PENDING_CONFIRMATION: 'در انتظار تأیید',
+  CONFIRMED: 'تأیید شده',
+  COMPLETED: 'انجام شده',
+  SETTLED: 'تسویه شده',
+  PAID: 'پرداخت شده',
+  CANCELLED: 'لغو شده',
+};
+
+interface VisitRow {
+  id: number;
+  scheduledAt: string;
+  paidAt: string | null;
+  status: string;
+  amount: string | null;
+  durationMin: number | null;
+  paymentMethod: string | null;
+}
 
 export default function MyCustomersPage() {
   const { toast } = useToast();
@@ -46,11 +79,16 @@ export default function MyCustomersPage() {
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [saving, setSaving] = useState(false);
+  const [historyCustomer, setHistoryCustomer] = useState<MyCustomerRow | null>(null);
+  const [visits, setVisits] = useState<VisitRow[]>([]);
+  const [visitsTotal, setVisitsTotal] = useState(0);
+  const [visitsPage, setVisitsPage] = useState(1);
+  const [visitsLoading, setVisitsLoading] = useState(false);
+  const isHairdresser = getCurrentUser()?.role === 'EMPLOYEE';
 
   const load = async () => {
     try {
       setLoading(true);
-      // mine=1 scopes to current employee's preferred customers (JWT-derived)
       const response = await axios.get('/customers', {
         params: { mine: '1' },
       });
@@ -85,6 +123,29 @@ export default function MyCustomersPage() {
     setEditing(c);
     setEditName(c.name === '—' ? '' : c.name);
     setEditPhone(c.phone === '—' ? '' : c.phone);
+  };
+
+  const loadVisits = async (customer: MyCustomerRow, page = 1) => {
+    setHistoryCustomer(customer);
+    setVisitsLoading(true);
+    setVisitsPage(page);
+    try {
+      const response = await axios.get(`/customers/${customer.id}/visits`, {
+        params: { page, pageSize: VISIT_PAGE_SIZE },
+      });
+      setVisits(response.data.items || []);
+      setVisitsTotal(response.data.total || 0);
+    } catch (error: any) {
+      setVisits([]);
+      setVisitsTotal(0);
+      toast({
+        title: 'خطا',
+        description: error.response?.data?.message || 'بارگذاری تاریخچه ناموفق بود',
+        variant: 'destructive',
+      });
+    } finally {
+      setVisitsLoading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -228,15 +289,28 @@ export default function MyCustomersPage() {
                         <span title={c.notes || undefined}>{c.notes || '—'}</span>
                       </TableCell>
                       <TableCell>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openEdit(c)}
-                        >
-                          <Edit className="h-3.5 w-3.5 ml-1" />
-                          ویرایش
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                          {isHairdresser ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => void loadVisits(c, 1)}
+                            >
+                              <History className="h-3.5 w-3.5 ml-1" />
+                              تاریخچه
+                            </Button>
+                          ) : null}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEdit(c)}
+                          >
+                            <Edit className="h-3.5 w-3.5 ml-1" />
+                            ویرایش
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -246,6 +320,75 @@ export default function MyCustomersPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!historyCustomer} onOpenChange={(open) => !open && setHistoryCustomer(null)}>
+        <DialogContent className="sm:max-w-[720px]">
+          <DialogHeader>
+            <DialogTitle>تاریخچه {historyCustomer?.name}</DialogTitle>
+            <DialogDescription>نوبت‌ها و پرداخت‌های همین آرایشگر</DialogDescription>
+          </DialogHeader>
+          {visitsLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-border" />
+            </div>
+          ) : visits.length === 0 ? (
+            <p className="py-6 text-center text-muted-foreground">مراجعه‌ای ثبت نشده است</p>
+          ) : (
+            <div className="max-h-[24rem] overflow-auto rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>زمان</TableHead>
+                    <TableHead>وضعیت</TableHead>
+                    <TableHead>مبلغ</TableHead>
+                    <TableHead>مدت</TableHead>
+                    <TableHead>پرداخت</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {visits.map((visit) => (
+                    <TableRow key={visit.id}>
+                      <TableCell>
+                        {formatToJalali(visit.paidAt || visit.scheduledAt)}
+                      </TableCell>
+                      <TableCell>{STATUS_LABEL[visit.status] || visit.status}</TableCell>
+                      <TableCell>
+                        {visit.amount != null ? formatRials(Number(visit.amount)) : '—'}
+                      </TableCell>
+                      <TableCell>{visit.durationMin != null ? `${visit.durationMin} دقیقه` : '—'}</TableCell>
+                      <TableCell>
+                        {visit.paymentMethod ? PAYMENT_LABEL[visit.paymentMethod] || visit.paymentMethod : '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          {visitsTotal > VISIT_PAGE_SIZE && historyCustomer ? (
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={visitsPage <= 1 || visitsLoading}
+                onClick={() => void loadVisits(historyCustomer, visitsPage - 1)}
+              >
+                قبلی
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={visitsPage * VISIT_PAGE_SIZE >= visitsTotal || visitsLoading}
+                onClick={() => void loadVisits(historyCustomer, visitsPage + 1)}
+              >
+                بعدی
+              </Button>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent className="sm:max-w-[420px]">

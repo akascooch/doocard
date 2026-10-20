@@ -191,11 +191,28 @@ export default function NewAppointmentPage() {
     }
   }
 
+  const employeesForService = (serviceId: string) => {
+    const selectedId = Number(serviceId)
+    if (!Number.isInteger(selectedId) || selectedId <= 0) return []
+    return employees.filter((employee) => {
+      if (employee.user?.role && employee.user.role !== 'EMPLOYEE') return false
+      const serviceIds = new Set<number>([
+        ...employee.services.map((service) => service.id),
+        ...(employee.employeeServices ?? []).map((row) => row.serviceId),
+      ])
+      return serviceIds.has(selectedId)
+    })
+  }
+
   const handleServiceChange = (serviceId: string) => {
     const service = services.find(s => s.id.toString() === serviceId)
+    const stillQualified = employeesForService(serviceId).some(
+      (employee) => employee.id.toString() === formData.employeeId,
+    )
     setFormData({ 
       ...formData, 
       serviceId,
+      employeeId: stillQualified ? formData.employeeId : '',
       totalAmount: service ? service.price : 0
     })
   }
@@ -398,7 +415,7 @@ export default function NewAppointmentPage() {
                     <SelectValue placeholder="انتخاب کارمند" />
                   </SelectTrigger>
                   <SelectContent>
-                    {employees.map((employee) => (
+                    {employeesForService(formData.serviceId).map((employee) => (
                       <SelectItem key={employee.id} value={employee.id.toString()}>
                         {getEmployeeDisplayName(employee)}{employee.specialty ? ` - ${employee.specialty}` : ''}
                       </SelectItem>
@@ -427,7 +444,7 @@ export default function NewAppointmentPage() {
                     <Label>خدمت و آرایشگر {index + 2}</Label>
                     <Select
                       value={line.serviceId || undefined}
-                      onValueChange={(value) => setExtraLines((rows) => rows.map((row, i) => i === index ? { ...row, serviceId: value } : row))}
+                      onValueChange={(value) => setExtraLines((rows) => rows.map((row, i) => i === index ? { ...row, serviceId: value, employeeId: '' } : row))}
                     >
                       <SelectTrigger><SelectValue placeholder="خدمت" /></SelectTrigger>
                       <SelectContent>
@@ -442,7 +459,7 @@ export default function NewAppointmentPage() {
                     >
                       <SelectTrigger><SelectValue placeholder="آرایشگر" /></SelectTrigger>
                       <SelectContent>
-                        {employees.map((employee) => (
+                        {employeesForService(line.serviceId).map((employee) => (
                           <SelectItem key={employee.id} value={employee.id.toString()}>
                             {employee.user?.name || 'آرایشگر'}
                           </SelectItem>

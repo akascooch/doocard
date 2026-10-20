@@ -606,11 +606,14 @@ export class DashboardService {
         },
       }),
       this.prisma.customer.count({
-        where: {
-          appointments: {
-            some: { employeeId: employee.id, deletedAt: null },
-          },
-        },
+        where:
+          currentUser?.role === 'EMPLOYEE'
+            ? { preferredEmployeeId: employee.id }
+            : {
+                appointments: {
+                  some: { employeeId: employee.id, deletedAt: null },
+                },
+              },
       }),
     ]);
 

@@ -260,6 +260,47 @@ describe('DashboardService', () => {
       expect(result.monthlyNetEarningsRial).toBe('4200000');
       expect(result.monthlyEarnings).toBe(420000);
       expect(result.averageRating).toBeNull();
+      expect(mockPrismaService.customer.count).toHaveBeenCalledWith({
+        where: {
+          appointments: {
+            some: { employeeId: 7, deletedAt: null },
+          },
+        },
+      });
+    });
+
+    it('counts only customers owned by an EMPLOYEE, including those with zero visits', async () => {
+      mockPrismaService.employee.findUnique.mockResolvedValue({ id: 7, userId: 1 });
+      mockPrismaService.appointment.count.mockResolvedValue(0);
+      mockPrismaService.appointment.aggregate.mockResolvedValue({
+        _sum: { barberPayoutNetAmount: 0n },
+      });
+      mockPrismaService.customer.count.mockResolvedValue(1);
+
+      await service.getEmployeeStats({ id: 1, role: 'EMPLOYEE' });
+
+      expect(mockPrismaService.customer.count).toHaveBeenCalledWith({
+        where: { preferredEmployeeId: 7 },
+      });
+    });
+
+    it('keeps the appointment-based customer count for SERVICE', async () => {
+      mockPrismaService.employee.findUnique.mockResolvedValue({ id: 7, userId: 1 });
+      mockPrismaService.appointment.count.mockResolvedValue(0);
+      mockPrismaService.appointment.aggregate.mockResolvedValue({
+        _sum: { barberPayoutNetAmount: 0n },
+      });
+      mockPrismaService.customer.count.mockResolvedValue(3);
+
+      await service.getEmployeeStats({ id: 1, role: 'SERVICE' });
+
+      expect(mockPrismaService.customer.count).toHaveBeenCalledWith({
+        where: {
+          appointments: {
+            some: { employeeId: 7, deletedAt: null },
+          },
+        },
+      });
     });
   });
 

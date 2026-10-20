@@ -154,6 +154,104 @@ export class CustomersService {
     );
   }
 
+  /** Customers registered to this hairdresser. Appointments alone do not qualify. */
+  async findOwnedByEmployee(employeeId: number, search?: string) {
+    const customers = await this.prisma.customer.findMany({
+      where: {
+        preferredEmployeeId: employeeId,
+        ...(search
+          ? {
+              user: {
+                OR: [
+                  { name: { contains: search, mode: 'insensitive' as const } },
+                  { phone: { contains: search } },
+                ],
+              },
+            }
+          : {}),
+      },
+      include: {
+        user: true,
+        preferredEmployee: { include: { user: true } },
+        _count: { select: { appointments: { where: { deletedAt: null, employeeId } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return excludePassword(customers);
+  }
+
+  /**
+   * Paginated visit/payment rows.
+   * EMPLOYEE must own the customer and only sees their own appointments.
+   * ADMIN sees every appointment for the customer. Everyone else is 404.
+   */
+  async listVisits(
+    customerId: number,
+    currentUser: AuthUser | undefined,
+    query: { page?: number; pageSize?: number },
+  ) {
+    const page = query.page ?? 1;
+    const pageSize = Math.min(query.pageSize ?? 20, 50);
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { id: true, preferredEmployeeId: true },
+    });
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    const role = currentUser?.role;
+    const where: {
+      customerId: number;
+      deletedAt: null;
+      employeeId?: number;
+    } = { customerId, deletedAt: null };
+
+    if (role === 'EMPLOYEE') {
+      const actorEmployeeId = await this.resolveActorEmployeeId(currentUser);
+      if (actorEmployeeId == null || customer.preferredEmployeeId !== actorEmployeeId) {
+        throw new NotFoundException('Customer not found');
+      }
+      where.employeeId = actorEmployeeId;
+    } else if (role !== 'ADMIN') {
+      throw new NotFoundException('Customer not found');
+    }
+
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.appointment.count({ where }),
+      this.prisma.appointment.findMany({
+        where,
+        orderBy: [{ scheduledAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: {
+          id: true,
+          scheduledAt: true,
+          paidAt: true,
+          status: true,
+          amount: true,
+          durationMin: true,
+          paymentMethod: true,
+        },
+      }),
+    ]);
+
+    return {
+      page,
+      pageSize,
+      total,
+      items: rows.map((row) => ({
+        id: row.id,
+        scheduledAt: row.scheduledAt,
+        paidAt: row.paidAt,
+        status: row.status,
+        amount: row.amount != null ? row.amount.toString() : null,
+        durationMin: row.durationMin,
+        paymentMethod: row.paymentMethod,
+      })),
+    };
+  }
+
   async findAll(preferredEmployeeId?: number) {
     const customers = await this.prisma.customer.findMany({
       where: preferredEmployeeId != null ? { preferredEmployeeId } : undefined,

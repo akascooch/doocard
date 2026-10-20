@@ -197,7 +197,9 @@ export default function EmployeeDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalCustomers.toLocaleString('fa-IR')}</div>
-            <p className="text-xs text-muted-foreground">مشتریان با حداقل یک نوبت</p>
+            <p className="text-xs text-muted-foreground">
+              {user?.role === 'EMPLOYEE' ? 'مشتریان ثبت‌شده برای شما' : 'مشتریان با حداقل یک نوبت'}
+            </p>
           </CardContent>
         </Card>
 

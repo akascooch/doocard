@@ -11,12 +11,15 @@ import {
   Query,
   Req,
   BadRequestException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { QuickCreateCustomerDto } from './dto/quick-create-customer.dto';
+import { ListCustomerVisitsQueryDto } from './dto/list-customer-visits.dto';
+import { isServiceQuickCreateAllowed } from './quick-create-policy';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { PermissionGuard } from '../common/guards/permission.guard';
@@ -39,6 +42,9 @@ export class CustomersController {
   @Post('quick')
   @Roles('ADMIN', 'EMPLOYEE', 'SERVICE')
   async quickCreate(@Body() dto: QuickCreateCustomerDto, @Req() req: any) {
+    if (req.user?.role === 'SERVICE' && !isServiceQuickCreateAllowed()) {
+      throw new ForbiddenException('ثبت مشتری برای پرسنل خدمات غیرفعال است');
+    }
     return this.service.quickCreate(dto, req.user);
   }
 
@@ -51,7 +57,11 @@ export class CustomersController {
     @Req() req?: any,
   ) {
     const role = req?.user?.role;
-    if (role === 'EMPLOYEE' || role === 'SERVICE') {
+    if (role === 'EMPLOYEE') {
+      const employeeId = await this.resolveActorEmployeeId(req?.user);
+      return this.service.findOwnedByEmployee(employeeId, search);
+    }
+    if (role === 'SERVICE') {
       const employeeId = await this.resolveActorEmployeeId(req?.user);
       return this.service.findVisibleToStaff(employeeId, search);
     }
@@ -91,6 +101,22 @@ export class CustomersController {
   @Roles('ADMIN', 'EMPLOYEE', 'SERVICE')
   async findByPhone(@Param('phone') phone: string, @Req() req: any) {
     return this.service.findByPhone(phone, req.user);
+  }
+
+  /**
+   * Visit/payment history.
+   * EMPLOYEE: owned customers only, and only that hairdresser's appointments.
+   * ADMIN: all appointments for the customer.
+   * Other roles: 404, including SERVICE.
+   */
+  @Get(':id/visits')
+  @Roles('ADMIN', 'EMPLOYEE')
+  async listVisits(
+    @Param('id', ParseIntPipe) id: number,
+    @Query() query: ListCustomerVisitsQueryDto,
+    @Req() req: any,
+  ) {
+    return this.service.listVisits(id, req.user, query);
   }
 
   /** Open (unsettled) debts for a customer — used by settlement UI warning. */

@@ -1,10 +1,21 @@
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { QuickRegisterCustomerForm } from '@/components/customers/QuickRegisterCustomerForm';
 import { UserPlus } from 'lucide-react';
+import { getCurrentUser } from '@/lib/auth';
 
 export default function RegisterCustomerPage() {
+  const router = useRouter();
+  useEffect(() => {
+    const role = getCurrentUser()?.role;
+    if (role === 'SERVICE' && process.env.NEXT_PUBLIC_QUICK_CREATE_ALLOW_SERVICE === 'false') {
+      router.replace('/dashboard/employee');
+    }
+  }, [router]);
+
   return (
     <div className="space-y-6">
       <div>
