@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { getJalaliMonthRanges } from '../common/utils/date-utils';
 import {
   operatingExpenseWhere,
+  OPERATING_CHEQUE_SOURCE_TYPE,
+  splitExpenseChart,
   UNCATEGORIZED_EXPENSE_LABEL,
 } from './operating-expense.where';
 
@@ -17,6 +19,8 @@ export interface YearlyReportMonth {
   month: string;
   expense: {
     total: string;
+    other: string;
+    cheques: string;
     categories: Array<{ name: string; total: string }>;
   };
   revenue: {
@@ -44,20 +48,24 @@ export class AdminFinancialService {
     const months: YearlyReportMonth[] = [];
 
     for (const { monthName, start, end } of ranges) {
-      const [expenseTotal, expenseByCategory, revenueTotal, revenueCount, revenueByEmployee, settlementDeductionTotal] =
+      const [expenseTotal, chequeTotal, expenseByCategory, revenueTotal, revenueCount, revenueByEmployee, settlementDeductionTotal] =
         await Promise.all([
           this.getMonthlyExpenseTotal(start, end),
+          this.getMonthlyOperatingChequeTotal(start, end),
           this.getMonthlyExpenseByCategory(start, end),
           this.getMonthlyRevenueTotal(start, end),
           this.getMonthlyRevenueAppointmentCount(start, end),
           this.getMonthlyRevenueByEmployee(start, end),
           this.getMonthlySettlementDeductionTotal(start, end),
         ]);
+      const split = splitExpenseChart(expenseTotal, chequeTotal);
 
       months.push({
         month: monthName,
         expense: {
-          total: String(expenseTotal),
+          total: String(split.total),
+          other: String(split.other),
+          cheques: String(split.cheques),
           categories: expenseByCategory,
         },
         revenue: {
@@ -84,6 +92,20 @@ export class AdminFinancialService {
     const agg = await this.prisma.transaction.aggregate({
       _sum: { amount: true },
       where: operatingExpenseWhere(start, end),
+    });
+    return agg._sum.amount ?? BigInt(0);
+  }
+
+  /** Cleared operating cheques already inside the expense total. Not added again. */
+  private async getMonthlyOperatingChequeTotal(start: Date, end: Date): Promise<bigint> {
+    const agg = await this.prisma.transaction.aggregate({
+      _sum: { amount: true },
+      where: {
+        AND: [
+          operatingExpenseWhere(start, end),
+          { sourceType: OPERATING_CHEQUE_SOURCE_TYPE },
+        ],
+      },
     });
     return agg._sum.amount ?? BigInt(0);
   }

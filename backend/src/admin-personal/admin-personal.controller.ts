@@ -21,6 +21,7 @@ import {
   FrogHistoryQueryDto,
   ListFrogsQueryDto,
   ListPersonalExpensesQueryDto,
+  PersonalLedgerBreakdownQueryDto,
   ToggleFrogDto,
   UpdateExpenseCategoryDto,
   UpdateFrogRecurrenceDto,
@@ -120,8 +121,19 @@ export class AdminPersonalController {
 
   @Get('expenses/summary')
   @Roles('ADMIN')
-  expenseSummary(@Req() req: { user: { id: number } }) {
+  expenseSummary(@Req() req: { user: { id: number; role?: string } }) {
+    this.service.assertPersonalLedgerRole(req.user.role ?? 'ADMIN');
     return this.service.expenseSummary(req.user.id);
+  }
+
+  @Get('expenses/breakdown')
+  @Roles('ADMIN')
+  expenseBreakdown(
+    @Req() req: { user: { id: number; role?: string } },
+    @Query() query: PersonalLedgerBreakdownQueryDto,
+  ) {
+    this.service.assertPersonalLedgerRole(req.user.role ?? 'ADMIN');
+    return this.service.expenseBreakdown(req.user.id, query);
   }
 
   @Get('expenses')

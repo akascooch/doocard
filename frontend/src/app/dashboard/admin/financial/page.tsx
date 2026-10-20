@@ -37,7 +37,12 @@ import {
 
 interface YearlyReportMonth {
   month: string
-  expense: { total: string; categories: Array<{ name: string; total: string }> }
+  expense: {
+    total: string
+    other?: string
+    cheques?: string
+    categories: Array<{ name: string; total: string }>
+  }
   revenue: { total: string; appointmentCount?: number; employees: Array<{ name: string; count: number; amount: string }> }
 }
 
@@ -184,11 +189,18 @@ export default function AdminFinancialPage() {
   }
 
   const expenseChartData =
-    yearlyReport?.months.map((m) => ({
-      month: m.month,
-      total: Number(m.expense.total),
-      categories: m.expense.categories,
-    })) ?? []
+    yearlyReport?.months.map((m) => {
+      const total = Number(m.expense.total)
+      const cheques = Number(m.expense.cheques ?? 0)
+      const other = Number(m.expense.other ?? Math.max(0, total - cheques))
+      return {
+        month: m.month,
+        total,
+        other,
+        cheques,
+        categories: m.expense.categories,
+      }
+    }) ?? []
 
   const revenueChartData =
     yearlyReport?.months.map((m) => ({
@@ -265,7 +277,9 @@ export default function AdminFinancialPage() {
                 <BarChart3 className="h-5 w-5 text-foreground" />
                 هزینه‌های ماهانه (سال {year})
               </CardTitle>
-              <CardDescription>فروردین → اسفند، با تفکیک دسته (در tooltip)</CardDescription>
+              <CardDescription>
+                فروردین → اسفند. چک‌های وصول‌شده عملیاتی داخل همین جمع هستند و دوباره اضافه نمی‌شوند.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {expenseChartData.length > 0 ? (
@@ -295,6 +309,8 @@ export default function AdminFinancialPage() {
                             <p className="text-sm text-foreground/80 mb-1">
                               کل: {formatTomansFromRial(row.total)}
                             </p>
+                            <p className="text-xs">سایر هزینه‌ها: {formatTomansFromRial(row.other)}</p>
+                            <p className="text-xs mb-1">چک وصول‌شده: {formatTomansFromRial(row.cheques)}</p>
                             {row.categories?.length > 0 && (
                               <ul className="text-xs space-y-1 mt-1">
                                 {row.categories.map((c, i) => (
@@ -308,7 +324,8 @@ export default function AdminFinancialPage() {
                         )
                       }}
                     />
-                    <Bar dataKey="total" name="هزینه (تومان)" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="other" name="سایر هزینه‌ها" stackId="expense" fill="hsl(var(--destructive))" />
+                    <Bar dataKey="cheques" name="چک وصول‌شده" stackId="expense" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (

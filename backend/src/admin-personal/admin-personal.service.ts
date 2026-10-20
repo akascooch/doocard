@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -15,6 +16,7 @@ import {
   isValidDateKey,
   ListFrogsQueryDto,
   ListPersonalExpensesQueryDto,
+  PersonalLedgerBreakdownQueryDto,
   MAX_PAGE_SIZE,
   parseAmountRial,
   ToggleFrogDto,
@@ -593,6 +595,89 @@ export class AdminPersonalService {
       else expense += amount;
     }
     return { income, expense, balance: income - expense };
+  }
+
+  assertPersonalLedgerRole(role?: string) {
+    if (role !== 'ADMIN' && role !== 'EMPLOYEE') {
+      throw new ForbiddenException('دسترسی به دفتر شخصی مجاز نیست');
+    }
+  }
+
+  private periodDateKeys(period: 'all' | 'today' | 'week' | 'month') {
+    const today = tehranDateKey();
+    if (period === 'today') return { from: today, to: today };
+    if (period === 'week') return { from: shiftDateKey(today, -6), to: today };
+    if (period === 'month') return { from: monthStartKey(today), to: today };
+    return {};
+  }
+
+  /**
+   * Expense-category pie for one period. Shares are basis points of expense
+   * amounts and sum to 10000. Income is not a slice. Balance is income - expense
+   * for the same period.
+   */
+  async expenseBreakdown(userId: number, query: PersonalLedgerBreakdownQueryDto = {}) {
+    const period = query.period ?? 'all';
+    const range = this.periodDateKeys(period);
+    const where: Prisma.AdminPersonalExpenseWhereInput = {
+      userId,
+      deletedAt: null,
+    };
+    if (range.from || range.to) {
+      where.dateKey = {};
+      if (range.from) where.dateKey.gte = range.from;
+      if (range.to) where.dateKey.lte = range.to;
+    }
+    const totals = await this.directionTotals(where);
+    const groups = await this.prisma.adminPersonalExpense.groupBy({
+      by: ['categoryId'],
+      where: { ...where, direction: 'EXPENSE' },
+      _sum: { amount: true },
+    });
+    const categoryIds = groups
+      .map((group) => group.categoryId)
+      .filter((id): id is string => id != null);
+    const categories = categoryIds.length
+      ? await this.prisma.adminExpenseCategory.findMany({
+          where: { id: { in: categoryIds }, userId },
+          select: { id: true, name: true },
+        })
+      : [];
+    const names = new Map(categories.map((category) => [category.id, category.name]));
+    const merged = new Map<string, bigint>();
+    for (const group of groups) {
+      const amount = group._sum.amount ?? 0n;
+      if (amount <= 0n) continue;
+      const name = group.categoryId
+        ? names.get(group.categoryId) ?? 'بدون دسته'
+        : 'بدون دسته';
+      merged.set(name, (merged.get(name) ?? 0n) + amount);
+    }
+    const slices = [...merged.entries()]
+      .map(([name, amount]) => ({ name, amount }))
+      .sort((a, b) => (a.amount === b.amount ? a.name.localeCompare(b.name) : a.amount > b.amount ? -1 : 1));
+    let assigned = 0n;
+    const pie = slices.map((slice, index) => {
+      const shareBps =
+        totals.expense === 0n
+          ? 0n
+          : index === slices.length - 1
+            ? 10000n - assigned
+            : (slice.amount * 10000n) / totals.expense;
+      assigned += shareBps;
+      return {
+        name: slice.name,
+        amount: slice.amount.toString(),
+        shareBps: shareBps.toString(),
+      };
+    });
+    return {
+      period,
+      income: totals.income.toString(),
+      expense: totals.expense.toString(),
+      balance: totals.balance.toString(),
+      slices: pie,
+    };
   }
 
   async expenseSummary(userId: number) {

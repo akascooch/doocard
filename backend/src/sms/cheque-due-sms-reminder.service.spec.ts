@@ -15,6 +15,9 @@ describe('ChequeDueSmsReminderService', () => {
       findFirst: jest.fn(),
       create: jest.fn(),
     },
+    user: {
+      findMany: jest.fn(),
+    },
   };
   const smsOutbound = {
     sendIfAllowed: jest.fn(),
@@ -323,6 +326,43 @@ describe('ChequeDueSmsReminderService', () => {
         skipAlwaysCc: true,
       }),
     );
+  });
+
+  it('uses ADMIN phones only when the role-recipient flag is on, without changing the dedupe key', async () => {
+    config.get.mockImplementation((key: string) => {
+      if (key === 'CHEQUE_DUE_SMS_ENABLED') return 'false';
+      if (key === 'CHEQUE_DUE_SMS_USE_ROLE_RECIPIENTS') return 'true';
+      if (key === 'CHEQUE_DUE_SMS_INCLUDE_ACCOUNTANT') return 'true';
+      return undefined;
+    });
+    prisma.user.findMany.mockResolvedValue([
+      { phone: '09121111111' },
+      { phone: 'not-a-phone' },
+      { phone: '09121111111' },
+      { phone: '09350000000' },
+    ]);
+
+    const phones = await service.resolveReminderPhones();
+    expect(phones).toEqual(['09121111111', '09350000000']);
+    expect(prisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { role: { in: ['ADMIN', 'ACCOUNTANT'] } },
+      }),
+    );
+    const dedupe = ChequeDueSmsReminderService.dedupeKey(
+      7,
+      't_minus_2',
+      '1405/05/05',
+      phones[0],
+    );
+    expect(dedupe).toBe('cheque:reminder:7:t_minus_2:1405/05/05:1111');
+    expect(smsOutbound.sendIfAllowed).not.toHaveBeenCalled();
+  });
+
+  it('keeps the hardcoded recipients when the role-recipient flag is off', async () => {
+    const phones = await service.resolveReminderPhones();
+    expect(phones).toEqual([...CHEQUE_DUE_REMINDER_PHONES]);
+    expect(prisma.user.findMany).not.toHaveBeenCalled();
   });
 
   it('cron exits safely and does not duplicate send when flag is off', async () => {

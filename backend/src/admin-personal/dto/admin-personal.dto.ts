@@ -161,6 +161,12 @@ export class CreatePersonalExpenseDto {
   dateKey?: string;
 }
 
+export class PersonalLedgerBreakdownQueryDto {
+  @IsOptional()
+  @IsIn(['all', 'today', 'week', 'month'])
+  period?: 'all' | 'today' | 'week' | 'month';
+}
+
 export class ListPersonalExpensesQueryDto {
   @IsOptional()
   @IsString()

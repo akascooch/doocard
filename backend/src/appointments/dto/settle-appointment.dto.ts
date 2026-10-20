@@ -102,6 +102,21 @@ export class SettleAppointmentDto {
   tipTeamMemberIds?: number[];
 
   /**
+   * Extra tip, separate from tipAmount. Hairdresser recipients only unless
+   * MANUAL_TIP_ALLOW_SERVICE=true. Does not enter the commission base.
+   */
+  @IsNumber()
+  @Type(() => Number)
+  @Min(0, { message: 'مبلغ انعام دستی باید بزرگتر یا مساوی صفر باشد' })
+  @IsOptional()
+  manualTipAmount?: number;
+
+  @IsNumber()
+  @Type(() => Number)
+  @IsOptional()
+  manualTipRecipientEmployeeId?: number;
+
+  /**
    * Method for the paid portion (or full DEBT when debt-only legacy).
    * For hybrid, use CASH/CARD/CARD2CARD for the paid part (not DEBT).
    */

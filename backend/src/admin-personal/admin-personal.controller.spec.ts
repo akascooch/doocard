@@ -13,6 +13,7 @@ const METHODS = [
   'toggleFrog',
   'deleteFrog',
   'expenseSummary',
+  'expenseBreakdown',
   'listExpenses',
   'createExpense',
   'deleteExpense',

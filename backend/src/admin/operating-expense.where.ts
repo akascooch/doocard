@@ -24,6 +24,54 @@ export const PAYROLL_WITHDRAWAL_CATEGORY_CODES = [
 ] as const;
 
 export const UNCATEGORIZED_EXPENSE_LABEL = 'بدون دسته‌بندی';
+export const OPERATING_CHEQUE_SOURCE_TYPE = 'CHEQUE_LEAF';
+
+export type OperatingExpenseFixture = {
+  type: string;
+  deletedAt?: Date | null;
+  sourceType?: string | null;
+  categoryCode?: string | null;
+  chequeCategory?: 'NORMAL' | 'GUARANTEE' | null;
+};
+
+/** Same inclusion rules as accountingExpenseWhere, for fixture tests. */
+export function isOperatingExpense(row: OperatingExpenseFixture): boolean {
+  if (row.type !== 'EXPENSE' || row.deletedAt) return false;
+  if (
+    row.sourceType &&
+    (PAYROLL_WITHDRAWAL_SOURCE_TYPES as readonly string[]).includes(row.sourceType)
+  ) {
+    return false;
+  }
+  if (
+    row.categoryCode &&
+    (PAYROLL_WITHDRAWAL_CATEGORY_CODES as readonly string[]).includes(row.categoryCode)
+  ) {
+    return false;
+  }
+  if (row.sourceType === OPERATING_CHEQUE_SOURCE_TYPE && row.chequeCategory === 'GUARANTEE') {
+    return false;
+  }
+  return true;
+}
+
+export function isClearedOperatingCheque(row: OperatingExpenseFixture): boolean {
+  return isOperatingExpense(row) && row.sourceType === OPERATING_CHEQUE_SOURCE_TYPE;
+}
+
+/**
+ * Cheque amount is a subset of the operating total, never an extra series.
+ * other + cheques === total.
+ */
+export function splitExpenseChart(total: bigint, cheques: bigint): {
+  total: bigint;
+  other: bigint;
+  cheques: bigint;
+} {
+  const safeTotal = total > 0n ? total : 0n;
+  const bounded = cheques < 0n ? 0n : cheques > safeTotal ? safeTotal : cheques;
+  return { total: safeTotal, other: safeTotal - bounded, cheques: bounded };
+}
 
 export function payrollWithdrawalExclusion(): Prisma.TransactionWhereInput {
   return {
@@ -35,7 +83,7 @@ export function payrollWithdrawalExclusion(): Prisma.TransactionWhereInput {
         },
       },
       {
-        sourceType: 'CHEQUE_LEAF',
+        sourceType: OPERATING_CHEQUE_SOURCE_TYPE,
         chequeLeaves: { some: { category: 'GUARANTEE' } },
       },
     ],

@@ -19,6 +19,11 @@ import {
   computePersonalTipAllocations,
   computeTeamTipAllocations,
 } from '../accounting/ledger-backfill.match';
+import {
+  assertManualTipRecipient,
+  bookManualSettlementTip,
+  manualTipAllowsService,
+} from './manual-settlement-tip';
 import { BARBER_APPOINTMENT_DEDUCTION_RIAL } from '../common/constants/employee-commission.constants';
 
 import { AccountingService } from '../accounting/accounting.service';
@@ -1742,6 +1747,26 @@ export class AppointmentsService {
 
     const tipRial =
       dto.tipAmount && dto.tipAmount > 0 ? BigInt(dto.tipAmount) : null;
+    const manualTipRial =
+      dto.manualTipAmount && dto.manualTipAmount > 0 ? BigInt(dto.manualTipAmount) : 0n;
+    let manualTipRecipientId: number | null = null;
+    if (manualTipRial > 0n) {
+      if (!dto.accountId) {
+        throw new BadRequestException('حساب بانکی برای انعام دستی الزامی است');
+      }
+      if (!dto.manualTipRecipientEmployeeId) {
+        throw new BadRequestException('آرایشگر گیرنده انعام دستی را انتخاب کنید');
+      }
+      const manualRecipient = await this.prisma.employee.findUnique({
+        where: { id: dto.manualTipRecipientEmployeeId },
+        include: { user: { select: { role: true } } },
+      });
+      if (!manualRecipient?.isActive) {
+        throw new BadRequestException('گیرنده انعام دستی فعال نیست');
+      }
+      assertManualTipRecipient(manualRecipient.user?.role, manualTipAllowsService());
+      manualTipRecipientId = manualRecipient.id;
+    }
     if (tipRial) {
       if (!dto.tipRecipientType) {
         throw new BadRequestException('انتخاب نوع گیرنده انعام الزامی است');
@@ -1996,8 +2021,19 @@ export class AppointmentsService {
               data: { balance: { increment: tipRial } },
             });
           }
-
         }
+      }
+
+      if (manualTipRial > 0n && manualTipRecipientId && dto.accountId) {
+        await bookManualSettlementTip(tx, {
+          appointmentId: id,
+          amountRial: manualTipRial,
+          accountId: dto.accountId,
+          recipientEmployeeId: manualTipRecipientId,
+          createdBy: adminUser.sub || adminUser.id,
+          externalRef: dto.externalRef,
+          paymentMethod: dto.paymentMethod,
+        });
       }
 
       // Store lines: AppointmentProduct + APPOINTMENT_SALE movement only.

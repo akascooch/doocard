@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AdminFrogStatus } from '@prisma/client';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
@@ -491,6 +491,33 @@ describe('AdminPersonalService', () => {
     });
     expect(prisma.adminPersonalExpense.groupBy.mock.calls[0][0].where.userId).toBe(4);
     expect(prisma.adminPersonalExpense.groupBy.mock.calls[0][0].where.deletedAt).toBeNull();
+  });
+
+  it('pies expenses by category and sets balance to income minus expense', async () => {
+    prisma.adminPersonalExpense.groupBy
+      .mockResolvedValueOnce([
+        { direction: 'INCOME', _sum: { amount: 1000n } },
+        { direction: 'EXPENSE', _sum: { amount: 400n } },
+      ])
+      .mockResolvedValueOnce([
+        { categoryId: 'c1', _sum: { amount: 300n } },
+        { categoryId: null, _sum: { amount: 100n } },
+      ]);
+    prisma.adminExpenseCategory.findMany.mockResolvedValue([{ id: 'c1', name: 'خوراک' }]);
+
+    const row = await service.expenseBreakdown(4, { period: 'all' });
+
+    expect(row).toMatchObject({ income: '1000', expense: '400', balance: '600', period: 'all' });
+    expect(row.slices.reduce((sum, slice) => sum + Number(slice.shareBps), 0)).toBe(10000);
+    expect(row.slices.map((slice) => slice.name)).toEqual(['خوراک', 'بدون دسته']);
+    expect(prisma.adminPersonalExpense.groupBy.mock.calls[0][0].where.userId).toBe(4);
+    expect(prisma.transaction.create).not.toHaveBeenCalled();
+  });
+
+  it('denies SERVICE at the ledger service layer', () => {
+    expect(() => service.assertPersonalLedgerRole('SERVICE')).toThrow(ForbiddenException);
+    expect(() => service.assertPersonalLedgerRole('EMPLOYEE')).not.toThrow();
+    expect(() => service.assertPersonalLedgerRole('ADMIN')).not.toThrow();
   });
 
   it('soft-deletes own expense only and hides other owners', async () => {

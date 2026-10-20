@@ -205,6 +205,12 @@ const employeeMenuItems = [
     description: 'ثبت سریع مشتری با نام و موبایل'
   },
   {
+    title: 'تنخواه شخصی',
+    href: '/dashboard/employee/personal-ledger',
+    icon: Wallet,
+    description: 'دفتر درآمد و هزینه شخصی'
+  },
+  {
     title: 'درخواست حقوق',
     href: '/dashboard/employee/salary-request',
     icon: CreditCard,
@@ -380,7 +386,9 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
       case 'EMPLOYEE':
         return employeeMenuItems
       case 'SERVICE':
-        return serviceMenuItems
+        return process.env.NEXT_PUBLIC_QUICK_CREATE_ALLOW_SERVICE === 'false'
+          ? serviceMenuItems.filter((item) => item.href !== '/dashboard/employee/register-customer')
+          : serviceMenuItems
       case 'CUSTOMER':
       default:
         return customerMenuItems

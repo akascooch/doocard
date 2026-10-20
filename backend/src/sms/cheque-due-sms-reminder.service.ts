@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
-import { ChequeLeafStatus, NotificationType } from '@prisma/client';
+import { ChequeLeafStatus, NotificationType, UserRole } from '@prisma/client';
+import { normalizeIranMobile } from '../common/utils/phone.util';
 import * as jalaali from 'jalaali-js';
 import { PrismaService } from '../prisma/prisma.service';
 import { SmsOutboundService } from './sms-outbound.service';
@@ -80,6 +81,34 @@ export class ChequeDueSmsReminderService {
    */
   isChequeDueSmsEnabled(): boolean {
     return this.config.get<string>('CHEQUE_DUE_SMS_ENABLED') === 'true';
+  }
+
+  /**
+   * Default off. The hardcoded recipient list stays in use until this is exactly "true".
+   * Does not turn sending on; CHEQUE_DUE_SMS_ENABLED remains the send kill-switch.
+   */
+  isRoleRecipientMode(): boolean {
+    return this.config.get<string>('CHEQUE_DUE_SMS_USE_ROLE_RECIPIENTS') === 'true';
+  }
+
+  async resolveReminderPhones(): Promise<string[]> {
+    if (!this.isRoleRecipientMode()) {
+      return [...CHEQUE_DUE_REMINDER_PHONES];
+    }
+    const roles: UserRole[] = [UserRole.ADMIN];
+    if (this.config.get<string>('CHEQUE_DUE_SMS_INCLUDE_ACCOUNTANT') === 'true') {
+      roles.push(UserRole.ACCOUNTANT);
+    }
+    const users = await this.prisma.user.findMany({
+      where: { role: { in: roles } },
+      select: { phone: true },
+    });
+    const phones = new Set<string>();
+    for (const user of users) {
+      const phone = normalizeIranMobile(user.phone || '');
+      if (phone) phones.add(phone);
+    }
+    return [...phones];
   }
 
   /** Asia/Tehran calendar day bounds in UTC for a given local date. */
@@ -182,6 +211,7 @@ export class ChequeDueSmsReminderService {
   }): Promise<ChequeDueReminderPlanItem[]> {
     const today = ChequeDueSmsReminderService.todayYmdTehran(options?.now);
     const offsets: ChequeDueOffsetDays[] = [3, 2, 1, 0];
+    const phones = await this.resolveReminderPhones();
     const plan: ChequeDueReminderPlanItem[] = [];
 
     for (const offsetDays of offsets) {
@@ -266,7 +296,7 @@ export class ChequeDueSmsReminderService {
           jalaliDueDate,
         );
 
-        for (const phone of CHEQUE_DUE_REMINDER_PHONES) {
+        for (const phone of phones) {
           plan.push({
             leafId: leaf.id,
             leafNumber: leaf.leafNumber,

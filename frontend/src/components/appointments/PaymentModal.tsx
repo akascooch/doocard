@@ -47,6 +47,7 @@ interface Service {
 interface Appointment {
   id: number;
   customerId?: number;
+  employeeId?: number;
   services: Service[];
   amount?: number | null;
   status: string;
@@ -122,11 +123,14 @@ export default function PaymentModal({
     tipRecipientType: '' as '' | 'INDIVIDUAL' | 'TEAM',
     tipRecipientEmployeeId: null as number | null,
     tipTeamMemberIds: [] as number[],
+    manualTipAmount: 0,
+    manualTipRecipientEmployeeId: null as number | null,
     paymentMethod: 'CARD' as 'CASH' | 'CARD' | 'CARD2CARD' | 'DEBT',
     accountId: null as number | null,
     notes: '',
   });
   const [serviceStaff, setServiceStaff] = useState<{ id: number; name: string }[]>([]);
+  const [hairdressers, setHairdressers] = useState<{ id: number; name: string }[]>([]);
   const [settleExternalRef, setSettleExternalRef] = useState<string | null>(null);
   const [serverOffline, setServerOffline] = useState(false);
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
@@ -207,6 +211,8 @@ export default function PaymentModal({
         tipRecipientType: '',
         tipRecipientEmployeeId: null,
         tipTeamMemberIds: [],
+        manualTipAmount: 0,
+        manualTipRecipientEmployeeId: apptData.employeeId ?? null,
         paymentMethod: 'CARD',
         accountId: null,
         notes: '',
@@ -222,9 +228,10 @@ export default function PaymentModal({
       // Load bank accounts + open debts warning
       if (reachable) {
         const customerId = (apptData as Appointment).customerId;
-        const [accountsResponse, staffResponse, debtsResponse, productsResponse, loyaltyResponse] = await Promise.all([
+        const [accountsResponse, staffResponse, hairdresserResponse, debtsResponse, productsResponse, loyaltyResponse] = await Promise.all([
           api.get('/accounting/accounts'),
           api.get('/employees/service-staff/active').catch(() => ({ data: [] })),
+          api.get('/employees').catch(() => ({ data: [] })),
           customerId
             ? api.get(`/customers/${customerId}/open-debts`).catch(() => null)
             : Promise.resolve(null),
@@ -236,6 +243,15 @@ export default function PaymentModal({
         await cacheFromResponse(REFERENCE_KEYS.accounts, accountsResponse.data);
         setAccounts(accountsResponse.data);
         setServiceStaff(staffResponse.data || []);
+        const hairdresserRows = Array.isArray(hairdresserResponse.data) ? hairdresserResponse.data : [];
+        setHairdressers(
+          hairdresserRows
+            .filter((row: { user?: { role?: string }; id?: number; name?: string }) => row.user?.role === 'EMPLOYEE' && row.id)
+            .map((row: { id: number; name?: string; user?: { name?: string } }) => ({
+              id: row.id,
+              name: row.name || row.user?.name || `آرایشگر #${row.id}`,
+            })),
+        );
         setCatalogProducts(productsResponse.data?.data || []);
         if (debtsResponse?.data) {
           setOpenDebts(debtsResponse.data as OpenDebtsSummary);
@@ -261,6 +277,7 @@ export default function PaymentModal({
           }
         }
         setServiceStaff([]);
+        setHairdressers([]);
       }
 
       console.log('💰 Loaded appointment for settlement:', apptData);
@@ -391,7 +408,7 @@ export default function PaymentModal({
       return;
     }
 
-    if (formData.paidAmount > 0 && !formData.accountId) {
+    if ((formData.paidAmount > 0 || formData.manualTipAmount > 0) && !formData.accountId) {
       setFieldErrors({ account: 'انتخاب حساب بانکی برای مبلغ پرداختی الزامی است' });
       return;
     }
@@ -444,6 +461,15 @@ export default function PaymentModal({
       }
     }
 
+    if (formData.manualTipAmount > 0 && !formData.manualTipRecipientEmployeeId) {
+      toast({
+        title: 'خطا',
+        description: 'آرایشگر گیرنده انعام دستی را انتخاب کنید',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -459,7 +485,12 @@ export default function PaymentModal({
         debtAmount: formData.debtAmount,
         tipAmount: formData.tipAmount || 0, // Already in RIAL
         paymentMethod: formData.paymentMethod,
-        accountId: formData.paidAmount > 0 ? formData.accountId : undefined,
+        accountId:
+          formData.paidAmount > 0 || formData.manualTipAmount > 0
+            ? formData.accountId
+            : undefined,
+        manualTipAmount: formData.manualTipAmount || 0,
+        manualTipRecipientEmployeeId: formData.manualTipRecipientEmployeeId || undefined,
         notes: formData.notes || undefined,
         externalRef: generateIdempotencyKey(),
       };
@@ -876,6 +907,44 @@ export default function PaymentModal({
               label="انعام (اختیاری)"
               placeholder="مثال: 50,000"
             />
+
+            <MoneyInput
+              className={`order-7 ${extrasOpen ? '' : 'hidden'}`}
+              value={formData.manualTipAmount}
+              onChange={(manualTipAmount) =>
+                setFormData({
+                  ...formData,
+                  manualTipAmount,
+                })
+              }
+              label="انعام دستی آرایشگر (جدا از انعام پرسنل)"
+              placeholder="مثال: 50,000"
+            />
+            {formData.manualTipAmount > 0 && (
+              <div className={`order-7 space-y-2 ${extrasOpen ? '' : 'hidden'}`}>
+                <Label>آرایشگر گیرنده انعام دستی *</Label>
+                <Select
+                  value={formData.manualTipRecipientEmployeeId?.toString() || ''}
+                  onValueChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      manualTipRecipientEmployeeId: Number(value),
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="انتخاب آرایشگر" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {hairdressers.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id.toString()}>
+                        {employee.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {formData.tipAmount > 0 && (
               <div className={`order-7 space-y-3 rounded-lg border border-border dark:border-border p-3 ${extrasOpen ? '' : 'hidden'}`}>
