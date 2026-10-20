@@ -6,7 +6,7 @@
  * Backend payload shape (JSON):
  * { title, body, icon?, badge?, data?: { url?, timestamp?, ... } }
  */
-const VERSION = '2.0.3.7';
+const VERSION = '2.0.29-logo';
 const SW_NAME = `doocard-sw-${VERSION}`;
 const DEFAULT_ICON = '/logo/doocard-icon-192.png';
 const DEFAULT_URL = '/dashboard';
