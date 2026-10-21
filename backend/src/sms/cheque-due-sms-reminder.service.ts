@@ -1,7 +1,8 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { ChequeLeafStatus, NotificationType, Prisma, UserRole } from '@prisma/client';
+import { createHash } from 'crypto';
 import { normalizeIranMobile } from '../common/utils/phone.util';
 import * as jalaali from 'jalaali-js';
 import { PrismaService } from '../prisma/prisma.service';
@@ -10,19 +11,25 @@ import { SmsTemplateService } from './sms-template.service';
 import { SMS_TEMPLATE_KEYS } from './sms-template.catalog';
 import { SMS_EVENT_KEYS } from './sms-event-keys';
 
-/** Hard-required reminder recipients for cheque due dates. */
-export const CHEQUE_DUE_REMINDER_PHONES = ['09370504588', '09121013686'] as const;
+export const CHEQUE_DUE_CRON = '0 8 * * *';
+export const CHEQUE_DUE_CRON_TZ = 'Asia/Tehran';
+export const CHEQUE_DUE_OFFSETS = [3, 2, 1, 0] as const;
 
-/** Upper bound on CHEQUE_DUE_SMS_TEST_PHONES; a longer list is treated as misconfiguration. */
-export const CHEQUE_DUE_TEST_PHONES_MAX = 3;
-export const CHEQUE_DUE_TEST_MESSAGE_PREFIX = '[پیام آزمایشی]';
+/** sms_events statuses that count as already dispatched for a dedupe key (no resend). */
+const DISPATCHED_STATUSES = new Set(['SENT', 'PENDING']);
 
 export function maskPhone(phone: string): string {
   return phone.replace(/\d(?=\d{4})/g, '*');
 }
 
-export type ChequeDueOffsetDays = 0 | 1 | 2 | 3;
+export type ChequeDueOffsetDays = (typeof CHEQUE_DUE_OFFSETS)[number];
 export type ChequeReminderStage = 't_minus_3' | 't_minus_2' | 't_minus_1' | 't_zero';
+
+export type ChequeReminderRecipient = {
+  userId: number;
+  name: string;
+  phone: string;
+};
 
 export type ChequeDueReminderPlanItem = {
   leafId: number;
@@ -31,6 +38,7 @@ export type ChequeDueReminderPlanItem = {
   jalaliDueDate: string;
   offsetDays: ChequeDueOffsetDays;
   stage: ChequeReminderStage;
+  userId: number;
   phone: string;
   dedupeKey: string;
   relatedEntity: string;
@@ -94,10 +102,10 @@ const STAGE_LABEL_FA: Record<ChequeReminderStage, string> = {
 };
 
 /**
- * Daily cheque due-date reminders (T-3 through T-0) via SmsOutboundService.
+ * Daily cheque due-date reminders (T-3 through T-0) to active ADMIN users, 08:00 Asia/Tehran.
  * Each run plans only the offset whose due day is that many days ahead.
  * A missed earlier offset is not replayed, and a past due date is not backfilled.
- * Sending still requires CHEQUE_DUE_SMS_ENABLED === 'true'.
+ * Sending requires CHEQUE_DUE_SMS_ENABLED === 'true' (plus SMS_ENABLED and the event policy).
  */
 @Injectable()
 export class ChequeDueSmsReminderService {
@@ -119,76 +127,54 @@ export class ChequeDueSmsReminderService {
   }
 
   /**
-   * Default off. The hardcoded recipient list stays in use until this is exactly "true".
-   * Does not turn sending on; CHEQUE_DUE_SMS_ENABLED remains the send kill-switch.
+   * ADMIN users that are not deactivated staff, with a valid Iranian mobile, one entry per
+   * unique phone. Users have no active flag of their own; an ADMIN who also has an Employee
+   * row counts as active only while that row is active.
    */
-  isRoleRecipientMode(): boolean {
-    return this.config.get<string>('CHEQUE_DUE_SMS_USE_ROLE_RECIPIENTS') === 'true';
-  }
-
-  /**
-   * Test mode is on whenever CHEQUE_DUE_SMS_TEST_PHONES is non-empty. Recipients are then
-   * this allowlist only (role recipients and the hardcoded list are ignored). Invalid
-   * entries are dropped, never replaced, so a bad value yields zero recipients.
-   */
-  isTestMode(): boolean {
-    return (this.config.get<string>('CHEQUE_DUE_SMS_TEST_PHONES') || '').trim().length > 0;
-  }
-
-  testPhones(): string[] {
-    const raw = this.config.get<string>('CHEQUE_DUE_SMS_TEST_PHONES') || '';
-    const phones = new Set<string>();
-    for (const part of raw.split(/[\s,;]+/)) {
-      const phone = normalizeIranMobile(part);
-      if (phone) phones.add(phone);
-    }
-    return [...phones];
-  }
-
-  async resolveReminderPhones(): Promise<string[]> {
-    if (this.isTestMode()) {
-      const phones = this.testPhones();
-      if (phones.length > CHEQUE_DUE_TEST_PHONES_MAX) {
-        this.logger.warn(
-          `CHEQUE_DUE_SMS_TEST_PHONES has ${phones.length} numbers (max ${CHEQUE_DUE_TEST_PHONES_MAX}); no recipients`,
-        );
-        return [];
-      }
-      return phones;
-    }
-    if (!this.isRoleRecipientMode()) {
-      return [...CHEQUE_DUE_REMINDER_PHONES];
-    }
-    const roles: UserRole[] = [UserRole.ADMIN];
-    if (this.config.get<string>('CHEQUE_DUE_SMS_INCLUDE_ACCOUNTANT') === 'true') {
-      roles.push(UserRole.ACCOUNTANT);
-    }
-    const users = await this.prisma.user.findMany({
-      where: { role: { in: roles } },
-      select: { phone: true },
+  async getActiveAdminRecipients(): Promise<ChequeReminderRecipient[]> {
+    const admins = await this.prisma.user.findMany({
+      where: {
+        role: UserRole.ADMIN,
+        OR: [{ employee: { is: null } }, { employee: { is: { isActive: true } } }],
+      },
+      select: { id: true, name: true, phone: true },
+      orderBy: { id: 'asc' },
     });
-    const phones = new Set<string>();
-    for (const user of users) {
-      const phone = normalizeIranMobile(user.phone || '');
-      if (phone) phones.add(phone);
+    const byPhone = new Map<string, ChequeReminderRecipient>();
+    let invalid = 0;
+    for (const admin of admins) {
+      const phone = normalizeIranMobile(admin.phone);
+      if (!phone || !/^09[0-9]{9}$/.test(phone)) {
+        invalid += 1;
+        continue;
+      }
+      if (!byPhone.has(phone)) {
+        byPhone.set(phone, { userId: admin.id, name: admin.name, phone });
+      }
     }
-    return [...phones];
+    if (invalid > 0) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'cheque_due_reminder.invalid_admin_phones',
+          activeAdmins: admins.length,
+          invalidPhones: invalid,
+        }),
+      );
+    }
+    return [...byPhone.values()];
   }
 
-  /** Asia/Tehran calendar day bounds in UTC for a given local date. */
+  /** Asia/Tehran calendar day bounds in UTC for a given local date (Iran has no DST since 2022). */
   static dayBoundsTehran(ymd: string): { start: Date; end: Date } {
     const start = new Date(`${ymd}T00:00:00+03:30`);
     const end = new Date(`${ymd}T23:59:59.999+03:30`);
     return { start, end };
   }
 
+  /** Pure calendar arithmetic; independent of the process timezone. */
   static addDaysYmd(ymd: string, days: number): string {
-    const d = new Date(`${ymd}T12:00:00+03:30`);
-    d.setDate(d.getDate() + days);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
+    const [y, m, d] = ymd.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
   }
 
   static todayYmdTehran(now = new Date()): string {
@@ -218,13 +204,18 @@ export class ChequeDueSmsReminderService {
     return `cheque:reminder:${leafId}:${stage}:${jalaliDueDate}`;
   }
 
+  /**
+   * One key per (cheque, offset, due-date cycle, recipient phone). sms_events.to is masked, so the
+   * phone identity lives here: last 4 digits for operators plus a hash so equal suffixes never collide.
+   */
   static dedupeKey(
     leafId: number,
     stage: ChequeReminderStage,
     jalaliDueDate: string,
     phone: string,
   ): string {
-    return `${ChequeDueSmsReminderService.relatedEntityKey(leafId, stage, jalaliDueDate)}:${phone.slice(-4)}`;
+    const tag = createHash('sha256').update(phone).digest('hex').slice(0, 12);
+    return `${ChequeDueSmsReminderService.relatedEntityKey(leafId, stage, jalaliDueDate)}:${phone.slice(-4)}.${tag}`;
   }
 
   static formatBankDetails(account?: BankAccountSnippet | null): {
@@ -311,28 +302,21 @@ export class ChequeDueSmsReminderService {
     );
   }
 
-  /** Send plan for today's T-maxOffset..T-0 window. Reads only; never sends. */
-  buildChequeReminderPlan(now = new Date(), maxOffsetDays: ChequeDueOffsetDays = 3) {
-    return this.buildPlan({ now, maxOffsetDays });
-  }
-
-  async buildPlan(options?: {
-    now?: Date;
-    dryRun?: boolean;
-    maxOffsetDays?: ChequeDueOffsetDays;
-  }): Promise<ChequeDueReminderPlanItem[]> {
-    const today = ChequeDueSmsReminderService.todayYmdTehran(options?.now);
-    const maxOffset = options?.maxOffsetDays ?? 3;
-    const offsets = ([3, 2, 1, 0] as ChequeDueOffsetDays[]).filter((o) => o <= maxOffset);
-    const phones = await this.resolveReminderPhones();
-    const plan: ChequeDueReminderPlanItem[] = [];
-
-    for (const offsetDays of offsets) {
-      const dueYmd = ChequeDueSmsReminderService.addDaysYmd(today, offsetDays);
-      const jalaliDueDate = ChequeDueSmsReminderService.gregorianYmdToJalali(dueYmd);
-      const { start, end } = ChequeDueSmsReminderService.dayBoundsTehran(dueYmd);
-      const stage = ChequeDueSmsReminderService.stageForOffset(offsetDays);
-
+  /** Issued (unpaid) leaves due on each T-3..T-0 Tehran day. Reads only. */
+  async findDueLeavesByOffset(now = new Date()) {
+    const today = ChequeDueSmsReminderService.todayYmdTehran(now);
+    const windows: Array<{
+      offsetDays: ChequeDueOffsetDays;
+      stage: ChequeReminderStage;
+      dueDate: string;
+      jalaliDueDate: string;
+      start: Date;
+      end: Date;
+      leaves: ReminderLeaf[];
+    }> = [];
+    for (const offsetDays of CHEQUE_DUE_OFFSETS) {
+      const dueDate = ChequeDueSmsReminderService.addDaysYmd(today, offsetDays);
+      const { start, end } = ChequeDueSmsReminderService.dayBoundsTehran(dueDate);
       const leaves = await this.prisma.chequeLeaf.findMany({
         where: {
           deletedAt: null,
@@ -341,70 +325,113 @@ export class ChequeDueSmsReminderService {
           chequebook: { deletedAt: null },
         },
         select: REMINDER_LEAF_SELECT,
+        orderBy: { id: 'asc' },
       });
+      windows.push({
+        offsetDays,
+        stage: ChequeDueSmsReminderService.stageForOffset(offsetDays),
+        dueDate,
+        jalaliDueDate: ChequeDueSmsReminderService.gregorianYmdToJalali(dueDate),
+        start,
+        end,
+        leaves,
+      });
+    }
+    return { today, windows };
+  }
 
-      for (const leaf of leaves) {
-        const message = await this.renderLeafMessage(leaf, STAGE_LABEL_FA[stage], jalaliDueDate);
+  /** Send plan (cheque x recipient) for today's T-3..T-0 windows. Reads only; never sends. */
+  async buildPlan(
+    recipients: ChequeReminderRecipient[],
+    now = new Date(),
+  ): Promise<ChequeDueReminderPlanItem[]> {
+    const { windows } = await this.findDueLeavesByOffset(now);
+    return this.planForWindows(recipients, windows);
+  }
 
+  private async planForWindows(
+    recipients: ChequeReminderRecipient[],
+    windows: Awaited<ReturnType<ChequeDueSmsReminderService['findDueLeavesByOffset']>>['windows'],
+  ): Promise<ChequeDueReminderPlanItem[]> {
+    const plan: ChequeDueReminderPlanItem[] = [];
+    for (const w of windows) {
+      for (const leaf of w.leaves) {
+        const message = await this.renderLeafMessage(leaf, STAGE_LABEL_FA[w.stage], w.jalaliDueDate);
         const relatedEntity = ChequeDueSmsReminderService.relatedEntityKey(
           leaf.id,
-          stage,
-          jalaliDueDate,
+          w.stage,
+          w.jalaliDueDate,
         );
-
-        for (const phone of phones) {
+        for (const r of recipients) {
           plan.push({
             leafId: leaf.id,
             leafNumber: leaf.leafNumber,
-            dueDate: dueYmd,
-            jalaliDueDate,
-            offsetDays,
-            stage,
-            phone,
+            dueDate: w.dueDate,
+            jalaliDueDate: w.jalaliDueDate,
+            offsetDays: w.offsetDays,
+            stage: w.stage,
+            userId: r.userId,
+            phone: r.phone,
             relatedEntity,
             dedupeKey: ChequeDueSmsReminderService.dedupeKey(
               leaf.id,
-              stage,
-              jalaliDueDate,
-              phone,
+              w.stage,
+              w.jalaliDueDate,
+              r.phone,
             ),
             message,
           });
         }
       }
     }
-
     return plan;
+  }
+
+  /** Existing sms_events status per dedupe key (one query). */
+  private async existingStatuses(keys: string[]): Promise<Map<string, string>> {
+    if (keys.length === 0) return new Map();
+    const rows = await this.prisma.smsEvent.findMany({
+      where: { dedupeKey: { in: keys } },
+      select: { dedupeKey: true, status: true },
+    });
+    return new Map(rows.map((r) => [r.dedupeKey as string, r.status]));
   }
 
   async runReminders(options?: { now?: Date; dryRun?: boolean }): Promise<{
     planned: number;
     sent: number;
     skipped: number;
+    alreadySent: number;
     dryRun: boolean;
     items: Array<
-      Pick<
-        ChequeDueReminderPlanItem,
-        'dedupeKey' | 'phone' | 'leafId' | 'offsetDays' | 'stage'
-      >
+      Pick<ChequeDueReminderPlanItem, 'dedupeKey' | 'phone' | 'leafId' | 'offsetDays' | 'stage'>
     >;
   }> {
+    const empty = { planned: 0, sent: 0, skipped: 0, alreadySent: 0, dryRun: true, items: [] };
     if (!this.isChequeDueSmsEnabled()) {
-      this.logger.log(
-        'Cheque due SMS skipped (CHEQUE_DUE_SMS_ENABLED is not true)',
+      this.logger.log('Cheque due SMS skipped (CHEQUE_DUE_SMS_ENABLED is not true)');
+      return empty;
+    }
+
+    const recipients = await this.getActiveAdminRecipients();
+    if (recipients.length === 0) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'cheque_due_reminder.aborted',
+          reason: 'no_active_admin_with_valid_phone',
+        }),
       );
-      return { planned: 0, sent: 0, skipped: 0, dryRun: true, items: [] };
+      return empty;
     }
 
     const dryRun = options?.dryRun === true;
-    const plan = await this.buildPlan({ now: options?.now, dryRun });
+    const plan = await this.buildPlan(recipients, options?.now);
+    const statuses = await this.existingStatuses(plan.map((p) => p.dedupeKey));
     let sent = 0;
     let skipped = 0;
+    let alreadySent = 0;
     const items: Array<
-      Pick<
-        ChequeDueReminderPlanItem,
-        'dedupeKey' | 'phone' | 'leafId' | 'offsetDays' | 'stage'
-      >
+      Pick<ChequeDueReminderPlanItem, 'dedupeKey' | 'phone' | 'leafId' | 'offsetDays' | 'stage'>
     > = [];
     const notifiedEntities = new Set<string>();
 
@@ -416,6 +443,12 @@ export class ChequeDueSmsReminderService {
         offsetDays: item.offsetDays,
         stage: item.stage,
       });
+      const existing = statuses.get(item.dedupeKey);
+      if (existing && DISPATCHED_STATUSES.has(existing)) {
+        alreadySent += 1;
+        this.logger.debug(`Cheque reminder already dispatched (${existing}) ${item.dedupeKey}`);
+        continue;
+      }
       if (dryRun) {
         skipped += 1;
         continue;
@@ -434,119 +467,67 @@ export class ChequeDueSmsReminderService {
           await this.recordInAppNotice(item);
           notifiedEntities.add(item.relatedEntity);
         }
+      } else if (result.reason === 'already sent') {
+        alreadySent += 1;
       } else {
         skipped += 1;
       }
     }
 
     this.logger.log(
-      `Cheque due reminders dryRun=${dryRun} testMode=${this.isTestMode()} planned=${plan.length} sent=${sent} skipped=${skipped}`,
+      `Cheque due reminders dryRun=${dryRun} recipients=${recipients.length} planned=${plan.length} sent=${sent} alreadySent=${alreadySent} skipped=${skipped}`,
     );
 
-    return { planned: plan.length, sent, skipped, dryRun, items };
+    return { planned: plan.length, sent, skipped, alreadySent, dryRun, items };
   }
 
   /** Read-only preview for admins. Works with CHEQUE_DUE_SMS_ENABLED off; never sends. */
-  async previewPlan(options?: { now?: Date; days?: number }) {
-    const days = Math.min(3, Math.max(0, Math.trunc(Number(options?.days ?? 3)) || 0));
-    const plan = await this.buildChequeReminderPlan(
-      options?.now ?? new Date(),
-      days as ChequeDueOffsetDays,
-    );
-    const recipients = [...new Set(plan.map((item) => item.phone))];
-    return {
-      enabled: this.isChequeDueSmsEnabled(),
-      testMode: this.isTestMode(),
-      roleRecipientMode: this.isRoleRecipientMode(),
-      days,
-      count: plan.length,
-      recipients: recipients.map(maskPhone),
-      leafIds: [...new Set(plan.map((item) => item.leafId))],
-      items: plan.map((item) => ({
+  async previewPlan(options?: { now?: Date }) {
+    const now = options?.now ?? new Date();
+    const recipients = await this.getActiveAdminRecipients();
+    const { today, windows } = await this.findDueLeavesByOffset(now);
+    const plan = await this.planForWindows(recipients, windows);
+    const statuses = await this.existingStatuses(plan.map((p) => p.dedupeKey));
+    const items = plan.map((item) => {
+      const lastStatus = statuses.get(item.dedupeKey) ?? null;
+      return {
         leafId: item.leafId,
         leafNumber: item.leafNumber,
+        dueDate: item.dueDate,
         jalaliDueDate: item.jalaliDueDate,
         offsetDays: item.offsetDays,
         stage: item.stage,
+        userId: item.userId,
         phone: maskPhone(item.phone),
         dedupeKey: item.dedupeKey,
-      })),
-    };
-  }
-
-  /**
-   * Controlled real send for verification. Requires CHEQUE_DUE_SMS_TEST_PHONES and sends
-   * at most one message per allowlisted phone per leaf per Tehran day. Uses its own
-   * dedupe namespace so the real T-n reminder for the same leaf is not consumed.
-   * Independent of CHEQUE_DUE_SMS_ENABLED; SMS_ENABLED and the event policy still apply.
-   */
-  async sendTestReminder(options: { leafId?: number; now?: Date }) {
-    if (!this.isTestMode()) {
-      throw new BadRequestException('CHEQUE_DUE_SMS_TEST_PHONES تنظیم نشده است');
-    }
-    const phones = this.testPhones();
-    if (phones.length === 0) {
-      throw new BadRequestException('شماره معتبری در CHEQUE_DUE_SMS_TEST_PHONES نیست');
-    }
-    if (phones.length > CHEQUE_DUE_TEST_PHONES_MAX) {
-      throw new BadRequestException(
-        `حداکثر ${CHEQUE_DUE_TEST_PHONES_MAX} شماره تست مجاز است`,
-      );
-    }
-
-    const now = options.now ?? new Date();
-    const today = ChequeDueSmsReminderService.todayYmdTehran(now);
-    const leaf = await this.prisma.chequeLeaf.findFirst({
-      where: {
-        deletedAt: null,
-        status: ChequeLeafStatus.ISSUED,
-        chequebook: { deletedAt: null },
-        ...(options.leafId
-          ? { id: options.leafId }
-          : { dueDate: { gte: ChequeDueSmsReminderService.dayBoundsTehran(today).start } }),
-      },
-      orderBy: { dueDate: 'asc' },
-      select: REMINDER_LEAF_SELECT,
+        dispatch: lastStatus && DISPATCHED_STATUSES.has(lastStatus) ? 'sent' : 'pending',
+        lastStatus,
+      };
     });
-    if (!leaf?.dueDate) {
-      throw new NotFoundException('چک صادرشدهٔ سررسید‌داری برای تست یافت نشد');
-    }
-
-    const dueYmd = ChequeDueSmsReminderService.todayYmdTehran(leaf.dueDate);
-    const jalaliDueDate = ChequeDueSmsReminderService.gregorianYmdToJalali(dueYmd);
-    const offset = Math.round(
-      (Date.parse(`${dueYmd}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000,
-    );
-    const stageLabel =
-      offset >= 0 && offset <= 3
-        ? STAGE_LABEL_FA[STAGE_BY_OFFSET[offset as ChequeDueOffsetDays]]
-        : `${offset.toLocaleString('fa-IR')} روز`;
-    const body = await this.renderLeafMessage(leaf, stageLabel, jalaliDueDate);
-    const message = `${CHEQUE_DUE_TEST_MESSAGE_PREFIX}\n${body}`;
-
-    const results: Array<{ phone: string; dedupeKey: string; sent: boolean; reason?: string }> = [];
-    for (const phone of phones) {
-      const dedupeKey = `cheque:reminder-test:${leaf.id}:${today}:${phone.slice(-4)}`;
-      const result = await this.smsOutbound.sendIfAllowed({
-        eventKey: SMS_EVENT_KEYS.CHEQUE_DUE_REMINDER,
-        phone,
-        message,
-        dedupeKey,
-        templateKey: SMS_TEMPLATE_KEYS.CHEQUE_DUE_REMINDER,
-        skipAlwaysCc: true,
-      });
-      results.push({
-        phone: maskPhone(phone),
-        dedupeKey,
-        sent: Boolean(result.success && !result.skipped),
-        ...(result.reason ? { reason: result.reason } : {}),
-      });
-    }
-
-    this.logger.log(
-      `Cheque due TEST send leaf=${leaf.id} phones=${results.map((r) => r.phone).join(',')} sent=${results.filter((r) => r.sent).length}`,
-    );
-    return { leafId: leaf.id, jalaliDueDate, results };
+    return {
+      enabled: this.isChequeDueSmsEnabled(),
+      schedule: { cron: CHEQUE_DUE_CRON, timeZone: CHEQUE_DUE_CRON_TZ },
+      today,
+      todayJalali: ChequeDueSmsReminderService.gregorianYmdToJalali(today),
+      recipients: recipients.map((r) => ({
+        userId: r.userId,
+        name: r.name,
+        phone: maskPhone(r.phone),
+      })),
+      offsets: windows.map((w) => ({
+        offsetDays: w.offsetDays,
+        stage: w.stage,
+        dueDate: w.dueDate,
+        jalaliDueDate: w.jalaliDueDate,
+        windowStart: w.start.toISOString(),
+        windowEnd: w.end.toISOString(),
+        leafIds: w.leaves.map((l) => l.id),
+      })),
+      count: items.length,
+      sentCount: items.filter((i) => i.dispatch === 'sent').length,
+      pendingCount: items.filter((i) => i.dispatch === 'pending').length,
+      items,
+    };
   }
 
   private async recordInAppNotice(item: ChequeDueReminderPlanItem): Promise<void> {
@@ -572,7 +553,7 @@ export class ChequeDueSmsReminderService {
     }
   }
 
-  @Cron('0 9 * * *', { timeZone: 'Asia/Tehran' })
+  @Cron(CHEQUE_DUE_CRON, { timeZone: CHEQUE_DUE_CRON_TZ })
   async scheduledReminders() {
     try {
       await this.runReminders();
