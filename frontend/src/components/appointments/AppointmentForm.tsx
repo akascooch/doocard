@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,6 +40,12 @@ import {
   REFERENCE_KEYS,
 } from '@/lib/offline/reference-cache';
 import type { CustomerRef } from '@/lib/offline/types';
+import {
+  type BarberLine,
+  buildMultiBarberCreateBody,
+  groupLinesByBarber,
+  groupSpanMin,
+} from '@/lib/booking-selections';
 
 interface Service {
   id: number;
@@ -77,6 +83,74 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
   const [lockedEmployeeId, setLockedEmployeeId] = useState<number | null>(null);
   const [lockedEmployeeName, setLockedEmployeeName] = useState('');
   const lockEmployee = employeeUiIsLocked(role);
+  const [lineEmployees, setLineEmployees] = useState<Record<number, number | null>>({});
+  const [groupTimes, setGroupTimes] = useState<Record<number, string | null>>({});
+  const groupKeyRef = useRef<string | null>(null);
+  const perServiceBarber = role === 'ADMIN' && formData.serviceIds.length > 1;
+
+  const setLineEmployee = (serviceId: number, employeeId: number | null) => {
+    groupKeyRef.current = null;
+    setLineEmployees((prev) => ({ ...prev, [serviceId]: employeeId }));
+  };
+  const setGroupTime = (employeeId: number, time: string | null) => {
+    groupKeyRef.current = null;
+    setGroupTimes((prev) => ({ ...prev, [employeeId]: time }));
+  };
+  const barberLines: BarberLine[] = perServiceBarber
+    ? formData.serviceIds.flatMap((serviceId) => {
+        const employeeId = lineEmployees[serviceId];
+        const service = services.find((s) => s.id === serviceId);
+        return employeeId && service
+          ? [{ serviceId, employeeId, durationMin: effectiveServiceDurationMin(service) }]
+          : [];
+      })
+    : [];
+  const barberGroups = groupLinesByBarber(barberLines);
+
+  const submitPerServiceBarber = async () => {
+    const jalaliDate = jalaliToApiDate(formData.date);
+    if (!jalaliDate || !formData.customerId) {
+      toast({ title: 'خطا', description: 'مشتری و تاریخ معتبر الزامی است', variant: 'destructive' });
+      return;
+    }
+    if (await shouldUseOfflineQueue()) {
+      toast({
+        title: 'خطا',
+        description: 'ثبت نوبت با چند آرایشگر در حالت آفلاین پشتیبانی نمی‌شود',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const groupStartTimes: Record<number, string | null> = {};
+    for (const group of barberGroups) {
+      const iso = groupTimes[group.employeeId];
+      groupStartTimes[group.employeeId] = iso ? tehranHHmmFromIso(iso) : null;
+    }
+    if (!groupKeyRef.current) groupKeyRef.current = crypto.randomUUID();
+    const body = buildMultiBarberCreateBody({
+      customerId: formData.customerId,
+      jalaliDate,
+      notes: formData.notes || undefined,
+      clientOpId: groupKeyRef.current,
+      lines: barberLines,
+      groupStartTimes,
+    });
+    await api.post('/appointments', body);
+
+    toast({ title: '✅ نوبت ثبت شد', description: '🎉 نوبت‌ها با موفقیت ثبت شدند' });
+    groupKeyRef.current = null;
+    setLineEmployees({});
+    setGroupTimes({});
+    setFormData({
+      serviceIds: [],
+      employeeId: null,
+      customerId: null,
+      date: getTehranTodayJalali(),
+      time: null,
+      notes: '',
+    });
+    if (onSuccess) onSuccess();
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -145,7 +219,13 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
       newErrors.serviceIds = 'حداقل یک سرویس را انتخاب کنید';
     }
 
-    if (!lockEmployee && !formData.employeeId) {
+    if (perServiceBarber) {
+      if (formData.serviceIds.some((id) => !lineEmployees[id])) {
+        newErrors.employeeId = 'برای هر سرویس یک آرایشگر انتخاب کنید';
+      } else if (barberGroups.some((group) => !groupTimes[group.employeeId])) {
+        newErrors.time = 'برای هر آرایشگر زمان شروع را انتخاب کنید';
+      }
+    } else if (!lockEmployee && !formData.employeeId) {
       newErrors.employeeId = 'انتخاب آرایشگر الزامی است';
     }
 
@@ -161,7 +241,7 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
       newErrors.date = 'انتخاب تاریخ الزامی است';
     }
 
-    if (!formData.time) {
+    if (!perServiceBarber && !formData.time) {
       newErrors.time = 'انتخاب زمان الزامی است';
     }
 
@@ -183,6 +263,11 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
 
     try {
       setLoading(true);
+
+      if (perServiceBarber) {
+        await submitPerServiceBarber();
+        return;
+      }
 
       const selectedServices = services.filter(s => formData.serviceIds.includes(s.id));
       const servicesPayload = selectedServices.map(s => ({
@@ -406,25 +491,45 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
           />
 
           {/* Employee Select (filtered by services) */}
-          <EmployeeSelectFiltered
-            selectedServiceIds={formData.serviceIds}
-            selectedEmployeeId={formData.employeeId}
-            onChange={(id) => {
-              if (lockEmployee) return;
-              setFormData({ ...formData, employeeId: id });
-            }}
-            label="آرایشگر *"
-            required
-            error={errors.employeeId}
-            locked={lockEmployee}
-            lockedDisplayName={lockedEmployeeName}
-          />
+          {perServiceBarber ? (
+            <div className="space-y-3 rounded-lg border border-border p-3" data-cy="per-service-barbers">
+              <p className="text-sm text-muted-foreground">
+                برای هر سرویس آرایشگر جداگانه انتخاب کنید؛ هر سرویس نوبت مستقل خودش را می‌گیرد.
+                خدمات یک آرایشگر پشت سر هم چیده می‌شوند.
+              </p>
+              {formData.serviceIds.map((serviceId) => (
+                <EmployeeSelectFiltered
+                  key={serviceId}
+                  selectedServiceIds={[serviceId]}
+                  selectedEmployeeId={lineEmployees[serviceId] ?? null}
+                  onChange={(id) => setLineEmployee(serviceId, id)}
+                  label={`آرایشگر «${services.find((s) => s.id === serviceId)?.name ?? 'سرویس'}» *`}
+                  required
+                />
+              ))}
+              {errors.employeeId && <p className="text-sm text-destructive">{errors.employeeId}</p>}
+            </div>
+          ) : (
+            <EmployeeSelectFiltered
+              selectedServiceIds={formData.serviceIds}
+              selectedEmployeeId={formData.employeeId}
+              onChange={(id) => {
+                if (lockEmployee) return;
+                setFormData({ ...formData, employeeId: id });
+              }}
+              label="آرایشگر *"
+              required
+              error={errors.employeeId}
+              locked={lockEmployee}
+              lockedDisplayName={lockedEmployeeName}
+            />
+          )}
 
           {/* Customer Typeahead (only for ADMIN/EMPLOYEE) */}
           {role !== 'CUSTOMER' && (
             <CustomerTypeahead
               selectedCustomerId={formData.customerId}
-              preferredEmployeeId={formData.employeeId}
+              preferredEmployeeId={perServiceBarber ? barberLines[0]?.employeeId ?? null : formData.employeeId}
               scopeMine={role === 'EMPLOYEE'}
               onChange={(id) => {
                 setFormData({ ...formData, customerId: id });
@@ -464,17 +569,37 @@ export default function AppointmentForm({ role, customerId, onSuccess }: Appoint
           </div>
 
           {/* Time Slot Picker */}
-          <SlotPickerProfessional
-            key={slotRefreshKey}
-            employeeId={formData.employeeId}
-            date={formData.date}
-            durationMin={selectedServices.length ? totalDuration : FALLBACK_BOOKING_DURATION_MIN}
-            selectedTime={formData.time}
-            onChange={(time) => setFormData({ ...formData, time })}
-            label="زمان *"
-            required
-            error={errors.time}
-          />
+          {perServiceBarber ? (
+            <div className="space-y-4">
+              {barberGroups.map((group) => (
+                <SlotPickerProfessional
+                  key={`${slotRefreshKey}-${group.employeeId}`}
+                  employeeId={group.employeeId}
+                  date={formData.date}
+                  durationMin={barberGroups.length > 1 ? groupSpanMin(group) : totalDuration}
+                  selectedTime={groupTimes[group.employeeId] ?? null}
+                  onChange={(time) => setGroupTime(group.employeeId, time)}
+                  label={`زمان شروع: ${group.lines
+                    .map((line) => services.find((s) => s.id === line.serviceId)?.name ?? 'سرویس')
+                    .join('، ')} *`}
+                  required
+                />
+              ))}
+              {errors.time && <p className="text-sm text-destructive">{errors.time}</p>}
+            </div>
+          ) : (
+            <SlotPickerProfessional
+              key={slotRefreshKey}
+              employeeId={formData.employeeId}
+              date={formData.date}
+              durationMin={selectedServices.length ? totalDuration : FALLBACK_BOOKING_DURATION_MIN}
+              selectedTime={formData.time}
+              onChange={(time) => setFormData({ ...formData, time })}
+              label="زمان *"
+              required
+              error={errors.time}
+            />
+          )}
 
           {/* Notes */}
           <div>

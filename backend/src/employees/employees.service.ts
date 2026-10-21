@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { manualTipAllowsService } from '../appointments/manual-settlement-tip';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { AssignServicesToEmployeeDto } from './dto/employee-service.dto';
@@ -218,6 +220,27 @@ export class EmployeesService {
         isDefault: e.isDefault,
         appointmentCount: e._count.appointments,
       }));
+  }
+
+  /**
+   * Active manual-tip recipients for checkout. Barbers always; SERVICE staff only
+   * when MANUAL_TIP_ALLOW_SERVICE is on, matching assertManualTipRecipient.
+   */
+  async findManualTipRecipients(allowService = manualTipAllowsService()) {
+    const roles: UserRole[] = allowService
+      ? [UserRole.EMPLOYEE, UserRole.SERVICE]
+      : [UserRole.EMPLOYEE];
+    const employees = await this.prisma.employee.findMany({
+      where: { isActive: true, user: { role: { in: roles } } },
+      select: { id: true, isActive: true, user: { select: { name: true, role: true } } },
+      orderBy: { id: 'asc' },
+    });
+    return employees.map((e) => ({
+      id: e.id,
+      fullName: e.user?.name ?? `پرسنل #${e.id}`,
+      role: e.user?.role ?? UserRole.EMPLOYEE,
+      isActive: e.isActive,
+    }));
   }
 
   /** Active service staff eligible for tip recipient selection (excludes hairstylists). */

@@ -49,6 +49,13 @@ export class EmployeesController {
     return this.employeesService.findActiveServiceStaff();
   }
 
+  /** Same roles as POST /appointments/:id/settle. */
+  @Get('tip-recipients/manual')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  findManualTipRecipients() {
+    return this.employeesService.findManualTipRecipients();
+  }
+
   @Get('search')
   @Roles('ADMIN', 'EMPLOYEE')
   search(@Query('q') query: string) {

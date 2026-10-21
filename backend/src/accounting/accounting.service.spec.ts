@@ -143,14 +143,18 @@ describe('AccountingService', () => {
       const expenseWhere = mockPrismaService.transaction.aggregate.mock.calls[1][0].where;
       expect(expenseWhere).toEqual(accountingExpenseWhere());
       expect(expenseWhere.type).toBe('EXPENSE');
-      expect(expenseWhere.NOT.OR[0].sourceType.in).toEqual([
+      expect(expenseWhere.NOT).toBeUndefined();
+      const [sourceClause, categoryClause] = expenseWhere.AND;
+      expect(sourceClause.OR[0]).toEqual({ sourceType: null });
+      expect(sourceClause.OR[1].sourceType.notIn).toEqual([
         'CHEQUE_LEAF_PAYROLL',
         'SALARY_REQUEST',
         'COMMISSION_SETTLEMENT',
       ]);
-      expect(expenseWhere.NOT.OR[0].sourceType.in).not.toContain('CHEQUE_LEAF');
-      expect(expenseWhere.NOT.OR[0].sourceType.in).not.toContain('EXCEL_IMPORT:PAYS');
-      expect(expenseWhere.NOT.OR[1].category.code.in).toEqual([
+      expect(sourceClause.OR[1].sourceType.notIn).not.toContain('CHEQUE_LEAF');
+      expect(sourceClause.OR[1].sourceType.notIn).not.toContain('EXCEL_IMPORT:PAYS');
+      expect(categoryClause.OR[0]).toEqual({ categoryId: null });
+      expect(categoryClause.OR[1].category.is.OR[1].code.notIn).toEqual([
         'EMPLOYEE_WITHDRAWAL',
         'COMMISSION_SETTLEMENT',
         'SALARY_ADVANCE',

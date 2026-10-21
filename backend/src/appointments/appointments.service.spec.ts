@@ -281,7 +281,7 @@ describe('AppointmentsService', () => {
         const tx = {
           $executeRaw: jest.fn().mockResolvedValue(undefined),
           appointment: {
-            findFirst: jest.fn().mockResolvedValue(null),
+            findMany: jest.fn().mockResolvedValue([]),
             create: jest.fn().mockResolvedValue({
               ...appointmentRow,
               status: 'PENDING',
@@ -339,7 +339,7 @@ describe('AppointmentsService', () => {
         const tx = {
           $executeRaw: jest.fn().mockResolvedValue(undefined),
           appointment: {
-            findFirst: jest.fn().mockResolvedValue(null),
+            findMany: jest.fn().mockResolvedValue([]),
             create: jest.fn().mockResolvedValue({ ...appointmentRow, status: 'PENDING' }),
           },
           blockedTime: { findFirst: jest.fn().mockResolvedValue(null) },
@@ -389,7 +389,7 @@ describe('AppointmentsService', () => {
         const tx = {
           $executeRaw: jest.fn().mockResolvedValue(undefined),
           appointment: {
-            findFirst: jest.fn().mockResolvedValue(null),
+            findMany: jest.fn().mockResolvedValue([]),
             create: jest.fn().mockImplementation(async ({ data }: { data: { scheduledAt: Date; durationMin: number } }) => {
               created = data;
               return { ...appointmentRow, ...data, status: 'PENDING' };
@@ -477,7 +477,7 @@ describe('AppointmentsService', () => {
         const tx = {
           $executeRaw: jest.fn().mockResolvedValue(undefined),
           appointment: {
-            findFirst: jest.fn().mockResolvedValue(null),
+            findMany: jest.fn().mockResolvedValue([]),
             create: jest.fn().mockImplementation(async ({ data }: { data: { customerId: number } }) => {
               createdCustomerId = data.customerId;
               return { ...appointmentRow, ...data, status: 'PENDING_CONFIRMATION' };
@@ -595,7 +595,7 @@ describe('AppointmentsService', () => {
         const tx = {
           $executeRaw: jest.fn().mockResolvedValue(undefined),
           appointment: {
-            findFirst: jest.fn().mockResolvedValue(null),
+            findMany: jest.fn().mockResolvedValue([]),
             create: jest.fn().mockImplementation(async ({ data }: { data: typeof created }) => {
               created = data;
               return { ...appointmentRow, ...data, status: 'PENDING_CONFIRMATION' };

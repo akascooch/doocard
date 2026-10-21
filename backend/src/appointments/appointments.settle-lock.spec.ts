@@ -10,8 +10,11 @@ import { CalendarService } from '../calendar/calendar.service';
 import { SmsOutboundService } from '../sms/sms-outbound.service';
 import { SmsTemplateService } from '../sms/sms-template.service';
 import { TipAlertService } from '../sms/tip-alert.service';
+import { flushFireAndForgetAfterEach } from '../../test/flush-fire-and-forget';
 
 describe('AppointmentsService.settle row lock (C1)', () => {
+  flushFireAndForgetAfterEach();
+
   const appointmentRow = {
     id: 41,
     customerId: 7,
@@ -49,6 +52,8 @@ describe('AppointmentsService.settle row lock (C1)', () => {
   let harness: ReturnType<typeof createPrismaHarness>;
   let notificationsService: { create: jest.Mock };
   let smsOutbound: { sendIfAllowed: jest.Mock };
+  let tipAlert: { notifyTipRecipients: jest.Mock };
+  let push: { sendToUser: jest.Mock };
 
   function createPrismaHarness() {
     const rowState = {
@@ -192,6 +197,8 @@ describe('AppointmentsService.settle row lock (C1)', () => {
     prisma = harness.prisma;
     notificationsService = { create: jest.fn().mockResolvedValue({ id: 1 }) };
     smsOutbound = { sendIfAllowed: jest.fn().mockResolvedValue({ success: true }) };
+    tipAlert = { notifyTipRecipients: jest.fn().mockResolvedValue(undefined) };
+    push = { sendToUser: jest.fn().mockResolvedValue({ sent: 0, failed: 0 }) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -200,14 +207,11 @@ describe('AppointmentsService.settle row lock (C1)', () => {
         { provide: AccountingService, useValue: {} },
         { provide: NotificationsService, useValue: notificationsService },
         { provide: NotificationsGateway, useValue: { sendToUser: jest.fn(), sendToRole: jest.fn() } },
-        {
-          provide: PushNotificationsService,
-          useValue: { sendToUser: jest.fn().mockResolvedValue({ sent: 0, failed: 0 }) },
-        },
+        { provide: PushNotificationsService, useValue: push },
         { provide: CalendarService, useValue: {} },
         { provide: SmsOutboundService, useValue: smsOutbound },
         { provide: SmsTemplateService, useValue: { getByKey: jest.fn(), renderByKey: jest.fn() } },
-        { provide: TipAlertService, useValue: { notifyTipRecipients: jest.fn().mockResolvedValue(undefined) } },
+        { provide: TipAlertService, useValue: tipAlert },
       ],
     }).compile();
 
@@ -277,5 +281,77 @@ describe('AppointmentsService.settle row lock (C1)', () => {
     expect(notificationsService.create).toHaveBeenCalledTimes(2);
     expect(smsOutbound.sendIfAllowed).not.toHaveBeenCalled();
     expect(harness.callOrder.filter((s) => s === 'FOR UPDATE')).toHaveLength(2);
+  });
+
+  it('resolves without waiting for tip alerts or push delivery (never-resolving push)', async () => {
+    const never = new Promise<never>(() => undefined);
+    push.sendToUser.mockReturnValue(never);
+    tipAlert.notifyTipRecipients.mockReturnValue(never);
+    prisma.appointmentTipAllocation.findMany.mockResolvedValue([
+      { employeeId: 8, amountRial: 30_000n },
+      { employeeId: 9, amountRial: 30_000n },
+      { employeeId: 10, amountRial: 30_000n },
+    ]);
+
+    const started = Date.now();
+    const result = await Promise.race([
+      service.settle(41, settleDto as any, admin),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('settle blocked')), 300)),
+    ]);
+
+    expect((result as { status: string }).status).toBe('SETTLED');
+    expect(Date.now() - started).toBeLessThan(300);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(tipAlert.notifyTipRecipients).toHaveBeenCalledTimes(1);
+    expect(tipAlert.notifyTipRecipients.mock.calls[0][0].allocations).toHaveLength(3);
+  });
+
+  it('settle with the REAL TipAlertService returns < 300ms while every push hangs forever', async () => {
+    const hangingPush = { sendToUser: jest.fn().mockReturnValue(new Promise(() => undefined)) };
+    const inApp = { create: jest.fn().mockResolvedValue({ id: 1, userIdTarget: 1 }) };
+    const realTipAlert = new TipAlertService(
+      {
+        employee: {
+          findMany: jest.fn().mockResolvedValue(
+            [8, 9, 10].map((id) => ({ id, userId: id * 10, user: { id: id * 10, name: `S${id}`, phone: null } })),
+          ),
+        },
+        notification: { findFirst: jest.fn().mockResolvedValue(null) },
+      } as any,
+      inApp as any,
+      { sendToUser: jest.fn() } as any,
+      hangingPush as any,
+    );
+    (service as any).tipAlertService = realTipAlert;
+    push.sendToUser.mockReturnValue(new Promise(() => undefined));
+    prisma.appointmentTipAllocation.findMany.mockResolvedValue([
+      { employeeId: 8, amountRial: 30_000n },
+      { employeeId: 9, amountRial: 30_000n },
+      { employeeId: 10, amountRial: 30_000n },
+    ]);
+
+    const started = Date.now();
+    const result = await Promise.race([
+      service.settle(41, settleDto as any, admin),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('settle blocked')), 300)),
+    ]);
+    expect((result as { status: string }).status).toBe('SETTLED');
+    expect(Date.now() - started).toBeLessThan(300);
+
+    for (let i = 0; i < 10 && hangingPush.sendToUser.mock.calls.length < 3; i += 1) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    expect(inApp.create).toHaveBeenCalledTimes(3);
+    expect(hangingPush.sendToUser).toHaveBeenCalledTimes(3);
+  });
+
+  it('externalRef replay returns the existing appointment without a new write transaction', async () => {
+    prisma.transaction.findFirst.mockResolvedValueOnce({ id: 501, meta: { externalRef: 'op-1' } });
+
+    const result = await service.settle(41, { ...settleDto, externalRef: 'op-1' } as any, admin);
+
+    expect(result.id).toBe(41);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(tipAlert.notifyTipRecipients).not.toHaveBeenCalled();
   });
 });

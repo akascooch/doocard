@@ -10,6 +10,7 @@ describe('ChequeDueSmsReminderService', () => {
   const prisma = {
     chequeLeaf: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
     },
     notification: {
       findFirst: jest.fn(),
@@ -371,5 +372,173 @@ describe('ChequeDueSmsReminderService', () => {
     await service.scheduledReminders();
     expect(smsOutbound.sendIfAllowed).not.toHaveBeenCalled();
     expect(prisma.chequeLeaf.findMany).not.toHaveBeenCalled();
+    expect(prisma.chequeLeaf.findFirst).not.toHaveBeenCalled();
+    expect(prisma.user.findMany).not.toHaveBeenCalled();
+    expect(prisma.notification.findFirst).not.toHaveBeenCalled();
+    expect(prisma.notification.create).not.toHaveBeenCalled();
+  });
+
+  describe('test allowlist + preview + test-send', () => {
+    const leafRow = {
+      id: 31,
+      leafNumber: 310,
+      amount: 7_000n,
+      payee: 'T',
+      dueDate: new Date('2026-07-27T08:00:00Z'),
+      category: 'NORMAL',
+      chequebook: { serialNumber: 'CB-9', bankAccount },
+    };
+
+    function setEnv(env: Record<string, string | undefined>) {
+      config.get.mockImplementation((key: string) => env[key]);
+    }
+
+    it('restricts recipients to CHEQUE_DUE_SMS_TEST_PHONES and ignores role recipients', async () => {
+      setEnv({
+        CHEQUE_DUE_SMS_TEST_PHONES: '09121013686, 09370504588',
+        CHEQUE_DUE_SMS_USE_ROLE_RECIPIENTS: 'true',
+        CHEQUE_DUE_SMS_INCLUDE_ACCOUNTANT: 'true',
+      });
+      expect(service.isTestMode()).toBe(true);
+      expect(await service.resolveReminderPhones()).toEqual(['09121013686', '09370504588']);
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
+    });
+
+    it('accepts up to 3 allowlisted phones and dedupes equivalent formats', async () => {
+      setEnv({ CHEQUE_DUE_SMS_TEST_PHONES: '09121013686;+989121013686 09370504588,09121111111' });
+      expect(await service.resolveReminderPhones()).toEqual([
+        '09121013686',
+        '09370504588',
+        '09121111111',
+      ]);
+    });
+
+    it('fails closed (no recipients at all) when the allowlist has more than 3 phones', async () => {
+      setEnv({
+        CHEQUE_DUE_SMS_TEST_PHONES: '09121111111,09122222222,09123333333,09124444444',
+        CHEQUE_DUE_SMS_ENABLED: 'true',
+        CHEQUE_DUE_SMS_USE_ROLE_RECIPIENTS: 'true',
+      });
+      prisma.chequeLeaf.findMany.mockResolvedValue([leafRow]);
+      expect(await service.resolveReminderPhones()).toEqual([]);
+      const result = await service.runReminders({ now: new Date('2026-07-25T12:00:00+03:30') });
+      expect(result.planned).toBe(0);
+      expect(smsOutbound.sendIfAllowed).not.toHaveBeenCalled();
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
+    });
+
+    it('cron with the allowlist set but CHEQUE_DUE_SMS_ENABLED off neither queries nor sends', async () => {
+      setEnv({ CHEQUE_DUE_SMS_TEST_PHONES: '09121013686,09370504588', CHEQUE_DUE_SMS_ENABLED: 'false' });
+      await service.scheduledReminders();
+      expect(prisma.chequeLeaf.findMany).not.toHaveBeenCalled();
+      expect(prisma.chequeLeaf.findFirst).not.toHaveBeenCalled();
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
+      expect(prisma.notification.create).not.toHaveBeenCalled();
+      expect(smsOutbound.sendIfAllowed).not.toHaveBeenCalled();
+    });
+
+    it('allowlist mode sends the real cron plan only to allowlisted phones without CC', async () => {
+      setEnv({ CHEQUE_DUE_SMS_TEST_PHONES: '09121013686', CHEQUE_DUE_SMS_ENABLED: 'true' });
+      prisma.chequeLeaf.findMany.mockResolvedValueOnce([leafRow]).mockResolvedValue([]);
+      prisma.notification.findFirst.mockResolvedValue(null);
+      prisma.notification.create.mockResolvedValue({ id: 1 });
+      smsOutbound.sendIfAllowed.mockResolvedValue({ success: true, skipped: false });
+      await service.runReminders({ now: new Date('2026-07-25T12:00:00+03:30') });
+      const phones = smsOutbound.sendIfAllowed.mock.calls.map((c: [any]) => c[0].phone);
+      expect(phones).toEqual(['09121013686']);
+      expect(smsOutbound.sendIfAllowed.mock.calls[0][0].skipAlwaysCc).toBe(true);
+      for (const real of CHEQUE_DUE_REMINDER_PHONES) {
+        if (real !== '09121013686') expect(phones).not.toContain(real);
+      }
+    });
+
+    it('builds offsets 3..0 (T-3 first) on Tehran day bounds', async () => {
+      prisma.chequeLeaf.findMany.mockResolvedValue([]);
+      await service.buildChequeReminderPlan(new Date('2026-07-25T23:50:00+03:30'));
+      const windows = prisma.chequeLeaf.findMany.mock.calls.map(
+        (c: [{ where: { dueDate: { gte: Date; lte: Date } } }]) => c[0].where.dueDate,
+      );
+      expect(windows.map((w: { gte: Date }) => w.gte.toISOString())).toEqual([
+        '2026-07-27T20:30:00.000Z',
+        '2026-07-26T20:30:00.000Z',
+        '2026-07-25T20:30:00.000Z',
+        '2026-07-24T20:30:00.000Z',
+      ]);
+      for (const w of windows) {
+        expect(w.lte.getTime() - w.gte.getTime()).toBe(86_400_000 - 1);
+      }
+    });
+
+    it('never falls back to default recipients when the allowlist is invalid', async () => {
+      setEnv({ CHEQUE_DUE_SMS_TEST_PHONES: 'not-a-phone', CHEQUE_DUE_SMS_ENABLED: 'true' });
+      prisma.chequeLeaf.findMany.mockResolvedValue([leafRow]);
+      expect(await service.resolveReminderPhones()).toEqual([]);
+      const plan = await service.buildChequeReminderPlan(new Date('2026-07-25T12:00:00+03:30'));
+      expect(plan).toHaveLength(0);
+    });
+
+    it('limits the plan window to maxOffsetDays and uses Tehran day bounds', async () => {
+      prisma.chequeLeaf.findMany.mockResolvedValue([]);
+      const now = new Date('2026-07-25T00:10:00+03:30');
+      await service.buildChequeReminderPlan(now, 1);
+      const windows = prisma.chequeLeaf.findMany.mock.calls.map(
+        (c: [{ where: { dueDate: { gte: Date; lte: Date } } }]) => c[0].where.dueDate,
+      );
+      expect(windows).toHaveLength(2);
+      expect(windows[0].gte.toISOString()).toBe('2026-07-25T20:30:00.000Z');
+      expect(windows[1].gte.toISOString()).toBe('2026-07-24T20:30:00.000Z');
+      expect(windows[1].lte.toISOString()).toBe('2026-07-25T20:29:59.999Z');
+    });
+
+    it('preview works with sending disabled, masks phones, and never sends', async () => {
+      setEnv({ CHEQUE_DUE_SMS_ENABLED: 'false' });
+      prisma.chequeLeaf.findMany.mockResolvedValueOnce([leafRow]).mockResolvedValue([]);
+      const preview = await service.previewPlan({ now: new Date('2026-07-25T12:00:00+03:30'), days: 3 });
+      expect(preview.enabled).toBe(false);
+      expect(preview.count).toBe(2);
+      expect(preview.leafIds).toEqual([31]);
+      expect(preview.recipients.every((p) => /^\*+\d{4}$/.test(p))).toBe(true);
+      expect(JSON.stringify(preview)).not.toMatch(/09\d{9}/);
+      expect(smsOutbound.sendIfAllowed).not.toHaveBeenCalled();
+    });
+
+    it('test-send sends exactly one message per distinct phone even if the allowlist repeats it', async () => {
+      setEnv({ CHEQUE_DUE_SMS_TEST_PHONES: '09121013686,+989121013686,9121013686' });
+      prisma.chequeLeaf.findFirst.mockResolvedValue(leafRow);
+      smsOutbound.sendIfAllowed.mockResolvedValue({ success: true, skipped: false });
+      await service.sendTestReminder({ now: new Date('2026-07-25T12:00:00+03:30') });
+      expect(smsOutbound.sendIfAllowed).toHaveBeenCalledTimes(1);
+      expect(smsOutbound.sendIfAllowed.mock.calls[0][0].dedupeKey.startsWith('cheque:reminder-test:')).toBe(true);
+    });
+
+    it('test-send refuses when the allowlist is missing or too long', async () => {
+      setEnv({});
+      await expect(service.sendTestReminder({})).rejects.toThrow('CHEQUE_DUE_SMS_TEST_PHONES');
+      setEnv({ CHEQUE_DUE_SMS_TEST_PHONES: '09121111111,09122222222,09123333333,09124444444' });
+      await expect(service.sendTestReminder({})).rejects.toThrow();
+      expect(prisma.chequeLeaf.findFirst).not.toHaveBeenCalled();
+      expect(smsOutbound.sendIfAllowed).not.toHaveBeenCalled();
+    });
+
+    it('test-send sends once per allowlisted phone, no CC, separate dedupe namespace, no in-app notice', async () => {
+      setEnv({ CHEQUE_DUE_SMS_TEST_PHONES: '09121013686,09370504588', CHEQUE_DUE_SMS_ENABLED: 'false' });
+      prisma.chequeLeaf.findFirst.mockResolvedValue(leafRow);
+      smsOutbound.sendIfAllowed.mockResolvedValue({ success: true, skipped: false });
+
+      const result = await service.sendTestReminder({ now: new Date('2026-07-25T12:00:00+03:30') });
+
+      expect(smsOutbound.sendIfAllowed).toHaveBeenCalledTimes(2);
+      const calls = smsOutbound.sendIfAllowed.mock.calls.map((c: [any]) => c[0]);
+      expect(calls.map((c: any) => c.phone)).toEqual(['09121013686', '09370504588']);
+      for (const call of calls) {
+        expect(call.skipAlwaysCc).toBe(true);
+        expect(call.eventKey).toBe(SMS_EVENT_KEYS.CHEQUE_DUE_REMINDER);
+        expect(call.dedupeKey).toMatch(/^cheque:reminder-test:31:2026-07-25:\d{4}$/);
+        expect(call.message.startsWith('[پیام آزمایشی]')).toBe(true);
+      }
+      expect(result.results.every((r) => r.sent)).toBe(true);
+      expect(JSON.stringify(result)).not.toMatch(/09\d{9}/);
+      expect(prisma.notification.create).not.toHaveBeenCalled();
+    });
   });
 });

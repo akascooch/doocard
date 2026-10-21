@@ -86,31 +86,37 @@ describe('AdminFinancialService expense aggregation', () => {
       new Date('2026-03-21T00:00:00.000Z'),
       new Date('2026-04-20T23:59:59.000Z'),
     );
-    const excluded = where.NOT as {
-      OR: Array<{ sourceType?: { in: string[] }; category?: { code: { in: string[] } } }>;
-    };
-    expect(excluded.OR[0].sourceType?.in).toEqual([...PAYROLL_WITHDRAWAL_SOURCE_TYPES]);
-    expect(excluded.OR[0].sourceType?.in).toEqual([
+    expect(where.NOT).toBeUndefined();
+    const [sourceClause, categoryClause, guaranteeClause] = where.AND as any[];
+    expect(sourceClause.OR).toEqual([
+      { sourceType: null },
+      { sourceType: { notIn: [...PAYROLL_WITHDRAWAL_SOURCE_TYPES] } },
+    ]);
+    expect(sourceClause.OR[1].sourceType.notIn).toEqual([
       'CHEQUE_LEAF_PAYROLL',
       'SALARY_REQUEST',
       'COMMISSION_SETTLEMENT',
     ]);
-    expect(excluded.OR[0].sourceType?.in).not.toContain('CHEQUE_LEAF');
-    expect(excluded.OR[0].sourceType?.in).not.toContain('EXCEL_IMPORT:PAYS');
-    expect(excluded.OR[1].category?.code.in).toEqual([
-      ...PAYROLL_WITHDRAWAL_CATEGORY_CODES,
+    expect(sourceClause.OR[1].sourceType.notIn).not.toContain('CHEQUE_LEAF');
+    expect(sourceClause.OR[1].sourceType.notIn).not.toContain('EXCEL_IMPORT:PAYS');
+    expect(categoryClause.OR[0]).toEqual({ categoryId: null });
+    expect(categoryClause.OR[1].category.is.requiresEmployee).toBe(false);
+    expect(categoryClause.OR[1].category.is.OR).toEqual([
+      { code: null },
+      { code: { notIn: [...PAYROLL_WITHDRAWAL_CATEGORY_CODES] } },
     ]);
-    expect(excluded.OR[1].category?.code.in).toEqual([
+    expect(categoryClause.OR[1].category.is.OR[1].code.notIn).toEqual([
       'EMPLOYEE_WITHDRAWAL',
       'COMMISSION_SETTLEMENT',
       'SALARY_ADVANCE',
       'PAYROLL',
       'EMPLOYEE_WITHDRAWAL_LEGACY',
     ]);
-    expect(excluded.OR[2]).toEqual({
-      sourceType: 'CHEQUE_LEAF',
-      chequeLeaves: { some: { category: 'GUARANTEE' } },
-    });
+    expect(guaranteeClause.OR).toEqual([
+      { sourceType: null },
+      { sourceType: { not: 'CHEQUE_LEAF' } },
+      { chequeLeaves: { none: { category: 'GUARANTEE' } } },
+    ]);
     expect(JSON.stringify(where)).not.toContain('BLANK');
     expect(JSON.stringify(where)).not.toContain('CANCELLED');
     expect(JSON.stringify(where)).not.toContain('BOUNCED');

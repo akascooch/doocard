@@ -29,6 +29,7 @@ import {
 } from 'recharts'
 import axios from '@/lib/axios'
 import { formatTomansFromRial } from '@/lib/money'
+import { buildExpenseCategorySeries } from '@/lib/expense-category-series'
 import {
   isFinancialAccessValid,
   setFinancialAccess,
@@ -61,6 +62,16 @@ interface TopCustomerRow {
 }
 
 const DEFAULT_YEAR = 1404
+
+const EXPENSE_SERIES_COLORS = [
+  '#ef4444',
+  '#3b82f6',
+  '#f59e0b',
+  '#10b981',
+  '#8b5cf6',
+  '#ec4899',
+  '#94a3b8',
+]
 
 export default function AdminFinancialPage() {
   const [yearlyReport, setYearlyReport] = useState<YearlyReport | null>(null)
@@ -188,19 +199,13 @@ export default function AdminFinancialPage() {
     )
   }
 
-  const expenseChartData =
-    yearlyReport?.months.map((m) => {
-      const total = Number(m.expense.total)
-      const cheques = Number(m.expense.cheques ?? 0)
-      const other = Number(m.expense.other ?? Math.max(0, total - cheques))
-      return {
-        month: m.month,
-        total,
-        other,
-        cheques,
-        categories: m.expense.categories,
-      }
-    }) ?? []
+  const { series: expenseSeries, rows: expenseCategoryRows } = buildExpenseCategorySeries(
+    yearlyReport?.months ?? [],
+  )
+  const expenseChartData = expenseCategoryRows.map((row, i) => ({
+    ...row,
+    cheques: Number(yearlyReport?.months[i]?.expense.cheques ?? 0),
+  }))
 
   const revenueChartData =
     yearlyReport?.months.map((m) => ({
@@ -309,8 +314,9 @@ export default function AdminFinancialPage() {
                             <p className="text-sm text-foreground/80 mb-1">
                               کل: {formatTomansFromRial(row.total)}
                             </p>
-                            <p className="text-xs">سایر هزینه‌ها: {formatTomansFromRial(row.other)}</p>
-                            <p className="text-xs mb-1">چک وصول‌شده: {formatTomansFromRial(row.cheques)}</p>
+                            <p className="text-xs mb-1">
+                              از این مبلغ، چک وصول‌شده: {formatTomansFromRial(row.cheques)}
+                            </p>
                             {row.categories?.length > 0 && (
                               <ul className="text-xs space-y-1 mt-1">
                                 {row.categories.map((c, i) => (
@@ -324,8 +330,17 @@ export default function AdminFinancialPage() {
                         )
                       }}
                     />
-                    <Bar dataKey="other" name="سایر هزینه‌ها" stackId="expense" fill="hsl(var(--destructive))" />
-                    <Bar dataKey="cheques" name="چک وصول‌شده" stackId="expense" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    <Legend />
+                    {expenseSeries.map((s, i) => (
+                      <Bar
+                        key={s.key}
+                        dataKey={s.key}
+                        name={s.name}
+                        stackId="expense"
+                        fill={EXPENSE_SERIES_COLORS[i % EXPENSE_SERIES_COLORS.length]}
+                        radius={i === expenseSeries.length - 1 ? [4, 4, 0, 0] : undefined}
+                      />
+                    ))}
                   </BarChart>
                 </ResponsiveContainer>
               ) : (

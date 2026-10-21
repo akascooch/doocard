@@ -8,6 +8,7 @@ import { SmsOutboundService } from './sms-outbound.service';
 import { SmsAdminController } from './sms-admin.controller';
 import { SmsTemplateService } from './sms-template.service';
 import { ChequeDueSmsReminderService } from './cheque-due-sms-reminder.service';
+import { ChequeDueReminderAdminController } from './cheque-due-reminder-admin.controller';
 
 /**
  * Shared SMS send + policy + admin endpoints.
@@ -21,7 +22,7 @@ import { ChequeDueSmsReminderService } from './cheque-due-sms-reminder.service';
       maxRedirects: 0,
     }),
   ],
-  controllers: [SmsAdminController],
+  controllers: [SmsAdminController, ChequeDueReminderAdminController],
   providers: [
     SmsIrHttpAdapter,
     FarazSmsSendService,

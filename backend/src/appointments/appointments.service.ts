@@ -93,6 +93,8 @@ export function resolvePriceOverrideReason(
 const BOOKING_DURATION_MIN = 60;
 const BUSINESS_HOUR_START = 10;
 const BUSINESS_HOUR_END = 22;
+/** Overlap pre-filter lookback; must exceed the longest single appointment. */
+const OVERLAP_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
 function computeTipShares(tipRial: bigint): { staffShare: bigint; salonShare: bigint } {
   // Personal tips: 100% staff, 0% salon. Team shares are computed separately.
@@ -252,6 +254,41 @@ export class AppointmentsService {
   /** Half-open interval overlap: [startA, endA) vs [startB, endB). */
   private intervalsOverlap(startA: Date, endA: Date, startB: Date, endB: Date): boolean {
     return startA.getTime() < endB.getTime() && endA.getTime() > startB.getTime();
+  }
+
+  /**
+   * Exact overlap against every non-cancelled appointment of the barber.
+   * The lookback must cover the longest existing appointment: a window based on
+   * the new appointment's duration misses an earlier-starting, longer booking.
+   */
+  private async findOverlappingAppointment(
+    db: { appointment: Pick<PrismaService['appointment'], 'findMany'> },
+    input: { employeeId: number; start: Date; end: Date; excludeId?: number },
+  ): Promise<{ id: number; scheduledAt: Date; durationMin: number } | null> {
+    const candidates = await db.appointment.findMany({
+      where: {
+        employeeId: input.employeeId,
+        ...(input.excludeId ? { id: { not: input.excludeId } } : {}),
+        status: { notIn: ['CANCELLED'] },
+        deletedAt: null,
+        scheduledAt: {
+          lt: input.end,
+          gte: new Date(input.start.getTime() - OVERLAP_LOOKBACK_MS),
+        },
+      },
+      select: { id: true, scheduledAt: true, durationMin: true },
+      orderBy: { scheduledAt: 'asc' },
+    });
+    return (
+      candidates.find((row) =>
+        this.intervalsOverlap(
+          input.start,
+          input.end,
+          row.scheduledAt,
+          new Date(row.scheduledAt.getTime() + row.durationMin * 60 * 1000),
+        ),
+      ) ?? null
+    );
   }
 
   private clampBusinessHours(
@@ -479,45 +516,18 @@ export class AppointmentsService {
         const rows = [];
         for (let index = 0; index < lines.length; index++) {
           const line = lines[index];
-          const overlapping = await tx.appointment.findFirst({
-            where: {
-              employeeId: line.employeeId,
-              status: { notIn: ['CANCELLED'] },
-              deletedAt: null,
-              OR: [
-                {
-                  AND: [
-                    { scheduledAt: { lte: line.scheduledAt } },
-                    {
-                      scheduledAt: {
-                        gte: new Date(
-                          line.scheduledAt.getTime() - line.snapshot.durationMin * 60 * 1000,
-                        ),
-                      },
-                    },
-                  ],
-                },
-                {
-                  AND: [
-                    { scheduledAt: { gte: line.scheduledAt } },
-                    { scheduledAt: { lt: line.endAt } },
-                  ],
-                },
-              ],
-            },
+          const overlapping = await this.findOverlappingAppointment(tx, {
+            employeeId: line.employeeId,
+            start: line.scheduledAt,
+            end: line.endAt,
           });
           if (overlapping) {
-            const overlappingEnd = new Date(
-              overlapping.scheduledAt.getTime() + overlapping.durationMin * 60 * 1000,
-            );
-            if (this.intervalsOverlap(line.scheduledAt, line.endAt, overlapping.scheduledAt, overlappingEnd)) {
-              throw new BadRequestException({
-                statusCode: 409,
-                message: 'تداخل زمانی! این زمان دیگر رزرو شده است',
-                error: 'SLOT_CONFLICT',
-                internalCode: 'SLOT_CONFLICT',
-              });
-            }
+            throw new BadRequestException({
+              statusCode: 409,
+              message: 'تداخل زمانی! این زمان دیگر رزرو شده است',
+              error: 'SLOT_CONFLICT',
+              internalCode: 'SLOT_CONFLICT',
+            });
           }
           const blockedTime = await tx.blockedTime.findFirst({
             where: {
@@ -740,49 +750,19 @@ export class AppointmentsService {
 
 
           // Check for overlapping appointments
-          const overlapping = await tx.appointment.findFirst({
-            where: {
-              employeeId: dto.employeeId,
-              status: { notIn: ['CANCELLED'] },
-              deletedAt: null,
-              OR: [
-                {
-                  AND: [
-                    { scheduledAt: { lte: scheduledAt } },
-                    { scheduledAt: { gte: new Date(scheduledAt.getTime() - finalDuration * 60 * 1000) } },
-                  ],
-                },
-                {
-                  AND: [
-                    { scheduledAt: { gte: scheduledAt } },
-                    { scheduledAt: { lt: endAt } },
-                  ],
-                },
-              ],
-            },
+          const overlapping = await this.findOverlappingAppointment(tx, {
+            employeeId: dto.employeeId,
+            start: scheduledAt,
+            end: endAt,
           });
 
           if (overlapping) {
-            // Double-check with exact overlap calculation
-            const overlappingEnd = new Date(
-              overlapping.scheduledAt.getTime() + overlapping.durationMin * 60 * 1000
-            );
-
-            const hasConflict = this.intervalsOverlap(
-              scheduledAt,
-              endAt,
-              overlapping.scheduledAt,
-              overlappingEnd,
-            );
-
-            if (hasConflict) {
-              throw new BadRequestException({
-                statusCode: 409,
-                message: 'تداخل زمانی! این زمان دیگر رزرو شده است',
-                error: 'SLOT_CONFLICT',
-                internalCode: 'SLOT_CONFLICT',
-              });
-            }
+            throw new BadRequestException({
+              statusCode: 409,
+              message: 'تداخل زمانی! این زمان دیگر رزرو شده است',
+              error: 'SLOT_CONFLICT',
+              internalCode: 'SLOT_CONFLICT',
+            });
           }
 
           // Check for blocked times
@@ -2056,7 +2036,7 @@ export class AppointmentsService {
       console.warn('[NOTIFY] Settlement notify failed:', (e as any)?.message || e);
     }
 
-    try {
+    this.enqueuePush('tip-alert', async () => {
       const tipAllocations = await this.prisma.appointmentTipAllocation.findMany({
         where: { appointmentId: id },
         select: { employeeId: true, amountRial: true },
@@ -2073,9 +2053,7 @@ export class AppointmentsService {
           })),
         });
       }
-    } catch (e) {
-      console.warn('[NOTIFY] Tip alert failed:', (e as any)?.message || e);
-    }
+    });
 
     return this.formatAppointment(updated);
   }
@@ -2343,45 +2321,13 @@ export class AppointmentsService {
     excludeAppointmentId?: number
   ): Promise<boolean> {
     const endTime = new Date(startTime.getTime() + durationMin * 60 * 1000);
-
-    const overlapping = await this.prisma.appointment.findFirst({
-      where: {
-        employeeId,
-        id: excludeAppointmentId ? { not: excludeAppointmentId } : undefined,
-        status: { notIn: ['CANCELLED'] },
-        deletedAt: null,
-        OR: [
-          {
-            AND: [
-              { scheduledAt: { lte: startTime } },
-              { scheduledAt: { gte: new Date(startTime.getTime() - 1000 * 60 * 60) } }, // within 1 hour window
-            ],
-          },
-          {
-            AND: [
-              { scheduledAt: { gte: startTime } },
-              { scheduledAt: { lt: endTime } },
-            ],
-          },
-        ],
-      },
+    const overlapping = await this.findOverlappingAppointment(this.prisma, {
+      employeeId,
+      start: startTime,
+      end: endTime,
+      excludeId: excludeAppointmentId,
     });
-
-    if (overlapping) {
-      // Double-check with duration
-      const overlappingEnd = new Date(
-        overlapping.scheduledAt.getTime() + overlapping.durationMin * 60 * 1000
-      );
-
-      return this.intervalsOverlap(
-        startTime,
-        endTime,
-        overlapping.scheduledAt,
-        overlappingEnd,
-      );
-    }
-
-    return false;
+    return overlapping != null;
   }
 
   /**

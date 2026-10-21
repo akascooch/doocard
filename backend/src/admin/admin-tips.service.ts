@@ -255,7 +255,7 @@ export class AdminTipsService {
         return source;
       });
 
-      try {
+      void (async () => {
         const tipTypeLabel =
           created.tipType === TipRecipientType.TEAM ? 'انعام تیمی' : 'انعام فردی';
         let barberName: string | null =
@@ -277,9 +277,9 @@ export class AdminTipsService {
             amountRial: a.amountRial,
           })),
         });
-      } catch (e) {
+      })().catch((e) => {
         console.warn('[NOTIFY] Manual tip alert failed:', (e as any)?.message || e);
-      }
+      });
 
       return {
         duplicate: false,

@@ -104,7 +104,7 @@ describe('multi-barber booking group', () => {
       const tx = {
         $executeRaw: jest.fn(),
         appointment: {
-          findFirst: jest.fn().mockResolvedValue(null),
+          findMany: jest.fn().mockResolvedValue([]),
           create: jest.fn().mockImplementation(async ({ data }: { data: any }) => {
             const row = { id: created.length + 1, ...data, customer: { user: { name: 'Cust' } }, employee: { user: { name: 'Barber' } } };
             created.push(data);
@@ -128,6 +128,7 @@ describe('multi-barber booking group', () => {
     expect(created[1].services[0].priceAtBooking).toBe(10_000_000);
     expect(created[0].employeeId).toBe(1);
     expect(created[1].employeeId).toBe(2);
+    expect(created[0].scheduledAt.getTime()).toBe(created[1].scheduledAt.getTime());
     expect(result.appointments).toHaveLength(2);
   });
 
@@ -138,7 +139,7 @@ describe('multi-barber booking group', () => {
       const tx = {
         $executeRaw: jest.fn(),
         appointment: {
-          findFirst: jest.fn().mockResolvedValue(null),
+          findMany: jest.fn().mockResolvedValue([]),
           create: jest.fn().mockImplementation(async () => {
             calls += 1;
             if (calls === 2) throw new Error('insert failed');
@@ -173,7 +174,114 @@ describe('multi-barber booking group', () => {
         } as any,
         { id: 1, role: 'ADMIN' },
       ),
+    ).rejects.toMatchObject({ response: { error: 'SLOT_CONFLICT', statusCode: 409 } });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects off-grid explicit times before writing', async () => {
+    await expect(
+      service.create(
+        {
+          ...dto,
+          selections: [
+            { serviceId: 1, employeeId: 1, time: '11:00' },
+            { serviceId: 2, employeeId: 2, time: '11:15' },
+          ],
+        } as any,
+        { id: 1, role: 'ADMIN' },
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects the same barber in two selections whose on-grid explicit times overlap (SLOT_CONFLICT)', async () => {
+    prisma.employee.findUnique.mockResolvedValue({
+      id: 1,
+      isActive: true,
+      user: { role: 'EMPLOYEE' },
+      employeeServices: [{ serviceId: 1 }, { serviceId: 2 }],
+    });
+    prisma.service.findUnique.mockImplementation(async ({ where }: { where: { id: number } }) => ({
+      id: where.id,
+      name: 'S',
+      price: 10_000_000,
+      durationMinutes: where.id === 1 ? 60 : 30,
+    }));
+
+    await expect(
+      service.create(
+        {
+          ...dto,
+          selections: [
+            { serviceId: 1, employeeId: 1, time: '11:00' },
+            { serviceId: 2, employeeId: 1, time: '11:30' },
+          ],
+        } as any,
+        { id: 1, role: 'ADMIN' },
+      ),
+    ).rejects.toMatchObject({ response: { error: 'SLOT_CONFLICT', statusCode: 409 } });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('allows two barbers with different per-line times', async () => {
+    prisma.appointment.findUnique.mockResolvedValue(null);
+    prisma.appointment.findMany.mockResolvedValue([]);
+    const created: any[] = [];
+    prisma.$transaction.mockImplementation(async (fn: (tx: any) => Promise<unknown>) =>
+      fn({
+        $executeRaw: jest.fn(),
+        appointment: {
+          findMany: jest.fn().mockResolvedValue([]),
+          create: jest.fn().mockImplementation(async ({ data }: { data: any }) => {
+            created.push(data);
+            return { id: created.length, ...data };
+          }),
+        },
+        blockedTime: { findFirst: jest.fn().mockResolvedValue(null) },
+      }),
+    );
+
+    await service.create(
+      {
+        ...dto,
+        selections: [
+          { serviceId: 1, employeeId: 1 },
+          { serviceId: 2, employeeId: 2, time: '12:00' },
+        ],
+      } as any,
+      { id: 1, role: 'ADMIN' },
+    );
+
+    expect(created).toHaveLength(2);
+    expect(created[1].scheduledAt.getTime() - created[0].scheduledAt.getTime()).toBe(60 * 60 * 1000);
+  });
+
+  it('detects an existing appointment that starts earlier and runs longer', async () => {
+    prisma.appointment.findUnique.mockResolvedValue(null);
+    prisma.appointment.findMany.mockResolvedValue([]);
+    let lookbackWhere: any;
+    prisma.$transaction.mockImplementation(async (fn: (tx: any) => Promise<unknown>) =>
+      fn({
+        $executeRaw: jest.fn(),
+        appointment: {
+          findMany: jest.fn().mockImplementation(async ({ where }: { where: any }) => {
+            lookbackWhere = where;
+            if (where.employeeId !== 1) return [];
+            const lineStart = new Date(where.scheduledAt.lt.getTime() - 30 * 60 * 1000);
+            const existingStart = new Date(lineStart.getTime() - 90 * 60 * 1000);
+            return existingStart >= where.scheduledAt.gte
+              ? [{ id: 99, scheduledAt: existingStart, durationMin: 180 }]
+              : [];
+          }),
+          create: jest.fn(),
+        },
+        blockedTime: { findFirst: jest.fn().mockResolvedValue(null) },
+      }),
+    );
+
+    await expect(service.create(dto as any, { id: 1, role: 'ADMIN' })).rejects.toMatchObject({
+      response: { error: 'SLOT_CONFLICT' },
+    });
+    expect(lookbackWhere.status).toEqual({ notIn: ['CANCELLED'] });
   });
 });

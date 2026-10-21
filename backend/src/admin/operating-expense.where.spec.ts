@@ -51,6 +51,22 @@ describe('operating expense chart inclusion', () => {
     expect(isClearedOperatingCheque(guaranteeCheque)).toBe(false);
   });
 
+  it('keeps rows whose sourceType or category code is NULL', () => {
+    expect(isOperatingExpense({ type: 'EXPENSE', sourceType: null, categoryCode: null })).toBe(true);
+    expect(
+      isOperatingExpense({ type: 'EXPENSE', sourceType: 'EXCEL_IMPORT:PAYS', categoryCode: null }),
+    ).toBe(true);
+  });
+
+  it('drops employee payout categories via requiresEmployee even without a code', () => {
+    expect(
+      isOperatingExpense({ type: 'EXPENSE', categoryCode: null, categoryRequiresEmployee: true }),
+    ).toBe(false);
+    expect(
+      isOperatingExpense({ type: 'EXPENSE', categoryCode: null, categoryRequiresEmployee: false }),
+    ).toBe(true);
+  });
+
   it('stacks the cheque amount inside the total instead of adding it again', () => {
     const manual = 1000n;
     const cheque = 400n;

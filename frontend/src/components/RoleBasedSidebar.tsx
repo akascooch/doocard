@@ -28,6 +28,7 @@ import {
   Gift,
   Moon,
   Sun,
+  Ticket,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { LogoutButton } from './LogoutButton'
@@ -41,6 +42,16 @@ interface RoleBasedSidebarProps {
   isMobile?: boolean
   userRole?: string
 }
+
+// Planned admin features: shown disabled, never linked (no route exists yet).
+const adminComingSoonItems = [
+  {
+    key: 'lottery',
+    title: 'قرعه‌کشی',
+    icon: Ticket,
+    description: 'در حال طراحی'
+  },
+]
 
 // Admin menu items
 const adminMenuItems = [
@@ -493,6 +504,39 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
               </Link>
             )
           })}
+          {userRole === 'ADMIN' &&
+            adminComingSoonItems.map((item) => {
+              const Icon = item.icon
+              const isVisible = !isCollapsed || isHovered || isMobile
+              return (
+                <div
+                  key={item.key}
+                  role="link"
+                  aria-disabled="true"
+                  data-cy={`nav-soon-${item.key}`}
+                  className={cn(
+                    'flex cursor-not-allowed select-none items-center gap-4 rounded-2xl border border-transparent px-4 py-3 text-sm font-medium text-sidebar-foreground/50',
+                    isCollapsed && !isHovered && !isMobile && 'justify-center px-2'
+                  )}
+                  title={`${item.title} (به‌زودی)`}
+                >
+                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  {isVisible && (
+                    <div className="flex-1 min-w-0">
+                      <span className="flex items-center gap-2 font-semibold tracking-tight">
+                        {item.title}
+                        <span className="rounded-full bg-sidebar-accent px-2 py-0.5 text-[10px] font-bold text-sidebar-foreground/70">
+                          به‌زودی
+                        </span>
+                      </span>
+                      {(!isCollapsed || isHovered) && !isMobile && (
+                        <span className="mt-0.5 block text-xs leading-relaxed">{item.description}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
         </nav>
       </div>
 

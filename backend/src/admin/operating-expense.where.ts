@@ -31,6 +31,8 @@ export type OperatingExpenseFixture = {
   deletedAt?: Date | null;
   sourceType?: string | null;
   categoryCode?: string | null;
+  /** TransactionCategory.requiresEmployee — employee payout categories. */
+  categoryRequiresEmployee?: boolean | null;
   chequeCategory?: 'NORMAL' | 'GUARANTEE' | null;
 };
 
@@ -47,6 +49,9 @@ export function isOperatingExpense(row: OperatingExpenseFixture): boolean {
     row.categoryCode &&
     (PAYROLL_WITHDRAWAL_CATEGORY_CODES as readonly string[]).includes(row.categoryCode)
   ) {
+    return false;
+  }
+  if (row.categoryRequiresEmployee === true) {
     return false;
   }
   if (row.sourceType === OPERATING_CHEQUE_SOURCE_TYPE && row.chequeCategory === 'GUARANTEE') {
@@ -73,21 +78,43 @@ export function splitExpenseChart(total: bigint, cheques: bigint): {
   return { total: safeTotal, other: safeTotal - bounded, cheques: bounded };
 }
 
-export function payrollWithdrawalExclusion(): Prisma.TransactionWhereInput {
-  return {
-    OR: [
-      { sourceType: { in: [...PAYROLL_WITHDRAWAL_SOURCE_TYPES] } },
-      {
-        category: {
-          code: { in: [...PAYROLL_WITHDRAWAL_CATEGORY_CODES] },
+/**
+ * Positive, NULL-safe inclusion clauses. Never wrap nullable columns in
+ * `NOT { OR }`: SQL `NOT (NULL IN (...))` is NULL, which silently drops rows
+ * whose sourceType or category.code is NULL.
+ */
+export function operatingExpenseInclusion(): Prisma.TransactionWhereInput[] {
+  return [
+    {
+      OR: [
+        { sourceType: null },
+        { sourceType: { notIn: [...PAYROLL_WITHDRAWAL_SOURCE_TYPES] } },
+      ],
+    },
+    {
+      OR: [
+        { categoryId: null },
+        {
+          category: {
+            is: {
+              requiresEmployee: false,
+              OR: [
+                { code: null },
+                { code: { notIn: [...PAYROLL_WITHDRAWAL_CATEGORY_CODES] } },
+              ],
+            },
+          },
         },
-      },
-      {
-        sourceType: OPERATING_CHEQUE_SOURCE_TYPE,
-        chequeLeaves: { some: { category: 'GUARANTEE' } },
-      },
-    ],
-  };
+      ],
+    },
+    {
+      OR: [
+        { sourceType: null },
+        { sourceType: { not: OPERATING_CHEQUE_SOURCE_TYPE } },
+        { chequeLeaves: { none: { category: 'GUARANTEE' } } },
+      ],
+    },
+  ];
 }
 
 /** Expense rows inside an inclusive window, minus payroll withdrawals. */
@@ -113,6 +140,6 @@ export function accountingExpenseWhere(
     type: 'EXPENSE',
     deletedAt: null,
     ...(from || to ? { occurredAt } : {}),
-    NOT: payrollWithdrawalExclusion(),
+    AND: operatingExpenseInclusion(),
   };
 }

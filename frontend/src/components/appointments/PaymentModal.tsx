@@ -231,7 +231,7 @@ export default function PaymentModal({
         const [accountsResponse, staffResponse, hairdresserResponse, debtsResponse, productsResponse, loyaltyResponse] = await Promise.all([
           api.get('/accounting/accounts'),
           api.get('/employees/service-staff/active').catch(() => ({ data: [] })),
-          api.get('/employees').catch(() => ({ data: [] })),
+          api.get('/employees/tip-recipients/manual').catch(() => ({ data: [] })),
           customerId
             ? api.get(`/customers/${customerId}/open-debts`).catch(() => null)
             : Promise.resolve(null),
@@ -243,13 +243,15 @@ export default function PaymentModal({
         await cacheFromResponse(REFERENCE_KEYS.accounts, accountsResponse.data);
         setAccounts(accountsResponse.data);
         setServiceStaff(staffResponse.data || []);
-        const hairdresserRows = Array.isArray(hairdresserResponse.data) ? hairdresserResponse.data : [];
+        const recipientRows = Array.isArray(hairdresserResponse.data) ? hairdresserResponse.data : [];
         setHairdressers(
-          hairdresserRows
-            .filter((row: { user?: { role?: string }; id?: number; name?: string }) => row.user?.role === 'EMPLOYEE' && row.id)
-            .map((row: { id: number; name?: string; user?: { name?: string } }) => ({
+          recipientRows
+            .filter((row: { id?: number }) => row.id)
+            .map((row: { id: number; fullName?: string; role?: string }) => ({
               id: row.id,
-              name: row.name || row.user?.name || `آرایشگر #${row.id}`,
+              name:
+                (row.fullName || `پرسنل #${row.id}`) +
+                (row.role === 'SERVICE' ? ' (پرسنل خدمات)' : ''),
             })),
         );
         setCatalogProducts(productsResponse.data?.data || []);
@@ -464,7 +466,7 @@ export default function PaymentModal({
     if (formData.manualTipAmount > 0 && !formData.manualTipRecipientEmployeeId) {
       toast({
         title: 'خطا',
-        description: 'آرایشگر گیرنده انعام دستی را انتخاب کنید',
+        description: 'گیرنده انعام دستی را انتخاب کنید',
         variant: 'destructive',
       });
       return;
@@ -917,12 +919,12 @@ export default function PaymentModal({
                   manualTipAmount,
                 })
               }
-              label="انعام دستی آرایشگر (جدا از انعام پرسنل)"
+              label="انعام دستی (جدا از انعام پرسنل خدمات)"
               placeholder="مثال: 50,000"
             />
             {formData.manualTipAmount > 0 && (
               <div className={`order-7 space-y-2 ${extrasOpen ? '' : 'hidden'}`}>
-                <Label>آرایشگر گیرنده انعام دستی *</Label>
+                <Label>گیرنده انعام دستی *</Label>
                 <Select
                   value={formData.manualTipRecipientEmployeeId?.toString() || ''}
                   onValueChange={(value) =>
@@ -933,7 +935,9 @@ export default function PaymentModal({
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="انتخاب آرایشگر" />
+                    <SelectValue
+                      placeholder={hairdressers.length === 0 ? 'گیرنده فعالی یافت نشد' : 'انتخاب گیرنده'}
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {hairdressers.map((employee) => (
