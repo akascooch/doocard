@@ -400,6 +400,50 @@ describe('calculateEmployeeSalaryPreview', () => {
     expect(result.settlementPayable).toBe(result.netPayable);
   });
 
+  it('SERVICE: unpaid settle-manual-tip allocations are included in preview netPayable', async () => {
+    const prisma = mockPrisma({
+      employee: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 8,
+          commissionRate: 0,
+          isSpecialCommission: false,
+          lastCommissionSettlementAt: null,
+          user: { name: 'Service Staff', role: 'SERVICE' },
+        }),
+      },
+      appointment: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
+      appointmentTipAllocation: { findMany: jest.fn().mockResolvedValue([]) },
+      manualTipAllocation: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 1,
+            amountRial: 50000n,
+            tipSourceId: 9,
+            tipSource: {
+              id: 9,
+              tipType: 'INDIVIDUAL',
+              amountRial: 50000n,
+              effectiveBusinessAt: new Date('2024-06-15T10:00:00.000Z'),
+              note: 'settle-manual-tip:41',
+            },
+          },
+        ]),
+      },
+      transaction: { findMany: jest.fn().mockResolvedValue([]) },
+    });
+
+    const result = await calculateEmployeeSalaryPreview(prisma, {
+      employeeId: 8,
+      fromJalali: '1403/03/01',
+      toJalali: '1403/03/31',
+    });
+
+    expect(result.isServiceStaff).toBe(true);
+    expect(result.totalTipIncome).toBe('50000');
+    expect(result.tipAllocationCount).toBe(1);
+    expect(result.netPayable).toBe('50000');
+  });
+
   it('throws when employee not found', async () => {
     const prisma = mockPrisma({
       employee: { findUnique: jest.fn().mockResolvedValue(null) },

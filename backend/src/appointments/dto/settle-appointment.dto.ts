@@ -102,8 +102,9 @@ export class SettleAppointmentDto {
   tipTeamMemberIds?: number[];
 
   /**
-   * Extra tip, separate from tipAmount. Hairdresser recipients only unless
-   * MANUAL_TIP_ALLOW_SERVICE=true. Does not enter the commission base.
+   * Extra tip, separate from tipAmount. Hairdresser or SERVICE recipient.
+   * Does not enter the barber commission base. SERVICE also books TipSource
+   * settle-manual-tip:{appointmentId} for salary payable.
    */
   @IsNumber()
   @Type(() => Number)

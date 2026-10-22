@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { manualTipAllowsService } from '../appointments/manual-settlement-tip';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { AssignServicesToEmployeeDto } from './dto/employee-service.dto';
@@ -223,15 +222,15 @@ export class EmployeesService {
   }
 
   /**
-   * Active manual-tip recipients for checkout. Barbers always; SERVICE staff only
-   * when MANUAL_TIP_ALLOW_SERVICE is on, matching assertManualTipRecipient.
+   * Active manual-tip recipients for checkout: barbers and SERVICE staff.
+   * MANUAL_TIP_ALLOW_SERVICE is ignored (deprecated).
    */
-  async findManualTipRecipients(allowService = manualTipAllowsService()) {
-    const roles: UserRole[] = allowService
-      ? [UserRole.EMPLOYEE, UserRole.SERVICE]
-      : [UserRole.EMPLOYEE];
+  async findManualTipRecipients() {
     const employees = await this.prisma.employee.findMany({
-      where: { isActive: true, user: { role: { in: roles } } },
+      where: {
+        isActive: true,
+        user: { role: { in: [UserRole.EMPLOYEE, UserRole.SERVICE] } },
+      },
       select: { id: true, isActive: true, user: { select: { name: true, role: true } } },
       orderBy: { id: 'asc' },
     });

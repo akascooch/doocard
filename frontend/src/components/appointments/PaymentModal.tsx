@@ -37,6 +37,17 @@ import { getCurrentUser } from '@/lib/auth';
 /** Barber-only tax per appointment (تومان). Salon tax is not deducted from barber payroll. */
 const BARBER_APPOINTMENT_DEDUCTION_TOMAN = 80000;
 
+export function formatManualTipRecipientLabel(row: {
+  id: number
+  fullName?: string
+  role?: string
+}): string {
+  const base = row.fullName || `پرسنل #${row.id}`
+  if (row.role === 'SERVICE') return `${base} (پرسنل خدمات)`
+  if (row.role === 'EMPLOYEE') return `${base} (آرایشگر)`
+  return base
+}
+
 interface Service {
   serviceId: number;
   priceAtBooking: number;
@@ -249,9 +260,7 @@ export default function PaymentModal({
             .filter((row: { id?: number }) => row.id)
             .map((row: { id: number; fullName?: string; role?: string }) => ({
               id: row.id,
-              name:
-                (row.fullName || `پرسنل #${row.id}`) +
-                (row.role === 'SERVICE' ? ' (پرسنل خدمات)' : ''),
+              name: formatManualTipRecipientLabel(row),
             })),
         );
         setCatalogProducts(productsResponse.data?.data || []);

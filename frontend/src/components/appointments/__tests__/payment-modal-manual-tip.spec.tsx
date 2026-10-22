@@ -72,7 +72,7 @@ jest.mock('@/components/ui/select', () => {
 })
 
 import { api } from '@/lib/axios'
-import PaymentModal from '../PaymentModal'
+import PaymentModal, { formatManualTipRecipientLabel } from '../PaymentModal'
 
 const apiGet = api.get as jest.Mock
 
@@ -178,5 +178,14 @@ describe('PaymentModal tip selects', () => {
     expect(html).not.toContain('گیرنده انعام دستی')
     expect(html).not.toContain('H-Manual')
     expect(html).toContain('S-Staff')
+  })
+
+  it('shows a SERVICE role suffix without any env flag', () => {
+    expect(formatManualTipRecipientLabel({ id: 2, fullName: 'سارا', role: 'SERVICE' })).toBe(
+      'سارا (پرسنل خدمات)',
+    )
+    expect(formatManualTipRecipientLabel({ id: 3, fullName: 'علی', role: 'EMPLOYEE' })).toBe(
+      'علی (آرایشگر)',
+    )
   })
 })

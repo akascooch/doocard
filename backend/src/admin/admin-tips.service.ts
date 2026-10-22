@@ -23,6 +23,7 @@ import {
   buildManualTipNote,
   isSettledOnDifferentTehranDay,
 } from '../common/utils/tip-ledger-description';
+import { isReservedSettleManualTipKey } from '../appointments/manual-settlement-tip';
 
 const SETTLED_APPOINTMENT_STATUSES = ['SETTLED', 'PAID', 'COMPLETED'] as const;
 
@@ -179,6 +180,11 @@ export class AdminTipsService {
   async create(dto: CreateManualTipDto, createdByUserId: number) {
     if (!dto.idempotencyKey?.trim()) {
       throw new BadRequestException('کلید یکتایی (idempotencyKey) الزامی است');
+    }
+    if (isReservedSettleManualTipKey(dto.idempotencyKey)) {
+      throw new BadRequestException(
+        'این کلید یکتایی برای انعام دستی تسویه رزرو شده است',
+      );
     }
 
     const existing = await this.prisma.tipSource.findUnique({

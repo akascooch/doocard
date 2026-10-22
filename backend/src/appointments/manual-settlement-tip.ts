@@ -1,19 +1,76 @@
 import { BadRequestException } from '@nestjs/common';
-import { PaymentMethod, Prisma, TransactionType } from '@prisma/client';
+import { PaymentMethod, Prisma, TipRecipientType, TransactionType } from '@prisma/client';
 
 export const MANUAL_TIP_SOURCE_TYPE = 'MANUAL_TIP';
+export const SETTLE_MANUAL_TIP_KEY_RE = /^settle-manual-tip:\d+$/;
 
-export function manualTipAllowsService(env: NodeJS.ProcessEnv = process.env): boolean {
-  return env.MANUAL_TIP_ALLOW_SERVICE === 'true';
+export function settleManualTipIdempotencyKey(appointmentId: number): string {
+  return `settle-manual-tip:${appointmentId}`;
+}
+
+export function isReservedSettleManualTipKey(key: string | null | undefined): boolean {
+  return SETTLE_MANUAL_TIP_KEY_RE.test((key ?? '').trim());
+}
+
+/** @deprecated Always true in v1. MANUAL_TIP_ALLOW_SERVICE is ignored. */
+export function manualTipAllowsService(_env: NodeJS.ProcessEnv = process.env): boolean {
+  return true;
 }
 
 export function assertManualTipRecipient(
   role: string | null | undefined,
-  allowService = manualTipAllowsService(),
+  _allowService = true,
 ): void {
-  if (role === 'EMPLOYEE') return;
-  if (allowService && role === 'SERVICE') return;
-  throw new BadRequestException('گیرنده انعام دستی باید آرایشگر باشد');
+  if (role === 'EMPLOYEE' || role === 'SERVICE') return;
+  throw new BadRequestException('گیرنده انعام دستی باید آرایشگر یا پرسنل خدمات باشد');
+}
+
+/**
+ * SERVICE checkout manual tip is also a payable allocation (salary preview).
+ * Unique idempotencyKey settle-manual-tip:{appointmentId}. Duplicate → skip.
+ */
+export async function ensureSettleServiceManualTipPayable(
+  tx: Prisma.TransactionClient,
+  input: {
+    appointmentId: number;
+    amountRial: bigint;
+    recipientEmployeeId: number;
+    createdByUserId: number;
+  },
+): Promise<'created' | 'skipped'> {
+  const idempotencyKey = settleManualTipIdempotencyKey(input.appointmentId);
+  const existing = await tx.tipSource.findUnique({
+    where: { idempotencyKey },
+    select: { id: true },
+  });
+  if (existing) return 'skipped';
+  try {
+    await tx.tipSource.create({
+      data: {
+        tipType: TipRecipientType.INDIVIDUAL,
+        amountRial: input.amountRial,
+        effectiveBusinessAt: new Date(),
+        createdByUserId: input.createdByUserId,
+        note: `انعام دستی تسویه نوبت #${input.appointmentId}`,
+        idempotencyKey,
+        recipientEmployeeId: input.recipientEmployeeId,
+        allocations: {
+          create: [
+            {
+              employeeId: input.recipientEmployeeId,
+              amountRial: input.amountRial,
+            },
+          ],
+        },
+      },
+    });
+    return 'created';
+  } catch (err: unknown) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return 'skipped';
+    }
+    throw err;
+  }
 }
 
 type ManualTipClient = Prisma.TransactionClient;

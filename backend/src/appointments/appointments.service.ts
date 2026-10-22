@@ -22,7 +22,7 @@ import {
 import {
   assertManualTipRecipient,
   bookManualSettlementTip,
-  manualTipAllowsService,
+  ensureSettleServiceManualTipPayable,
 } from './manual-settlement-tip';
 import { BARBER_APPOINTMENT_DEDUCTION_RIAL } from '../common/constants/employee-commission.constants';
 
@@ -1730,12 +1730,13 @@ export class AppointmentsService {
     const manualTipRial =
       dto.manualTipAmount && dto.manualTipAmount > 0 ? BigInt(dto.manualTipAmount) : 0n;
     let manualTipRecipientId: number | null = null;
+    let manualTipRecipientRole: string | null = null;
     if (manualTipRial > 0n) {
       if (!dto.accountId) {
         throw new BadRequestException('حساب بانکی برای انعام دستی الزامی است');
       }
       if (!dto.manualTipRecipientEmployeeId) {
-        throw new BadRequestException('آرایشگر گیرنده انعام دستی را انتخاب کنید');
+        throw new BadRequestException('گیرنده انعام دستی را انتخاب کنید');
       }
       const manualRecipient = await this.prisma.employee.findUnique({
         where: { id: dto.manualTipRecipientEmployeeId },
@@ -1744,8 +1745,9 @@ export class AppointmentsService {
       if (!manualRecipient?.isActive) {
         throw new BadRequestException('گیرنده انعام دستی فعال نیست');
       }
-      assertManualTipRecipient(manualRecipient.user?.role, manualTipAllowsService());
+      assertManualTipRecipient(manualRecipient.user?.role);
       manualTipRecipientId = manualRecipient.id;
+      manualTipRecipientRole = manualRecipient.user?.role ?? null;
     }
     if (tipRial) {
       if (!dto.tipRecipientType) {
@@ -2005,12 +2007,21 @@ export class AppointmentsService {
       }
 
       if (manualTipRial > 0n && manualTipRecipientId && dto.accountId) {
+        const createdBy = adminUser.sub || adminUser.id;
+        if (manualTipRecipientRole === 'SERVICE') {
+          await ensureSettleServiceManualTipPayable(tx, {
+            appointmentId: id,
+            amountRial: manualTipRial,
+            recipientEmployeeId: manualTipRecipientId,
+            createdByUserId: createdBy,
+          });
+        }
         await bookManualSettlementTip(tx, {
           appointmentId: id,
           amountRial: manualTipRial,
           accountId: dto.accountId,
           recipientEmployeeId: manualTipRecipientId,
-          createdBy: adminUser.sub || adminUser.id,
+          createdBy,
           externalRef: dto.externalRef,
           paymentMethod: dto.paymentMethod,
         });

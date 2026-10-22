@@ -6,6 +6,7 @@ import { EmployeesController } from './employees.controller';
 import { EmployeesService } from './employees.service';
 import {
   assertManualTipRecipient,
+  isReservedSettleManualTipKey,
   manualTipAllowsService,
 } from '../appointments/manual-settlement-tip';
 
@@ -22,31 +23,28 @@ describe('manual tip recipients', () => {
     findMany.mockReset();
   });
 
-  it('flag off: queries only active EMPLOYEE barbers', async () => {
-    findMany.mockResolvedValue([rows[0]]);
-
-    const result = await service.findManualTipRecipients(false);
-
-    expect(findMany.mock.calls[0][0].where).toEqual({
-      isActive: true,
-      user: { role: { in: ['EMPLOYEE'] } },
-    });
-    expect(result).toEqual([{ id: 1, fullName: 'Barber', role: 'EMPLOYEE', isActive: true }]);
-  });
-
-  it('flag on: includes active SERVICE staff', async () => {
+  it('always queries active EMPLOYEE and SERVICE (env flag ignored)', async () => {
     findMany.mockResolvedValue(rows);
-
-    const result = await service.findManualTipRecipients(true);
-
-    expect(findMany.mock.calls[0][0].where.user.role.in).toEqual(['EMPLOYEE', 'SERVICE']);
-    expect(result.map((r) => r.role)).toEqual(['EMPLOYEE', 'SERVICE']);
+    const previous = process.env.MANUAL_TIP_ALLOW_SERVICE;
+    try {
+      delete process.env.MANUAL_TIP_ALLOW_SERVICE;
+      const result = await service.findManualTipRecipients();
+      expect(findMany.mock.calls[0][0].where).toEqual({
+        isActive: true,
+        user: { role: { in: ['EMPLOYEE', 'SERVICE'] } },
+      });
+      expect(result.map((r) => r.role)).toEqual(['EMPLOYEE', 'SERVICE']);
+    } finally {
+      if (previous === undefined) delete process.env.MANUAL_TIP_ALLOW_SERVICE;
+      else process.env.MANUAL_TIP_ALLOW_SERVICE = previous;
+    }
   });
 
-  it('reads MANUAL_TIP_ALLOW_SERVICE only when exactly "true"', () => {
-    expect(manualTipAllowsService({ MANUAL_TIP_ALLOW_SERVICE: 'true' } as NodeJS.ProcessEnv)).toBe(true);
-    expect(manualTipAllowsService({ MANUAL_TIP_ALLOW_SERVICE: '1' } as NodeJS.ProcessEnv)).toBe(false);
-    expect(manualTipAllowsService({} as NodeJS.ProcessEnv)).toBe(false);
+  it('deprecated MANUAL_TIP_ALLOW_SERVICE helper always returns true', () => {
+    expect(manualTipAllowsService({} as NodeJS.ProcessEnv)).toBe(true);
+    expect(manualTipAllowsService({ MANUAL_TIP_ALLOW_SERVICE: 'false' } as NodeJS.ProcessEnv)).toBe(
+      true,
+    );
   });
 
   it('endpoint is open to ADMIN and ACCOUNTANT only (settle roles)', () => {
@@ -73,31 +71,16 @@ describe('manual tip recipients', () => {
     expect(guard.canActivate(context)).toBe(allowed);
   });
 
-  it('controller follows MANUAL_TIP_ALLOW_SERVICE from env (off -> EMPLOYEE only, on -> + SERVICE)', async () => {
-    const controller = new EmployeesController(service);
-    const previous = process.env.MANUAL_TIP_ALLOW_SERVICE;
-    try {
-      delete process.env.MANUAL_TIP_ALLOW_SERVICE;
-      findMany.mockResolvedValue([rows[0]]);
-      await controller.findManualTipRecipients();
-      expect(findMany.mock.calls[0][0].where.user.role.in).toEqual(['EMPLOYEE']);
-
-      process.env.MANUAL_TIP_ALLOW_SERVICE = 'true';
-      findMany.mockResolvedValue(rows);
-      const result = await controller.findManualTipRecipients();
-      expect(findMany.mock.calls[1][0].where.user.role.in).toEqual(['EMPLOYEE', 'SERVICE']);
-      expect(Object.keys(result[0]).sort()).toEqual(['fullName', 'id', 'isActive', 'role']);
-    } finally {
-      if (previous === undefined) delete process.env.MANUAL_TIP_ALLOW_SERVICE;
-      else process.env.MANUAL_TIP_ALLOW_SERVICE = previous;
-    }
+  it('assertManualTipRecipient accepts EMPLOYEE or SERVICE', () => {
+    expect(() => assertManualTipRecipient('EMPLOYEE')).not.toThrow();
+    expect(() => assertManualTipRecipient('SERVICE')).not.toThrow();
+    expect(() => assertManualTipRecipient('CUSTOMER')).toThrow(BadRequestException);
+    expect(() => assertManualTipRecipient(null)).toThrow(BadRequestException);
   });
 
-  it('assertManualTipRecipient accepts SERVICE only when allowed', () => {
-    expect(() => assertManualTipRecipient('EMPLOYEE', false)).not.toThrow();
-    expect(() => assertManualTipRecipient('SERVICE', false)).toThrow(BadRequestException);
-    expect(() => assertManualTipRecipient('SERVICE', true)).not.toThrow();
-    expect(() => assertManualTipRecipient('CUSTOMER', true)).toThrow(BadRequestException);
-    expect(() => assertManualTipRecipient(null, true)).toThrow(BadRequestException);
+  it('reserves settle-manual-tip:{id} keys', () => {
+    expect(isReservedSettleManualTipKey('settle-manual-tip:41')).toBe(true);
+    expect(isReservedSettleManualTipKey('settle-manual-tip:abc')).toBe(false);
+    expect(isReservedSettleManualTipKey('admin-tip-1')).toBe(false);
   });
 });
