@@ -43,15 +43,12 @@ interface RoleBasedSidebarProps {
   userRole?: string
 }
 
-// Planned admin features: shown disabled, never linked (no route exists yet).
-const adminComingSoonItems = [
-  {
-    key: 'lottery',
-    title: 'قرعه‌کشی',
-    icon: Ticket,
-    description: 'در حال طراحی'
-  },
-]
+const adminComingSoonItems: Array<{
+  key: string
+  title: string
+  icon: typeof Ticket
+  description: string
+}> = []
 
 // Admin menu items
 const adminMenuItems = [
@@ -182,6 +179,12 @@ const adminMenuItems = [
     description: 'سلامت سرور، دیتابیس و Redis'
   },
   {
+    title: 'صندوق همکاران',
+    href: '/dashboard/admin/lottery',
+    icon: Ticket,
+    description: 'قرعه‌کشی و اقساط صندوق'
+  },
+  {
     title: 'تنظیمات',
     href: '/dashboard/settings',
     icon: Settings,
@@ -228,6 +231,12 @@ const employeeMenuItems = [
     description: 'درخواست پرداخت حقوق'
   },
   {
+    title: 'صندوق همکاران',
+    href: '/dashboard/employee/lottery',
+    icon: Ticket,
+    description: 'نوبت دریافت صندوق'
+  },
+  {
     title: 'گزارش عملکرد',
     href: '/dashboard/employee/performance',
     icon: BarChart3,
@@ -267,6 +276,12 @@ const serviceMenuItems = [
     description: 'موجودی انعام و درخواست پرداخت'
   },
   {
+    title: 'صندوق همکاران',
+    href: '/dashboard/employee/lottery',
+    icon: Ticket,
+    description: 'نوبت دریافت صندوق'
+  },
+  {
     title: 'تنظیمات',
     href: '/dashboard/employee/settings',
     icon: Settings,
@@ -304,6 +319,12 @@ const accountantMenuItems = [
     href: '/dashboard/admin/financial',
     icon: BarChart3,
     description: 'گزارشات مالی'
+  },
+  {
+    title: 'صندوق همکاران',
+    href: '/dashboard/admin/lottery',
+    icon: Ticket,
+    description: 'مشاهده صندوق قرعه‌کشی'
   },
 ]
 

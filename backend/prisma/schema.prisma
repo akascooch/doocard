@@ -32,6 +32,7 @@ model User {
   financialReportsAccessUpdates FinancialReportsAccess[]   @relation("FinancialReportsAccessUpdatedBy")
   createdTipSources             TipSource[]                @relation("TipSourceCreatedBy")
   voidedTipSources              TipSource[]                @relation("TipSourceVoidedBy")
+  createdLotteryGroups          LotteryGroup[]             @relation("LotteryGroupCreatedBy")
   inventoryMovements            InventoryMovement[]        @relation("InventoryMovementPerformedBy")
   productStockSubscriptions     ProductStockSubscription[]
   adminDailyFrogs               AdminDailyFrog[]
@@ -124,6 +125,7 @@ model Employee {
   manualTipRecipientSources  TipSource[]                    @relation("TipSourceIndividualRecipient")
   manualTipAllocations       ManualTipAllocation[]
   chequeLeaves               ChequeLeaf[]
+  lotteryMembers             LotteryMember[]
 
   @@map("employees")
 }
@@ -408,6 +410,7 @@ model BankAccount {
   iban                    String?
   isDefault               Boolean                 @default(false)
   isActive                Boolean                 @default(true)
+  isCircleAccount         Boolean                 @default(false)
   balance                 BigInt                  @default(0)
   currency                String                  @default("IRR")
   description             String?
@@ -418,6 +421,7 @@ model BankAccount {
   destinationTransactions Transaction[]           @relation("TransactionDestination")
   chequebooks             Chequebook[]
   salaryRequestPayments   EmployeeSalaryRequest[]
+  lotteryGroups           LotteryGroup[]
 
   @@map("bank_accounts")
 }
@@ -1418,4 +1422,187 @@ model CustomerWalletLedger {
 
   @@index([customerId, createdAt])
   @@map("customer_wallet_ledger")
+}
+
+enum LotteryGroupStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum LotteryCycleStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum LotteryMemberStatus {
+  ACTIVE
+  EXITED
+}
+
+enum LotteryContributionStatus {
+  POSTED
+  ARREARS
+  SKIPPED
+}
+
+enum LotteryPayoutStatus {
+  POSTED
+  BLOCKED_INSUFFICIENT_POT
+  VOIDED
+}
+
+enum LotteryArrearStatus {
+  OPEN
+  PARTIAL
+  SETTLED
+}
+
+model LotteryGroup {
+  id                Int                  @id @default(autoincrement())
+  name              String
+  monthlyAmountRial BigInt
+  cronDayOfMonth    Int                  @default(1)
+  circleAccountId   Int
+  status            LotteryGroupStatus   @default(ACTIVE)
+  createdByUserId   Int
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  circleAccount     BankAccount          @relation(fields: [circleAccountId], references: [id])
+  createdBy         User                 @relation("LotteryGroupCreatedBy", fields: [createdByUserId], references: [id])
+  members           LotteryMember[]
+  cycles            LotteryCycle[]
+  contributions     LotteryContributionEvent[]
+  payouts           LotteryPayoutEvent[]
+  arrears           LotteryArrear[]
+
+  @@map("lottery_groups")
+}
+
+model LotteryMember {
+  id           Int                 @id @default(autoincrement())
+  groupId      Int
+  employeeId   Int
+  status       LotteryMemberStatus @default(ACTIVE)
+  joinedAt     DateTime            @default(now())
+  exitedAt     DateTime?
+  prepaidRial  BigInt              @default(0)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  group        LotteryGroup        @relation(fields: [groupId], references: [id])
+  employee     Employee            @relation(fields: [employeeId], references: [id])
+  slots        LotterySlot[]
+  contributions LotteryContributionEvent[]
+  payouts      LotteryPayoutEvent[]
+  arrears      LotteryArrear[]
+
+  @@unique([groupId, employeeId])
+  @@index([groupId, status])
+  @@index([employeeId, status])
+  @@map("lottery_members")
+}
+
+model LotteryCycle {
+  id            Int                @id @default(autoincrement())
+  groupId       Int
+  cycleIndex    Int
+  status        LotteryCycleStatus @default(ACTIVE)
+  memberCount   Int
+  startedAt     DateTime           @default(now())
+  closedAt      DateTime?
+  periodStartYm String
+  createdAt     DateTime           @default(now())
+  group         LotteryGroup       @relation(fields: [groupId], references: [id])
+  slots         LotterySlot[]
+  contributions LotteryContributionEvent[]
+  payouts       LotteryPayoutEvent[]
+  arrears       LotteryArrear[]
+
+  @@unique([groupId, cycleIndex])
+  @@index([groupId, status])
+  @@map("lottery_cycles")
+}
+
+model LotterySlot {
+  id        Int           @id @default(autoincrement())
+  cycleId   Int
+  slotIndex Int
+  memberId  Int
+  periodKey String
+  createdAt DateTime      @default(now())
+  cycle     LotteryCycle  @relation(fields: [cycleId], references: [id])
+  member    LotteryMember @relation(fields: [memberId], references: [id])
+  payouts   LotteryPayoutEvent[]
+
+  @@unique([cycleId, slotIndex])
+  @@unique([cycleId, periodKey])
+  @@unique([memberId, cycleId])
+  @@index([cycleId])
+  @@map("lottery_slots")
+}
+
+model LotteryContributionEvent {
+  id             Int                        @id @default(autoincrement())
+  groupId        Int
+  cycleId        Int
+  memberId       Int
+  periodKey      String
+  amountRial     BigInt
+  status         LotteryContributionStatus
+  idempotencyKey String                     @unique
+  transactionId  Int?
+  createdAt      DateTime                   @default(now())
+  group          LotteryGroup               @relation(fields: [groupId], references: [id])
+  cycle          LotteryCycle               @relation(fields: [cycleId], references: [id])
+  member         LotteryMember              @relation(fields: [memberId], references: [id])
+  arrears        LotteryArrear[]
+
+  @@unique([cycleId, periodKey, memberId])
+  @@index([groupId, periodKey])
+  @@map("lottery_contribution_events")
+}
+
+model LotteryPayoutEvent {
+  id                  Int                 @id @default(autoincrement())
+  groupId             Int
+  cycleId             Int
+  slotId              Int
+  memberId            Int
+  periodKey           String
+  amountRial          BigInt
+  collectedRial       BigInt              @default(0)
+  payoutShortfallRial BigInt              @default(0)
+  status              LotteryPayoutStatus
+  idempotencyKey      String              @unique
+  transactionId       Int?
+  createdAt           DateTime            @default(now())
+  group               LotteryGroup        @relation(fields: [groupId], references: [id])
+  cycle               LotteryCycle        @relation(fields: [cycleId], references: [id])
+  slot                LotterySlot         @relation(fields: [slotId], references: [id])
+  member              LotteryMember       @relation(fields: [memberId], references: [id])
+
+  @@unique([cycleId, periodKey])
+  @@map("lottery_payout_events")
+}
+
+model LotteryArrear {
+  id                  Int                  @id @default(autoincrement())
+  memberId            Int
+  groupId             Int
+  cycleId             Int
+  periodKey           String
+  amountRial          BigInt
+  originalRial        BigInt
+  status              LotteryArrearStatus
+  contributionEventId Int?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  member              LotteryMember        @relation(fields: [memberId], references: [id])
+  group               LotteryGroup         @relation(fields: [groupId], references: [id])
+  cycle               LotteryCycle         @relation(fields: [cycleId], references: [id])
+  contributionEvent   LotteryContributionEvent? @relation(fields: [contributionEventId], references: [id])
+
+  @@unique([memberId, cycleId, periodKey])
+  @@index([groupId, status])
+  @@map("lottery_arrears")
 }

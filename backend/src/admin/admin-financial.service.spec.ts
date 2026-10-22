@@ -1,6 +1,7 @@
 import { AdminFinancialService } from './admin-financial.service';
 import {
   operatingExpenseWhere,
+  NON_OPERATING_SOURCE_TYPES,
   PAYROLL_WITHDRAWAL_CATEGORY_CODES,
   PAYROLL_WITHDRAWAL_SOURCE_TYPES,
   UNCATEGORIZED_EXPENSE_LABEL,
@@ -165,12 +166,14 @@ describe('AdminFinancialService expense aggregation', () => {
     const [sourceClause, categoryClause, guaranteeClause] = where.AND as any[];
     expect(sourceClause.OR).toEqual([
       { sourceType: null },
-      { sourceType: { notIn: [...PAYROLL_WITHDRAWAL_SOURCE_TYPES] } },
+      { sourceType: { notIn: [...NON_OPERATING_SOURCE_TYPES] } },
     ]);
     expect(sourceClause.OR[1].sourceType.notIn).toEqual([
       'CHEQUE_LEAF_PAYROLL',
       'SALARY_REQUEST',
       'COMMISSION_SETTLEMENT',
+      'LOTTERY_CONTRIBUTION',
+      'LOTTERY_PAYOUT',
     ]);
     expect(sourceClause.OR[1].sourceType.notIn).not.toContain('CHEQUE_LEAF');
     expect(sourceClause.OR[1].sourceType.notIn).not.toContain('EXCEL_IMPORT:PAYS');

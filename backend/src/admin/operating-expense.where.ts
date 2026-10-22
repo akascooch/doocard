@@ -6,6 +6,7 @@ import {
   EMPLOYEE_WITHDRAWAL_LEGACY_CATEGORY_CODE,
   SALARY_REQUEST_SOURCE_TYPE,
 } from '../common/constants/employee-commission.constants';
+import { LOTTERY_SOURCE_TYPES } from '../common/constants/lottery.constants';
 
 /**
  * Staff-pay markers only. Operating cheques stay (`CHEQUE_LEAF` is absent).
@@ -21,6 +22,11 @@ export const PAYROLL_WITHDRAWAL_SOURCE_TYPES = [
 export const PAYROLL_WITHDRAWAL_CATEGORY_CODES = [
   ...EMPLOYEE_EXPENSE_CATEGORY_CODES,
   EMPLOYEE_WITHDRAWAL_LEGACY_CATEGORY_CODE,
+] as const;
+
+export const NON_OPERATING_SOURCE_TYPES = [
+  ...PAYROLL_WITHDRAWAL_SOURCE_TYPES,
+  ...LOTTERY_SOURCE_TYPES,
 ] as const;
 
 export const UNCATEGORIZED_EXPENSE_LABEL = 'بدون دسته‌بندی';
@@ -42,7 +48,7 @@ export function isOperatingExpense(row: OperatingExpenseFixture): boolean {
   if (row.type !== 'EXPENSE' || row.deletedAt) return false;
   if (
     row.sourceType &&
-    (PAYROLL_WITHDRAWAL_SOURCE_TYPES as readonly string[]).includes(row.sourceType)
+    (NON_OPERATING_SOURCE_TYPES as readonly string[]).includes(row.sourceType)
   ) {
     return false;
   }
@@ -89,7 +95,7 @@ export function operatingExpenseInclusion(): Prisma.TransactionWhereInput[] {
     {
       OR: [
         { sourceType: null },
-        { sourceType: { notIn: [...PAYROLL_WITHDRAWAL_SOURCE_TYPES] } },
+        { sourceType: { notIn: [...NON_OPERATING_SOURCE_TYPES] } },
       ],
     },
     {

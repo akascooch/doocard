@@ -44,6 +44,11 @@ describe('operating expense chart inclusion', () => {
     expect(operating.filter((row) => row.sourceType === 'CHEQUE_LEAF')).toHaveLength(1);
   });
 
+  it('keeps lottery circle cash out of the operating total', () => {
+    expect(isOperatingExpense({ type: 'EXPENSE', sourceType: 'LOTTERY_CONTRIBUTION' })).toBe(false);
+    expect(isOperatingExpense({ type: 'EXPENSE', sourceType: 'LOTTERY_PAYOUT' })).toBe(false);
+  });
+
   it('keeps payroll and guarantee cheques out of the operating total', () => {
     expect(isOperatingExpense(payrollCheque)).toBe(false);
     expect(isOperatingExpense(guaranteeCheque)).toBe(false);

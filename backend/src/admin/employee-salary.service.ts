@@ -334,7 +334,11 @@ async function findPriorWithdrawals(
         {
           OR: [
             { sourceType: null },
-            { sourceType: { not: COMMISSION_SETTLEMENT_SOURCE_TYPE } },
+            {
+              sourceType: {
+                notIn: [COMMISSION_SETTLEMENT_SOURCE_TYPE, 'LOTTERY_CONTRIBUTION', 'LOTTERY_PAYOUT'],
+              },
+            },
           ],
         },
       ],

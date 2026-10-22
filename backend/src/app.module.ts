@@ -40,6 +40,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
 import { AdminPersonalModule } from './admin-personal/admin-personal.module';
 import { PackagesModule } from './packages/packages.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
+import { LotteryModule } from './lottery/lottery.module';
 // Decision (2026-07-22): SmsQueueModule disabled — appointments already send via
 // SmsOutboundService (policy+dedupe). Queue processor had hardcoded copy and no
 // producer from AppointmentsService; leaving it loaded risked dormant/duplicate SMS.
@@ -83,6 +84,7 @@ import { LoyaltyModule } from './loyalty/loyalty.module';
     AdminPersonalModule,
     PackagesModule,
     LoyaltyModule,
+    LotteryModule,
     // SmsQueueModule, // disabled — see comment above
     // SettingsModule,
     // SmsModule,

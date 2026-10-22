@@ -150,6 +150,8 @@ describe('AccountingService', () => {
         'CHEQUE_LEAF_PAYROLL',
         'SALARY_REQUEST',
         'COMMISSION_SETTLEMENT',
+        'LOTTERY_CONTRIBUTION',
+        'LOTTERY_PAYOUT',
       ]);
       expect(sourceClause.OR[1].sourceType.notIn).not.toContain('CHEQUE_LEAF');
       expect(sourceClause.OR[1].sourceType.notIn).not.toContain('EXCEL_IMPORT:PAYS');
