@@ -45,12 +45,10 @@ const localUrl = localhostDatabaseUrl();
   let notificationsCreate: jest.Mock;
   let smsSendIfAllowed: jest.Mock;
 
-  const stamp = `${Date.now()}${Math.floor(Math.random() * 1e6)}`.slice(-11);
-  const phones = {
-    customer: `0911${stamp.slice(0, 7)}`,
-    barber: `0912${stamp.slice(0, 7)}`,
-    admin: `0913${stamp.slice(0, 7)}`,
-  };
+  /** Fresh per seed — avoids unique(phone) flakes from leftover rows or shared describe stamp. */
+  let seedSeq = 0;
+  let phones = { customer: '', barber: '', admin: '' };
+  let stamp = '';
 
   let ids: {
     customerUserId: number;
@@ -116,8 +114,25 @@ const localUrl = localhostDatabaseUrl();
     });
   }
 
+  function nextSeedPhones() {
+    seedSeq += 1;
+    // 11-digit IR mobiles unique per seed (pid + time + seq); file-local only.
+    const raw = `${process.pid}${Date.now()}${seedSeq}${Math.floor(Math.random() * 1e9)}`.replace(
+      /\D/g,
+      '',
+    );
+    const eight = raw.padStart(8, '0').slice(-8);
+    stamp = eight;
+    phones = {
+      customer: `091${eight}`,
+      barber: `092${eight}`,
+      admin: `093${eight}`,
+    };
+  }
+
   async function seedConfirmedAppointment() {
     await cleanup().catch(() => undefined);
+    nextSeedPhones();
 
     const customerUser = await prisma.user.create({
       data: {

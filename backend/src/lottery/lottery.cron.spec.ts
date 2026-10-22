@@ -164,4 +164,29 @@ describe('lottery cron idempotency and payout sizing', () => {
     expect(LOTTERY_CRON).toBe('0 8 * * *');
     expect(LOTTERY_CRON_TZ).toBe('Asia/Tehran');
   });
+
+  it('exits early with one INFO skip log when both flags are off (no DB / no writes)', async () => {
+    const log = jest.fn();
+    const findMany = jest.fn();
+    const runGroupPeriod = jest.fn();
+    const config = {
+      get: (key: string) =>
+        key === 'LOTTERY_CRON_ENABLED' || key === 'LOTTERY_CRON_DRY_RUN' ? 'false' : undefined,
+    };
+    const cron = new LotteryCronService(
+      config as never,
+      { lotteryGroup: { findMany } } as never,
+      { runGroupPeriod } as never,
+    );
+    (cron as any).logger = { log, warn: jest.fn() };
+
+    await cron.scheduledRun(new Date('2026-10-01T04:30:00.000Z'));
+
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log.mock.calls[0][0]).toBe(
+      JSON.stringify({ event: 'lottery.cron.skipped', reason: 'disabled' }),
+    );
+    expect(findMany).not.toHaveBeenCalled();
+    expect(runGroupPeriod).not.toHaveBeenCalled();
+  });
 });

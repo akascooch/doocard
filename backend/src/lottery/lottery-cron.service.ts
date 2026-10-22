@@ -31,7 +31,12 @@ export class LotteryCronService {
 
   @Cron(LOTTERY_CRON, { timeZone: LOTTERY_CRON_TZ })
   async scheduledRun(now = new Date()): Promise<void> {
-    if (!this.isEnabled() && !this.isDryRun()) return;
+    if (!this.isEnabled() && !this.isDryRun()) {
+      this.logger.log(
+        JSON.stringify({ event: 'lottery.cron.skipped', reason: 'disabled' }),
+      );
+      return;
+    }
     const ymd = ChequeDueSmsReminderService.todayYmdTehran(now);
     const day = Number(ymd.slice(8, 10));
     const groups = await this.prisma.lotteryGroup.findMany({
