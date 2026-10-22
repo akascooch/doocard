@@ -1380,11 +1380,16 @@ export class AccountingService {
     }
 
     const externalRef = AccountingService.chequeClearedExternalRef(leaf.id);
+    const operatingChequeCategory = await this.prisma.transactionCategory.findFirst({
+      where: { code: 'OPERATING_CHEQUE', deletedAt: null, type: TransactionType.EXPENSE },
+      select: { id: true },
+    });
     const created = await this.createTransaction(
       {
         type: TransactionType.EXPENSE,
         amount: Number(leaf.amount),
         accountId: leaf.chequebook.bankAccountId,
+        categoryId: operatingChequeCategory?.id,
         description: this.buildChequeClearedDescription(leaf),
         sourceType: 'CHEQUE_LEAF',
         sourceId: leaf.id,

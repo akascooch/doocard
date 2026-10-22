@@ -11,6 +11,8 @@ describe('AdminFinancialService expense aggregation', () => {
     transaction: {
       aggregate: jest.fn(),
       groupBy: jest.fn(),
+      count: jest.fn(),
+      findMany: jest.fn(),
     },
     transactionCategory: {
       findMany: jest.fn(),
@@ -50,16 +52,19 @@ describe('AdminFinancialService expense aggregation', () => {
     expect(prisma.transaction.groupBy).toHaveBeenCalledWith(
       expect.objectContaining({
         by: ['categoryId'],
-        where: operatingExpenseWhere(start, end),
       }),
     );
     const where = prisma.transaction.groupBy.mock.calls[0][0].where;
+    expect(where.AND[0]).toEqual(operatingExpenseWhere(start, end));
+    expect(where.AND[1]).toEqual({
+      OR: [{ sourceType: null }, { sourceType: { not: 'CHEQUE_LEAF' } }],
+    });
     expect(where.categoryId).toBeUndefined();
     expect(JSON.stringify(where)).not.toContain('"10"');
     expect(rows).toEqual([
-      { name: UNCATEGORIZED_EXPENSE_LABEL, total: '300000' },
-      { name: 'اجاره', total: '100000' },
-      { name: 'سایر', total: '40000' },
+      { name: UNCATEGORIZED_EXPENSE_LABEL, total: '300000', categoryId: null },
+      { name: 'اجاره', total: '100000', categoryId: 3 },
+      { name: 'سایر', total: '40000', categoryId: 2 },
     ]);
     expect(rows.map((row: { name: string }) => row.name)).toContain('اجاره');
     expect(rows.filter((row: { name: string }) => row.name === 'سایر')).toHaveLength(1);
@@ -77,8 +82,78 @@ describe('AdminFinancialService expense aggregation', () => {
     const totalWhere = prisma.transaction.aggregate.mock.calls[0][0].where;
     const categoryWhere = prisma.transaction.groupBy.mock.calls[0][0].where;
     expect(totalWhere).toEqual(operatingExpenseWhere(start, end));
-    expect(categoryWhere).toEqual(totalWhere);
+    expect(categoryWhere).not.toEqual(totalWhere);
+    expect(categoryWhere.AND[0]).toEqual(totalWhere);
+    expect(JSON.stringify(categoryWhere.AND[1])).toContain('CHEQUE_LEAF');
     expect(totalWhere.categoryId).toBeUndefined();
+  });
+
+  it('drill-down cheque bucket uses operating predicate plus CHEQUE_LEAF', async () => {
+    prisma.transaction.aggregate.mockResolvedValue({ _sum: { amount: 500n } });
+    prisma.transaction.count.mockResolvedValue(1);
+    prisma.transaction.findMany.mockResolvedValue([
+      {
+        id: 9,
+        occurredAt: new Date('2026-03-21T08:00:00.000Z'),
+        amount: 500n,
+        description: 'چک',
+        sourceType: 'CHEQUE_LEAF',
+        categoryId: null,
+        createdBy: 1,
+        category: null,
+      },
+    ]);
+
+    const result = await service.getExpenseDrilldown({
+      year: 1405,
+      month: 1,
+      bucket: 'cheque',
+    });
+
+    const where = prisma.transaction.aggregate.mock.calls[0][0].where;
+    expect(where.AND[0].type).toBe('EXPENSE');
+    expect(where.AND[1]).toEqual({ sourceType: 'CHEQUE_LEAF' });
+    expect(result.sumRial).toBe('500');
+    expect(result.items[0].sourceType).toBe('CHEQUE_LEAF');
+    expect(result.items[0].occurredAtJalali).toMatch(/^\d{4}\/\d{2}\/\d{2}$/);
+  });
+
+  it('drill-down uncategorized excludes CHEQUE_LEAF even when categoryId is null', async () => {
+    prisma.transaction.aggregate.mockResolvedValue({ _sum: { amount: 0n } });
+    prisma.transaction.count.mockResolvedValue(0);
+    prisma.transaction.findMany.mockResolvedValue([]);
+
+    await service.getExpenseDrilldown({
+      year: 1405,
+      month: 1,
+      bucket: 'uncategorized',
+    });
+
+    const where = prisma.transaction.findMany.mock.calls[0][0].where;
+    expect(where.AND[1].categoryId).toBeNull();
+    expect(where.AND[1].OR).toEqual([
+      { sourceType: null },
+      { sourceType: { not: 'CHEQUE_LEAF' } },
+    ]);
+  });
+
+  it('drill-down category bucket requires categoryId and excludes cheques', async () => {
+    await expect(
+      service.getExpenseDrilldown({ year: 1405, month: 1, bucket: 'category' }),
+    ).rejects.toThrow('categoryId is required');
+
+    prisma.transaction.aggregate.mockResolvedValue({ _sum: { amount: 40n } });
+    prisma.transaction.count.mockResolvedValue(1);
+    prisma.transaction.findMany.mockResolvedValue([]);
+    await service.getExpenseDrilldown({
+      year: 1405,
+      month: 1,
+      bucket: 'category',
+      categoryId: 3,
+    });
+    const where = prisma.transaction.aggregate.mock.calls[0][0].where;
+    expect(where.AND[1].categoryId).toBe(3);
+    expect(where.AND[1].OR[1].sourceType).toEqual({ not: 'CHEQUE_LEAF' });
   });
 
   it('excludes only payroll withdrawal markers and keeps operating cheques', () => {

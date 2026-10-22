@@ -12,8 +12,9 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const year = searchParams.get('year') ?? '1404'
-    const url = `${API_BASE_URL}/api/admin/financial/yearly-report?year=${encodeURIComponent(year)}`
+    const year = searchParams.get('year')
+    const qs = year ? `?year=${encodeURIComponent(year)}` : ''
+    const url = `${API_BASE_URL}/api/admin/financial/yearly-report${qs}`
 
     const financial = request.headers.get('x-financial-access-token')
     const response = await fetch(url, {

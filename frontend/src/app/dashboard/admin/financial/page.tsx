@@ -7,12 +7,18 @@ import { Label } from '@/components/ui/label'
 import { PasswordInput } from '@/components/ui/password-input'
 import {
   TrendingUp,
-  Download,
   BarChart3,
   Users,
   ChevronRight,
   ChevronLeft,
 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import {
   Bar,
@@ -29,7 +35,13 @@ import {
 } from 'recharts'
 import axios from '@/lib/axios'
 import { formatTomansFromRial } from '@/lib/money'
-import { buildExpenseCategorySeries } from '@/lib/expense-category-series'
+import {
+  buildExpenseCategorySeries,
+  CLEARED_CHEQUE_SERIES_LABEL,
+  EXPENSE_OTHER_SERIES_LABEL,
+  type ExpenseSeriesKey,
+} from '@/lib/expense-category-series'
+import { getCurrentJalaliYear } from '@/lib/date'
 import {
   isFinancialAccessValid,
   setFinancialAccess,
@@ -42,7 +54,7 @@ interface YearlyReportMonth {
     total: string
     other?: string
     cheques?: string
-    categories: Array<{ name: string; total: string }>
+    categories: Array<{ name: string; total: string; categoryId?: number | null }>
   }
   revenue: { total: string; appointmentCount?: number; employees: Array<{ name: string; count: number; amount: string }> }
 }
@@ -61,17 +73,46 @@ interface TopCustomerRow {
   points: number
 }
 
-const DEFAULT_YEAR = 1404
+const DEFAULT_YEAR = getCurrentJalaliYear()
 
-const EXPENSE_SERIES_COLORS = [
+const JALALI_MONTHS = [
+  'فروردین',
+  'اردیبهشت',
+  'خرداد',
+  'تیر',
+  'مرداد',
+  'شهریور',
+  'مهر',
+  'آبان',
+  'آذر',
+  'دی',
+  'بهمن',
+  'اسفند',
+]
+
+const EXPENSE_CATEGORY_COLORS = [
   '#ef4444',
   '#3b82f6',
   '#f59e0b',
   '#10b981',
   '#8b5cf6',
   '#ec4899',
-  '#94a3b8',
 ]
+const CHEQUE_SERIES_COLOR = '#94a3b8'
+
+type ExpenseDrillItem = {
+  id: number
+  occurredAtJalali: string
+  amountRial: string
+  description: string | null
+  sourceType: string | null
+  categoryName: string | null
+}
+
+function seriesColor(series: ExpenseSeriesKey, index: number): string {
+  if (series.kind === 'cheque') return CHEQUE_SERIES_COLOR
+  return EXPENSE_CATEGORY_COLORS[index % EXPENSE_CATEGORY_COLORS.length]
+}
 
 export default function AdminFinancialPage() {
   const [yearlyReport, setYearlyReport] = useState<YearlyReport | null>(null)
@@ -87,6 +128,13 @@ export default function AdminFinancialPage() {
   const [gatePassword, setGatePassword] = useState('')
   const [verifying, setVerifying] = useState(false)
   const [gateError, setGateError] = useState('')
+  const [drillOpen, setDrillOpen] = useState(false)
+  const [drillTitle, setDrillTitle] = useState('')
+  const [drillLoading, setDrillLoading] = useState(false)
+  const [drillItems, setDrillItems] = useState<ExpenseDrillItem[]>([])
+  const [drillSum, setDrillSum] = useState<string | null>(null)
+  const [drillCount, setDrillCount] = useState<number | null>(null)
+  const [drillOverflow, setDrillOverflow] = useState<Array<{ name: string; total: number }> | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -162,6 +210,37 @@ export default function AdminFinancialPage() {
     }
   }, [isUnlocked, fetchYearlyReport])
 
+  const openExpenseDrill = useCallback(
+    async (monthName: string, series: ExpenseSeriesKey, overflow?: Array<{ name: string; total: number }>) => {
+      const month = JALALI_MONTHS.indexOf(monthName) + 1
+      setDrillOpen(true)
+      setDrillTitle(`${series.name} — ${monthName} ${year}`)
+      setDrillOverflow(series.kind === 'rest' ? overflow ?? [] : null)
+      setDrillItems([])
+      setDrillSum(null)
+      setDrillCount(null)
+      if (series.kind === 'rest') return
+      if (month < 1) return
+      try {
+        setDrillLoading(true)
+        const params: Record<string, string | number> = { year, month, bucket: series.kind, limit: 100 }
+        if (series.kind === 'category' && series.categoryId != null) {
+          params.categoryId = series.categoryId
+        }
+        const res = await axios.get('/admin/financial/expenses', { params })
+        setDrillItems(res.data.items ?? [])
+        setDrillSum(res.data.sumRial ?? null)
+        setDrillCount(typeof res.data.count === 'number' ? res.data.count : null)
+      } catch (err) {
+        handleFinancialApiError(err)
+        toast({ title: 'خطا', description: 'خطا در بارگذاری جزئیات هزینه', variant: 'destructive' })
+      } finally {
+        setDrillLoading(false)
+      }
+    },
+    [year, toast, handleFinancialApiError],
+  )
+
   if (!isUnlocked) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] p-4">
@@ -199,13 +278,9 @@ export default function AdminFinancialPage() {
     )
   }
 
-  const { series: expenseSeries, rows: expenseCategoryRows } = buildExpenseCategorySeries(
+  const { series: expenseSeries, rows: expenseChartData } = buildExpenseCategorySeries(
     yearlyReport?.months ?? [],
   )
-  const expenseChartData = expenseCategoryRows.map((row, i) => ({
-    ...row,
-    cheques: Number(yearlyReport?.months[i]?.expense.cheques ?? 0),
-  }))
 
   const revenueChartData =
     yearlyReport?.months.map((m) => ({
@@ -229,12 +304,6 @@ export default function AdminFinancialPage() {
           <p className="text-foreground dark:text-foreground mt-2">
             گزارشات مالی، درآمد و هزینه‌های سالن زیبایی
           </p>
-        </div>
-        <div className="flex items-center gap-4">
-          <Button variant="outline">
-            <Download className="h-4 w-4 ml-2" />
-            خروجی Excel
-          </Button>
         </div>
       </div>
 
@@ -283,7 +352,7 @@ export default function AdminFinancialPage() {
                 هزینه‌های ماهانه (سال {year})
               </CardTitle>
               <CardDescription>
-                فروردین → اسفند. چک‌های وصول‌شده عملیاتی داخل همین جمع هستند و دوباره اضافه نمی‌شوند.
+                فروردین → اسفند. روی هر بخش کلیک کنید تا ریز هزینه‌ها را ببینید. چک وصول‌شده سری جداست.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -315,7 +384,7 @@ export default function AdminFinancialPage() {
                               کل: {formatTomansFromRial(row.total)}
                             </p>
                             <p className="text-xs mb-1">
-                              از این مبلغ، چک وصول‌شده: {formatTomansFromRial(row.cheques)}
+                              {CLEARED_CHEQUE_SERIES_LABEL}: {formatTomansFromRial(row.cheques)}
                             </p>
                             {row.categories?.length > 0 && (
                               <ul className="text-xs space-y-1 mt-1">
@@ -337,8 +406,24 @@ export default function AdminFinancialPage() {
                         dataKey={s.key}
                         name={s.name}
                         stackId="expense"
-                        fill={EXPENSE_SERIES_COLORS[i % EXPENSE_SERIES_COLORS.length]}
+                        fill={seriesColor(s, i)}
+                        cursor="pointer"
                         radius={i === expenseSeries.length - 1 ? [4, 4, 0, 0] : undefined}
+                        onClick={(data: { month?: string }) => {
+                          const monthName = data?.month
+                          if (!monthName) return
+                          const row = expenseChartData.find((r) => r.month === monthName)
+                          const overflow =
+                            s.kind === 'rest'
+                              ? (row?.categories ?? []).filter(
+                                  (c) =>
+                                    !expenseSeries.some(
+                                      (ser) => ser.kind !== 'rest' && ser.kind !== 'cheque' && ser.name === c.name,
+                                    ),
+                                )
+                              : undefined
+                          void openExpenseDrill(monthName, s, overflow)
+                        }}
                       />
                     ))}
                   </BarChart>
@@ -348,8 +433,102 @@ export default function AdminFinancialPage() {
                   داده‌ای برای این سال وجود ندارد
                 </div>
               )}
+              {expenseChartData.length > 0 && (
+                <div className="mt-6 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-right">
+                        <th className="p-2 font-medium">ماه</th>
+                        {expenseSeries.map((s) => (
+                          <th key={s.key} className="p-2 font-medium whitespace-nowrap">
+                            {s.name}
+                          </th>
+                        ))}
+                        <th className="p-2 font-medium">کل</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {expenseChartData.map((row) => (
+                        <tr key={row.month} className="border-b last:border-0">
+                          <td className="p-2">{row.month}</td>
+                          {expenseSeries.map((s) => (
+                            <td key={s.key} className="p-2 tabular-nums">
+                              {formatTomansFromRial(row[s.key] as number)}
+                            </td>
+                          ))}
+                          <td className="p-2 tabular-nums font-medium">
+                            {formatTomansFromRial(row.total)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
+
+          <Dialog open={drillOpen} onOpenChange={setDrillOpen}>
+            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{drillTitle}</DialogTitle>
+                <DialogDescription>
+                  {drillSum != null
+                    ? `جمع: ${formatTomansFromRial(drillSum)}${drillCount != null ? ` — ${drillCount} ردیف` : ''}`
+                    : EXPENSE_OTHER_SERIES_LABEL}
+                </DialogDescription>
+              </DialogHeader>
+              {drillLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-border" />
+                </div>
+              ) : drillOverflow ? (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-right">
+                      <th className="p-2">دسته</th>
+                      <th className="p-2">مبلغ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drillOverflow.map((row) => (
+                      <tr key={row.name} className="border-b last:border-0">
+                        <td className="p-2">{row.name}</td>
+                        <td className="p-2 tabular-nums">{formatTomansFromRial(row.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-right">
+                      <th className="p-2">تاریخ</th>
+                      <th className="p-2">شرح</th>
+                      <th className="p-2">مبلغ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drillItems.length === 0 ? (
+                      <tr>
+                        <td className="p-4 text-center text-foreground/70" colSpan={3}>
+                          ردیفی یافت نشد
+                        </td>
+                      </tr>
+                    ) : (
+                      drillItems.map((item) => (
+                        <tr key={item.id} className="border-b last:border-0">
+                          <td className="p-2 whitespace-nowrap">{item.occurredAtJalali}</td>
+                          <td className="p-2">{item.description || item.categoryName || item.sourceType || '—'}</td>
+                          <td className="p-2 tabular-nums">{formatTomansFromRial(item.amountRial)}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </DialogContent>
+          </Dialog>
 
           {/* Chart 2 — Monthly Revenue */}
           <Card>

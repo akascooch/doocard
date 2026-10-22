@@ -1,7 +1,11 @@
-import { Injectable } from '@nestjs/common';
-import { AppointmentStatus } from '@prisma/client';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { AppointmentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { getJalaliMonthRanges } from '../common/utils/date-utils';
+import {
+  getJalaliInclusiveRange,
+  getJalaliMonthRanges,
+  toJalaliStringTehran,
+} from '../common/utils/date-utils';
 import {
   operatingExpenseWhere,
   OPERATING_CHEQUE_SOURCE_TYPE,
@@ -21,7 +25,7 @@ export interface YearlyReportMonth {
     total: string;
     other: string;
     cheques: string;
-    categories: Array<{ name: string; total: string }>;
+    categories: Array<{ name: string; total: string; categoryId: number | null }>;
   };
   revenue: {
     total: string;
@@ -38,6 +42,32 @@ export interface YearlyReportDto {
   months: YearlyReportMonth[];
   employeeRanking: Array<{ name: string; count: number; amount: string }>;
 }
+
+export type ExpenseDrillBucket = 'cheque' | 'uncategorized' | 'category';
+
+export type ExpenseDrillQuery = {
+  year?: number;
+  month?: number;
+  fromJalali?: string;
+  toJalali?: string;
+  bucket: ExpenseDrillBucket;
+  categoryId?: number;
+  createdBy?: number;
+  cursor?: number;
+  limit?: number;
+};
+
+export type ExpenseDrillItem = {
+  id: number;
+  occurredAt: string;
+  occurredAtJalali: string;
+  amountRial: string;
+  description: string | null;
+  sourceType: string | null;
+  categoryId: number | null;
+  categoryName: string | null;
+  createdBy: number | null;
+};
 
 @Injectable()
 export class AdminFinancialService {
@@ -88,6 +118,113 @@ export class AdminFinancialService {
     };
   }
 
+  async getExpenseDrilldown(query: ExpenseDrillQuery): Promise<{
+    bucket: ExpenseDrillBucket;
+    from: string;
+    to: string;
+    sumRial: string;
+    count: number;
+    items: ExpenseDrillItem[];
+    nextCursor: number | null;
+  }> {
+    const { start, end } = this.resolveExpenseWindow(query);
+    const extra: Prisma.TransactionWhereInput[] = [];
+    if (query.bucket === 'cheque') {
+      extra.push({ sourceType: OPERATING_CHEQUE_SOURCE_TYPE });
+    } else if (query.bucket === 'uncategorized') {
+      extra.push({
+        categoryId: null,
+        OR: [
+          { sourceType: null },
+          { sourceType: { not: OPERATING_CHEQUE_SOURCE_TYPE } },
+        ],
+      });
+    } else if (query.bucket === 'category') {
+      if (query.categoryId == null || !Number.isFinite(query.categoryId)) {
+        throw new BadRequestException('categoryId is required for bucket=category');
+      }
+      extra.push({
+        categoryId: query.categoryId,
+        OR: [
+          { sourceType: null },
+          { sourceType: { not: OPERATING_CHEQUE_SOURCE_TYPE } },
+        ],
+      });
+    } else {
+      throw new BadRequestException('invalid bucket');
+    }
+    if (query.createdBy != null && Number.isFinite(query.createdBy)) {
+      extra.push({ createdBy: query.createdBy });
+    }
+
+    const where: Prisma.TransactionWhereInput = {
+      AND: [operatingExpenseWhere(start, end), ...extra],
+    };
+    const limit = Math.min(Math.max(query.limit ?? 50, 1), 100);
+    const pagedWhere: Prisma.TransactionWhereInput = query.cursor
+      ? { AND: [where, { id: { lt: query.cursor } }] }
+      : where;
+
+    const [sum, count, rows] = await Promise.all([
+      this.prisma.transaction.aggregate({ _sum: { amount: true }, where }),
+      this.prisma.transaction.count({ where }),
+      this.prisma.transaction.findMany({
+        where: pagedWhere,
+        orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+        take: limit,
+        select: {
+          id: true,
+          occurredAt: true,
+          amount: true,
+          description: true,
+          sourceType: true,
+          categoryId: true,
+          createdBy: true,
+          category: { select: { name: true } },
+        },
+      }),
+    ]);
+
+    return {
+      bucket: query.bucket,
+      from: start.toISOString(),
+      to: end.toISOString(),
+      sumRial: String(sum._sum.amount ?? 0n),
+      count,
+      items: rows.map((row) => ({
+        id: row.id,
+        occurredAt: row.occurredAt.toISOString(),
+        occurredAtJalali: toJalaliStringTehran(row.occurredAt),
+        amountRial: String(row.amount),
+        description: row.description,
+        sourceType: row.sourceType,
+        categoryId: row.categoryId,
+        categoryName: row.category?.name ?? null,
+        createdBy: row.createdBy,
+      })),
+      nextCursor: rows.length === limit ? rows[rows.length - 1].id : null,
+    };
+  }
+
+  private resolveExpenseWindow(query: ExpenseDrillQuery): { start: Date; end: Date } {
+    if (query.year != null && query.month != null) {
+      if (!Number.isFinite(query.year) || query.year < 1300 || query.year > 1500) {
+        throw new BadRequestException('invalid year');
+      }
+      if (!Number.isFinite(query.month) || query.month < 1 || query.month > 12) {
+        throw new BadRequestException('invalid month');
+      }
+      const range = getJalaliMonthRanges(query.year)[query.month - 1];
+      return { start: range.start, end: range.end };
+    }
+    if (query.fromJalali && query.toJalali) {
+      const range = getJalaliInclusiveRange(query.fromJalali, query.toJalali);
+      if (!range) throw new BadRequestException('invalid fromJalali/toJalali');
+      return range;
+    }
+    throw new BadRequestException('year+month or fromJalali+toJalali is required');
+  }
+
   private async getMonthlyExpenseTotal(start: Date, end: Date): Promise<bigint> {
     const agg = await this.prisma.transaction.aggregate({
       _sum: { amount: true },
@@ -110,13 +247,28 @@ export class AdminFinancialService {
     return agg._sum.amount ?? BigInt(0);
   }
 
+  /** Operating expenses that are not cleared cheques (those form the چک وصول‌شده series). */
+  private nonChequeOperatingWhere(start: Date, end: Date): Prisma.TransactionWhereInput {
+    return {
+      AND: [
+        operatingExpenseWhere(start, end),
+        {
+          OR: [
+            { sourceType: null },
+            { sourceType: { not: OPERATING_CHEQUE_SOURCE_TYPE } },
+          ],
+        },
+      ],
+    };
+  }
+
   private async getMonthlyExpenseByCategory(
     start: Date,
     end: Date,
-  ): Promise<Array<{ name: string; total: string }>> {
+  ): Promise<Array<{ name: string; total: string; categoryId: number | null }>> {
     const groups = await this.prisma.transaction.groupBy({
       by: ['categoryId'],
-      where: operatingExpenseWhere(start, end),
+      where: this.nonChequeOperatingWhere(start, end),
       _sum: { amount: true },
     });
 
@@ -128,19 +280,27 @@ export class AdminFinancialService {
     });
     const byId = new Map(categories.map((c) => [c.id, c.name]));
 
-    const merged = new Map<string, bigint>();
+    const merged = new Map<string, { total: bigint; categoryId: number | null }>();
     for (const group of groups) {
-      const name =
-        group.categoryId == null
-          ? UNCATEGORIZED_EXPENSE_LABEL
-          : byId.get(group.categoryId) ?? UNCATEGORIZED_EXPENSE_LABEL;
+      const named =
+        group.categoryId == null ? null : byId.get(group.categoryId) ?? null;
+      const name = named ?? UNCATEGORIZED_EXPENSE_LABEL;
       const amount = BigInt(group._sum.amount ?? 0);
-      merged.set(name, (merged.get(name) ?? 0n) + amount);
+      const existing = merged.get(name);
+      if (existing) {
+        existing.total += amount;
+      } else {
+        merged.set(name, {
+          total: amount,
+          categoryId: named ? group.categoryId : null,
+        });
+      }
     }
 
-    const result = [...merged.entries()].map(([name, total]) => ({
+    const result = [...merged.entries()].map(([name, row]) => ({
       name,
-      total: String(total),
+      total: String(row.total),
+      categoryId: row.categoryId,
     }));
     result.sort((a, b) => {
       const diff = BigInt(b.total) - BigInt(a.total);

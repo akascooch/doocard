@@ -278,6 +278,16 @@ export const jalaliToGregorian = (jalaliDate: string): string | null => {
  * @param format - Output format (default: 'YYYY/MM/DD')
  * @returns Current Jalali date string
  */
+export const getCurrentJalaliYear = (date?: Date): number => {
+  const parts = getTehranGregorianDateParts(date);
+  const jalaliParts = parts ? safeToJalaali(parts.gy, parts.gm, parts.gd) : null;
+  if (!jalaliParts) {
+    const fallback = Number(getCurrentJalaliDate().slice(0, 4));
+    return Number.isFinite(fallback) && fallback >= 1300 ? fallback : 1405;
+  }
+  return jalaliParts.jy;
+};
+
 export const getCurrentJalaliDate = (format: string = 'YYYY/MM/DD'): string => {
   const parts = getTehranGregorianDateParts();
   const jalaliParts = parts ? safeToJalaali(parts.gy, parts.gm, parts.gd) : null;

@@ -81,6 +81,18 @@ export function getCurrentJalaliDate(): string {
   return toJalaliString(new Date());
 }
 
+/** Jalali year for Asia/Tehran civil date (not the process local TZ). */
+export function getCurrentJalaliYear(now = new Date()): number {
+  const ymd = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Tehran',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+  const [gy, gm, gd] = ymd.split('-').map(Number);
+  return jalaali.toJalaali(gy, gm, gd).jy;
+}
+
 /**
  * Format Jalali date for display with Persian digits
  * @param jalaliDate - String in format 'YYYY/MM/DD'
@@ -166,5 +178,60 @@ export function getJalaliMonthRanges(jy: number): JalaliMonthRange[] {
     });
   }
   return ranges;
+}
+
+function pad2(n: number): string {
+  return n.toString().padStart(2, '0');
+}
+
+function parseJalaliYmd(value: string): { jy: number; jm: number; jd: number } | null {
+  if (!isValidJalaliDate(value)) return null;
+  const [jy, jm, jd] = value.split(/[/\-]/).map(Number);
+  return { jy, jm, jd };
+}
+
+function jalaliDayStartUtc(jy: number, jm: number, jd: number): Date {
+  const g = jalaali.toGregorian(jy, jm, jd);
+  return new Date(Date.UTC(g.gy, g.gm - 1, g.gd, 0, 0, 0, 0) - TEHRAN_OFFSET_MS);
+}
+
+/** Inclusive Tehran civil-day range for drill-down queries. */
+export function getJalaliInclusiveRange(
+  fromJalali: string,
+  toJalali: string,
+): { start: Date; end: Date } | null {
+  const from = parseJalaliYmd(fromJalali);
+  const to = parseJalaliYmd(toJalali);
+  if (!from || !to) return null;
+  const start = jalaliDayStartUtc(from.jy, from.jm, from.jd);
+  const toStart = jalaliDayStartUtc(to.jy, to.jm, to.jd);
+  if (toStart.getTime() < start.getTime()) return null;
+  const gNext = (() => {
+    const next = new Date(toStart.getTime() + 24 * 60 * 60 * 1000);
+    return next;
+  })();
+  const end = new Date(gNext.getTime() - 1);
+  return { start, end };
+}
+
+/** Jalali YYYY/MM/DD for an instant in Asia/Tehran. */
+export function toJalaliStringTehran(date: Date): string {
+  const ymd = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Tehran',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+  const [gy, gm, gd] = ymd.split('-').map(Number);
+  const j = jalaali.toJalaali(gy, gm, gd);
+  return `${j.jy}/${pad2(j.jm)}/${pad2(j.jd)}`;
+}
+
+export function parseJalaliYearQuery(year?: string): number {
+  const current = getCurrentJalaliYear();
+  if (!year) return current;
+  const jy = parseInt(year, 10);
+  if (Number.isNaN(jy) || jy < 1300 || jy > 1500) return current;
+  return jy;
 }
 

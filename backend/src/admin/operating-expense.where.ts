@@ -24,6 +24,7 @@ export const PAYROLL_WITHDRAWAL_CATEGORY_CODES = [
 ] as const;
 
 export const UNCATEGORIZED_EXPENSE_LABEL = 'بدون دسته‌بندی';
+export const CLEARED_CHEQUE_SERIES_LABEL = 'چک وصول‌شده';
 export const OPERATING_CHEQUE_SOURCE_TYPE = 'CHEQUE_LEAF';
 
 export type OperatingExpenseFixture = {

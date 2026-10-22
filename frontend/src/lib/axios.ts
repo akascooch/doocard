@@ -96,7 +96,8 @@ api.interceptors.request.use(
       const url = config.url || '';
       if (
         url.includes('/dashboard/financial-stats') ||
-        url.includes('/admin/financial/yearly-report')
+        url.includes('/admin/financial/yearly-report') ||
+        url.includes('/admin/financial/expenses')
       ) {
         const financialToken = getFinancialAccessToken();
         if (financialToken) {
