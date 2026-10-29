@@ -137,7 +137,8 @@ export default function BookAppointmentPage() {
       void (async () => {
         try {
           const response = await fetch(
-            `/api/appointments/slots?date=${dateStr}&employeeId=${formData.employeeId}&durationMin=${durationMin}&slotIntervalMin=30`
+            `/api/appointments/slots?date=${dateStr}&employeeId=${formData.employeeId}&durationMin=${durationMin}&slotIntervalMin=30`,
+            { credentials: 'omit' },
           )
           if (response.ok) {
             const data = await response.json()

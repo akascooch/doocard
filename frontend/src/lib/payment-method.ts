@@ -7,6 +7,7 @@ export const APPOINTMENT_PAYMENT_METHOD_LABELS = {
   CHEQUE: 'چک',
   CARD2CARD: 'کارت به کارت',
   DEBT: 'بدهی',
+  PACKAGE: 'پکیج',
 } as const;
 
 export type AppointmentPaymentMethod = keyof typeof APPOINTMENT_PAYMENT_METHOD_LABELS;

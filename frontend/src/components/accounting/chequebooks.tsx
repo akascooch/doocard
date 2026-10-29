@@ -46,7 +46,7 @@ import { api } from '@/lib/axios'
 import MoneyInput from '@/components/ui/MoneyInput'
 import PersianDatePicker from '@/components/ui/PersianDatePicker'
 import { formatRials } from '@/lib/money'
-import { formatToJalali, jalaliToISO, getCurrentJalaliDate } from '@/lib/date'
+import { formatToJalali, jalaliToGregorian, jalaliToISO, getCurrentJalaliDate } from '@/lib/date'
 import {
   type EmployeeListItem,
   getEmployeeDisplayName,
@@ -146,6 +146,9 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
   const [loadingLeaves, setLoadingLeaves] = useState(false)
   const [selectedBookId, setSelectedBookId] = useState<number | null>(null)
   const [leafStatusFilter, setLeafStatusFilter] = useState<string>('ALL')
+  /** Jalali YYYY/MM/DD for UI; converted to Gregorian YYYY-MM-DD for API dueFrom/dueTo. */
+  const [dueFromJalali, setDueFromJalali] = useState('')
+  const [dueToJalali, setDueToJalali] = useState('')
   const [showArchived, setShowArchived] = useState(false)
   const [archiveTarget, setArchiveTarget] = useState<Chequebook | null>(null)
   const [restoreTarget, setRestoreTarget] = useState<Chequebook | null>(null)
@@ -191,18 +194,37 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
     }
   }, [toast, showArchived])
 
-  const fetchLeaves = useCallback(async (chequebookId: number, status?: string) => {
+  const fetchLeaves = useCallback(async (
+    chequebookId: number,
+    status?: string,
+    dueFrom?: string,
+    dueTo?: string,
+  ) => {
     try {
       setLoadingLeaves(true)
+      const dueFromYmd = dueFrom ? jalaliToGregorian(dueFrom) : null
+      const dueToYmd = dueTo ? jalaliToGregorian(dueTo) : null
+      if ((dueFrom && !dueFromYmd) || (dueTo && !dueToYmd)) {
+        toast({
+          title: 'خطا',
+          description: 'تاریخ سررسید نامعتبر است. تاریخ را دوباره انتخاب کنید.',
+          variant: 'destructive',
+        })
+        setLeaves([])
+        return
+      }
       const response = await api.get(`/accounting/chequebooks/${chequebookId}/leaves`, {
         params: {
           ...(status && status !== 'ALL' ? { status } : {}),
+          ...(dueFromYmd ? { dueFrom: dueFromYmd } : {}),
+          ...(dueToYmd ? { dueTo: dueToYmd } : {}),
           take: 500,
         },
       })
       setLeaves(response.data?.data || [])
     } catch (error) {
       console.error('Error fetching cheque leaves:', error)
+      setLeaves([])
       toast({ title: 'خطا', description: 'خطا در دریافت برگه‌های چک', variant: 'destructive' })
     } finally {
       setLoadingLeaves(false)
@@ -226,11 +248,16 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
 
   useEffect(() => {
     if (selectedBookId) {
-      fetchLeaves(selectedBookId, leafStatusFilter)
+      fetchLeaves(selectedBookId, leafStatusFilter, dueFromJalali, dueToJalali)
     } else {
       setLeaves([])
     }
-  }, [selectedBookId, leafStatusFilter, fetchLeaves])
+  }, [selectedBookId, leafStatusFilter, dueFromJalali, dueToJalali, fetchLeaves])
+
+  const clearDueDateFilter = () => {
+    setDueFromJalali('')
+    setDueToJalali('')
+  }
 
   const resetBookForm = () => {
     setBookForm({
@@ -408,7 +435,9 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
       setIsLeafDialogOpen(false)
       setEditingLeaf(null)
       resetLeafForm()
-      if (selectedBookId) fetchLeaves(selectedBookId, leafStatusFilter)
+      if (selectedBookId) {
+        fetchLeaves(selectedBookId, leafStatusFilter, dueFromJalali, dueToJalali)
+      }
     } catch (error: any) {
       toast({
         title: 'خطا',
@@ -422,7 +451,9 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
     try {
       await api.patch(`/accounting/cheque-leaves/${leaf.id}`, { status })
       toast({ title: 'موفق', description: `وضعیت به «${STATUS_LABELS[status]}» تغییر کرد` })
-      if (selectedBookId) fetchLeaves(selectedBookId, leafStatusFilter)
+      if (selectedBookId) {
+        fetchLeaves(selectedBookId, leafStatusFilter, dueFromJalali, dueToJalali)
+      }
     } catch (error: any) {
       toast({
         title: 'خطا',
@@ -656,24 +687,55 @@ export function Chequebooks({ accounts }: ChequebooksProps) {
       {selectedBook && (
         <Card>
           <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <CardTitle>
-                برگه‌های چک — {selectedBook.bankAccount.name}
-                {selectedBook.serialNumber ? ` (${selectedBook.serialNumber})` : ''}
-              </CardTitle>
-              <Select value={leafStatusFilter} onValueChange={setLeafStatusFilter}>
-                <SelectTrigger className="w-[160px] bg-background border-input">
-                  <SelectValue placeholder="وضعیت" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">همه</SelectItem>
-                  {(Object.keys(STATUS_LABELS) as ChequeLeafStatus[]).map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {STATUS_LABELS[status]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <CardTitle>
+                  برگه‌های چک — {selectedBook.bankAccount.name}
+                  {selectedBook.serialNumber ? ` (${selectedBook.serialNumber})` : ''}
+                </CardTitle>
+                <Select value={leafStatusFilter} onValueChange={setLeafStatusFilter}>
+                  <SelectTrigger className="w-[160px] bg-background border-input">
+                    <SelectValue placeholder="وضعیت" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">همه</SelectItem>
+                    {(Object.keys(STATUS_LABELS) as ChequeLeafStatus[]).map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {STATUS_LABELS[status]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col sm:flex-row sm:items-end gap-3 flex-wrap">
+                <div className="w-full sm:w-[180px]">
+                  <PersianDatePicker
+                    value={dueFromJalali}
+                    onChange={setDueFromJalali}
+                    label="از تاریخ (سررسید)"
+                    disablePortal
+                  />
+                </div>
+                <div className="w-full sm:w-[180px]">
+                  <PersianDatePicker
+                    value={dueToJalali}
+                    onChange={setDueToJalali}
+                    label="تا تاریخ (سررسید)"
+                    disablePortal
+                  />
+                </div>
+                {(dueFromJalali || dueToJalali) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mb-1"
+                    onClick={clearDueDateFilter}
+                  >
+                    پاک کردن فیلتر تاریخ
+                  </Button>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>

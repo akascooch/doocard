@@ -136,7 +136,7 @@ export default function PaymentModal({
     tipTeamMemberIds: [] as number[],
     manualTipAmount: 0,
     manualTipRecipientEmployeeId: null as number | null,
-    paymentMethod: 'CARD' as 'CASH' | 'CARD' | 'CARD2CARD' | 'DEBT',
+    paymentMethod: 'CARD' as 'CASH' | 'CARD' | 'CARD2CARD' | 'DEBT' | 'PACKAGE',
     accountId: null as number | null,
     notes: '',
   });
@@ -155,6 +155,16 @@ export default function PaymentModal({
     items: Array<{ id: string; title: string; pointsRequired: number | null }>;
   } | null>(null);
   const [assigningPackageId, setAssigningPackageId] = useState<string | null>(null);
+  const [eligiblePackages, setEligiblePackages] = useState<
+    Array<{
+      id: string;
+      title: string | null;
+      remainingSessions: number;
+      totalSessions: number;
+      unlimited?: boolean;
+    }>
+  >([]);
+  const [customerPackageId, setCustomerPackageId] = useState<string>('');
   const [serverAmount, setServerAmount] = useState(0);
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{ amount?: string; account?: string; payment?: string }>({});
@@ -239,7 +249,7 @@ export default function PaymentModal({
       // Load bank accounts + open debts warning
       if (reachable) {
         const customerId = (apptData as Appointment).customerId;
-        const [accountsResponse, staffResponse, hairdresserResponse, debtsResponse, productsResponse, loyaltyResponse] = await Promise.all([
+        const [accountsResponse, staffResponse, hairdresserResponse, debtsResponse, productsResponse, loyaltyResponse, eligibleResponse] = await Promise.all([
           api.get('/accounting/accounts'),
           api.get('/employees/service-staff/active').catch(() => ({ data: [] })),
           api.get('/employees/tip-recipients/manual').catch(() => ({ data: [] })),
@@ -250,9 +260,15 @@ export default function PaymentModal({
           customerId
             ? api.get(`/packages/loyalty-eligible/${customerId}`).catch(() => null)
             : Promise.resolve(null),
+          appointmentId
+            ? api.get('/packages/eligible', { params: { appointmentId } }).catch(() => null)
+            : Promise.resolve(null),
         ]);
         await cacheFromResponse(REFERENCE_KEYS.accounts, accountsResponse.data);
         setAccounts(accountsResponse.data);
+        const eligibleItems = (eligibleResponse?.data?.items || []) as typeof eligiblePackages;
+        setEligiblePackages(eligibleItems);
+        setCustomerPackageId(eligibleItems[0]?.id || '');
         setServiceStaff(staffResponse.data || []);
         const recipientRows = Array.isArray(hairdresserResponse.data) ? hairdresserResponse.data : [];
         setHairdressers(
@@ -419,12 +435,18 @@ export default function PaymentModal({
       return;
     }
 
-    if ((formData.paidAmount > 0 || formData.manualTipAmount > 0) && !formData.accountId) {
+    const isPackage = formData.paymentMethod === 'PACKAGE';
+    if (isPackage && !customerPackageId) {
+      setFieldErrors({ payment: 'پکیج فعال مشتری را انتخاب کنید' });
+      return;
+    }
+
+    if (!isPackage && (formData.paidAmount > 0 || formData.manualTipAmount > 0) && !formData.accountId) {
       setFieldErrors({ account: 'انتخاب حساب بانکی برای مبلغ پرداختی الزامی است' });
       return;
     }
 
-    if (formData.paidAmount + formData.debtAmount !== formData.amount) {
+    if (!isPackage && formData.paidAmount + formData.debtAmount !== formData.amount) {
       setFieldErrors({ amount: 'جمع مبلغ پرداختی و بدهی باید برابر مبلغ کل باشد' });
       return;
     }
@@ -491,13 +513,14 @@ export default function PaymentModal({
       }
 
       const payload: Record<string, unknown> = {
-        amount: formData.amount, // Already in RIAL
-        paidAmount: formData.paidAmount,
-        debtAmount: formData.debtAmount,
+        amount: isPackage ? 0 : formData.amount, // Already in RIAL; package covers service
+        paidAmount: isPackage ? 0 : formData.paidAmount,
+        debtAmount: isPackage ? 0 : formData.debtAmount,
         tipAmount: formData.tipAmount || 0, // Already in RIAL
         paymentMethod: formData.paymentMethod,
+        customerPackageId: isPackage ? customerPackageId : undefined,
         accountId:
-          formData.paidAmount > 0 || formData.manualTipAmount > 0
+          !isPackage && (formData.paidAmount > 0 || formData.manualTipAmount > 0)
             ? formData.accountId
             : undefined,
         manualTipAmount: formData.manualTipAmount || 0,
@@ -1070,13 +1093,20 @@ export default function PaymentModal({
               <Select
                 value={formData.paymentMethod}
                 onValueChange={(val) => {
-                  const method = val as 'CASH' | 'CARD' | 'CARD2CARD' | 'DEBT';
+                  const method = val as 'CASH' | 'CARD' | 'CARD2CARD' | 'DEBT' | 'PACKAGE';
                   if (method === 'DEBT') {
                     setFormData({
                       ...formData,
                       paymentMethod: method,
                       paidAmount: 0,
                       debtAmount: formData.amount,
+                    });
+                  } else if (method === 'PACKAGE') {
+                    setFormData({
+                      ...formData,
+                      paymentMethod: method,
+                      paidAmount: 0,
+                      debtAmount: 0,
                     });
                   } else {
                     setFormData({
@@ -1099,8 +1129,37 @@ export default function PaymentModal({
                   <SelectItem value="CARD">کارت خوان</SelectItem>
                   <SelectItem value="CARD2CARD">کارت به کارت</SelectItem>
                   <SelectItem value="DEBT">بدهی</SelectItem>
+                  <SelectItem value="PACKAGE" disabled={eligiblePackages.length === 0}>
+                    پکیج{eligiblePackages.length === 0 ? ' (بدون پکیج فعال)' : ''}
+                  </SelectItem>
                 </SelectContent>
               </Select>
+              {formData.paymentMethod === 'PACKAGE' ? (
+                <div className="mt-2 space-y-2">
+                  <Label>پکیج مشتری</Label>
+                  <Select value={customerPackageId} onValueChange={setCustomerPackageId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="انتخاب پکیج..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {eligiblePackages.map((pkg) => (
+                        <SelectItem key={pkg.id} value={pkg.id}>
+                          {(pkg.title || 'پکیج') +
+                            (pkg.unlimited || pkg.totalSessions === 0
+                              ? ' — نامحدود'
+                              : ` — باقی‌مانده ${pkg.remainingSessions} از ${pkg.totalSessions}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Alert>
+                    <Package className="h-4 w-4" />
+                    <AlertDescription>
+                      با تسویه پکیج، یک جلسه از پکیج کسر می‌شود (یا فقط ثبت مصرف برای پکیج نامحدود) و مبلغ خدمت صفر ثبت می‌شود.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              ) : null}
             </div>
 
             {/* Bank Account (hidden when no paid portion) */}

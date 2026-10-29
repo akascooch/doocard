@@ -19,6 +19,7 @@ export enum SettlePaymentMethod {
   CARD = 'CARD',
   CARD2CARD = 'CARD2CARD',
   DEBT = 'DEBT',
+  PACKAGE = 'PACKAGE',
 }
 
 export enum TipRecipientType {
@@ -125,7 +126,14 @@ export class SettleAppointmentDto {
   @IsNotEmpty()
   paymentMethod: SettlePaymentMethod;
 
+  /** Required when paymentMethod is PACKAGE — customer_service_packages.id */
+  @ValidateIf((o: SettleAppointmentDto) => o.paymentMethod === SettlePaymentMethod.PACKAGE)
+  @IsString()
+  @IsNotEmpty({ message: 'شناسه پکیج برای تسویه با پکیج الزامی است' })
+  customerPackageId?: string;
+
   @ValidateIf((o: SettleAppointmentDto) => {
+    if (o.paymentMethod === SettlePaymentMethod.PACKAGE) return false;
     const paid =
       o.paidAmount != null
         ? o.paidAmount

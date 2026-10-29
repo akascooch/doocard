@@ -62,6 +62,7 @@ export default function SlotPickerProfessional({
               durationMin,
               bufferMin: 5,
               slotIntervalMin: 30,
+              staffAccess: true,
             },
           });
           setSlots(response.data.slots || []);

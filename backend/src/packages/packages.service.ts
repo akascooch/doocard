@@ -2,23 +2,48 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { CustomerPackageStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { parsePositiveRial } from '../packages/packages.constants';
-import { AssignPackageDto, ConsumePackageDto, CreatePackageTemplateDto, UpdatePackageTemplateDto } from './dto/packages.dto';
+import {
+  AssignPackageDto,
+  ConsumePackageDto,
+  CreatePackageTemplateDto,
+  UpdatePackageTemplateDto,
+} from './dto/packages.dto';
 
-function serializeTemplate(row: {
+type TemplateRow = {
   id: string;
   title: string;
   description: string | null;
   priceRial: bigint;
   validityDays: number;
   totalSessions: number;
-  serviceId: number;
+  serviceId: number | null;
   pointsRequired: number | null;
   isActive: boolean;
   archivedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   service?: { id: number; name: string } | null;
-}) {
+  templateServices?: Array<{ serviceId: number; service?: { id: number; name: string } | null }>;
+};
+
+function templateServiceIds(row: TemplateRow): number[] {
+  const fromLinks = (row.templateServices || [])
+    .map((link) => link.serviceId)
+    .filter((id) => Number.isInteger(id) && id > 0);
+  if (fromLinks.length > 0) return [...new Set(fromLinks)];
+  if (row.serviceId) return [row.serviceId];
+  return [];
+}
+
+function serializeTemplate(row: TemplateRow) {
+  const serviceIds = templateServiceIds(row);
+  const serviceNames =
+    row.templateServices
+      ?.map((link) => link.service?.name)
+      .filter((name): name is string => Boolean(name)) ?? [];
+  if (serviceNames.length === 0 && row.service?.name) {
+    serviceNames.push(row.service.name);
+  }
   return {
     id: row.id,
     title: row.title,
@@ -26,8 +51,11 @@ function serializeTemplate(row: {
     priceRial: row.priceRial.toString(),
     validityDays: row.validityDays,
     totalSessions: row.totalSessions,
-    serviceId: row.serviceId,
-    serviceName: row.service?.name ?? null,
+    unlimited: row.totalSessions === 0,
+    serviceId: serviceIds[0] ?? row.serviceId ?? null,
+    serviceIds,
+    serviceName: serviceNames[0] ?? row.service?.name ?? null,
+    serviceNames,
     pointsRequired: row.pointsRequired,
     isActive: row.isActive,
     archivedAt: row.archivedAt,
@@ -47,25 +75,38 @@ function serializeOwned(row: {
   paymentMethod: string;
   notes: string | null;
   createdAt: Date;
-  template?: { title: string; serviceId?: number; service?: { name: string } | null } | null;
+  template?: TemplateRow | null;
 }) {
+  const serviceIds = row.template ? templateServiceIds(row.template) : [];
   return {
     id: row.id,
     customerId: row.customerId,
     packageTemplateId: row.packageTemplateId,
     title: row.template?.title ?? null,
-    serviceName: row.template?.service?.name ?? null,
-    serviceId: row.template?.serviceId ?? null,
+    serviceName: row.template?.service?.name ?? row.template?.templateServices?.[0]?.service?.name ?? null,
+    serviceNames:
+      row.template?.templateServices
+        ?.map((link) => link.service?.name)
+        .filter((name): name is string => Boolean(name)) ?? [],
+    serviceId: serviceIds[0] ?? row.template?.serviceId ?? null,
+    serviceIds,
     totalSessions: row.totalSessions,
     remainingSessions: row.remainingSessions,
+    unlimited: row.totalSessions === 0,
     expiresAt: row.expiresAt,
     status: row.status,
     paymentMethod: row.paymentMethod,
     notes: row.notes,
     createdAt: row.createdAt,
-    expiringSoon: row.status === 'ACTIVE' && row.expiresAt.getTime() - Date.now() <= 7 * 24 * 60 * 60 * 1000,
+    expiringSoon:
+      row.status === 'ACTIVE' && row.expiresAt.getTime() - Date.now() <= 7 * 24 * 60 * 60 * 1000,
   };
 }
+
+const TEMPLATE_INCLUDE = {
+  service: { select: { id: true, name: true } },
+  templateServices: { include: { service: { select: { id: true, name: true } } } },
+} as const;
 
 @Injectable()
 export class PackagesService {
@@ -73,32 +114,63 @@ export class PackagesService {
 
   async listTemplates() {
     const rows = await this.prisma.servicePackageTemplate.findMany({
-      include: { service: { select: { id: true, name: true } } },
+      include: TEMPLATE_INCLUDE,
       orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }],
     });
     return { items: rows.map(serializeTemplate) };
   }
 
+  private resolveServiceIds(dto: { serviceIds?: number[]; serviceId?: number }): number[] {
+    const ids = [...new Set([...(dto.serviceIds || []), ...(dto.serviceId ? [dto.serviceId] : [])])].filter(
+      (id) => Number.isInteger(id) && id > 0,
+    );
+    if (ids.length === 0) {
+      throw new BadRequestException('حداقل یک خدمت برای پکیج لازم است');
+    }
+    return ids;
+  }
+
+  private async assertServicesExist(serviceIds: number[]) {
+    const found = await this.prisma.service.findMany({
+      where: { id: { in: serviceIds } },
+      select: { id: true },
+    });
+    if (found.length !== serviceIds.length) {
+      throw new NotFoundException('یک یا چند خدمت یافت نشد');
+    }
+  }
+
   async createTemplate(dto: CreatePackageTemplateDto) {
-    const service = await this.prisma.service.findUnique({ where: { id: dto.serviceId } });
-    if (!service) throw new NotFoundException('خدمت یافت نشد');
+    const serviceIds = this.resolveServiceIds(dto);
+    await this.assertServicesExist(serviceIds);
     let priceRial: bigint;
     try {
       priceRial = parsePositiveRial(dto.priceRial);
     } catch {
       throw new BadRequestException('قیمت باید عدد صحیح مثبت ریال باشد');
     }
-    const row = await this.prisma.servicePackageTemplate.create({
-      data: {
-        title: dto.title.trim(),
-        description: dto.description?.trim() || null,
-        priceRial,
-        validityDays: dto.validityDays,
-        totalSessions: dto.totalSessions,
-        serviceId: dto.serviceId,
-        pointsRequired: dto.pointsRequired ?? null,
-      },
-      include: { service: { select: { id: true, name: true } } },
+    const row = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.servicePackageTemplate.create({
+        data: {
+          title: dto.title.trim(),
+          description: dto.description?.trim() || null,
+          priceRial,
+          validityDays: dto.validityDays,
+          totalSessions: dto.totalSessions,
+          serviceId: serviceIds[0],
+          pointsRequired: null,
+        },
+      });
+      await tx.servicePackageTemplateService.createMany({
+        data: serviceIds.map((serviceId) => ({
+          packageTemplateId: created.id,
+          serviceId,
+        })),
+      });
+      return tx.servicePackageTemplate.findUniqueOrThrow({
+        where: { id: created.id },
+        include: TEMPLATE_INCLUDE,
+      });
     });
     return serializeTemplate(row);
   }
@@ -114,35 +186,51 @@ export class PackagesService {
         throw new BadRequestException('قیمت باید عدد صحیح مثبت ریال باشد');
       }
     }
-    if (dto.serviceId) {
-      const service = await this.prisma.service.findUnique({ where: { id: dto.serviceId } });
-      if (!service) throw new NotFoundException('خدمت یافت نشد');
-    }
-    const row = await this.prisma.servicePackageTemplate.update({
-      where: { id },
-      data: {
-        ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
-        ...(dto.description !== undefined ? { description: dto.description.trim() || null } : {}),
-        ...(priceRial !== undefined ? { priceRial } : {}),
-        ...(dto.validityDays !== undefined ? { validityDays: dto.validityDays } : {}),
-        ...(dto.totalSessions !== undefined ? { totalSessions: dto.totalSessions } : {}),
-        ...(dto.serviceId !== undefined ? { serviceId: dto.serviceId } : {}),
-        ...(dto.pointsRequired !== undefined ? { pointsRequired: dto.pointsRequired } : {}),
-        ...(dto.isActive !== undefined
-          ? { isActive: dto.isActive, archivedAt: dto.isActive ? null : existing.archivedAt ?? new Date() }
-          : {}),
-      },
-      include: { service: { select: { id: true, name: true } } },
+    const serviceIds =
+      dto.serviceIds !== undefined || dto.serviceId !== undefined
+        ? this.resolveServiceIds(dto)
+        : null;
+    if (serviceIds) await this.assertServicesExist(serviceIds);
+
+    const row = await this.prisma.$transaction(async (tx) => {
+      await tx.servicePackageTemplate.update({
+        where: { id },
+        data: {
+          ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
+          ...(dto.description !== undefined ? { description: dto.description.trim() || null } : {}),
+          ...(priceRial !== undefined ? { priceRial } : {}),
+          ...(dto.validityDays !== undefined ? { validityDays: dto.validityDays } : {}),
+          ...(dto.totalSessions !== undefined ? { totalSessions: dto.totalSessions } : {}),
+          ...(serviceIds ? { serviceId: serviceIds[0] } : {}),
+          ...(dto.isActive !== undefined
+            ? { isActive: dto.isActive, archivedAt: dto.isActive ? null : existing.archivedAt ?? new Date() }
+            : {}),
+        },
+      });
+      if (serviceIds) {
+        await tx.servicePackageTemplateService.deleteMany({ where: { packageTemplateId: id } });
+        await tx.servicePackageTemplateService.createMany({
+          data: serviceIds.map((serviceId) => ({ packageTemplateId: id, serviceId })),
+        });
+      }
+      return tx.servicePackageTemplate.findUniqueOrThrow({
+        where: { id },
+        include: TEMPLATE_INCLUDE,
+      });
     });
     return serializeTemplate(row);
   }
 
   async deactivateTemplate(id: string) {
-    const existing = await this.prisma.servicePackageTemplate.findUnique({ where: { id } });
+    const existing = await this.prisma.servicePackageTemplate.findUnique({
+      where: { id },
+      include: TEMPLATE_INCLUDE,
+    });
     if (!existing) throw new NotFoundException('پکیج یافت نشد');
     const row = await this.prisma.servicePackageTemplate.update({
       where: { id },
       data: { isActive: false, archivedAt: existing.archivedAt ?? new Date() },
+      include: TEMPLATE_INCLUDE,
     });
     return serializeTemplate(row);
   }
@@ -152,8 +240,12 @@ export class PackagesService {
     if (!customer) throw new NotFoundException('مشتری یافت نشد');
     const template = await this.prisma.servicePackageTemplate.findFirst({
       where: { id: dto.packageTemplateId, isActive: true, archivedAt: null },
+      include: TEMPLATE_INCLUDE,
     });
     if (!template) throw new NotFoundException('پکیج فعال یافت نشد');
+    if (templateServiceIds(template).length === 0) {
+      throw new BadRequestException('پکیج هیچ خدمتی ندارد');
+    }
 
     const expiresAt = new Date(Date.now() + template.validityDays * 24 * 60 * 60 * 1000);
     return this.prisma.$transaction(async (tx) => {
@@ -171,45 +263,65 @@ export class PackagesService {
           paymentMethod: dto.paymentMethod,
           notes: dto.notes?.trim() || null,
         },
-        include: { template: { include: { service: { select: { name: true } } } } },
+        include: { template: { include: TEMPLATE_INCLUDE } },
       });
       return serializeOwned(row);
     });
   }
 
-  async consumePackageSession(customerPackageId: string, dto: ConsumePackageDto) {
+  async consumePackageSession(
+    customerPackageId: string,
+    dto: ConsumePackageDto,
+    actorUserId?: number | null,
+  ) {
+    return this.prisma.$transaction(async (tx) =>
+      this.consumePackageSessionInTx(tx, customerPackageId, dto, actorUserId),
+    );
+  }
+
+  async consumePackageSessionInTx(
+    tx: Prisma.TransactionClient,
+    customerPackageId: string,
+    dto: ConsumePackageDto,
+    actorUserId?: number | null,
+  ) {
     const now = new Date();
-    return this.prisma.$transaction(async (tx) => {
-      const owned = await tx.customerServicePackage.findUnique({
-        where: { id: customerPackageId },
-        include: { template: true },
-      });
-      if (!owned) throw new NotFoundException('پکیج مشتری یافت نشد');
-      if (owned.status === CustomerPackageStatus.CANCELLED) {
-        throw new BadRequestException('این پکیج لغو شده است');
+    const owned = await tx.customerServicePackage.findUnique({
+      where: { id: customerPackageId },
+      include: { template: { include: TEMPLATE_INCLUDE } },
+    });
+    if (!owned) throw new NotFoundException('پکیج مشتری یافت نشد');
+    if (owned.status === CustomerPackageStatus.CANCELLED) {
+      throw new BadRequestException('این پکیج لغو شده است');
+    }
+    if (owned.expiresAt < now || owned.status === CustomerPackageStatus.EXPIRED) {
+      if (owned.status === CustomerPackageStatus.ACTIVE) {
+        await tx.customerServicePackage.update({
+          where: { id: owned.id },
+          data: { status: CustomerPackageStatus.EXPIRED },
+        });
       }
-      if (owned.expiresAt < now || owned.status === CustomerPackageStatus.EXPIRED) {
-        if (owned.status === CustomerPackageStatus.ACTIVE) {
-          await tx.customerServicePackage.update({
-            where: { id: owned.id },
-            data: { status: CustomerPackageStatus.EXPIRED },
-          });
-        }
-        throw new BadRequestException('اعتبار پکیج به پایان رسیده است');
-      }
+      throw new BadRequestException('اعتبار پکیج به پایان رسیده است');
+    }
 
-      const appointment = await tx.appointment.findFirst({
-        where: { id: dto.appointmentId, customerId: owned.customerId, deletedAt: null },
-        include: { appointmentServices: true },
-      });
-      if (!appointment) throw new NotFoundException('نوبت این مشتری یافت نشد');
-      const serviceOk =
-        appointment.serviceId === owned.template.serviceId ||
-        appointment.appointmentServices.some((item) => item.serviceId === owned.template.serviceId);
-      if (!serviceOk) {
-        throw new BadRequestException('این نوبت شامل خدمت پکیج نیست');
-      }
+    const appointment = await tx.appointment.findFirst({
+      where: { id: dto.appointmentId, customerId: owned.customerId, deletedAt: null },
+      include: { appointmentServices: true },
+    });
+    if (!appointment) throw new NotFoundException('نوبت این مشتری یافت نشد');
 
+    const appointmentServiceIds = this.appointmentServiceIds(appointment);
+    const packageServiceIds = new Set(templateServiceIds(owned.template as TemplateRow));
+    const matchedServiceId =
+      dto.serviceId && packageServiceIds.has(dto.serviceId) && appointmentServiceIds.includes(dto.serviceId)
+        ? dto.serviceId
+        : appointmentServiceIds.find((id) => packageServiceIds.has(id));
+    if (!matchedServiceId) {
+      throw new BadRequestException('این نوبت شامل خدمت پکیج نیست');
+    }
+
+    const unlimited = owned.totalSessions === 0;
+    if (!unlimited) {
       const updated = await tx.customerServicePackage.updateMany({
         where: {
           id: owned.id,
@@ -222,18 +334,25 @@ export class PackagesService {
       if (updated.count !== 1) {
         throw new BadRequestException('جلسهٔ قابل مصرف باقی نمانده است');
       }
+    }
 
-      try {
-        await tx.customerPackageConsumption.create({
-          data: { customerPackageId: owned.id, appointmentId: dto.appointmentId },
-        });
-      } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-          throw new BadRequestException('برای این نوبت قبلاً جلسه مصرف شده است');
-        }
-        throw error;
+    try {
+      await tx.customerPackageConsumption.create({
+        data: {
+          customerPackageId: owned.id,
+          appointmentId: dto.appointmentId,
+          serviceId: matchedServiceId,
+          consumedByUserId: actorUserId ?? null,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new BadRequestException('برای این نوبت و خدمت قبلاً جلسه مصرف شده است');
       }
+      throw error;
+    }
 
+    if (!unlimited) {
       const after = await tx.customerServicePackage.findUnique({ where: { id: owned.id } });
       if (after && after.remainingSessions <= 0) {
         await tx.customerServicePackage.update({
@@ -241,12 +360,13 @@ export class PackagesService {
           data: { status: CustomerPackageStatus.EXHAUSTED, remainingSessions: 0 },
         });
       }
-      const fresh = await tx.customerServicePackage.findUnique({
-        where: { id: owned.id },
-        include: { template: { include: { service: { select: { name: true } } } } },
-      });
-      return serializeOwned(fresh!);
+    }
+
+    const fresh = await tx.customerServicePackage.findUnique({
+      where: { id: owned.id },
+      include: { template: { include: TEMPLATE_INCLUDE } },
     });
+    return serializeOwned(fresh!);
   }
 
   async myPackages(userId: number) {
@@ -254,7 +374,7 @@ export class PackagesService {
     await this.expireOverdue(customer.id);
     const rows = await this.prisma.customerServicePackage.findMany({
       where: { customerId: customer.id },
-      include: { template: { include: { service: { select: { name: true } } } } },
+      include: { template: { include: TEMPLATE_INCLUDE } },
       orderBy: { createdAt: 'desc' },
     });
     return { items: rows.map(serializeOwned) };
@@ -266,10 +386,58 @@ export class PackagesService {
     await this.expireOverdue(customerId);
     const rows = await this.prisma.customerServicePackage.findMany({
       where: { customerId },
-      include: { template: { include: { service: { select: { name: true } } } } },
+      include: { template: { include: TEMPLATE_INCLUDE } },
       orderBy: { createdAt: 'desc' },
     });
     return { items: rows.map(serializeOwned) };
+  }
+
+  async listConsumptionHistory(customerId: number, customerPackageId?: string) {
+    const customer = await this.prisma.customer.findUnique({ where: { id: customerId } });
+    if (!customer) throw new NotFoundException('مشتری یافت نشد');
+    const rows = await this.prisma.customerPackageConsumption.findMany({
+      where: {
+        customerPackage: {
+          customerId,
+          ...(customerPackageId ? { id: customerPackageId } : {}),
+        },
+      },
+      include: {
+        service: { select: { id: true, name: true } },
+        appointment: { select: { id: true, scheduledAt: true, status: true } },
+        customerPackage: {
+          select: {
+            id: true,
+            packageTemplateId: true,
+            totalSessions: true,
+            remainingSessions: true,
+            template: { select: { title: true } },
+          },
+        },
+        consumedByUser: { select: { id: true, name: true, role: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+    return {
+      customerId,
+      items: rows.map((row) => ({
+        id: row.id,
+        customerPackageId: row.customerPackageId,
+        packageTitle: row.customerPackage.template?.title ?? null,
+        appointmentId: row.appointmentId,
+        appointmentScheduledAt: row.appointment.scheduledAt,
+        appointmentStatus: row.appointment.status,
+        serviceId: row.serviceId,
+        serviceName: row.service?.name ?? null,
+        consumedAt: row.createdAt,
+        consumedByUserId: row.consumedByUserId,
+        consumedByName: row.consumedByUser?.name ?? null,
+        remainingSessions: row.customerPackage.remainingSessions,
+        totalSessions: row.customerPackage.totalSessions,
+        unlimited: row.customerPackage.totalSessions === 0,
+      })),
+    };
   }
 
   async eligibleForAppointment(appointmentId: number) {
@@ -301,31 +469,40 @@ export class PackagesService {
             where: {
               customerId: { in: customerIds },
               status: CustomerPackageStatus.ACTIVE,
-              remainingSessions: { gt: 0 },
               expiresAt: { gte: new Date() },
+              OR: [{ totalSessions: 0 }, { remainingSessions: { gt: 0 } }],
             },
-            include: { template: { include: { service: { select: { name: true } } } } },
+            include: { template: { include: TEMPLATE_INCLUDE } },
           });
     const byAppointmentId: Record<string, ReturnType<typeof serializeOwned>[]> = {};
     for (const appointment of appointments) {
       const serviceIds = new Set(this.appointmentServiceIds(appointment));
       byAppointmentId[String(appointment.id)] = packages
-        .filter(
-          (row) =>
-            row.customerId === appointment.customerId && serviceIds.has(row.template.serviceId),
-        )
+        .filter((row) => {
+          if (row.customerId !== appointment.customerId) return false;
+          const pkgServices = templateServiceIds(row.template as TemplateRow);
+          return pkgServices.some((id) => serviceIds.has(id));
+        })
         .map(serializeOwned);
     }
     return { byAppointmentId };
   }
 
-  private appointmentServiceIds(appointment: {
-    serviceId: number | null;
-    appointmentServices: { serviceId: number }[];
+  /** Prefer appointment_services, then FK serviceId, then JSON services snapshot (online booking). */
+  appointmentServiceIds(appointment: {
+    serviceId?: number | null;
+    appointmentServices?: { serviceId: number }[];
+    services?: unknown;
   }) {
     const ids = new Set<number>();
     if (appointment.serviceId) ids.add(appointment.serviceId);
-    for (const row of appointment.appointmentServices) ids.add(row.serviceId);
+    for (const row of appointment.appointmentServices || []) ids.add(row.serviceId);
+    if (Array.isArray(appointment.services)) {
+      for (const snap of appointment.services as Array<{ serviceId?: number }>) {
+        const sid = Number(snap?.serviceId);
+        if (Number.isInteger(sid) && sid > 0) ids.add(sid);
+      }
+    }
     return [...ids];
   }
 
@@ -336,42 +513,22 @@ export class PackagesService {
       where: {
         customerId,
         status: CustomerPackageStatus.ACTIVE,
-        remainingSessions: { gt: 0 },
         expiresAt: { gte: new Date() },
-        template: { serviceId: { in: serviceIds } },
+        OR: [{ totalSessions: 0 }, { remainingSessions: { gt: 0 } }],
       },
-      include: { template: { include: { service: { select: { name: true } } } } },
+      include: { template: { include: TEMPLATE_INCLUDE } },
       orderBy: { expiresAt: 'asc' },
     });
-    return rows.map(serializeOwned);
+    const wanted = new Set(serviceIds);
+    return rows
+      .filter((row) => templateServiceIds(row.template as TemplateRow).some((id) => wanted.has(id)))
+      .map(serializeOwned);
   }
 
   async loyaltyEligibleForCustomer(customerId: number) {
     const customer = await this.prisma.customer.findUnique({ where: { id: customerId } });
     if (!customer) throw new NotFoundException('مشتری یافت نشد');
-    const [pointsSum, templates] = await Promise.all([
-      this.prisma.loyaltyPointTransaction.aggregate({
-        where: { customerId },
-        _sum: { points: true },
-      }),
-      this.prisma.servicePackageTemplate.findMany({
-        where: {
-          isActive: true,
-          archivedAt: null,
-          pointsRequired: { not: null, gt: 0 },
-        },
-        include: { service: { select: { id: true, name: true } } },
-        orderBy: { pointsRequired: 'asc' },
-      }),
-    ]);
-    const points = pointsSum._sum.points ?? 0;
-    const items = templates
-      .filter((row) => row.pointsRequired != null && points >= row.pointsRequired)
-      .map((row) => ({
-        ...serializeTemplate(row),
-        qualified: true,
-      }));
-    return { customerId, points, items };
+    return { customerId, points: 0, items: [] as ReturnType<typeof serializeTemplate>[] };
   }
 
   private async expireOverdue(customerId: number) {

@@ -38,9 +38,10 @@ describe('PackagesService', () => {
       id: 'p1',
       customerId: 7,
       status: CustomerPackageStatus.ACTIVE,
+      totalSessions: 5,
       remainingSessions: 0,
       expiresAt: new Date(Date.now() + 86400000),
-      template: { serviceId: 3, title: 'رنگ' },
+      template: { serviceId: 3, title: 'رنگ', templateServices: [{ serviceId: 3 }] },
     });
     prisma.appointment.findFirst.mockResolvedValue({
       id: 11,
@@ -61,9 +62,10 @@ describe('PackagesService', () => {
       id: 'p1',
       customerId: 7,
       status: CustomerPackageStatus.ACTIVE,
+      totalSessions: 5,
       remainingSessions: 1,
       expiresAt: new Date(Date.now() + 86400000),
-      template: { serviceId: 3, title: 'رنگ' },
+      template: { serviceId: 3, title: 'رنگ', templateServices: [{ serviceId: 3 }] },
     };
     prisma.appointment.findFirst.mockResolvedValue({
       id: 11,
@@ -104,6 +106,8 @@ describe('PackagesService', () => {
       validityDays: 30,
       totalSessions: 5,
       priceRial: 1000n,
+      serviceId: 3,
+      templateServices: [{ serviceId: 3, service: { id: 3, name: 'رنگ' } }],
     });
     prisma.customerServicePackage.create.mockResolvedValue({
       id: 'p1',
@@ -126,77 +130,14 @@ describe('PackagesService', () => {
     expect(prisma.customerWalletLedger.create).not.toHaveBeenCalled();
   });
 
-  it('returns no loyalty packages when points are below threshold', async () => {
+  it('disables package-catalog loyalty eligibility (unified appointment points rule)', async () => {
     prisma.customer.findUnique.mockResolvedValue({ id: 7 });
-    prisma.loyaltyPointTransaction.aggregate.mockResolvedValue({ _sum: { points: 40 } });
-    prisma.servicePackageTemplate.findMany.mockResolvedValue([
-      {
-        id: 't1',
-        title: 'رنگ',
-        description: null,
-        priceRial: 5000n,
-        validityDays: 30,
-        totalSessions: 5,
-        serviceId: 3,
-        pointsRequired: 100,
-        isActive: true,
-        archivedAt: null,
-        createdAt: new Date('2026-01-01T00:00:00.000Z'),
-        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        service: { id: 3, name: 'رنگ' },
-      },
-    ]);
     await expect(service.loyaltyEligibleForCustomer(7)).resolves.toEqual({
       customerId: 7,
-      points: 40,
+      points: 0,
       items: [],
     });
-  });
-
-  it('returns qualifying packages when points meet or exceed threshold', async () => {
-    prisma.customer.findUnique.mockResolvedValue({ id: 7 });
-    prisma.loyaltyPointTransaction.aggregate.mockResolvedValue({ _sum: { points: 120 } });
-    prisma.servicePackageTemplate.findMany.mockResolvedValue([
-      {
-        id: 't1',
-        title: 'رنگ',
-        description: null,
-        priceRial: 5000n,
-        validityDays: 30,
-        totalSessions: 5,
-        serviceId: 3,
-        pointsRequired: 100,
-        isActive: true,
-        archivedAt: null,
-        createdAt: new Date('2026-01-01T00:00:00.000Z'),
-        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        service: { id: 3, name: 'رنگ' },
-      },
-      {
-        id: 't2',
-        title: 'کراتین',
-        description: null,
-        priceRial: 9000n,
-        validityDays: 30,
-        totalSessions: 3,
-        serviceId: 4,
-        pointsRequired: 200,
-        isActive: true,
-        archivedAt: null,
-        createdAt: new Date('2026-01-01T00:00:00.000Z'),
-        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        service: { id: 4, name: 'کراتین' },
-      },
-    ]);
-    const result = await service.loyaltyEligibleForCustomer(7);
-    expect(result.points).toBe(120);
-    expect(result.items).toHaveLength(1);
-    expect(result.items[0]).toMatchObject({
-      id: 't1',
-      title: 'رنگ',
-      pointsRequired: 100,
-      qualified: true,
-    });
+    expect(prisma.loyaltyPointTransaction.aggregate).not.toHaveBeenCalled();
   });
 
   it('rejects wallet assign when store-credit is insufficient', async () => {
@@ -208,6 +149,8 @@ describe('PackagesService', () => {
       validityDays: 30,
       totalSessions: 5,
       priceRial: 5000n,
+      serviceId: 3,
+      templateServices: [{ serviceId: 3 }],
     });
     prisma.customerWalletLedger.aggregate.mockResolvedValue({ _sum: { amount: 100n } });
     await expect(

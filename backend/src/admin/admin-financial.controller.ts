@@ -29,6 +29,13 @@ export class AdminFinancialController {
     return this.adminFinancialService.getYearlyReport(parseJalaliYearQuery(year));
   }
 
+  @Get('product-sales-monthly')
+  @Roles('ADMIN')
+  @UseGuards(FinancialReportsAccessGuard)
+  async getProductSalesMonthly(@Query('year') year?: string) {
+    return this.adminFinancialService.getMonthlyProductSales(parseJalaliYearQuery(year));
+  }
+
   @Get('expenses')
   @Roles('ADMIN')
   @UseGuards(FinancialReportsAccessGuard)

@@ -9,6 +9,7 @@ export enum AppointmentPaymentMethodEnum {
   CHEQUE = 'CHEQUE',
   CARD2CARD = 'CARD2CARD',
   DEBT = 'DEBT',
+  PACKAGE = 'PACKAGE',
 }
 
 export enum AppointmentStatusEnum {

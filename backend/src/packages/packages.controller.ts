@@ -1,4 +1,16 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { PermissionGuard } from '../common/guards/permission.guard';
@@ -49,6 +61,19 @@ export class PackagesController {
     return this.service.listCustomerPackages(id);
   }
 
+  @Get('history')
+  @Roles('ADMIN')
+  history(
+    @Query('customerId') customerId?: string,
+    @Query('customerPackageId') customerPackageId?: string,
+  ) {
+    const id = Number(customerId);
+    if (!Number.isInteger(id) || id < 1) {
+      throw new BadRequestException('شناسه مشتری نامعتبر است');
+    }
+    return this.service.listConsumptionHistory(id, customerPackageId || undefined);
+  }
+
   @Get('eligible')
   @Roles('ADMIN', 'EMPLOYEE', 'SERVICE')
   eligible(@Query('appointmentId') appointmentId?: string) {
@@ -87,8 +112,13 @@ export class PackagesController {
 
   @Post(':id/consume')
   @Roles('ADMIN', 'EMPLOYEE', 'SERVICE')
-  consume(@Param('id') id: string, @Body() dto: ConsumePackageDto) {
-    return this.service.consumePackageSession(id, dto);
+  consume(
+    @Param('id') id: string,
+    @Body() dto: ConsumePackageDto,
+    @Req() req: { user?: { id?: number; sub?: number } },
+  ) {
+    const actorId = Number(req.user?.id ?? req.user?.sub) || null;
+    return this.service.consumePackageSession(id, dto, actorId);
   }
 
   @Get('my-packages')

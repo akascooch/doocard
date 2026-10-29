@@ -121,6 +121,9 @@ export default function AdminFinancialPage() {
     visits: TopCustomerRow[]
     points: TopCustomerRow[]
   } | null>(null)
+  const [productSales, setProductSales] = useState<
+    Array<{ month: string; totalQuantity: number; totalPriceRial: string; amountValue: number }>
+  >([])
   const [topMetric, setTopMetric] = useState<'spend' | 'visits' | 'points'>('spend')
   const [year, setYear] = useState(DEFAULT_YEAR)
   const [yearlyLoading, setYearlyLoading] = useState(false)
@@ -154,9 +157,10 @@ export default function AdminFinancialPage() {
     if (!isFinancialAccessValid()) return
     try {
       setYearlyLoading(true)
-      const [reportRes, customersRes] = await Promise.all([
+      const [reportRes, customersRes, productsRes] = await Promise.all([
         axios.get(`/admin/financial/yearly-report?year=${year}`),
         axios.get(`/admin/analytics/top-customers`, { params: { year, limit: 10 } }).catch(() => null),
+        axios.get(`/admin/financial/product-sales-monthly`, { params: { year } }).catch(() => null),
       ])
       setYearlyReport(reportRes.data)
       if (customersRes?.data) {
@@ -166,6 +170,17 @@ export default function AdminFinancialPage() {
           points: customersRes.data.points || [],
         })
       }
+      const productMonths = (productsRes?.data?.months || []) as Array<{
+        month: string
+        totalQuantity: number
+        totalPriceRial: string
+      }>
+      setProductSales(
+        productMonths.map((row) => ({
+          ...row,
+          amountValue: Number(BigInt(row.totalPriceRial || '0') / 10n),
+        })),
+      )
     } catch (err) {
       console.error('Error fetching yearly report:', err)
       handleFinancialApiError(err)
@@ -727,7 +742,9 @@ export default function AdminFinancialPage() {
                 <Users className="h-5 w-5 text-foreground" />
                 مشتریان برتر (سال {year})
               </CardTitle>
-              <CardDescription>مرتب‌سازی بر اساس مبلغ کل، تعداد مراجعه یا امتیاز وفاداری</CardDescription>
+              <CardDescription>
+                مشتری عمومی و اکانت پرسنل حذف شده‌اند. امتیاز = کف(جمع تومان نوبت‌های تسویه‌شده ÷ ۱٬۰۰۰٬۰۰۰) × ۵
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap gap-2">
@@ -797,6 +814,68 @@ export default function AdminFinancialPage() {
                   </div>
                 )
               })()}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-foreground" />
+                فروش ماهانه کالاهای سالن ({year})
+              </CardTitle>
+              <CardDescription>
+                فقط از فروش کالا در تسویه نوبت (`appointment_products`)؛ سفارش فروشگاه جداست.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {productSales.some((row) => row.totalQuantity > 0 || Number(row.totalPriceRial) > 0) ? (
+                <ResponsiveContainer width="100%" height={340}>
+                  <ComposedChart data={productSales} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                    <YAxis yAxisId="qty" allowDecimals={false} tick={{ fontSize: 11 }} />
+                    <YAxis yAxisId="amount" orientation="right" tick={{ fontSize: 11 }} />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null
+                        const p = payload[0].payload as {
+                          month: string
+                          totalQuantity: number
+                          totalPriceRial: string
+                        }
+                        return (
+                          <div className="rounded-lg border bg-background p-3 shadow-md">
+                            <p className="font-medium">{p.month}</p>
+                            <p className="text-sm">تعداد: {p.totalQuantity}</p>
+                            <p className="text-sm">مبلغ: {formatTomansFromRial(p.totalPriceRial)}</p>
+                          </div>
+                        )
+                      }}
+                    />
+                    <Legend />
+                    <Bar
+                      yAxisId="qty"
+                      dataKey="totalQuantity"
+                      name="تعداد کالا"
+                      fill="hsl(var(--chart-1))"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Line
+                      yAxisId="amount"
+                      type="monotone"
+                      dataKey="amountValue"
+                      name="مبلغ (تومان)"
+                      stroke="hsl(var(--chart-2))"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-40 flex items-center justify-center text-foreground/80">
+                  فروش کالایی برای این سال ثبت نشده است
+                </div>
+              )}
             </CardContent>
           </Card>
         </>

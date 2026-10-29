@@ -39,6 +39,7 @@ model User {
   adminFrogRecurrences          AdminFrogRecurrence[]
   adminPersonalExpenses         AdminPersonalExpense[]
   adminExpenseCategories        AdminExpenseCategory[]
+  packageConsumptions           CustomerPackageConsumption[] @relation("PackageConsumptionBy")
 
   @@map("users")
 }
@@ -162,6 +163,8 @@ model Service {
   appointments        Appointment[]
   employeeServices    EmployeeService[]
   packageTemplates    ServicePackageTemplate[]
+  packageTemplateLinks ServicePackageTemplateService[]
+  packageConsumptions CustomerPackageConsumption[]
 
   @@map("services")
 }
@@ -221,6 +224,8 @@ model Appointment {
   bookingGroupId                   String?
   /// Append-only checkout amount overrides. Does not replace priceOverrideReason.
   settlementAmountAudits           Json?
+  /// Who created the booking. Historical rows default to UNKNOWN.
+  createdSource                    AppointmentCreatedSource                  @default(UNKNOWN)
   appointmentServices              AppointmentService[]
   commissionSettlementAppointments EmployeeCommissionSettlementAppointment[]
   tipRecipientType                 TipRecipientType?
@@ -249,6 +254,7 @@ model Appointment {
   @@index([calendarDateId])
   @@index([financiallyLockedAt])
   @@index([bookingGroupId])
+  @@index([createdSource])
   @@map("appointments")
 }
 
@@ -912,6 +918,15 @@ enum PaymentMethod {
   CHEQUE
   CARD2CARD
   DEBT
+  PACKAGE
+}
+
+enum AppointmentCreatedSource {
+  CUSTOMER
+  STAFF
+  ADMIN
+  BARBER
+  UNKNOWN
 }
 
 enum ChequeLeafStatus {
@@ -1338,26 +1353,42 @@ enum CustomerPackageStatus {
 }
 
 /// Sellable session bundle. Price is integer rials (not Service.price Float).
+/// totalSessions=0 means unlimited sessions.
 model ServicePackageTemplate {
-  id             String                   @id @default(uuid())
+  id             String                          @id @default(uuid())
   title          String
   description    String?
   priceRial      BigInt
   validityDays   Int
   totalSessions  Int
-  serviceId      Int
+  /// Legacy single-service FK; prefer `templateServices`. Nullable after multi-service.
+  serviceId      Int?
   /// Loyalty points needed to qualify; null means not in the points catalog.
   pointsRequired Int?
-  isActive       Boolean                  @default(true)
+  isActive       Boolean                         @default(true)
   archivedAt     DateTime?
-  createdAt      DateTime                 @default(now())
-  updatedAt      DateTime                 @updatedAt
-  service        Service                  @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  createdAt      DateTime                        @default(now())
+  updatedAt      DateTime                        @updatedAt
+  service        Service?                        @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  templateServices ServicePackageTemplateService[]
   packages       CustomerServicePackage[]
 
   @@index([serviceId])
   @@index([isActive])
   @@map("service_package_templates")
+}
+
+model ServicePackageTemplateService {
+  id                String                 @id @default(uuid())
+  packageTemplateId String
+  serviceId         Int
+  createdAt         DateTime               @default(now())
+  packageTemplate   ServicePackageTemplate @relation(fields: [packageTemplateId], references: [id], onDelete: Cascade)
+  service           Service                @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@unique([packageTemplateId, serviceId])
+  @@index([serviceId])
+  @@map("service_package_template_services")
 }
 
 /// A customer's owned copy of a package. customerId is Customer.id, not User.id.
@@ -1385,12 +1416,16 @@ model CustomerPackageConsumption {
   id                String                 @id @default(uuid())
   customerPackageId String
   appointmentId     Int
+  serviceId         Int?
+  consumedByUserId  Int?
   createdAt         DateTime               @default(now())
   customerPackage   CustomerServicePackage @relation(fields: [customerPackageId], references: [id], onDelete: Cascade)
   appointment       Appointment            @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  service           Service?               @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  consumedByUser    User?                  @relation("PackageConsumptionBy", fields: [consumedByUserId], references: [id], onDelete: SetNull)
 
-  @@unique([appointmentId])
-  @@unique([customerPackageId, appointmentId])
+  @@unique([customerPackageId, appointmentId, serviceId])
+  @@index([appointmentId])
   @@map("customer_package_consumptions")
 }
 

@@ -81,6 +81,12 @@ export class CustomersController {
     return this.service.findAll(scopedId ?? undefined);
   }
 
+  @Get('milestone-stats')
+  @Roles('ADMIN')
+  async milestoneStats() {
+    return this.service.getMilestoneStats();
+  }
+
   // Get current customer (simple) - MUST be before :id route
   @Get('me')
   @Roles('CUSTOMER')

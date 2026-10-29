@@ -37,6 +37,15 @@ import {
   SLOT_INTERVAL_MIN,
   SLOT_TIME_INSTRUCTION_FA,
 } from './slot-time.util';
+import {
+  assertAshkanOnlineBookingAllowed,
+  isAshkanBarber,
+  isGregorianYmdInAshkanOnlineBlockWindow,
+  logAshkanRestriction,
+  shouldEnforceAshkanOnlineRestriction,
+} from './ashkan-online-booking-restriction';
+import { resolveAppointmentCreatedSource } from './appointment-created-source';
+import { PackagesService } from '../packages/packages.service';
 import { SmsOutboundService } from '../sms/sms-outbound.service';
 import { SmsTemplateService } from '../sms/sms-template.service';
 import { TipAlertService } from '../sms/tip-alert.service';
@@ -49,6 +58,7 @@ import {
 } from './settlement-notify.util';
 import { normalizeAppointmentFields } from '../common/utils/appointment-response.util';
 import { buildAppointmentTipDescription } from '../common/utils/tip-ledger-description';
+import { getTehranGregorianYmd } from '../common/utils/tehran-business-day';
 import {
   APPOINTMENT_NOT_FOUND_FA,
   EMPLOYEE_PROFILE_MISSING_FA,
@@ -136,6 +146,7 @@ export class AppointmentsService {
     private smsOutbound: SmsOutboundService,
     private smsTemplates: SmsTemplateService,
     private tipAlertService: TipAlertService,
+    private packagesService: PackagesService,
     @Optional() private readonly stockNotifications?: StockNotificationService,
   ) {}
 
@@ -458,6 +469,24 @@ export class AppointmentsService {
       if (!employee.isActive || employee.user?.role !== 'EMPLOYEE') {
         throw new BadRequestException('این آرایشگر برای رزرو در دسترس نیست');
       }
+      if (shouldEnforceAshkanOnlineRestriction(currentUser)) {
+        assertAshkanOnlineBookingAllowed(
+          { id: Number(employee.id), name: employee.user?.name },
+          schedule.scheduledAt,
+          nowUtc,
+          undefined,
+          { userId: currentUser?.id ?? currentUser?.userId, role: currentUser?.role },
+        );
+      } else {
+        logAshkanRestriction({
+          userId: currentUser?.id ?? currentUser?.userId,
+          role: currentUser?.role,
+          staffId: Number(employee.id),
+          requestedDate: getTehranGregorianYmd(schedule.scheduledAt),
+          isBlocked: false,
+          reason: 'staff_bypass',
+        });
+      }
       if (!employee.employeeServices.some((row) => row.serviceId === selection.serviceId)) {
         throw new BadRequestException('این آرایشگر خدمت انتخاب‌شده را ارائه نمی‌دهد');
       }
@@ -501,6 +530,7 @@ export class AppointmentsService {
     }
 
     const bookingGroupId = clientOpId || randomUUID();
+    const createdSource = resolveAppointmentCreatedSource(currentUser?.role);
     let initialStatus: 'PENDING' | 'PENDING_CONFIRMATION' = 'PENDING';
     if (currentUser?.role === 'CUSTOMER') {
       initialStatus = 'PENDING_CONFIRMATION';
@@ -550,6 +580,7 @@ export class AppointmentsService {
               scheduledAt: line.scheduledAt,
               durationMin: line.snapshot.durationMin,
               status: initialStatus,
+              createdSource,
               notes: dto.notes,
               bookingGroupId,
               clientOpId: index === 0 ? clientOpId || null : null,
@@ -684,6 +715,25 @@ export class AppointmentsService {
         throw new BadRequestException('این آرایشگر برای رزرو در دسترس نیست');
       }
 
+      if (shouldEnforceAshkanOnlineRestriction(currentUser)) {
+        assertAshkanOnlineBookingAllowed(
+          { id: Number(employee.id), name: employee.user?.name },
+          scheduledAt,
+          nowUtc,
+          undefined,
+          { userId: currentUser?.id ?? currentUser?.userId, role: currentUser?.role },
+        );
+      } else {
+        logAshkanRestriction({
+          userId: currentUser?.id ?? currentUser?.userId,
+          role: currentUser?.role,
+          staffId: Number(employee.id),
+          requestedDate: getTehranGregorianYmd(scheduledAt),
+          isBlocked: false,
+          reason: 'staff_bypass',
+        });
+      }
+
       // Check if employee can perform at least one service
       const employeeServiceIds = employee.employeeServices.map(es => es.serviceId);
       const requestedServiceIds = dto.services.map(s => s.serviceId);
@@ -802,6 +852,7 @@ export class AppointmentsService {
           // Admin/Employee creates appointment → directly pending (can be settled immediately)
           initialStatus = 'PENDING';
         }
+        const createdSource = resolveAppointmentCreatedSource(currentUser?.role);
 
         // Create appointment
         const created = await tx.appointment.create({
@@ -813,6 +864,7 @@ export class AppointmentsService {
             scheduledAt,
             durationMin: finalDuration,
             status: initialStatus,
+            createdSource,
             notes: dto.notes,
             clientOpId: clientOpId || null,
           },
@@ -1330,10 +1382,53 @@ export class AppointmentsService {
     // Validate employee
     const employee = await this.prisma.employee.findUnique({
       where: { id: employeeId },
+      include: { user: { select: { name: true } } },
     });
 
     if (!employee) {
       throw new NotFoundException(`Employee with ID ${employeeId} not found`);
+    }
+
+    // Online callers: Ashkan has no bookable slots for Tehran today + next 2 days.
+    // Desk bypass requires BOTH desk role AND explicit staffAccess=true (admin UIs only).
+    // Public /book-appointment must not bypass via an incidental admin cookie.
+    const staffOverride =
+      !shouldEnforceAshkanOnlineRestriction(currentUser) &&
+      dto.staffAccess === true;
+    const enforceAshkan = !staffOverride;
+    const ashkanMatch = isAshkanBarber({
+      id: Number(employee.id),
+      name: employee.user?.name,
+    });
+    const ashkanWindow = isGregorianYmdInAshkanOnlineBlockWindow(date);
+    logAshkanRestriction({
+      userId: currentUser?.id ?? currentUser?.userId,
+      role: currentUser?.role ?? 'anonymous',
+      staffId: Number(employee.id),
+      requestedDate: date,
+      isBlocked: enforceAshkan && ashkanMatch && ashkanWindow,
+      reason: staffOverride
+        ? 'staff_bypass_slots'
+        : !shouldEnforceAshkanOnlineRestriction(currentUser) && dto.staffAccess !== true
+          ? 'staff_cookie_ignored_public_slots'
+          : !ashkanMatch
+            ? 'not_restricted_employee'
+            : !ashkanWindow
+              ? 'outside_d0_d2_window'
+              : 'block_d0_d2_slots_empty',
+    });
+    if (enforceAshkan && ashkanMatch && ashkanWindow) {
+      return {
+        date,
+        employeeId,
+        durationMin,
+        bufferMin,
+        slots: [],
+        totalSlots: 0,
+        availableSlots: 0,
+        busySlots: 0,
+        firstAvailableSlot: null,
+      };
     }
 
     // Parse date (input: YYYY-MM-DD in Gregorian). Use noon UTC so the calendar day is unambiguous.
@@ -1649,11 +1744,20 @@ export class AppointmentsService {
         }
       : null;
 
+    const isPackageSettle = dto.paymentMethod === 'PACKAGE';
+    if (isPackageSettle && !dto.customerPackageId) {
+      throw new BadRequestException('شناسه پکیج برای تسویه با پکیج الزامی است');
+    }
+
     // Resolve paid / debt split (RIAL integers — codebase uses BigInt, not Prisma.Decimal)
     const totalRial = BigInt(dto.amount);
     let paidRial: bigint;
     let debtRial: bigint;
-    if (dto.paidAmount == null && dto.debtAmount == null) {
+    if (isPackageSettle) {
+      // Package settlement records no cash income; amount may be 0.
+      paidRial = 0n;
+      debtRial = 0n;
+    } else if (dto.paidAmount == null && dto.debtAmount == null) {
       if (dto.paymentMethod === 'DEBT') {
         paidRial = 0n;
         debtRial = totalRial;
@@ -1665,7 +1769,7 @@ export class AppointmentsService {
       paidRial = BigInt(dto.paidAmount ?? 0);
       debtRial = BigInt(dto.debtAmount ?? 0);
     }
-    if (paidRial + debtRial !== totalRial) {
+    if (!isPackageSettle && paidRial + debtRial !== totalRial) {
       throw new BadRequestException(
         'جمع مبلغ پرداختی و بدهی باید برابر مبلغ کل نوبت باشد',
       );
@@ -1678,7 +1782,7 @@ export class AppointmentsService {
     if (paidRial > 0n && !dto.accountId) {
       throw new BadRequestException('حساب بانکی برای مبلغ پرداختی الزامی است');
     }
-    if (paidRial === 0n && debtRial === 0n) {
+    if (!isPackageSettle && paidRial === 0n && debtRial === 0n) {
       throw new BadRequestException('مبلغ تسویه نمی‌تواند صفر باشد');
     }
 
@@ -1763,8 +1867,11 @@ export class AppointmentsService {
       }
     }
 
-    const storedPaymentMethod =
-      paidRial > 0n ? dto.paymentMethod : ('DEBT' as const);
+    const storedPaymentMethod = isPackageSettle
+      ? ('PACKAGE' as const)
+      : paidRial > 0n
+        ? dto.paymentMethod
+        : ('DEBT' as const);
 
     const updated = await this.prisma.$transaction(async (tx) => {
       // Row lock held until this interactive transaction commits or rolls back.
@@ -1818,7 +1925,9 @@ export class AppointmentsService {
         }
       }
 
-      const deductionPerAppointmentAmount = BigInt(BARBER_APPOINTMENT_DEDUCTION_RIAL);
+      const deductionPerAppointmentAmount = isPackageSettle
+        ? 0n
+        : BigInt(BARBER_APPOINTMENT_DEDUCTION_RIAL);
       const barberPayoutGrossAmount = BigInt(dto.amount);
       const settlementDeductionAmount = deductionPerAppointmentAmount;
       const barberPayoutNetAmount = barberPayoutGrossAmount - settlementDeductionAmount;
@@ -2035,6 +2144,15 @@ export class AppointmentsService {
           id,
           dto.items,
           adminUser.sub || adminUser.id,
+        );
+      }
+
+      if (isPackageSettle && dto.customerPackageId) {
+        await this.packagesService.consumePackageSessionInTx(
+          tx,
+          dto.customerPackageId,
+          { appointmentId: id },
+          Number(adminUser.sub || adminUser.id) || null,
         );
       }
 
@@ -2499,7 +2617,41 @@ export class AppointmentsService {
   }
 
   private async presentMany(rows: any[], currentUser?: any) {
-    const formatted = rows.map((row) => this.formatAppointment(row));
+    let formatted = rows.map((row) => this.formatAppointment(row));
+    const customerIds = [
+      ...new Set(
+        formatted
+          .map((row) => Number(row.customerId))
+          .filter((id) => Number.isInteger(id) && id > 0),
+      ),
+    ];
+    if (customerIds.length > 0 && currentUser?.role !== 'CUSTOMER') {
+      const debtGroups = await this.prisma.customerDebt.groupBy({
+        by: ['customerId'],
+        where: { customerId: { in: customerIds }, settledAt: null },
+        _sum: { amount: true },
+        _count: { _all: true },
+      });
+      const debtByCustomer = new Map(
+        debtGroups.map((g) => [
+          g.customerId,
+          {
+            hasOpenDebt: (g._count._all ?? 0) > 0,
+            openDebtAmountRial: (g._sum.amount ?? 0n).toString(),
+            openDebtCount: g._count._all ?? 0,
+          },
+        ]),
+      );
+      formatted = formatted.map((row) => {
+        const debt = debtByCustomer.get(Number(row.customerId));
+        return {
+          ...row,
+          hasOpenDebt: debt?.hasOpenDebt ?? false,
+          openDebtAmountRial: debt?.openDebtAmountRial ?? '0',
+          openDebtCount: debt?.openDebtCount ?? 0,
+        };
+      });
+    }
     if (!isEmployeeRole(currentUser)) return formatted;
     const actor = await this.requireEmployeeActor(currentUser);
     return formatted.map((row) => hideForeignCustomerNotes(row, actor.id));
@@ -2550,6 +2702,7 @@ export class AppointmentsService {
       updatedAt: appointment.updatedAt,
       customerId: appointment.customerId,
       status: appointment.status,
+      createdSource: appointment.createdSource ?? 'UNKNOWN',
       employeeId: appointment.employeeId,
       serviceId: appointment.serviceId,
       accountId: appointment.accountId,

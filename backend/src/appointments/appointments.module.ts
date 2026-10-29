@@ -10,6 +10,7 @@ import { SmsSendModule } from '../sms/sms-send.module';
 import { TipAlertModule } from '../sms/tip-alert.module';
 import { WaitlistModule } from '../waitlist/waitlist.module';
 import { AppThrottlerModule } from '../throttler/throttler.module';
+import { PackagesModule } from '../packages/packages.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { AppThrottlerModule } from '../throttler/throttler.module';
     TipAlertModule,
     WaitlistModule,
     AppThrottlerModule,
+    PackagesModule,
   ],
   controllers: [AppointmentsController],
   providers: [AppointmentsService],

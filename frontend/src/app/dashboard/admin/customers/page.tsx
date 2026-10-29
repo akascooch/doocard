@@ -38,7 +38,11 @@ import {
   Calendar,
   Download,
   History,
+  Target,
+  PartyPopper,
 } from 'lucide-react'
+import { MilestoneConfetti } from '@/components/customers/MilestoneConfetti'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Bar,
   BarChart,
@@ -95,6 +99,14 @@ export default function AdminCustomersPage() {
   const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null)
   const [historyRows, setHistoryRows] = useState<any[]>([])
   const [saving, setSaving] = useState(false)
+  const [milestone, setMilestone] = useState<{
+    count: number
+    target: number
+    remaining: number
+    isNearTarget: boolean
+    latestReachedMilestone: number | null
+  } | null>(null)
+  const [confettiActive, setConfettiActive] = useState(false)
   const { toast } = useToast()
 
   const [formData, setFormData] = useState({
@@ -109,8 +121,34 @@ export default function AdminCustomersPage() {
   useEffect(() => {
     fetchCustomers()
     fetchEmployees()
+    void fetchMilestone()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
   }, [filterBarber])
+
+  const fetchMilestone = async () => {
+    try {
+      const res = await axios.get('/customers/milestone-stats')
+      const data = res.data as {
+        count: number
+        target: number
+        remaining: number
+        isNearTarget: boolean
+        latestReachedMilestone: number | null
+      }
+      setMilestone(data)
+      if (data.latestReachedMilestone) {
+        const storageKey = `doocard.milestone.confetti.${data.latestReachedMilestone}`
+        const alreadyShown = window.localStorage.getItem(storageKey)
+        if (!alreadyShown) {
+          window.localStorage.setItem(storageKey, new Date().toISOString())
+          setConfettiActive(true)
+          window.setTimeout(() => setConfettiActive(false), 60_000)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching milestone stats:', error)
+    }
+  }
 
   const fetchEmployees = async () => {
     try {
@@ -222,6 +260,7 @@ export default function AdminCustomersPage() {
       setIsCreateDialogOpen(false)
       resetForm()
       fetchCustomers()
+      void fetchMilestone()
     } catch (error: any) {
       toast({
         title: 'خطا',
@@ -399,6 +438,7 @@ export default function AdminCustomersPage() {
 
   return (
     <div className="space-y-6">
+      <MilestoneConfetti active={confettiActive} durationMs={60_000} />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">مدیریت مشتریان</h1>
@@ -412,6 +452,58 @@ export default function AdminCustomersPage() {
           مشتری جدید
         </Button>
       </div>
+
+      {milestone ? (
+        <Card className="border-amber-300/70 bg-gradient-to-l from-amber-50 to-background">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Target className="h-5 w-5" />
+              هدف تعداد مشتریان واقعی
+            </CardTitle>
+            <CardDescription>
+              شمارش سرور بدون مشتری عمومی و بدون اکانت پرسنل
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-3xl font-bold tabular-nums">
+                  {milestone.count.toLocaleString('fa-IR')}
+                  <span className="mx-2 text-lg font-normal text-muted-foreground">/</span>
+                  {milestone.target.toLocaleString('fa-IR')}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {milestone.remaining > 0
+                    ? `${milestone.remaining.toLocaleString('fa-IR')} نفر تا هدف بعدی`
+                    : 'هدف جاری تکمیل شده است'}
+                </p>
+              </div>
+              {confettiActive ? (
+                <Badge className="gap-1">
+                  <PartyPopper className="h-3.5 w-3.5" />
+                  جشن رسیدن به هدف
+                </Badge>
+              ) : null}
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-amber-500 transition-all"
+                style={{
+                  width: `${Math.min(100, Math.round((milestone.count / Math.max(milestone.target, 1)) * 100))}%`,
+                }}
+              />
+            </div>
+            {milestone.isNearTarget ? (
+              <Alert className="border-amber-400 bg-amber-50">
+                <AlertDescription>
+                  نزدیک هدف {milestone.target.toLocaleString('fa-IR')} مشتری هستیم
+                  ({milestone.remaining.toLocaleString('fa-IR')} نفر مانده).
+                </AlertDescription>
+              </Alert>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>

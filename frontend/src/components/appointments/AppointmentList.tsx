@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Edit, Trash2, DollarSign, CheckCircle, XCircle, Clock, RotateCcw, Gift } from 'lucide-react';
+import { Edit, Trash2, DollarSign, CheckCircle, XCircle, Clock, RotateCcw, Gift, AlertTriangle, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -32,7 +32,7 @@ import {
   appointmentPaymentBadgeClass,
   appointmentStatusBadgeClass,
 } from '@/lib/appointment-status';
-import { toTomans } from '@/lib/money';
+import { formatTomansFromRial, toTomans } from '@/lib/money';
 import {
   type AppointmentRecord,
   formatTipAssignmentLabel,
@@ -166,6 +166,63 @@ export default function AppointmentList({
       </Badge>
     );
   };
+
+  const isCustomerCreated = (appointment: Appointment) =>
+    appointment.createdSource === 'CUSTOMER' || appointment.status === 'PENDING_CONFIRMATION';
+
+  const showDebtAlert = (appointment: Appointment) => {
+    const pendingLike =
+      appointment.status === 'PENDING_CONFIRMATION' ||
+      (appointment.createdSource === 'CUSTOMER' &&
+        (appointment.status === 'PENDING' || appointment.status === 'CONFIRMED'));
+    return Boolean(pendingLike && appointment.hasOpenDebt);
+  };
+
+  const renderSourceAndDebt = (appointment: Appointment) => (
+    <div className="flex flex-wrap gap-1 mt-1">
+      {isCustomerCreated(appointment) ? (
+        <Badge
+          variant="outline"
+          className="normal-case tracking-normal border-amber-500 text-amber-800 bg-amber-50"
+          data-testid="appointment-customer-source"
+        >
+          <UserRound className="h-3 w-3 ml-1" />
+          ثبت توسط مشتری
+        </Badge>
+      ) : null}
+      {showDebtAlert(appointment) ? (
+        <Badge
+          variant="outline"
+          className="normal-case tracking-normal border-rose-500 text-rose-800 bg-rose-50"
+          data-testid="appointment-open-debt"
+          title="بدهی تسویه‌نشده مشتری"
+        >
+          <AlertTriangle className="h-3 w-3 ml-1" />
+          بدهی باز
+          {appointment.openDebtAmountRial
+            ? ` (${formatTomansFromRial(appointment.openDebtAmountRial)})`
+            : ''}
+        </Badge>
+      ) : null}
+    </div>
+  );
+
+  const cardClassName = (appointment: Appointment) =>
+    [
+      'rounded-lg border bg-card p-4 space-y-3 shadow-sm',
+      isCustomerCreated(appointment) ? 'border-amber-500 ring-1 ring-amber-300/70' : '',
+      showDebtAlert(appointment) ? 'border-rose-500' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+  const rowClassName = (appointment: Appointment) =>
+    [
+      isCustomerCreated(appointment) ? 'bg-amber-50/60' : '',
+      showDebtAlert(appointment) ? 'bg-rose-50/70' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
 
   const getPaymentBadge = (method?: string | null) => (
     <Badge
@@ -383,13 +440,14 @@ export default function AppointmentList({
         {appointments.map((appointment) => (
           <div
             key={appointment.id}
-            className="rounded-lg border bg-card p-4 space-y-3 shadow-sm"
+            className={cardClassName(appointment)}
             data-testid="appointment-card"
           >
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="font-semibold" data-testid="appointment-customer-name">{appointment.customerName}</p>
                 <p className="text-sm text-muted-foreground">{getServiceLabel(appointment)}</p>
+                {renderSourceAndDebt(appointment)}
               </div>
               {getStatusBadge(appointment.status)}
             </div>
@@ -438,7 +496,7 @@ export default function AppointmentList({
           </TableHeader>
           <TableBody>
             {appointments.map((appointment) => (
-              <TableRow key={appointment.id} data-testid="appointment-row">
+              <TableRow key={appointment.id} data-testid="appointment-row" className={rowClassName(appointment)}>
                 <TableCell className="font-medium">
                   <div>
                     <div data-cy="appointment-when">{formatAppointmentWhenTehran(appointment.scheduledAt)}</div>
@@ -447,6 +505,7 @@ export default function AppointmentList({
                 <TableCell>
                   <div>
                     <div data-testid="appointment-customer-name">{appointment.customerName}</div>
+                    {renderSourceAndDebt(appointment)}
                     {renderNotes(appointment.notes)}
                     {renderPackageHint(appointment)}
                   </div>

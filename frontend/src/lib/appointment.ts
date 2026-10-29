@@ -27,12 +27,24 @@ export interface AppointmentTipRecipientEmployee {
   } | null;
 }
 
+export type AppointmentCreatedSource =
+  | 'CUSTOMER'
+  | 'STAFF'
+  | 'ADMIN'
+  | 'BARBER'
+  | 'UNKNOWN';
+
 export interface AppointmentRecord {
   id: number;
   services: AppointmentServiceSnapshot[];
   scheduledAt: string;
   durationMin: number;
   status: string;
+  createdSource?: AppointmentCreatedSource | string | null;
+  customerId?: number;
+  hasOpenDebt?: boolean;
+  openDebtAmountRial?: string | number | null;
+  openDebtCount?: number;
   amount?: number | null;
   tipAmount?: number | null;
   tipRecipientType?: TipRecipientType | null;

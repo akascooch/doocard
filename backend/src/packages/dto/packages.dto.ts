@@ -1,4 +1,6 @@
 import {
+  ArrayMinSize,
+  IsArray,
   IsBoolean,
   IsIn,
   IsInt,
@@ -18,6 +20,14 @@ import {
   PACKAGE_PAYMENTS,
   type PackagePayment,
 } from '../packages.constants';
+
+function toIntArray(value: unknown): number[] {
+  if (value == null || value === '') return [];
+  const raw = Array.isArray(value) ? value : String(value).split(',');
+  return raw
+    .map((part) => Number(typeof part === 'number' ? part : String(part).trim()))
+    .filter((n) => Number.isInteger(n) && n > 0);
+}
 
 export class CreatePackageTemplateDto {
   @IsString()
@@ -42,23 +52,25 @@ export class CreatePackageTemplateDto {
   @Max(MAX_VALIDITY_DAYS)
   validityDays: number;
 
+  /** 0 = unlimited sessions */
   @Type(() => Number)
   @IsInt()
-  @Min(1)
+  @Min(0)
   @Max(MAX_SESSIONS)
   totalSessions: number;
 
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  serviceId: number;
+  @Transform(({ value }) => toIntArray(value))
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsInt({ each: true })
+  serviceIds: number[];
 
+  /** @deprecated Prefer serviceIds. Kept for older clients. */
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(1_000_000)
-  pointsRequired?: number | null;
+  serviceId?: number;
 }
 
 export class UpdatePackageTemplateDto {
@@ -90,22 +102,22 @@ export class UpdatePackageTemplateDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(1)
+  @Min(0)
   @Max(MAX_SESSIONS)
   totalSessions?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => toIntArray(value))
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsInt({ each: true })
+  serviceIds?: number[];
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   serviceId?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(1_000_000)
-  pointsRequired?: number | null;
 
   @IsOptional()
   @Transform(({ value }) => value === true || value === 'true')
@@ -136,4 +148,10 @@ export class ConsumePackageDto {
   @IsInt()
   @Min(1)
   appointmentId: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  serviceId?: number;
 }

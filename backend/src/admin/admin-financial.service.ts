@@ -118,6 +118,67 @@ export class AdminFinancialService {
     };
   }
 
+  /**
+   * Monthly salon product sales from appointment_products only (not shop orders).
+   * Groups by appointment.paidAt inside the Jalali year; falls back to line createdAt when paidAt null.
+   */
+  async getMonthlyProductSales(jy: number): Promise<{
+    year: number;
+    months: Array<{
+      month: string;
+      monthIndex: number;
+      totalQuantity: number;
+      totalPriceRial: string;
+    }>;
+  }> {
+    const ranges = getJalaliMonthRanges(jy);
+    const yearStart = ranges[0].start;
+    const yearEnd = ranges[11].end;
+
+    const lines = await this.prisma.appointmentProduct.findMany({
+      where: {
+        OR: [
+          { appointment: { paidAt: { gte: yearStart, lte: yearEnd }, deletedAt: null } },
+          {
+            appointment: { paidAt: null, deletedAt: null },
+            createdAt: { gte: yearStart, lte: yearEnd },
+          },
+        ],
+      },
+      select: {
+        quantity: true,
+        lineTotalRial: true,
+        createdAt: true,
+        appointment: { select: { paidAt: true } },
+      },
+    });
+
+    const months = ranges.map(({ monthName }, index) => ({
+      month: monthName,
+      monthIndex: index + 1,
+      totalQuantity: 0,
+      totalPriceRial: 0n as bigint,
+    }));
+
+    for (const line of lines) {
+      const at = line.appointment.paidAt ?? line.createdAt;
+      const idx = ranges.findIndex((r) => at >= r.start && at <= r.end);
+      if (idx < 0) continue;
+      months[idx].totalQuantity += line.quantity;
+      months[idx].totalPriceRial += line.lineTotalRial;
+    }
+
+    return {
+      year: jy,
+      months: months.map((m) => ({
+        month: m.month,
+        monthIndex: m.monthIndex,
+        totalQuantity: m.totalQuantity,
+        totalPriceRial: m.totalPriceRial.toString(),
+      })),
+    };
+  }
+
   async getExpenseDrilldown(query: ExpenseDrillQuery): Promise<{
     bucket: ExpenseDrillBucket;
     from: string;

@@ -207,6 +207,12 @@ const employeeMenuItems = [
     description: 'نوبت‌های اختصاص یافته'
   },
   {
+    title: 'پکیج مشتریان',
+    href: '/dashboard/employee/packages',
+    icon: Gift,
+    description: 'مشاهده پکیج فعال مشتری'
+  },
+  {
     title: 'مشتریان من',
     href: '/dashboard/employee/my-customers',
     icon: Users,

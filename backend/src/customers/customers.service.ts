@@ -15,8 +15,13 @@ import { normalizeIranMobile } from '../common/utils/phone.util';
 import * as bcrypt from 'bcrypt';
 import { excludePassword } from '../common/utils/exclude-password';
 import * as crypto from 'crypto';
+import { PUBLIC_CUSTOMER_ID } from '../common/utils/loyalty-points';
+import { UserRole } from '@prisma/client';
 
 type AuthUser = { id?: number; sub?: number; role?: string };
+
+const MILESTONE_TARGETS = [1000, 1500, 2000, 2500, 3000, 4000, 5000] as const;
+const MILESTONE_NEAR_THRESHOLD = 20;
 
 export const PHONE_EXISTS_FA = 'این شماره قبلاً ثبت شده است';
 
@@ -271,6 +276,36 @@ export class CustomersService {
       }
     });
     return excludePassword(customers);
+  }
+
+  /**
+   * Real customer headcount for admin milestone widget.
+   * Excludes public walk-in customer (id=1) and non-CUSTOMER user roles.
+   */
+  async getMilestoneStats() {
+    const count = await this.prisma.customer.count({
+      where: {
+        id: { not: PUBLIC_CUSTOMER_ID },
+        user: { role: UserRole.CUSTOMER },
+      },
+    });
+    let target = MILESTONE_TARGETS.find((candidate) => count < candidate);
+    if (target == null) {
+      target = Math.ceil((count + 1) / 500) * 500;
+    }
+    const remaining = Math.max(target - count, 0);
+    const reachedMilestones = MILESTONE_TARGETS.filter((t) => count >= t);
+    return {
+      count,
+      target,
+      remaining,
+      nearThreshold: MILESTONE_NEAR_THRESHOLD,
+      isNearTarget: remaining > 0 && remaining <= MILESTONE_NEAR_THRESHOLD,
+      reachedMilestones,
+      latestReachedMilestone:
+        reachedMilestones.length > 0 ? reachedMilestones[reachedMilestones.length - 1] : null,
+      definition: 'customers.user.role=CUSTOMER AND customers.id<>1',
+    };
   }
 
   async findOne(id: number, currentUser?: AuthUser) {

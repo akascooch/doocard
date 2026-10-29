@@ -188,6 +188,103 @@ describe('AppointmentsService slot generation', () => {
     expect(slotAtTehran(result.slots, '18:00')?.available).toBe(true);
     expect(slotAtTehran(result.slots, '18:30')?.available).toBe(true);
   });
+
+  describe('Ashkan online restriction short-circuit', () => {
+    const prevEnv = process.env.ONLINE_BOOKING_RESTRICTED_EMPLOYEE_IDS;
+
+    beforeEach(() => {
+      process.env.ONLINE_BOOKING_RESTRICTED_EMPLOYEE_IDS = '3';
+      mockPrisma.employee.findUnique.mockResolvedValue({
+        id: 3,
+        user: { name: 'اشکان اشتیش' },
+      });
+      mockPrisma.appointment.findMany.mockResolvedValue([]);
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-10-22T20:00:00.000Z')); // Tehran 2026-10-22 23:30
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+      if (prevEnv === undefined) {
+        delete process.env.ONLINE_BOOKING_RESTRICTED_EMPLOYEE_IDS;
+      } else {
+        process.env.ONLINE_BOOKING_RESTRICTED_EMPLOYEE_IDS = prevEnv;
+      }
+    });
+
+    it('returns empty slots for anonymous/CUSTOMER on D+0..D+2', async () => {
+      for (const date of ['2026-10-22', '2026-10-23', '2026-10-24']) {
+        const anonymous = await service.getAvailableSlots({
+          employeeId: 3,
+          date,
+        });
+        expect(anonymous.slots).toEqual([]);
+        expect(anonymous.availableSlots).toBe(0);
+        expect(anonymous.totalSlots).toBe(0);
+
+        const customer = await service.getAvailableSlots(
+          { employeeId: 3, date },
+          { role: 'CUSTOMER', id: 10 },
+        );
+        expect(customer.slots).toEqual([]);
+      }
+      expect(mockPrisma.workSchedule.findMany).not.toHaveBeenCalled();
+    });
+
+    it('does not short-circuit D+3 for anonymous (normal slot generation)', async () => {
+      const result = await service.getAvailableSlots({
+        employeeId: 3,
+        date: '2026-10-25',
+      });
+      expect(result.slots.length).toBeGreaterThan(0);
+      expect(mockPrisma.workSchedule.findMany).toHaveBeenCalled();
+    });
+
+    it('ADMIN/EMPLOYEE without staffAccess still get empty slots (public cookie harden)', async () => {
+      for (const role of ['ADMIN', 'EMPLOYEE'] as const) {
+        mockPrisma.workSchedule.findMany.mockClear();
+        const result = await service.getAvailableSlots(
+          { employeeId: 3, date: '2026-10-22' },
+          { role, id: 1 },
+        );
+        expect(result.slots).toEqual([]);
+        expect(mockPrisma.workSchedule.findMany).not.toHaveBeenCalled();
+      }
+    });
+
+    it('ADMIN and EMPLOYEE with staffAccess receive slots on blocked days', async () => {
+      for (const role of ['ADMIN', 'EMPLOYEE'] as const) {
+        mockPrisma.workSchedule.findMany.mockClear();
+        const result = await service.getAvailableSlots(
+          { employeeId: 3, date: '2026-10-22', staffAccess: true },
+          { role, id: 1 },
+        );
+        expect(result.slots.length).toBeGreaterThan(0);
+        expect(mockPrisma.workSchedule.findMany).toHaveBeenCalled();
+      }
+    });
+
+    it('getEarliestAvailableSlot never returns a slot in D+0..D+2 for Ashkan', async () => {
+      jest.spyOn(service as any, 'getTehranNow').mockReturnValue({
+        nowUtc: new Date('2026-10-22T20:00:00.000Z'),
+        dateStr: '2026-10-22',
+        timeStr: '23:30:00',
+      });
+      mockPrisma.employee.findUnique.mockResolvedValue({
+        id: 3,
+        user: { name: 'اشکان اشتیش' },
+      });
+      (service as any).prisma.service = {
+        findUnique: jest.fn().mockResolvedValue({ id: 1, durationMinutes: 60 }),
+      };
+
+      const earliest = await service.getEarliestAvailableSlot(3, 1);
+      expect(earliest.date >= '2026-10-25').toBe(true);
+      expect(['2026-10-22', '2026-10-23', '2026-10-24']).not.toContain(
+        earliest.date,
+      );
+    });
+  });
 });
 
 describe('AppointmentsService intervalsOverlap', () => {

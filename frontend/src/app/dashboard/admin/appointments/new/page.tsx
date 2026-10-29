@@ -160,7 +160,7 @@ export default function NewAppointmentPage() {
       }
       const durationMin = effectiveServiceDurationMin(selected)
       const response = await axios.get(
-        `/appointments/slots?date=${gregorianDate}&employeeId=${employeeId}&durationMin=${durationMin}&slotIntervalMin=30`
+        `/appointments/slots?date=${gregorianDate}&employeeId=${employeeId}&durationMin=${durationMin}&slotIntervalMin=30&staffAccess=true`
       )
       const slots = response.data?.slots ?? []
       const available = slots.filter((s: { available?: boolean }) => s.available !== false)

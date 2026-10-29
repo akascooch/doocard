@@ -65,6 +65,7 @@ export default function SlotPicker({
               durationMin,
               bufferMin: 5,
               slotIntervalMin: 30,
+              staffAccess: true,
             },
           });
 

@@ -12,6 +12,7 @@ import { UpdateChequebookDto } from './dto/update-chequebook.dto';
 import { CreateChequeLeafDto } from './dto/create-cheque-leaf.dto';
 import { UpdateChequeLeafDto } from './dto/update-cheque-leaf.dto';
 import { QueryChequeLeavesDto } from './dto/query-cheque-leaves.dto';
+import { buildChequeLeafDueDateWhere } from './cheque-leaf-due-date-filter';
 import { Prisma, TransactionType, ChequeLeafStatus, ChequeLeafCategory, PaymentMethod, ChequePayeeKind } from '@prisma/client';
 import {
   EMPLOYEE_EXPENSE_CATEGORY_CODES,
@@ -1715,6 +1716,10 @@ export class AccountingService {
     if (query?.status) where.status = query.status;
     if (query?.bankAccountId) {
       where.chequebook = { bankAccountId: query.bankAccountId, deletedAt: null };
+    }
+    const dueDateWhere = buildChequeLeafDueDateWhere(query?.dueFrom, query?.dueTo);
+    if (dueDateWhere) {
+      Object.assign(where, dueDateWhere);
     }
 
     const take = query?.take || 100;

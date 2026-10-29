@@ -264,7 +264,8 @@ export function BookingModal({ open, onOpenChange, onSuccess }: BookingModalProp
       
       
       const res = await fetch(
-        `/api/appointments/slots?date=${dateStr}&employeeId=${formData.employeeId}&durationMin=${durationMin}&slotIntervalMin=30`
+        `/api/appointments/slots?date=${dateStr}&employeeId=${formData.employeeId}&durationMin=${durationMin}&slotIntervalMin=30`,
+        { credentials: 'omit' },
       )
 
       if (res.ok) {

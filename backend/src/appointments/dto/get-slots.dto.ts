@@ -1,5 +1,12 @@
-import { IsNotEmpty, IsNumber, IsDateString, IsOptional, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsDateString,
+  IsOptional,
+  IsBoolean,
+  Min,
+} from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 
 export class GetSlotsDto {
   @IsNumber()
@@ -28,4 +35,13 @@ export class GetSlotsDto {
   @IsOptional()
   @Min(15)
   slotIntervalMin?: number; // Slot start granularity (default: 30 minutes)
+
+  /**
+   * Desk UIs must pass true to allow ADMIN/EMPLOYEE Ashkan bypass.
+   * Public booking must omit this so an incidental admin cookie cannot bypass.
+   */
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1' || value === 1)
+  @IsBoolean()
+  staffAccess?: boolean;
 }

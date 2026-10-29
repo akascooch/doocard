@@ -173,3 +173,9 @@ backend/uploads/
 
 # Local archived historical sprint scripts — never commit
 .archive-sprints/
+
+# Ephemeral deploy/QA scratch artifacts — never commit
+_tmp_*
+**/_tmp_*
+_tmp_*/
+**/_tmp_*/
