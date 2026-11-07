@@ -63,7 +63,27 @@ export class AdminTipsService {
     }
     if (emp.user.role !== UserRole.SERVICE) {
       throw new BadRequestException(
-        'فقط پرسنل خدمات می‌توانند گیرنده انعام باشند؛ نقش‌های دیگر مجاز نیستند',
+        'فقط پرسنل خدمات می‌توانند گیرنده انعام تیمی باشند؛ نقش‌های دیگر مجاز نیستند',
+      );
+    }
+    return emp;
+  }
+
+  /** Individual admin tips: barber or service staff. Not kitchen, cashier, or admin. */
+  private async assertEligiblePersonalRecipient(
+    tx: Prisma.TransactionClient | PrismaService,
+    employeeId: number,
+  ) {
+    const emp = await tx.employee.findUnique({
+      where: { id: employeeId },
+      include: { user: { select: { role: true, name: true } } },
+    });
+    if (!emp || !emp.isActive) {
+      throw new BadRequestException(`پرسنل #${employeeId} یافت نشد یا غیرفعال است`);
+    }
+    if (emp.user.role !== UserRole.SERVICE && emp.user.role !== UserRole.EMPLOYEE) {
+      throw new BadRequestException(
+        'انعام فردی فقط برای آرایشگر یا پرسنل خدمات مجاز است',
       );
     }
     return emp;
@@ -89,9 +109,9 @@ export class AdminTipsService {
 
     if (tipType === TipRecipientType.INDIVIDUAL) {
       if (!dto.recipientEmployeeId) {
-        throw new BadRequestException('انعام فردی نیازمند انتخاب یک پرسنل خدمات است');
+        throw new BadRequestException('انعام فردی نیازمند انتخاب یک آرایشگر یا پرسنل خدمات است');
       }
-      await this.assertEligibleServiceStaff(tx, dto.recipientEmployeeId);
+      await this.assertEligiblePersonalRecipient(tx, dto.recipientEmployeeId);
       const allocations = computePersonalTipAllocations(
         amountRial,
         dto.recipientEmployeeId,

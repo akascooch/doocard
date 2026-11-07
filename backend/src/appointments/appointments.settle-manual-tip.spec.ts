@@ -9,6 +9,7 @@ import { CalendarService } from '../calendar/calendar.service';
 import { SmsOutboundService } from '../sms/sms-outbound.service';
 import { SmsTemplateService } from '../sms/sms-template.service';
 import { TipAlertService } from '../sms/tip-alert.service';
+import { PackagesService } from '../packages/packages.service';
 import { flushFireAndForgetAfterEach } from '../../test/flush-fire-and-forget';
 
 describe('AppointmentsService.settle manual tip ledger', () => {
@@ -98,7 +99,10 @@ describe('AppointmentsService.settle manual tip ledger', () => {
         findFirst: jest.fn(async () => ({ ...appointmentRow, status: 'CONFIRMED' })),
       },
       transaction: { findFirst: jest.fn().mockResolvedValue(null) },
-      customerDebt: { findFirst: jest.fn().mockResolvedValue(null) },
+      customerDebt: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        groupBy: jest.fn().mockResolvedValue([]),
+      },
       employee: {
         findUnique: jest.fn().mockResolvedValue({
           id: 8,
@@ -125,6 +129,7 @@ describe('AppointmentsService.settle manual tip ledger', () => {
         { provide: SmsOutboundService, useValue: { sendIfAllowed: jest.fn() } },
         { provide: SmsTemplateService, useValue: { getByKey: jest.fn(), renderByKey: jest.fn() } },
         { provide: TipAlertService, useValue: { notifyTipRecipients: jest.fn() } },
+        { provide: PackagesService, useValue: {} },
       ],
     }).compile();
 

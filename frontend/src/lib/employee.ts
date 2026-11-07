@@ -8,6 +8,7 @@ export interface EmployeeListItem {
   specialty?: string | null
   baseSalary: number
   commissionRate: number
+  isSpecialCommission?: boolean
   isDefault?: boolean
   isActive: boolean
   status: 'active' | 'inactive'
@@ -71,6 +72,7 @@ export function normalizeEmployeeList(data: unknown): EmployeeListItem[] {
         specialty: raw.specialty ?? null,
         baseSalary: raw.baseSalary ?? 0,
         commissionRate: raw.commissionRate ?? 0,
+        isSpecialCommission: raw.isSpecialCommission === true,
         isDefault: raw.isDefault ?? false,
         isActive: raw.isActive ?? true,
         status: raw.status ?? (raw.isActive === false ? 'inactive' : 'active'),

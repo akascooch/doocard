@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
@@ -34,6 +33,9 @@ import {
 interface Employee {
   id: number
   name: string
+  commissionRate?: number
+  isSpecialCommission?: boolean
+  role?: string
 }
 
 interface BankAccount {
@@ -90,6 +92,16 @@ interface PreviewResult {
   employeeRole?: string
   tipLines?: ServiceTipLine[]
   appointments?: PreviewAppointmentItem[]
+  personalTipIncome?: string
+  payrollPolicyConfigured?: boolean
+  isFixedSalaryRole?: boolean
+  recordedActivity?: {
+    dayCount: number
+    dates: string[]
+    totalRial: string
+    source: 'SETTLED_APPOINTMENTS' | 'INCLUDED_TIPS' | 'UNAVAILABLE'
+    sourceLabel: string
+  }
 }
 
 interface SettlementHistoryItem {
@@ -115,7 +127,6 @@ export default function EmployeeSalaryPage() {
   const [employeeId, setEmployeeId] = useState<string>('')
   const [fromDate, setFromDate] = useState(() => getTehranCurrentJalaliMonthRange().from)
   const [toDate, setToDate] = useState(() => getTehranCurrentJalaliMonthRange().to)
-  const [percentage, setPercentage] = useState<string>('40')
   const [bankAccountId, setBankAccountId] = useState<string>('')
   const [periodStartConfirmed, setPeriodStartConfirmed] = useState(false)
   const [preview, setPreview] = useState<PreviewResult | null>(null)
@@ -161,9 +172,18 @@ export default function EmployeeSalaryPage() {
         axios.get('/employees'),
         axios.get('/accounting/accounts'),
       ])
-      const list = (empRes.data || []).map((e: { id: number; user?: { name: string }; name?: string }) => ({
+      const list = (empRes.data || []).map((e: {
+        id: number
+        user?: { name?: string; role?: string }
+        name?: string
+        commissionRate?: number
+        isSpecialCommission?: boolean
+      }) => ({
         id: e.id,
         name: e.user?.name ?? e.name ?? `کارمند #${e.id}`,
+        commissionRate: e.commissionRate ?? 0,
+        isSpecialCommission: e.isSpecialCommission === true,
+        role: e.user?.role,
       }))
       setEmployees(list)
       const accList = (accRes.data?.data ?? accRes.data ?? []).map((a: BankAccount) => ({
@@ -213,17 +233,12 @@ export default function EmployeeSalaryPage() {
       toast({ title: 'خطا', description: 'کارمند، تاریخ از و تاریخ تا را انتخاب کنید', variant: 'destructive' })
       return
     }
-    const pct = parseFloat(percentage)
-    if (isNaN(pct) || pct < 0 || pct > 100) {
-      toast({ title: 'خطا', description: 'درصد باید بین ۰ تا ۱۰۰ باشد', variant: 'destructive' })
-      return
-    }
     try {
       setLoading(true)
       setPreview(null)
       setPeriodStartConfirmed(false)
       const res = await axios.get('/admin/employee-salary/preview', {
-        params: { employeeId, from: fromDate, to: toDate, percentage: pct },
+        params: { employeeId, from: fromDate, to: toDate },
       })
       setPreview(res.data)
       if (res.data.suggestedPeriodStartJalali && !fromDate) {
@@ -253,7 +268,6 @@ export default function EmployeeSalaryPage() {
         employeeId: parseInt(employeeId, 10),
         fromJalali: fromDate,
         toJalali: toDate,
-        commissionPercentage: parseFloat(percentage) || preview.commissionPercentageUsed,
         periodStartConfirmed: true,
         bankAccountId: parseInt(bankAccountId, 10),
       })
@@ -338,6 +352,8 @@ export default function EmployeeSalaryPage() {
     }
   }
 
+  const selectedEmployee = employees.find((employee) => String(employee.id) === employeeId)
+
   return (
     <div className="space-y-6 p-6">
       <div>
@@ -373,6 +389,14 @@ export default function EmployeeSalaryPage() {
                     تا {r.upToJalali} | اسنپ‌شات:{' '}
                     {formatTomansFromRial(r.requestedAmountRial)} | موجودی هنگام درخواست:{' '}
                     {formatTomansFromRial(r.availableAtRequestRial)}
+                  </div>
+                  <div className="mt-1 text-sm">
+                    <span className="text-muted-foreground">شماره کارت / شبا: </span>
+                    <span className="font-mono" dir="ltr">
+                      {typeof r.destinationNote === 'string' && r.destinationNote.trim()
+                        ? r.destinationNote
+                        : 'ثبت نشده'}
+                    </span>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -494,7 +518,7 @@ export default function EmployeeSalaryPage() {
         <CardHeader>
           <CardTitle className="text-foreground dark:text-foreground">پارامترها</CardTitle>
           <CardDescription className="text-foreground dark:text-foreground">
-            کارمند، بازه تاریخ و درصد سهم کارمند را انتخاب کنید
+            کارمند و بازه تاریخ را انتخاب کنید. درصد از نرخ ذخیره‌شده آرایشگر خوانده می‌شود.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -533,15 +557,14 @@ export default function EmployeeSalaryPage() {
               />
             </div>
             <div>
-              <Label className="text-foreground dark:text-foreground">درصد سهم کارمند</Label>
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                value={percentage}
-                onChange={(e) => setPercentage(e.target.value)}
-                className="mt-1"
-              />
+              <Label className="text-foreground dark:text-foreground">درصد ذخیره‌شده آرایشگر</Label>
+              <p className="mt-2 text-sm text-foreground">
+                {selectedEmployee?.isSpecialCommission
+                  ? 'کمیسیون ویژه — درصد ذخیره‌شده در محاسبه استفاده نمی‌شود'
+                  : selectedEmployee && (selectedEmployee.commissionRate ?? 0) > 0
+                    ? `${selectedEmployee.commissionRate}٪`
+                    : '۰ (محاسبه از درصد پیش‌فرض سیستم، نه صفر درصد)'}
+              </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -573,14 +596,41 @@ export default function EmployeeSalaryPage() {
           <CardHeader>
             <CardTitle className="text-foreground dark:text-foreground">نتیجه پیش‌نمایش</CardTitle>
             <CardDescription className="text-foreground dark:text-foreground">
-              {preview.isServiceStaff
-                ? `پرسنل خدمات — ${preview.tipAllocationCount ?? 0} تخصیص انعام`
-                : preview.isSpecialCommission
-                  ? `کمیسیون ویژه — مالیات ${formatTomansFromRial(preview.deductionPerAppointmentAmount)} سپس سهم ${preview.commissionPercentageUsed}٪`
-                  : `درآمد سرویس فقط (بدون انعام) — کمیسیون ${preview.commissionPercentageUsed}٪`}
+              {preview.payrollPolicyConfigured === false
+                ? 'حقوق ثابت — سیاست مبلغ برای این نقش تعریف نشده است'
+                : preview.isServiceStaff
+                  ? `پرسنل خدمات — ${preview.tipAllocationCount ?? 0} تخصیص انعام`
+                  : preview.isSpecialCommission
+                    ? `کمیسیون ویژه — مالیات ${formatTomansFromRial(preview.deductionPerAppointmentAmount)} سپس سهم ${preview.commissionPercentageUsed}٪`
+                    : Number(preview.personalTipIncome || 0) > 0
+                      ? `کمیسیون ${preview.commissionPercentageUsed}٪ از سرویس؛ انعام شخصی جدا و خارج از کمیسیون است`
+                      : `درآمد سرویس فقط (بدون انعام) — کمیسیون ${preview.commissionPercentageUsed}٪`}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {preview.payrollPolicyConfigured === false ? (
+              <p className="text-sm text-foreground">
+                سیاست حقوق ثابت برای این نقش تعریف نشده است. مبلغی محاسبه نمی‌شود و تسویه کمیسیونی انجام نمی‌شود.
+              </p>
+            ) : null}
+            {preview.recordedActivity ? (
+              <div className="rounded-lg border border-border p-4 space-y-1">
+                <p className="text-sm font-medium">روزهای دارای فعالیت ثبت‌شده</p>
+                {preview.recordedActivity.source === 'UNAVAILABLE' ? (
+                  <p className="text-sm text-muted-foreground">{preview.recordedActivity.sourceLabel}</p>
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold tabular-nums">
+                      {preview.recordedActivity.dayCount.toLocaleString('fa-IR')}
+                    </p>
+                    <p className="text-sm text-muted-foreground">{preview.recordedActivity.sourceLabel}</p>
+                    <p className="text-sm">
+                      جمع همین محاسبه: {formatTomansFromRial(preview.recordedActivity.totalRial)}
+                    </p>
+                  </>
+                )}
+              </div>
+            ) : null}
             {preview.lastCommissionSettlementAt && (
               <p className="text-sm text-foreground dark:text-foreground">
                 آخرین تسویه: {formatToJalali(preview.lastCommissionSettlementAt)}
@@ -772,6 +822,12 @@ export default function EmployeeSalaryPage() {
                 title="جزئیات انعام‌ها (نوبت و آرایشگر)"
               />
             )}
+            {!preview.isServiceStaff && (preview.tipLines?.length ?? 0) > 0 && (
+              <ServiceTipLinesTable
+                tipLines={preview.tipLines ?? []}
+                title="انعام شخصی (خارج از کمیسیون)"
+              />
+            )}
 
             {!preview.isServiceStaff &&
               Array.isArray(preview.appointments) &&
@@ -815,6 +871,7 @@ export default function EmployeeSalaryPage() {
               </div>
             )}
 
+            {preview.payrollPolicyConfigured !== false && (
             <div className="border-t border-border dark:border-border pt-4 space-y-4">
               <h3 className="text-lg font-semibold text-foreground dark:text-foreground">ثبت تسویه</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -879,6 +936,7 @@ export default function EmployeeSalaryPage() {
                         )})`}
               </Button>
             </div>
+            )}
           </CardContent>
         </Card>
       )}

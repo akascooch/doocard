@@ -383,6 +383,15 @@ export default function PaymentModal({
         });
         return;
       }
+      const offlinePaymentMethod = formData.paymentMethod;
+      if (offlinePaymentMethod === 'PACKAGE') {
+        toast({
+          title: 'غیرفعال در حالت آفلاین',
+          description: 'تسویه با پکیج در حالت آفلاین امکان‌پذیر نیست.',
+          variant: 'destructive',
+        });
+        return;
+      }
       if (!formData.accountId) {
         toast({
           title: 'خطا',
@@ -410,7 +419,7 @@ export default function PaymentModal({
           externalRef: settleExternalRef,
           appointmentRef: { kind: 'server', appointmentId },
           amount: formData.amount,
-          paymentMethod: formData.paymentMethod,
+          paymentMethod: offlinePaymentMethod,
           accountId: formData.accountId,
           notes: formData.notes || undefined,
         });

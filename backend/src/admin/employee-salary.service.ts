@@ -23,6 +23,10 @@ import {
   commissionPolicyTaxRial,
   computeAppointmentCommissionShare,
 } from '../common/constants/employee-commission.constants';
+import {
+  FIXED_SALARY_POLICY_UNAVAILABLE,
+  isFixedSalaryRole,
+} from '../common/constants/staff-roles';
 import { CommitEmployeeCommissionSettlementDto } from './dto/commit-employee-commission-settlement.dto';
 
 const TEHRAN_OFFSET_MS = (3 * 60 + 30) * 60 * 1000;
@@ -109,7 +113,8 @@ export interface EmployeeSalaryPreviewResult {
   priorWithdrawalsTotal: string;
   /**
    * Withdrawable for salary requests / employee UI.
-   * BARBER: appointment commission net only (excludes TEAM tips).
+   * BARBER: appointment commission net plus unpaid personal (individual) tips, minus withdrawals.
+   * Commission math does not include tips. TEAM/appointment tip pools stay service-staff only.
    * SERVICE: tip income minus prior withdrawals (unchanged).
    */
   netPayable: string;
@@ -136,10 +141,28 @@ export interface EmployeeSalaryPreviewResult {
    */
   teamShareIncome: string;
   appointments: EmployeeSalaryPreviewAppointmentItem[];
-  /** SERVICE-only: per-tip attribution lines (absent/empty for barbers). */
+  /** SERVICE tip lines, or a barber's own unpaid individual manual tips. */
   tipLines?: ServiceTipLineItem[];
   /** True when Employee.isSpecialCommission — uses SPECIAL_COMMISSION_POLICY. */
   isSpecialCommission: boolean;
+  /**
+   * Unpaid individual manual tips for this barber. Not part of commission.
+   * Always '0' for SERVICE (those tips are totalTipIncome) and fixed-salary roles.
+   */
+  personalTipIncome: string;
+  /** False only for kitchen/cashier until a fixed-salary policy exists. */
+  payrollPolicyConfigured: boolean;
+  isFixedSalaryRole: boolean;
+  recordedActivity: RecordedActivitySummary;
+}
+
+export interface RecordedActivitySummary {
+  dayCount: number;
+  dates: string[];
+  /** Payroll total of the qualifying records. Not an attendance wage. */
+  totalRial: string;
+  source: 'SETTLED_APPOINTMENTS' | 'INCLUDED_TIPS' | 'UNAVAILABLE';
+  sourceLabel: string;
 }
 
 export interface SettlementHistoryItem {
@@ -246,17 +269,58 @@ function getISOWeek(d: Date): number {
 
 function resolveCommissionPercentage(
   employeeRate: number,
-  override?: number,
+  _requestOverride?: number,
   isSpecialCommission = false,
 ): number {
+  // Request overrides are ignored. Saved Employee.commissionRate is the rate.
+  // Zero stays "unset" and uses the historical 40% default. It is not an explicit 0% rate.
   if (isSpecialCommission) {
     return Math.round(SPECIAL_COMMISSION_POLICY.split * 100);
   }
-  if (override !== undefined && !isNaN(override)) {
-    return Math.max(0, Math.min(100, override));
-  }
   if (employeeRate > 0) return Math.max(0, Math.min(100, employeeRate));
   return DEFAULT_COMMISSION_PERCENTAGE;
+}
+
+export function summarizeRecordedActivity(
+  dates: string[],
+  totalRial: string,
+  source: RecordedActivitySummary['source'],
+): RecordedActivitySummary {
+  const unique = [...new Set(dates.filter((date) => date.length > 0))].sort();
+  const sourceLabel =
+    source === 'SETTLED_APPOINTMENTS'
+      ? 'تاریخ نوبت‌های تسویه‌شده‌ای که در همین محاسبه حقوق آمده‌اند. این حضور و غیاب یا شیفت واقعی نیست.'
+      : source === 'INCLUDED_TIPS'
+        ? 'تاریخ انعام‌هایی که در همین محاسبه حقوق آمده‌اند. این حضور و غیاب یا شیفت واقعی نیست.'
+        : 'برای این نقش داده فعالیت قابل اتکا وجود ندارد.';
+  return {
+    dayCount: unique.length,
+    dates: unique,
+    totalRial,
+    source,
+    sourceLabel,
+  };
+}
+
+function personalBarberTipWhere(
+  employeeId: number,
+  periodStartExclusive: Date,
+  periodEndInclusive: Date,
+) {
+  return {
+    employeeId,
+    paidInSettlementId: null,
+    tipSource: {
+      status: 'ACTIVE' as const,
+      tipType: 'INDIVIDUAL' as const,
+      recipientEmployeeId: employeeId,
+      effectiveBusinessAt: {
+        gt: periodStartExclusive,
+        lte: periodEndInclusive,
+      },
+      NOT: { idempotencyKey: { startsWith: 'settle-manual-tip:' } },
+    },
+  };
 }
 
 async function getConsumedWithdrawalTransactionIds(
@@ -352,7 +416,7 @@ export async function calculateEmployeeSalaryPreview(
   prisma: PrismaService,
   params: EmployeeSalaryPreviewParams,
 ): Promise<EmployeeSalaryPreviewResult> {
-  const { employeeId, fromJalali, toJalali, percentage } = params;
+  const { employeeId, fromJalali, toJalali } = params;
 
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
@@ -369,6 +433,42 @@ export async function calculateEmployeeSalaryPreview(
     periodEndInclusive,
   } = assertValidPreviewDateRange(fromJalali, toJalali);
 
+  if (isFixedSalaryRole(employee.user.role)) {
+    return {
+      periodFromJalali: from,
+      periodToJalali: to,
+      totalAppointments: 0,
+      totalRevenue: '0',
+      employeeShare: '0',
+      platformShare: '0',
+      payoutGrossBeforeDeduction: '0',
+      deductionPerAppointmentAmount: '0',
+      totalDeduction: '0',
+      payoutNetAfterDeduction: '0',
+      priorWithdrawalsTotal: '0',
+      netPayable: '0',
+      settlementPayable: '0',
+      lastCommissionSettlementAt: null,
+      suggestedPeriodStartJalali: null,
+      commissionPercentageUsed: 0,
+      priorWithdrawals: [],
+      excludedAlreadySettledAppointments: 0,
+      breakdown: [],
+      employeeRole: employee.user.role,
+      isServiceStaff: false,
+      totalTipIncome: '0',
+      tipAllocationCount: 0,
+      teamShareIncome: '0',
+      appointments: [],
+      tipLines: [],
+      isSpecialCommission: false,
+      personalTipIncome: '0',
+      payrollPolicyConfigured: false,
+      isFixedSalaryRole: true,
+      recordedActivity: summarizeRecordedActivity([], '0', 'UNAVAILABLE'),
+    };
+  }
+
   const lastSettlement = await prisma.employeeCommissionSettlement.findFirst({
     where: {
       employeeId,
@@ -384,7 +484,7 @@ export async function calculateEmployeeSalaryPreview(
   const isSpecialCommission = Boolean(employee.isSpecialCommission);
   const percentageNum = resolveCommissionPercentage(
     employee.commissionRate,
-    percentage,
+    undefined,
     isSpecialCommission,
   );
 
@@ -623,6 +723,14 @@ export async function calculateEmployeeSalaryPreview(
       appointments: [],
       tipLines,
       isSpecialCommission: false,
+      personalTipIncome: '0',
+      payrollPolicyConfigured: true,
+      isFixedSalaryRole: false,
+      recordedActivity: summarizeRecordedActivity(
+        tipLines.map((line) => line.paidAtJalali || ''),
+        totalTipIncome.toString(),
+        'INCLUDED_TIPS',
+      ),
     };
   }
 
@@ -712,9 +820,49 @@ export async function calculateEmployeeSalaryPreview(
     priorWithdrawalsTotal += tx.amount;
   }
 
-  // Barber netPayable / settlementPayable: appointment commission net only.
-  // Negative values are intentional (debt / over-withdrawn) and must not be clamped.
-  const netPayable = payoutNetAfterDeduction - priorWithdrawalsTotal;
+  // Personal barber tips are individual manual allocations only.
+  // Appointment/team tip pools and checkout settle-manual-tip keys stay out of this sum.
+  const personalTipRows = await prisma.manualTipAllocation.findMany({
+    where: personalBarberTipWhere(employeeId, periodStartExclusive, periodEndInclusive),
+    include: {
+      tipSource: {
+        select: {
+          id: true,
+          tipType: true,
+          amountRial: true,
+          effectiveBusinessAt: true,
+          note: true,
+        },
+      },
+    },
+    orderBy: { id: 'asc' },
+  });
+  let personalTipIncome = 0n;
+  for (const row of personalTipRows) {
+    personalTipIncome += row.amountRial;
+  }
+  const personalTipLines: ServiceTipLineItem[] = personalTipRows.map((row) => ({
+    allocationId: row.id,
+    appointmentId: null,
+    tipSourceId: row.tipSource.id,
+    origin: 'MANUAL',
+    paidAt: row.tipSource.effectiveBusinessAt.toISOString(),
+    paidAtJalali: formatJalaliFromDate(row.tipSource.effectiveBusinessAt),
+    scheduledAt: null,
+    scheduledAtJalali: null,
+    barberEmployeeId: employeeId,
+    barberName: employee.user.name,
+    tipRecipientType: 'INDIVIDUAL',
+    tipAmountTotalRial: row.tipSource.amountRial.toString(),
+    myShareRial: row.amountRial.toString(),
+    originLabel: `انعام شخصی #${row.tipSource.id}`,
+    serviceNames: [],
+    customerName: row.tipSource.note ?? null,
+  }));
+
+  // Commission stays in payoutNetAfterDeduction. Personal tips are added after it.
+  // Negative commission nets stay negative and are not clamped.
+  const netPayable = payoutNetAfterDeduction + personalTipIncome - priorWithdrawalsTotal;
   const settlementPayable = netPayable;
 
   const daysDiff =
@@ -835,10 +983,19 @@ export async function calculateEmployeeSalaryPreview(
     employeeRole: employee.user.role,
     isServiceStaff: false,
     totalTipIncome: '0',
-    tipAllocationCount: 0,
+    tipAllocationCount: personalTipRows.length,
     teamShareIncome: '0',
     appointments: appointmentRows,
+    tipLines: personalTipLines,
     isSpecialCommission,
+    personalTipIncome: personalTipIncome.toString(),
+    payrollPolicyConfigured: true,
+    isFixedSalaryRole: false,
+    recordedActivity: summarizeRecordedActivity(
+      appointmentRows.map((row) => row.scheduledAtJalali),
+      payoutNetAfterDeduction.toString(),
+      'SETTLED_APPOINTMENTS',
+    ),
   };
 }
 
@@ -858,9 +1015,13 @@ export class EmployeeSalaryService {
     if (!employee) {
       throw new NotFoundException('پروفایل کارمند یافت نشد');
     }
-    if (employee.user.role !== 'EMPLOYEE' && employee.user.role !== 'SERVICE') {
+    if (
+      employee.user.role !== 'EMPLOYEE' &&
+      employee.user.role !== 'SERVICE' &&
+      !isFixedSalaryRole(employee.user.role)
+    ) {
       throw new ForbiddenException(
-        'این بخش فقط برای آرایشگران و پرسنل خدمات در دسترس است',
+        'این بخش فقط برای آرایشگران، پرسنل خدمات، آشپزخانه و صندوقدار در دسترس است',
       );
     }
 
@@ -909,8 +1070,10 @@ export class EmployeeSalaryService {
       employeeId: dto.employeeId,
       fromJalali: dto.fromJalali,
       toJalali: dto.toJalali,
-      percentage: dto.commissionPercentage,
     });
+    if (!preview.payrollPolicyConfigured) {
+      throw new BadRequestException(FIXED_SALARY_POLICY_UNAVAILABLE);
+    }
 
     const appointmentNetPayable = BigInt(preview.netPayable);
     const teamShareIncome = BigInt(preview.teamShareIncome);
@@ -918,7 +1081,11 @@ export class EmployeeSalaryService {
     // Negative settlementPayable is allowed and persisted as employee debt / over-withdrawal.
     const isServiceStaff = preview.isServiceStaff;
     const isSpecialCommission = Boolean(preview.isSpecialCommission);
-    if (!isServiceStaff && preview.totalAppointments === 0) {
+    if (
+      !isServiceStaff &&
+      preview.totalAppointments === 0 &&
+      BigInt(preview.personalTipIncome || '0') === 0n
+    ) {
       throw new BadRequestException('نوبت یا مبلغ قابل تسویه در این بازه وجود ندارد');
     }
     if (isServiceStaff && preview.tipAllocationCount === 0 && settlementPayable === 0n) {
@@ -997,7 +1164,10 @@ export class EmployeeSalaryService {
           },
           select: { id: true, amountRial: true, tipSourceId: true },
         })
-      : [];
+      : await this.prisma.manualTipAllocation.findMany({
+          where: personalBarberTipWhere(dto.employeeId, fromRange.start, toRange.end),
+          select: { id: true, amountRial: true, tipSourceId: true },
+        });
 
     // Use canonical withdrawal category for settlement expense when COMMISSION_SETTLEMENT missing
     let commissionCategoryId = dto.categoryId;
@@ -1091,10 +1261,20 @@ export class EmployeeSalaryService {
           'انعام بین پیش‌نمایش و تسویه تغییر کرده است؛ پیش‌نمایش را دوباره بگیرید',
         );
       }
+      if (!isServiceStaff) {
+        let personalSum = 0n;
+        for (const t of manualTipAllocations) personalSum += t.amountRial;
+        if (personalSum !== BigInt(preview.personalTipIncome || '0')) {
+          throw new BadRequestException(
+            'انعام شخصی بین پیش‌نمایش و تسویه تغییر کرده است؛ پیش‌نمایش را دوباره بگیرید',
+          );
+        }
+      }
 
       const tipsIncludedInPayout =
-        isServiceStaff &&
-        (tipAllocations.length > 0 || manualTipAllocations.length > 0);
+        (isServiceStaff &&
+          (tipAllocations.length > 0 || manualTipAllocations.length > 0)) ||
+        (!isServiceStaff && manualTipAllocations.length > 0);
 
       if (tipsIncludedInPayout) {
         if (tipAllocations.length > 0) {
@@ -1252,6 +1432,10 @@ export class EmployeeSalaryService {
       }
 
       await tx.appointmentTipAllocation.updateMany({
+        where: { paidInSettlementId: settlementId },
+        data: { paidInSettlementId: null },
+      });
+      await tx.manualTipAllocation.updateMany({
         where: { paidInSettlementId: settlementId },
         data: { paidInSettlementId: null },
       });

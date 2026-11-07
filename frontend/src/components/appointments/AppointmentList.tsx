@@ -52,6 +52,11 @@ type EligiblePackage = {
   title: string | null
   remainingSessions: number
   totalSessions: number
+  unlimited?: boolean
+}
+
+function isUnlimitedPackage(item: Pick<EligiblePackage, 'unlimited' | 'totalSessions'>) {
+  return item.unlimited === true || item.totalSessions === 0
 }
 
 export default function AppointmentList({
@@ -95,18 +100,27 @@ export default function AppointmentList({
     setConsumingId(packageId);
     try {
       const res = await api.post(`/packages/${packageId}/consume`, { appointmentId });
-      notifySuccess('یک جلسه از پکیج کسر شد');
+      const unlimitedResponse = res.data.unlimited === true || res.data.totalSessions === 0;
+      notifySuccess(
+        unlimitedResponse
+          ? 'مصرف این نوبت روی پکیج نامحدود ثبت شد'
+          : 'یک جلسه از پکیج کسر شد',
+      );
       setEligibleById((current) => {
         const next = { ...(current || {}) };
         const remaining = res.data.remainingSessions as number;
         const status = res.data.status as string;
+        const unlimited = res.data.unlimited === true || res.data.totalSessions === 0;
         const list = (next[String(appointmentId)] || []).map((item) =>
-          item.id === packageId ? { ...item, remainingSessions: remaining } : item,
+          item.id === packageId
+            ? { ...item, remainingSessions: remaining, unlimited, totalSessions: res.data.totalSessions ?? item.totalSessions }
+            : item,
         );
-        next[String(appointmentId)] =
-          status === 'EXHAUSTED' || remaining <= 0
-            ? list.filter((item) => item.id !== packageId)
-            : list;
+        next[String(appointmentId)] = list.filter((item) => {
+          if (isUnlimitedPackage(item) && item.id === packageId) return status !== 'CANCELLED';
+          if (item.id !== packageId) return true;
+          return status !== 'EXHAUSTED' && remaining > 0;
+        });
         return next;
       });
     } catch (error) {
@@ -120,11 +134,19 @@ export default function AppointmentList({
     if (userRole === 'CUSTOMER') return null;
     const items = eligibleById[String(appointment.id)] || [];
     if (items.length === 0) return null;
-    const remaining = items.reduce((sum, item) => sum + item.remainingSessions, 0);
+    const unlimited = items.some(isUnlimitedPackage);
+    const finiteRemaining = items
+      .filter((item) => !isUnlimitedPackage(item))
+      .reduce((sum, item) => sum + item.remainingSessions, 0);
+    const packageLabel = unlimited
+      ? finiteRemaining > 0
+        ? `پکیج نامحدود و ${finiteRemaining} جلسه محدود`
+        : 'پکیج نامحدود'
+      : `${finiteRemaining} جلسه باقی‌مانده`;
     return (
       <div className="space-y-2 mt-2">
         <Badge variant="success" className="normal-case tracking-normal">
-          دارای پکیج فعال ({remaining} جلسه باقی‌مانده)
+          دارای پکیج فعال ({packageLabel})
         </Badge>
         {items.map((item) => (
           <Button
@@ -137,7 +159,7 @@ export default function AppointmentList({
             className="min-h-9"
           >
             <Gift className="h-4 w-4 ml-1" />
-            کسر جلسه از پکیج
+            {isUnlimitedPackage(item) ? 'ثبت مصرف پکیج نامحدود' : 'کسر جلسه از پکیج'}
             {item.title ? ` (${item.title})` : ''}
           </Button>
         ))}

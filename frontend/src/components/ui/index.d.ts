@@ -118,40 +118,8 @@ declare module "@/lib/error-handler" {
   export function logError(error: any, context: string): void;
 }
 
-declare module "@/components/ui/select" {
-  interface SelectProps {
-    children: React.ReactNode;
-    onValueChange?: (value: string) => void;
-    defaultValue?: string;
-    value?: string;
-    disabled?: boolean;
-    name?: string;
-    required?: boolean;
-    open?: boolean;
-    onOpenChange?: (open: boolean) => void;
-  }
-  interface SelectTriggerProps {
-    children: React.ReactNode;
-    className?: string;
-  }
-  interface SelectContentProps {
-    children: React.ReactNode;
-    className?: string;
-  }
-  interface SelectItemProps {
-    children: React.ReactNode;
-    value: string;
-  }
-  interface SelectValueProps {
-    children?: React.ReactNode;
-    placeholder?: string;
-  }
-  export function Select(props: SelectProps): JSX.Element;
-  export function SelectTrigger(props: SelectTriggerProps): JSX.Element;
-  export function SelectContent(props: SelectContentProps): JSX.Element;
-  export function SelectItem(props: SelectItemProps): JSX.Element;
-  export function SelectValue(props: SelectValueProps): JSX.Element;
-}
+/* Select types come from components/ui/select.tsx (includes SelectItem disabled).
+   Do not re-declare @/components/ui/select here — ambient overrides strip disabled. */
 
 declare module "@/components/ui/table" {
   interface TableProps {

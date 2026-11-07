@@ -10,6 +10,7 @@ import { CalendarService } from '../calendar/calendar.service';
 import { SmsOutboundService } from '../sms/sms-outbound.service';
 import { SmsTemplateService } from '../sms/sms-template.service';
 import { TipAlertService } from '../sms/tip-alert.service';
+import { PackagesService } from '../packages/packages.service';
 
 describe('multi-barber booking group', () => {
   const prisma: any = {
@@ -22,6 +23,7 @@ describe('multi-barber booking group', () => {
     customer: { findUnique: jest.fn(), updateMany: jest.fn() },
     employee: { findUnique: jest.fn() },
     service: { findUnique: jest.fn() },
+    customerDebt: { groupBy: jest.fn().mockResolvedValue([]) },
     $transaction: jest.fn(),
   };
   const notifications = { create: jest.fn().mockResolvedValue({ id: 1 }) };
@@ -58,6 +60,7 @@ describe('multi-barber booking group', () => {
         { provide: SmsOutboundService, useValue: { sendIfAllowed: jest.fn() } },
         { provide: SmsTemplateService, useValue: { renderByKey: jest.fn().mockResolvedValue('sms') } },
         { provide: TipAlertService, useValue: { notify: jest.fn() } },
+        { provide: PackagesService, useValue: {} },
       ],
     }).compile();
     service = module.get(AppointmentsService);

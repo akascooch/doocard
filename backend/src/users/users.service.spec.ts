@@ -1,5 +1,7 @@
-import { NotFoundException, ConflictException } from '@nestjs/common';
+import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 import { UsersService } from './users.service';
+import { CreateUserDto } from './dto/create-user.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CustomerRegistrationSmsService } from '../sms/customer-registration-sms.service';
 import * as bcrypt from 'bcrypt';
@@ -66,12 +68,12 @@ describe('UsersService', () => {
   });
 
   describe('create', () => {
-    const createUserDto = {
+    const createUserDto: CreateUserDto = {
       name: 'John User',
       phone: '09123456789',
       email: 'john@example.com',
       password: 'password123',
-      role: 'CUSTOMER',
+      role: UserRole.CUSTOMER,
     };
 
     it('should create user successfully', async () => {
@@ -101,7 +103,7 @@ describe('UsersService', () => {
     });
 
     it('should create an ADMIN from the staff path without forcing CUSTOMER', async () => {
-      const adminDto = { ...createUserDto, role: 'ADMIN' };
+      const adminDto: CreateUserDto = { ...createUserDto, role: UserRole.ADMIN };
       const adminUser = { ...mockUser, role: 'ADMIN' };
 
       mockPrismaService.user.findUnique.mockResolvedValue(null);
@@ -120,7 +122,7 @@ describe('UsersService', () => {
     });
 
     it('should create employee when role is EMPLOYEE', async () => {
-      const employeeDto = { ...createUserDto, role: 'EMPLOYEE' };
+      const employeeDto: CreateUserDto = { ...createUserDto, role: UserRole.EMPLOYEE };
       const employeeUser = { ...mockUser, role: 'EMPLOYEE' };
 
       mockPrismaService.user.findUnique.mockResolvedValue(null);
@@ -152,7 +154,7 @@ describe('UsersService', () => {
     });
 
     it('should create user without email when not provided', async () => {
-      const dtoWithoutEmail = { ...createUserDto };
+      const dtoWithoutEmail: CreateUserDto = { ...createUserDto };
       delete dtoWithoutEmail.email;
 
       mockPrismaService.user.findUnique.mockResolvedValue(null);
@@ -178,7 +180,7 @@ describe('UsersService', () => {
     });
 
     it('should use default role CUSTOMER when not provided', async () => {
-      const dtoWithoutRole = { ...createUserDto };
+      const dtoWithoutRole: CreateUserDto = { ...createUserDto };
       delete dtoWithoutRole.role;
 
       mockPrismaService.user.findUnique.mockResolvedValue(null);
@@ -194,6 +196,26 @@ describe('UsersService', () => {
           role: 'CUSTOMER',
         }),
       });
+    });
+
+    it('creates a kitchen employee profile and rejects an unknown role', async () => {
+      const kitchenDto: CreateUserDto = { ...createUserDto, role: UserRole.KITCHEN };
+      const kitchenUser = { ...mockUser, role: UserRole.KITCHEN };
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+      mockPrismaService.user.findFirst.mockResolvedValue(null);
+      mockPrismaService.user.create.mockResolvedValue(kitchenUser);
+      mockPrismaService.employee.create.mockResolvedValue({ id: 3, userId: 1 });
+      (bcrypt.hash as unknown as jest.Mock).mockResolvedValue('hashedPassword' as never);
+
+      await service.create(kitchenDto);
+
+      expect(mockPrismaService.customer.create).not.toHaveBeenCalled();
+      expect(mockPrismaService.employee.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ userId: kitchenUser.id }) }),
+      );
+      await expect(
+        service.create({ ...createUserDto, role: 'NOT_A_ROLE' as UserRole }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

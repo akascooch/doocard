@@ -295,6 +295,15 @@ const serviceMenuItems = [
   },
 ]
 
+const fixedSalaryMenuItems = [
+  {
+    title: 'درخواست حقوق',
+    href: '/dashboard/employee/salary-request',
+    icon: CreditCard,
+    description: 'مشاهده وضعیت حقوق ثابت',
+  },
+]
+
 const accountantMenuItems = [
   {
     title: 'داشبورد',
@@ -427,6 +436,9 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
         return process.env.NEXT_PUBLIC_QUICK_CREATE_ALLOW_SERVICE === 'false'
           ? serviceMenuItems.filter((item) => item.href !== '/dashboard/employee/register-customer')
           : serviceMenuItems
+      case 'KITCHEN':
+      case 'CASHIER':
+        return fixedSalaryMenuItems
       case 'CUSTOMER':
       default:
         return customerMenuItems
@@ -475,6 +487,8 @@ export function RoleBasedSidebar({ isCollapsed = false, onToggle, isMobile = fal
             {userRole === 'ACCOUNTANT' && 'حسابدار'}
             {userRole === 'EMPLOYEE' && 'کارمند'}
             {userRole === 'SERVICE' && 'پرسنل خدمات'}
+            {userRole === 'KITCHEN' && 'آشپزخانه'}
+            {userRole === 'CASHIER' && 'صندوقدار'}
             {userRole === 'CUSTOMER' && 'مشتری'}
           </div>
         </div>

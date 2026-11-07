@@ -14,10 +14,12 @@ export class CommitEmployeeCommissionSettlementDto {
   @IsNotEmpty()
   toJalali: string;
 
+  /** Ignored. Payroll uses Employee.commissionRate. Kept so older clients do not 400. */
+  @IsOptional()
   @IsNumber()
   @Type(() => Number)
   @Min(0)
-  commissionPercentage: number;
+  commissionPercentage?: number;
 
   @IsBoolean()
   periodStartConfirmed: boolean;

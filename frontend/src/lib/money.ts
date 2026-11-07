@@ -43,7 +43,14 @@ export const parseFormattedNumber = (value: string): number => {
  * @returns Formatted string in Rials
  * @example formatRials(15000000) // Returns "۱۵,۰۰۰,۰۰۰ ریال"
  */
-export const formatRials = (rialValue: number | null | undefined): string => {
+export const formatRials = (rialValue: number | string | null | undefined): string => {
+  if (typeof rialValue === 'string') {
+    const digits = rialValue.trim().replace(/[^\d]/g, '');
+    if (!digits) return '۰ ریال';
+    const withCommas = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const persian = withCommas.replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[Number(digit)]);
+    return `${persian} ریال`;
+  }
   if (rialValue == null || isNaN(rialValue)) return '۰ ریال';
   
   const formatted = new Intl.NumberFormat('fa-IR').format(rialValue);

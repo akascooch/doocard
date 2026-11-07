@@ -34,6 +34,7 @@ describe('CustomersService', () => {
       findFirst: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      count: jest.fn(),
     },
     appointment: {
       count: jest.fn(),
@@ -276,6 +277,29 @@ describe('CustomersService', () => {
       mockPrismaService.customer.findUnique.mockResolvedValue(null);
 
       await expect(service.update(999, updateCustomerDto)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getMilestoneStats', () => {
+    it('counts real customers separately from every customer row', async () => {
+      mockPrismaService.customer.count
+        .mockResolvedValueOnce(3)
+        .mockResolvedValueOnce(5);
+
+      const result = await service.getMilestoneStats();
+
+      expect(mockPrismaService.customer.count).toHaveBeenNthCalledWith(1, {
+        where: {
+          id: { not: 1 },
+          user: { role: 'CUSTOMER' },
+        },
+      });
+      expect(mockPrismaService.customer.count).toHaveBeenNthCalledWith(2);
+      expect(result.count).toBe(3);
+      expect(result.realCustomerCount).toBe(3);
+      expect(result.totalCustomerRecords).toBe(5);
+      expect(result.excludedFromRealCount).toBe(2);
+      expect(result.definition).toContain('CUSTOMER');
     });
   });
 

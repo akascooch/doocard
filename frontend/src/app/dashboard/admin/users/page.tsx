@@ -391,6 +391,8 @@ export default function AdminUsersPage() {
                   <SelectItem value="CUSTOMER">مشتریان</SelectItem>
                   <SelectItem value="EMPLOYEE">آرایشگران</SelectItem>
                   <SelectItem value="SERVICE">پرسنل خدمات</SelectItem>
+                  <SelectItem value="KITCHEN">آشپزخانه</SelectItem>
+                  <SelectItem value="CASHIER">صندوقدار</SelectItem>
                   <SelectItem value="ADMIN">مدیران</SelectItem>
                 </SelectContent>
               </Select>

@@ -22,6 +22,7 @@ describe('AppointmentsService cancel hardening', () => {
       updateMany: jest.fn(),
       update: jest.fn(),
     },
+    customerDebt: { groupBy: jest.fn().mockResolvedValue([]) },
   };
 
   function makeService() {
@@ -34,6 +35,7 @@ describe('AppointmentsService cancel hardening', () => {
       calendar as any,
       sms as any,
       templates as any,
+      {} as any,
       {} as any,
     );
   }

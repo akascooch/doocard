@@ -283,12 +283,14 @@ export class CustomersService {
    * Excludes public walk-in customer (id=1) and non-CUSTOMER user roles.
    */
   async getMilestoneStats() {
-    const count = await this.prisma.customer.count({
-      where: {
-        id: { not: PUBLIC_CUSTOMER_ID },
-        user: { role: UserRole.CUSTOMER },
-      },
-    });
+    const realCustomerWhere = {
+      id: { not: PUBLIC_CUSTOMER_ID },
+      user: { role: UserRole.CUSTOMER },
+    };
+    const [count, totalCustomerRecords] = await Promise.all([
+      this.prisma.customer.count({ where: realCustomerWhere }),
+      this.prisma.customer.count(),
+    ]);
     let target = MILESTONE_TARGETS.find((candidate) => count < candidate);
     if (target == null) {
       target = Math.ceil((count + 1) / 500) * 500;
@@ -305,6 +307,10 @@ export class CustomersService {
       latestReachedMilestone:
         reachedMilestones.length > 0 ? reachedMilestones[reachedMilestones.length - 1] : null,
       definition: 'customers.user.role=CUSTOMER AND customers.id<>1',
+      realCustomerCount: count,
+      totalCustomerRecords,
+      excludedFromRealCount: Math.max(totalCustomerRecords - count, 0),
+      totalDefinition: 'all customer rows, including the public customer and non-CUSTOMER user roles',
     };
   }
 

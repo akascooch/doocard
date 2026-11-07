@@ -1,5 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { CustomerPackageStatus, Prisma } from '@prisma/client';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { CustomerPackageStatus, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { parsePositiveRial } from '../packages/packages.constants';
 import {
@@ -380,7 +380,13 @@ export class PackagesService {
     return { items: rows.map(serializeOwned) };
   }
 
-  async listCustomerPackages(customerId: number) {
+  async listCustomerPackages(
+    customerId: number,
+    actor?: { id?: number; sub?: number; role?: string },
+  ) {
+    if (actor?.role === UserRole.EMPLOYEE || actor?.role === UserRole.SERVICE) {
+      await this.assertStaffCanSeeCustomer(actor, customerId);
+    }
     const customer = await this.prisma.customer.findUnique({ where: { id: customerId } });
     if (!customer) throw new NotFoundException('مشتری یافت نشد');
     await this.expireOverdue(customerId);
@@ -529,6 +535,147 @@ export class PackagesService {
     const customer = await this.prisma.customer.findUnique({ where: { id: customerId } });
     if (!customer) throw new NotFoundException('مشتری یافت نشد');
     return { customerId, points: 0, items: [] as ReturnType<typeof serializeTemplate>[] };
+  }
+
+  /**
+   * Same visibility as GET /customers:
+   * EMPLOYEE sees preferred customers only.
+   * SERVICE sees preferred customers or customers they have a non-deleted appointment with.
+   */
+  private staffCustomerWhere(role: string, employeeId: number): Prisma.CustomerWhereInput {
+    if (role === UserRole.EMPLOYEE) {
+      return { preferredEmployeeId: employeeId };
+    }
+    if (role === UserRole.SERVICE) {
+      return {
+        OR: [
+          { preferredEmployeeId: employeeId },
+          { appointments: { some: { employeeId, deletedAt: null } } },
+        ],
+      };
+    }
+    throw new ForbiddenException('دسترسی به پکیج مشتریان برای این نقش مجاز نیست');
+  }
+
+  private async requireVisibleStaff(actor?: { id?: number; sub?: number; role?: string }) {
+    const role = actor?.role;
+    if (role !== UserRole.EMPLOYEE && role !== UserRole.SERVICE) {
+      throw new ForbiddenException('دسترسی به پکیج مشتریان برای این نقش مجاز نیست');
+    }
+    const userId = Number(actor?.id ?? actor?.sub);
+    if (!Number.isInteger(userId) || userId < 1) {
+      throw new ForbiddenException('کاربر احراز هویت نشده است');
+    }
+    const employee = await this.prisma.employee.findUnique({ where: { userId } });
+    if (!employee || !employee.isActive) {
+      throw new ForbiddenException('پروفایل کارمند فعال یافت نشد');
+    }
+    return { role, employeeId: employee.id };
+  }
+
+  private async assertStaffCanSeeCustomer(
+    actor: { id?: number; sub?: number; role?: string },
+    customerId: number,
+  ) {
+    const staff = await this.requireVisibleStaff(actor);
+    const customer = await this.prisma.customer.findFirst({
+      where: { id: customerId, ...this.staffCustomerWhere(staff.role, staff.employeeId) },
+      select: { id: true },
+    });
+    if (!customer) throw new NotFoundException('مشتری یافت نشد');
+    return staff;
+  }
+
+  async listVisibleActiveHolders(
+    actor: { id?: number; sub?: number; role?: string },
+    page = 1,
+    pageSize = 20,
+  ) {
+    const staff = await this.requireVisibleStaff(actor);
+    const size = Math.min(Math.max(pageSize, 1), 50);
+    const current = Math.max(page, 1);
+    const now = new Date();
+    const activePackage: Prisma.CustomerServicePackageWhereInput = {
+      status: CustomerPackageStatus.ACTIVE,
+      expiresAt: { gte: now },
+      OR: [{ totalSessions: 0 }, { remainingSessions: { gt: 0 } }],
+    };
+    const where: Prisma.CustomerWhereInput = {
+      ...this.staffCustomerWhere(staff.role, staff.employeeId),
+      servicePackages: { some: activePackage },
+    };
+    const [total, rows] = await Promise.all([
+      this.prisma.customer.count({ where }),
+      this.prisma.customer.findMany({
+        where,
+        include: {
+          user: { select: { name: true, phone: true } },
+          servicePackages: {
+            where: activePackage,
+            include: { template: { include: TEMPLATE_INCLUDE } },
+            orderBy: { expiresAt: 'asc' },
+          },
+        },
+        orderBy: { id: 'asc' },
+        skip: (current - 1) * size,
+        take: size,
+      }),
+    ]);
+    return {
+      page: current,
+      pageSize: size,
+      total,
+      items: rows.map((customer) => ({
+        customerId: customer.id,
+        name: customer.user?.name ?? null,
+        phone: customer.user?.phone ?? null,
+        packages: customer.servicePackages.map(serializeOwned),
+      })),
+    };
+  }
+
+  async listVisiblePackageHistory(
+    actor: { id?: number; sub?: number; role?: string },
+    customerId: number,
+  ) {
+    await this.assertStaffCanSeeCustomer(actor, customerId);
+    const rows = await this.prisma.customerPackageConsumption.findMany({
+      where: {
+        customerPackage: { customerId },
+        appointment: { deletedAt: null, status: { not: 'CANCELLED' } },
+      },
+      include: {
+        service: { select: { id: true, name: true } },
+        appointment: { select: { id: true, scheduledAt: true, status: true, deletedAt: true } },
+        customerPackage: {
+          select: {
+            id: true,
+            totalSessions: true,
+            remainingSessions: true,
+            template: { select: { title: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+    return {
+      customerId,
+      items: rows.map((row) => ({
+        id: row.id,
+        customerPackageId: row.customerPackageId,
+        packageTitle: row.customerPackage.template?.title ?? null,
+        appointmentId: row.appointmentId,
+        appointmentScheduledAt: row.appointment.scheduledAt,
+        appointmentStatus: row.appointment.status,
+        serviceId: row.serviceId,
+        serviceName: row.service?.name ?? null,
+        consumedAt: row.createdAt,
+        totalSessions: row.customerPackage.totalSessions,
+        remainingSessions: row.customerPackage.remainingSessions,
+        unlimited: row.customerPackage.totalSessions === 0,
+      })),
+    };
   }
 
   private async expireOverdue(customerId: number) {

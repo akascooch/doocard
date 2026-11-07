@@ -44,6 +44,7 @@ describe('AppointmentsService.notifyAppointmentSettled [R1]', () => {
       smsOutbound as never,
       {} as never,
       {} as never,
+      {} as never,
     );
   });
 

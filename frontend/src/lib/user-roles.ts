@@ -1,10 +1,18 @@
 /** Roles assignable by admin in user management UI (matches Prisma UserRole subset). */
-export type AdminAssignableRole = 'ADMIN' | 'EMPLOYEE' | 'SERVICE' | 'CUSTOMER'
+export type AdminAssignableRole =
+  | 'ADMIN'
+  | 'EMPLOYEE'
+  | 'SERVICE'
+  | 'CUSTOMER'
+  | 'KITCHEN'
+  | 'CASHIER'
 
 export const ADMIN_USER_ROLE_OPTIONS: { value: AdminAssignableRole; label: string }[] = [
   { value: 'CUSTOMER', label: 'مشتری' },
   { value: 'EMPLOYEE', label: 'آرایشگر' },
   { value: 'SERVICE', label: 'پرسنل خدمات' },
+  { value: 'KITCHEN', label: 'آشپزخانه' },
+  { value: 'CASHIER', label: 'صندوقدار' },
   { value: 'ADMIN', label: 'مدیر' },
 ]
 
@@ -13,6 +21,8 @@ export function getUserRoleLabel(role: string): string {
   if (found) return found.label
   if (role === 'ACCOUNTANT') return 'حسابدار'
   if (role === 'MANAGER') return 'مدیر سالن'
+  if (role === 'KITCHEN') return 'آشپزخانه'
+  if (role === 'CASHIER') return 'صندوقدار'
   return role
 }
 
@@ -30,6 +40,9 @@ export function getDashboardHomePath(role?: string | null): string {
     case 'EMPLOYEE':
     case 'SERVICE':
       return '/dashboard/employee'
+    case 'KITCHEN':
+    case 'CASHIER':
+      return '/dashboard/employee/salary-request'
     case 'CUSTOMER':
     default:
       return '/dashboard/customer'
@@ -38,6 +51,14 @@ export function getDashboardHomePath(role?: string | null): string {
 
 export function canAccessEmployeeDashboard(role?: string | null): boolean {
   return role === 'EMPLOYEE' || role === 'SERVICE'
+}
+
+export function isFixedSalaryRole(role?: string | null): boolean {
+  return role === 'KITCHEN' || role === 'CASHIER'
+}
+
+export function canAccessSalaryRequest(role?: string | null): boolean {
+  return canAccessEmployeeDashboard(role) || isFixedSalaryRole(role)
 }
 
 export function canAccessAdminDashboard(role?: string | null): boolean {

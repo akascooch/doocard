@@ -398,6 +398,10 @@ describe('calculateEmployeeSalaryPreview', () => {
     expect(result.tipLines).toHaveLength(2);
     expect(result.netPayable).toBe('750000');
     expect(result.settlementPayable).toBe(result.netPayable);
+    expect(result.recordedActivity.source).toBe('INCLUDED_TIPS');
+    expect(result.recordedActivity.dayCount).toBe(1);
+    expect(result.recordedActivity.totalRial).toBe('750000');
+    expect(result.personalTipIncome).toBe('0');
   });
 
   it('SERVICE: unpaid settle-manual-tip allocations are included in preview netPayable', async () => {
@@ -493,6 +497,154 @@ describe('calculateEmployeeSalaryPreview', () => {
     expect(result.commissionPercentageUsed).toBe(40);
     expect(result.employeeShare).toBe('4000000');
     expect(result.settlementPayable).toBe(result.netPayable);
+  });
+
+  it('uses the saved commission rate and ignores a request override', async () => {
+    const prisma = mockPrisma({
+      employee: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 1,
+          commissionRate: 25,
+          isSpecialCommission: false,
+          lastCommissionSettlementAt: null,
+          user: { name: 'Rated', role: 'EMPLOYEE' },
+        }),
+      },
+      appointment: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 1,
+            amount: 10_000_000n,
+            scheduledAt: new Date('2024-06-15T06:30:00.000Z'),
+            status: AppointmentStatus.SETTLED,
+            customer: { user: { name: 'Customer' } },
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      transaction: { findMany: jest.fn().mockResolvedValue([]) },
+    });
+
+    const result = await calculateEmployeeSalaryPreview(prisma, {
+      employeeId: 1,
+      fromJalali: '1403/03/15',
+      toJalali: '1403/03/15',
+      percentage: 90,
+    });
+
+    expect(result.commissionPercentageUsed).toBe(25);
+    expect(result.employeeShare).toBe('2500000');
+  });
+
+  it('adds a personal barber tip to net payable without changing commission', async () => {
+    const prisma = mockPrisma({
+      appointment: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 1,
+            amount: 10_000_000n,
+            scheduledAt: new Date('2024-06-15T06:30:00.000Z'),
+            status: AppointmentStatus.SETTLED,
+            customer: { user: { name: 'Customer' } },
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      manualTipAllocation: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 7,
+            amountRial: 300_000n,
+            tipSource: {
+              id: 70,
+              tipType: 'INDIVIDUAL',
+              amountRial: 300_000n,
+              effectiveBusinessAt: new Date('2024-06-15T08:00:00.000Z'),
+              note: 'personal',
+            },
+          },
+        ]),
+      },
+      transaction: { findMany: jest.fn().mockResolvedValue([]) },
+    });
+
+    const result = await calculateEmployeeSalaryPreview(prisma, {
+      employeeId: 1,
+      fromJalali: '1403/03/15',
+      toJalali: '1403/03/15',
+    });
+
+    expect(result.employeeShare).toBe('4000000');
+    expect(result.personalTipIncome).toBe('300000');
+    expect(result.totalTipIncome).toBe('0');
+    expect(BigInt(result.netPayable)).toBe(BigInt(result.payoutNetAfterDeduction) + 300_000n);
+    expect(result.tipLines).toHaveLength(1);
+    expect(result.recordedActivity.dayCount).toBe(1);
+    expect(result.recordedActivity.source).toBe('SETTLED_APPOINTMENTS');
+  });
+
+  it('counts two appointments on one Tehran day as one recorded day', async () => {
+    const sameDay = new Date('2024-06-15T06:30:00.000Z');
+    const prisma = mockPrisma({
+      appointment: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 1,
+            amount: 10_000_000n,
+            scheduledAt: sameDay,
+            status: AppointmentStatus.SETTLED,
+            customer: { user: { name: 'A' } },
+          },
+          {
+            id: 2,
+            amount: 10_000_000n,
+            scheduledAt: new Date(sameDay.getTime() + 60 * 60 * 1000),
+            status: AppointmentStatus.SETTLED,
+            customer: { user: { name: 'B' } },
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      transaction: { findMany: jest.fn().mockResolvedValue([]) },
+    });
+
+    const result = await calculateEmployeeSalaryPreview(prisma, {
+      employeeId: 1,
+      fromJalali: '1403/03/15',
+      toJalali: '1403/03/15',
+    });
+
+    expect(result.totalAppointments).toBe(2);
+    expect(result.recordedActivity.dayCount).toBe(1);
+    expect(result.recordedActivity.dates).toHaveLength(1);
+  });
+
+  it('does not calculate kitchen payroll with the barber formula', async () => {
+    const findMany = jest.fn();
+    const prisma = mockPrisma({
+      employee: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 12,
+          commissionRate: 40,
+          isSpecialCommission: false,
+          user: { name: 'Kitchen', role: 'KITCHEN' },
+        }),
+      },
+      appointment: { findMany, count: jest.fn() },
+    });
+
+    const result = await calculateEmployeeSalaryPreview(prisma, {
+      employeeId: 12,
+      fromJalali: '1403/03/01',
+      toJalali: '1403/03/31',
+    });
+
+    expect(findMany).not.toHaveBeenCalled();
+    expect(result.payrollPolicyConfigured).toBe(false);
+    expect(result.isFixedSalaryRole).toBe(true);
+    expect(result.isServiceStaff).toBe(false);
+    expect(result.recordedActivity.source).toBe('UNAVAILABLE');
+    expect(result.employeeShare).toBe('0');
   });
 });
 

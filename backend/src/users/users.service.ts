@@ -1,5 +1,7 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { requiresEmployeeProfile } from '../common/constants/staff-roles';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CustomerRegistrationSmsService } from '../sms/customer-registration-sms.service';
@@ -50,6 +52,11 @@ export class UsersService {
       }
     }
     
+    const role = createUserDto.role || UserRole.CUSTOMER;
+    if (!Object.values(UserRole).includes(role)) {
+      throw new BadRequestException('نقش نامعتبر است');
+    }
+
     // Create new user
     const user = await this.prisma.user.create({
       data: {
@@ -57,13 +64,13 @@ export class UsersService {
         phone: createUserDto.phone,
         email: createUserDto.email,
         password: hashedPassword,
-        role: (createUserDto.role || 'CUSTOMER') as any,
+        role,
         updatedAt: new Date(),
       },
     });
 
     // If user is CUSTOMER, also add to customers table
-    if (createUserDto.role === 'CUSTOMER') {
+    if (role === UserRole.CUSTOMER) {
       try {
         const preferredEmployeeId = await this.resolvePreferredEmployeeId(
           createUserDto.preferredEmployeeId,
@@ -103,8 +110,8 @@ export class UsersService {
       }
     }
 
-    // If user is EMPLOYEE or SERVICE, also add to employees table (tip/salary flows need Employee row)
-    if (createUserDto.role === 'EMPLOYEE' || createUserDto.role === 'SERVICE') {
+    // Employee row is required for barber, service, kitchen, and cashier salary lookup.
+    if (requiresEmployeeProfile(role)) {
       try {
         await this.prisma.employee.create({
           data: {
@@ -226,6 +233,10 @@ export class UsersService {
       hashedPassword = await bcrypt.hash(updateUserDto.password, 12);
     }
 
+    if (updateUserDto.role && !Object.values(UserRole).includes(updateUserDto.role)) {
+      throw new BadRequestException('نقش نامعتبر است');
+    }
+
     try {
       // Update user
       const _updatedUser = await this.prisma.user.update({
@@ -237,7 +248,7 @@ export class UsersService {
             email: updateUserDto.email || null,
           }),
           ...(updateUserDto.password && { password: hashedPassword }),
-          ...(updateUserDto.role && { role: updateUserDto.role as any }),
+          ...(updateUserDto.role && { role: updateUserDto.role }),
           updatedAt: new Date(),
         },
         include: {
@@ -247,7 +258,7 @@ export class UsersService {
       });
 
       // Role sync: idempotent. No duplicate create; no delete of Employee.
-      if (updateUserDto.role === 'EMPLOYEE' || updateUserDto.role === 'SERVICE') {
+      if (requiresEmployeeProfile(updateUserDto.role)) {
         await this.prisma.employee.upsert({
           where: { userId: id },
           create: { userId: id, isActive: true },

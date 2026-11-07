@@ -30,6 +30,7 @@ import { appointmentStatusBadgeClass } from '@/lib/appointment-status';
 import { formatToJalali, getTehranCurrentJalaliMonthRange } from '@/lib/date';
 import usePushNotifications from '@/hooks/usePushNotifications';
 import { getCurrentUser } from '@/lib/auth';
+import { canAccessSalaryRequest, getDashboardHomePath, isFixedSalaryRole } from '@/lib/user-roles';
 import {
   SalaryBreakdown,
   SalaryBreakdownPanel,
@@ -59,6 +60,15 @@ interface PreviewResult {
   tipAllocationCount?: number;
   breakdown?: SalaryBreakdown;
   tipLines?: ServiceTipLine[];
+  personalTipIncome?: string;
+  payrollPolicyConfigured?: boolean;
+  isFixedSalaryRole?: boolean;
+  recordedActivity?: {
+    dayCount: number;
+    sourceLabel: string;
+    totalRial: string;
+    source: string;
+  };
   appointments: Array<{
     id: number;
     scheduledAtJalali: string;
@@ -126,6 +136,13 @@ export default function EmployeeSalaryRequestPage() {
   const [requestType, setRequestType] = useState('PAYROLL_WITHDRAWAL');
   const [amount, setAmount] = useState('');
   const [destinationNote, setDestinationNote] = useState('');
+
+  useEffect(() => {
+    const current = getCurrentUser();
+    if (current && !canAccessSalaryRequest(current.role)) {
+      window.location.replace(getDashboardHomePath(current.role));
+    }
+  }, []);
   const [allowNegative, setAllowNegative] = useState(false);
   const [expandedRequestId, setExpandedRequestId] = useState<number | null>(null);
 
@@ -194,6 +211,14 @@ export default function EmployeeSalaryRequestPage() {
 
   const handleSubmitRequest = async () => {
     if (!preview || !toDate) return;
+    if (preview.payrollPolicyConfigured === false || isFixedSalaryRole(user?.role)) {
+      toast({
+        title: 'ثبت نمی‌شود',
+        description: 'سیاست حقوق ثابت تعریف نشده است و مبلغی برای برداشت ساخته نمی‌شود',
+        variant: 'destructive',
+      });
+      return;
+    }
     try {
       setSubmitting(true);
       await axios.post('/employees/me/salary-requests', {
@@ -376,9 +401,7 @@ export default function EmployeeSalaryRequestPage() {
             <Card>
               <CardContent className="pt-6">
                 <p className="text-sm text-muted-foreground">
-                  {preview.isServiceStaff
-                    ? 'قابل برداشت'
-                    : 'قابل برداشت از سهم نوبت‌ها'}
+                  قابل برداشت
                 </p>
                 <p className="text-xl font-bold text-foreground tabular-nums">
                   {formatTomansFromRial(preview.netPayable)}
@@ -389,10 +412,27 @@ export default function EmployeeSalaryRequestPage() {
 
           <SalaryBreakdownPanel breakdown={liveBreakdown} defaultOpen />
 
-          {preview.isServiceStaff && (
+          {preview.payrollPolicyConfigured === false || isFixedSalaryRole(user?.role) ? (
+            <p className="text-sm text-foreground">
+              سیاست حقوق ثابت برای این نقش تعریف نشده است. مبلغی محاسبه نمی‌شود و ثبت درخواست برداشت ممکن نیست.
+            </p>
+          ) : null}
+          {preview.recordedActivity && preview.recordedActivity.source !== 'UNAVAILABLE' ? (
+            <p className="text-sm text-muted-foreground">
+              روزهای دارای فعالیت ثبت‌شده: {preview.recordedActivity.dayCount.toLocaleString('fa-IR')}
+              {' — '}
+              {preview.recordedActivity.sourceLabel}
+            </p>
+          ) : null}
+          {(preview.isServiceStaff || (preview.tipLines?.length ?? 0) > 0) && (
             <ServiceTipLinesTable
               tipLines={preview.tipLines ?? []}
               tipLinesKnownMissing={false}
+              title={
+                preview.isServiceStaff
+                  ? 'جزئیات انعام'
+                  : 'انعام شخصی (خارج از کمیسیون)'
+              }
             />
           )}
 
@@ -407,9 +447,11 @@ export default function EmployeeSalaryRequestPage() {
             <CardHeader>
               <CardTitle>ثبت درخواست</CardTitle>
               <CardDescription>
-                {preview.isServiceStaff
-                  ? 'مبلغ در لحظه ثبت به‌صورت اسنپ‌شات ذخیره می‌شود. نمایش به تومان است؛ ارسال به ریال.'
-                  : 'سقف و پیش‌فرض درخواست = قابل برداشت از سهم نوبت‌ها. نمایش به تومان؛ ارسال به ریال.'}
+                {preview.payrollPolicyConfigured === false || isFixedSalaryRole(user?.role)
+                  ? 'سیاست حقوق ثابت تعریف نشده و درخواست برداشت ثبت نمی‌شود.'
+                  : preview.isServiceStaff
+                    ? 'مبلغ در لحظه ثبت به‌صورت اسنپ‌شات ذخیره می‌شود. نمایش به تومان است؛ ارسال به ریال.'
+                    : 'سقف درخواست برابر مبلغ قابل برداشت است. انعام شخصی خارج از کمیسیون به همین مبلغ اضافه می‌شود. نمایش به تومان؛ ارسال به ریال.'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -460,7 +502,11 @@ export default function EmployeeSalaryRequestPage() {
               )}
               <Button
                 onClick={handleSubmitRequest}
-                disabled={submitting}
+                disabled={
+                  submitting ||
+                  preview?.payrollPolicyConfigured === false ||
+                  isFixedSalaryRole(user?.role)
+                }
                 className="bg-primary hover:bg-primary text-primary-foreground"
               >
                 <DollarSign className="w-4 h-4 ml-2" />

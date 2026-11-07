@@ -169,12 +169,26 @@ export default function AdminEmployeesPage() {
     if (!selectedEmployee) return
     
     try {
-      // Update user info only
       await axios.patch(`/users/${selectedEmployee?.user?.id}`, {
         name: formData.name,
         phone: formData.phone,
         email: formData.email
       })
+      const role = selectedEmployee.user?.role
+      if (!role || role === 'EMPLOYEE') {
+        const rate = Number(formData.commissionRate)
+        if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
+          toast({
+            title: 'خطا',
+            description: 'درصد کمیسیون باید بین ۰ و ۱۰۰ باشد',
+            variant: 'destructive',
+          })
+          return
+        }
+        await axios.patch(`/employees/${selectedEmployee.id}`, {
+          commissionRate: rate,
+        })
+      }
       
       toast({
         title: 'موفق',
@@ -232,7 +246,7 @@ export default function AdminEmployeesPage() {
       email: employee.email || employee.user?.email || '',
       specialty: '', // Not used in edit form
       baseSalary: 0, // Not used in edit form
-      commissionRate: 0, // Not used in edit form
+      commissionRate: employee.commissionRate ?? 0,
       password: ''
     })
     setIsEditDialogOpen(true)
@@ -417,7 +431,15 @@ export default function AdminEmployeesPage() {
                       />
                     </TableCell>
                     <TableCell>{toThousandTomans(employee.baseSalary)}</TableCell>
-                    <TableCell>{employee.commissionRate}%</TableCell>
+                    <TableCell>
+                      {employee.user?.role && employee.user.role !== 'EMPLOYEE'
+                        ? '—'
+                        : employee.isSpecialCommission
+                          ? 'ویژه'
+                          : employee.commissionRate > 0
+                            ? `${employee.commissionRate}%`
+                            : 'پیش‌فرض سیستم'}
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <DollarSign className="h-4 w-4 text-foreground" />
@@ -500,6 +522,28 @@ export default function AdminEmployeesPage() {
                 placeholder="09123456789"
               />
             </div>
+            {(!selectedEmployee?.user?.role || selectedEmployee.user.role === 'EMPLOYEE') && (
+              <div className="grid gap-2">
+                <label htmlFor="edit-commission">درصد کمیسیون آرایشگر</label>
+                <Input
+                  id="edit-commission"
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={formData.commissionRate}
+                  onChange={(e) =>
+                    setFormData({ ...formData, commissionRate: Number(e.target.value) })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  {selectedEmployee?.isSpecialCommission
+                    ? 'این آرایشگر کمیسیون ویژه دارد. حقوق از قانون ویژه استفاده می‌کند و این درصد در محاسبه به کار نمی‌رود.'
+                    : formData.commissionRate > 0
+                      ? 'همین عدد ذخیره‌شده در محاسبه حقوق استفاده می‌شود.'
+                      : 'مقدار ۰ یعنی نرخ هنوز تنظیم نشده و محاسبه از درصد پیش‌فرض سیستم استفاده می‌کند، نه از صفر درصد.'}
+                </p>
+              </div>
+            )}
             <div className="grid gap-2">
               <label htmlFor="edit-email">ایمیل (اختیاری)</label>
               <Input

@@ -79,6 +79,7 @@ const localUrl = localhostDatabaseUrl();
       { sendIfAllowed: smsSendIfAllowed } as never,
       {} as never,
       { notifyTipRecipients: jest.fn().mockResolvedValue(undefined) } as never,
+      {} as never,
     );
   });
 

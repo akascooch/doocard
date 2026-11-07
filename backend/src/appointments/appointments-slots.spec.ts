@@ -9,6 +9,7 @@ import { CalendarService } from '../calendar/calendar.service';
 import { SmsOutboundService } from '../sms/sms-outbound.service';
 import { SmsTemplateService } from '../sms/sms-template.service';
 import { TipAlertService } from '../sms/tip-alert.service';
+import { PackagesService } from '../packages/packages.service';
 
 describe('AppointmentsService slot generation', () => {
   let service: AppointmentsService;
@@ -41,6 +42,7 @@ describe('AppointmentsService slot generation', () => {
         { provide: SmsOutboundService, useValue: { sendTemplated: jest.fn() } },
         { provide: SmsTemplateService, useValue: { getByKey: jest.fn() } },
         { provide: TipAlertService, useValue: { notify: jest.fn() } },
+        { provide: PackagesService, useValue: {} },
       ],
     }).compile();
 
@@ -303,6 +305,7 @@ describe('AppointmentsService intervalsOverlap', () => {
         { provide: SmsOutboundService, useValue: { sendTemplated: jest.fn() } },
         { provide: SmsTemplateService, useValue: { getByKey: jest.fn() } },
         { provide: TipAlertService, useValue: { notify: jest.fn() } },
+        { provide: PackagesService, useValue: {} },
       ],
     }).compile();
 

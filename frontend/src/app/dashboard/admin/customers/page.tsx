@@ -105,6 +105,8 @@ export default function AdminCustomersPage() {
     remaining: number
     isNearTarget: boolean
     latestReachedMilestone: number | null
+    totalCustomerRecords?: number
+    excludedFromRealCount?: number
   } | null>(null)
   const [confettiActive, setConfettiActive] = useState(false)
   const { toast } = useToast()
@@ -134,6 +136,8 @@ export default function AdminCustomersPage() {
         remaining: number
         isNearTarget: boolean
         latestReachedMilestone: number | null
+        totalCustomerRecords?: number
+        excludedFromRealCount?: number
       }
       setMilestone(data)
       if (data.latestReachedMilestone) {
@@ -454,23 +458,43 @@ export default function AdminCustomersPage() {
       </div>
 
       {milestone ? (
-        <Card className="border-amber-300/70 bg-gradient-to-l from-amber-50 to-background">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Target className="h-5 w-5" />
-              هدف تعداد مشتریان واقعی
-            </CardTitle>
-            <CardDescription>
-              شمارش سرور بدون مشتری عمومی و بدون اکانت پرسنل
-            </CardDescription>
+        <Card className="overflow-hidden border-border/80 bg-card shadow-sm">
+          <div className="h-1 w-full bg-gradient-to-l from-emerald-500/90 via-teal-400/80 to-sky-500/70" />
+          <CardHeader className="pb-3 pt-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="space-y-1.5">
+                <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30">
+                    <Target className="h-4.5 w-4.5 h-4 w-4" />
+                  </span>
+                  هدف تعداد مشتریان واقعی
+                </CardTitle>
+                <CardDescription className="text-sm text-muted-foreground">
+                  شمارش خالص سرور — بدون مشتری عمومی و بدون اکانت پرسنل
+                </CardDescription>
+              </div>
+              {confettiActive ? (
+                <Badge className="gap-1.5 border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-emerald-300">
+                  <PartyPopper className="h-3.5 w-3.5" />
+                  جشن رسیدن به هدف
+                </Badge>
+              ) : null}
+            </div>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <p className="text-3xl font-bold tabular-nums">
-                  {milestone.count.toLocaleString('fa-IR')}
-                  <span className="mx-2 text-lg font-normal text-muted-foreground">/</span>
-                  {milestone.target.toLocaleString('fa-IR')}
+          <CardContent className="space-y-5 pb-6">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  پیشرفت تا مایل‌استون
+                </p>
+                <p className="flex items-baseline gap-2 font-semibold tabular-nums tracking-tight">
+                  <span className="text-4xl text-foreground">
+                    {milestone.count.toLocaleString('fa-IR')}
+                  </span>
+                  <span className="text-xl text-muted-foreground">/</span>
+                  <span className="text-2xl text-muted-foreground">
+                    {milestone.target.toLocaleString('fa-IR')}
+                  </span>
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {milestone.remaining > 0
@@ -478,24 +502,30 @@ export default function AdminCustomersPage() {
                     : 'هدف جاری تکمیل شده است'}
                 </p>
               </div>
-              {confettiActive ? (
-                <Badge className="gap-1">
-                  <PartyPopper className="h-3.5 w-3.5" />
-                  جشن رسیدن به هدف
-                </Badge>
-              ) : null}
+              <div className="rounded-xl border border-border/70 bg-muted/30 px-4 py-3 text-left min-w-[7.5rem]">
+                <p className="text-[11px] text-muted-foreground">درصد تکمیل</p>
+                <p className="text-2xl font-semibold tabular-nums text-emerald-400">
+                  {Math.min(
+                    100,
+                    Math.round((milestone.count / Math.max(milestone.target, 1)) * 100),
+                  ).toLocaleString('fa-IR')}
+                  ٪
+                </p>
+              </div>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-amber-500 transition-all"
-                style={{
-                  width: `${Math.min(100, Math.round((milestone.count / Math.max(milestone.target, 1)) * 100))}%`,
-                }}
-              />
+            <div className="space-y-2">
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted/80 ring-1 ring-border/60">
+                <div
+                  className="h-full rounded-full bg-gradient-to-l from-emerald-500 to-teal-400 transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, Math.round((milestone.count / Math.max(milestone.target, 1)) * 100))}%`,
+                  }}
+                />
+              </div>
             </div>
             {milestone.isNearTarget ? (
-              <Alert className="border-amber-400 bg-amber-50">
-                <AlertDescription>
+              <Alert className="border-emerald-500/35 bg-emerald-500/10 text-foreground">
+                <AlertDescription className="text-sm leading-relaxed">
                   نزدیک هدف {milestone.target.toLocaleString('fa-IR')} مشتری هستیم
                   ({milestone.remaining.toLocaleString('fa-IR')} نفر مانده).
                 </AlertDescription>
@@ -508,22 +538,34 @@ export default function AdminCustomersPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">کل مشتریان</CardTitle>
+            <CardTitle className="text-sm font-medium">کل رکوردهای مشتریان</CardTitle>
             <Users className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{customers.length}</div>
+            <div className="text-2xl font-bold">
+              {milestone?.totalCustomerRecords != null
+                ? milestone.totalCustomerRecords.toLocaleString('fa-IR')
+                : '—'}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              همه ردیف‌های مشتری، شامل مشتری عمومی و اکانت‌های غیرمشتری
+            </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">مشتریان فعال</CardTitle>
+            <CardTitle className="text-sm font-medium">خارج از شمارش واقعی</CardTitle>
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {customers.filter((c) => c.isActive).length}
+              {milestone?.excludedFromRealCount != null
+                ? milestone.excludedFromRealCount.toLocaleString('fa-IR')
+                : '—'}
             </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              مشتری عمومی یا کاربری که نقشش مشتری نیست
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -535,6 +577,9 @@ export default function AdminCustomersPage() {
             <div className="text-2xl font-bold">
               {customers.filter((c) => c.preferredEmployeeId == null).length}
             </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              فقط در فهرست بارگذاری‌شده همین صفحه، نه شمارش سراسری
+            </p>
           </CardContent>
         </Card>
       </div>

@@ -30,6 +30,10 @@ import {
   buildSalaryBreakdownFromSnapshot,
   SalaryBreakdownDto,
 } from '../common/dto/salary-breakdown.dto';
+import {
+  assertFixedSalaryWithdrawalBlocked,
+  canOpenSalaryRequest,
+} from '../common/constants/staff-roles';
 
 export interface CreateSalaryRequestInput {
   requestType: EmployeeSalaryRequestType;
@@ -89,8 +93,8 @@ export class EmployeeSalaryRequestService {
     if (!employee) {
       throw new NotFoundException('پروفایل کارمند یافت نشد');
     }
-    if (employee.user.role !== 'EMPLOYEE' && employee.user.role !== 'SERVICE') {
-      throw new ForbiddenException('فقط کارمندان و پرسنل خدمات می‌توانند درخواست ثبت کنند');
+    if (!canOpenSalaryRequest(employee.user.role)) {
+      throw new ForbiddenException('فقط پرسنل سالن می‌توانند این بخش را ببینند');
     }
     return employee;
   }
@@ -109,6 +113,7 @@ export class EmployeeSalaryRequestService {
 
   async createForAuthenticatedUser(userId: number, input: CreateSalaryRequestInput) {
     const employee = await this.resolveEmployeeForUser(userId);
+    assertFixedSalaryWithdrawalBlocked(employee.user.role);
     const fromJalali =
       input.periodStartJalali ||
       (await this.suggestPeriodStart(employee.id)) ||

@@ -5,12 +5,16 @@ import { PackagesService } from './packages.service';
 
 describe('packages-loyalty-integration (v2.0.7)', () => {
   const prisma = {
-    service: { findUnique: jest.fn() },
+    service: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([{ id: 3 }]) },
     servicePackageTemplate: {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
+    },
+    servicePackageTemplateService: {
+      createMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     customer: { findUnique: jest.fn() },
     customerServicePackage: {
@@ -56,6 +60,7 @@ describe('packages-loyalty-integration (v2.0.7)', () => {
       loyaltyMinRedeemPoints: 50,
     });
     prisma.customer.findUnique.mockResolvedValue({ id: 7, userId: 9 });
+    prisma.servicePackageTemplate.findUniqueOrThrow.mockResolvedValue(templateRow);
   });
 
   it('creates a template, assigns it, consumes one session atomically, then redeems points at the DB rate', async () => {
@@ -68,6 +73,7 @@ describe('packages-loyalty-integration (v2.0.7)', () => {
       validityDays: 90,
       totalSessions: 5,
       serviceId: 3,
+      serviceIds: [3],
     });
     expect(template).toMatchObject({ id: 'tpl-1', totalSessions: 5, serviceId: 3, priceRial: '5000000' });
 
@@ -132,7 +138,12 @@ describe('packages-loyalty-integration (v2.0.7)', () => {
       }),
     );
     expect(prisma.customerPackageConsumption.create).toHaveBeenCalledWith({
-      data: { customerPackageId: 'pkg-1', appointmentId: 11 },
+      data: {
+        customerPackageId: 'pkg-1',
+        appointmentId: 11,
+        serviceId: 3,
+        consumedByUserId: null,
+      },
     });
 
     prisma.loyaltyPointTransaction.aggregate

@@ -10,6 +10,7 @@ import { CalendarService } from '../calendar/calendar.service';
 import { SmsOutboundService } from '../sms/sms-outbound.service';
 import { SmsTemplateService } from '../sms/sms-template.service';
 import { TipAlertService } from '../sms/tip-alert.service';
+import { PackagesService } from '../packages/packages.service';
 import { flushFireAndForgetAfterEach } from '../../test/flush-fire-and-forget';
 
 describe('AppointmentsService.settle row lock (C1)', () => {
@@ -169,6 +170,7 @@ describe('AppointmentsService.settle row lock (C1)', () => {
       },
       customerDebt: {
         findFirst: jest.fn().mockResolvedValue(null),
+        groupBy: jest.fn().mockResolvedValue([]),
       },
       appointmentTipAllocation: {
         findMany: jest.fn().mockResolvedValue([]),
@@ -212,6 +214,7 @@ describe('AppointmentsService.settle row lock (C1)', () => {
         { provide: SmsOutboundService, useValue: smsOutbound },
         { provide: SmsTemplateService, useValue: { getByKey: jest.fn(), renderByKey: jest.fn() } },
         { provide: TipAlertService, useValue: tipAlert },
+        { provide: PackagesService, useValue: {} },
       ],
     }).compile();
 

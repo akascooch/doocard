@@ -884,6 +884,10 @@ enum UserRole {
   SERVICE
   CUSTOMER
   ACCOUNTANT
+  /// Fixed-salary kitchen staff. Not a barber and not service staff.
+  KITCHEN
+  /// Fixed-salary cashier. Not a barber and not service staff.
+  CASHIER
 }
 
 enum TipRecipientType {

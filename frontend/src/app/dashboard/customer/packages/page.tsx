@@ -17,6 +17,7 @@ type OwnedPackage = {
   serviceName: string | null
   totalSessions: number
   remainingSessions: number
+  unlimited?: boolean
   expiresAt: string
   status: string
   expiringSoon?: boolean
@@ -142,7 +143,10 @@ export default function CustomerPackagesPage() {
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground">
-                {item.serviceName} · باقی‌مانده {item.remainingSessions} از {item.totalSessions} جلسه
+                {item.serviceName} ·{' '}
+                {item.unlimited || item.totalSessions === 0
+                  ? 'جلسات نامحدود'
+                  : `باقی‌مانده ${item.remainingSessions} از ${item.totalSessions} جلسه`}
               </p>
               <p className={`text-sm ${item.expiringSoon ? "text-foreground" : "text-muted-foreground"}`}>
                 انقضا: {new Date(item.expiresAt).toLocaleDateString("fa-IR")}

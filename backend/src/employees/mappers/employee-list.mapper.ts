@@ -25,6 +25,7 @@ type EmployeeWithUserAndServices = {
   specialty: string | null;
   baseSalary: number;
   commissionRate: number;
+  isSpecialCommission?: boolean;
   isDefault: boolean;
   isActive: boolean;
   user: {
@@ -95,6 +96,7 @@ export function mapEmployeeToListItem(
     specialty: emp.specialty,
     baseSalary: emp.baseSalary,
     commissionRate: emp.commissionRate,
+    isSpecialCommission: Boolean(emp.isSpecialCommission),
     isDefault: emp.isDefault,
     isActive: emp.isActive,
     status: emp.isActive ? 'active' : 'inactive',

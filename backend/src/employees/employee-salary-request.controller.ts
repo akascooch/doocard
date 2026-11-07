@@ -29,7 +29,7 @@ export class EmployeeSalaryRequestController {
   ) {}
 
   @Get('salary-request/preview')
-  @Roles('EMPLOYEE', 'SERVICE')
+  @Roles('EMPLOYEE', 'SERVICE', 'KITCHEN', 'CASHIER')
   async preview(
     @Query() query: EmployeeSalaryPreviewQueryDto,
     @Req() req: { user?: { id?: number } },
@@ -51,7 +51,7 @@ export class EmployeeSalaryRequestController {
   }
 
   @Get('salary-summary')
-  @Roles('EMPLOYEE', 'SERVICE')
+  @Roles('EMPLOYEE', 'SERVICE', 'KITCHEN', 'CASHIER')
   async summary(
     @Query() query: EmployeeSalaryPreviewQueryDto,
     @Req() req: { user?: { id?: number } },
@@ -66,7 +66,7 @@ export class EmployeeSalaryRequestController {
   }
 
   @Get('salary-requests')
-  @Roles('EMPLOYEE', 'SERVICE')
+  @Roles('EMPLOYEE', 'SERVICE', 'KITCHEN', 'CASHIER')
   async listMine(@Req() req: { user?: { id?: number; sub?: number } }) {
     const userId = req.user?.id ?? req.user?.sub;
     if (!userId) throw new ForbiddenException('User not authenticated');
@@ -74,7 +74,7 @@ export class EmployeeSalaryRequestController {
   }
 
   @Get('withdrawals')
-  @Roles('EMPLOYEE', 'SERVICE')
+  @Roles('EMPLOYEE', 'SERVICE', 'KITCHEN', 'CASHIER')
   async listWithdrawals(
     @Query() query: ListMyWithdrawalsQueryDto,
     @Req() req?: { user?: { id?: number; sub?: number } },
@@ -91,7 +91,7 @@ export class EmployeeSalaryRequestController {
   }
 
   @Post('salary-requests')
-  @Roles('EMPLOYEE', 'SERVICE')
+  @Roles('EMPLOYEE', 'SERVICE', 'KITCHEN', 'CASHIER')
   async create(
     @Body() body: CreateMySalaryRequestDto,
     @Req() req: { user?: { id?: number } },
@@ -102,7 +102,7 @@ export class EmployeeSalaryRequestController {
   }
 
   @Post('salary-requests/:id/cancel')
-  @Roles('EMPLOYEE', 'SERVICE')
+  @Roles('EMPLOYEE', 'SERVICE', 'KITCHEN', 'CASHIER')
   async cancelMine(
     @Param('id', ParseIntPipe) id: number,
     @Req() req: { user?: { id?: number } },

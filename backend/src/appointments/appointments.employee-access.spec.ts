@@ -14,11 +14,13 @@ describe('AppointmentsService employee authorization', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    customerDebt: { groupBy: jest.fn().mockResolvedValue([]) },
   };
 
   function makeService() {
     return new AppointmentsService(
       prisma as unknown as PrismaService,
+      {} as any,
       {} as any,
       {} as any,
       {} as any,

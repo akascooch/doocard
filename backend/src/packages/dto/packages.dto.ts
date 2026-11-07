@@ -131,7 +131,8 @@ export class AssignPackageDto {
   @Min(1)
   customerId: number;
 
-  @IsUUID()
+  /** Prisma `@default(uuid())` — accept canonical UUID strings from templates API. */
+  @IsUUID('all')
   packageTemplateId: string;
 
   @IsIn(PACKAGE_PAYMENTS)

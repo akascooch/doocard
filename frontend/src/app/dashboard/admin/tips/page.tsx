@@ -44,7 +44,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 
-type ServiceStaff = { id: number; name: string }
+type ServiceStaff = { id: number; name: string; role?: string }
 
 type ReportSummary = {
   sourceTransactionCount: number
@@ -112,6 +112,7 @@ export default function AdminTipsPage() {
   const { toast } = useToast()
   const [tab, setTab] = useState<'register' | 'report'>('report')
   const [staff, setStaff] = useState<ServiceStaff[]>([])
+  const [individualRecipients, setIndividualRecipients] = useState<ServiceStaff[]>([])
   const [loadingStaff, setLoadingStaff] = useState(false)
 
   // Register form
@@ -145,12 +146,23 @@ export default function AdminTipsPage() {
   const loadStaff = useCallback(async () => {
     setLoadingStaff(true)
     try {
-      const res = await axios.get('/employees/service-staff/active')
-      const rows = Array.isArray(res.data) ? res.data : res.data?.data || []
+      const [serviceRes, individualRes] = await Promise.all([
+        axios.get('/employees/service-staff/active'),
+        axios.get('/employees/tip-recipients/manual'),
+      ])
+      const rows = Array.isArray(serviceRes.data) ? serviceRes.data : serviceRes.data?.data || []
       setStaff(
         rows.map((r: { id: number; user?: { name?: string }; name?: string }) => ({
           id: r.id,
           name: r.user?.name || r.name || `کارمند #${r.id}`,
+        })),
+      )
+      const people = Array.isArray(individualRes.data) ? individualRes.data : []
+      setIndividualRecipients(
+        people.map((r: { id: number; fullName?: string; role?: string }) => ({
+          id: r.id,
+          name: r.fullName || `کارمند #${r.id}`,
+          role: r.role,
         })),
       )
     } catch {
@@ -421,7 +433,7 @@ export default function AdminTipsPage() {
 
             {tipType === 'INDIVIDUAL' ? (
               <div className="space-y-2">
-                <Label>گیرنده (پرسنل خدمات)</Label>
+                <Label>گیرنده فردی (آرایشگر یا پرسنل خدمات)</Label>
                 <Select
                   value={recipientId}
                   onValueChange={(v) => {
@@ -434,9 +446,10 @@ export default function AdminTipsPage() {
                     <SelectValue placeholder="انتخاب کنید" />
                   </SelectTrigger>
                   <SelectContent>
-                    {staff.map((s) => (
+                    {individualRecipients.map((s) => (
                       <SelectItem key={s.id} value={String(s.id)}>
-                        {s.name} (#{s.id})
+                        {s.name} (#{s.id}
+                        {s.role === 'EMPLOYEE' ? ' — آرایشگر' : s.role === 'SERVICE' ? ' — خدمات' : ''})
                       </SelectItem>
                     ))}
                   </SelectContent>

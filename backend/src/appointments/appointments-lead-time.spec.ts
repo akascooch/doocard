@@ -10,6 +10,7 @@ import { CalendarService } from '../calendar/calendar.service';
 import { SmsOutboundService } from '../sms/sms-outbound.service';
 import { SmsTemplateService } from '../sms/sms-template.service';
 import { TipAlertService } from '../sms/tip-alert.service';
+import { PackagesService } from '../packages/packages.service';
 
 const LEAD_TIME_FA = 'زمان رزرو باید حداقل ۲ ساعت از زمان فعلی جلوتر باشد';
 
@@ -42,6 +43,7 @@ describe('AppointmentsService public 2h lead time (create)', () => {
         { provide: SmsOutboundService, useValue: { sendIfAllowed: jest.fn() } },
         { provide: SmsTemplateService, useValue: { renderByKey: jest.fn() } },
         { provide: TipAlertService, useValue: { notify: jest.fn() } },
+        { provide: PackagesService, useValue: {} },
       ],
     }).compile();
 

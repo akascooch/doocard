@@ -4,6 +4,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -53,12 +55,42 @@ export class PackagesController {
 
   @Get('assigned')
   @Roles('ADMIN', 'EMPLOYEE', 'SERVICE')
-  listAssigned(@Query('customerId') customerId?: string) {
+  listAssigned(
+    @Query('customerId') customerId?: string,
+    @Req() req?: { user?: { id?: number; sub?: number; role?: string } },
+  ) {
     const id = Number(customerId);
     if (!Number.isInteger(id) || id < 1) {
       throw new BadRequestException('شناسه مشتری نامعتبر است');
     }
-    return this.service.listCustomerPackages(id);
+    return this.service.listCustomerPackages(id, req?.user);
+  }
+
+  @Get('visible-active')
+  @Roles('EMPLOYEE', 'SERVICE')
+  visibleActive(
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Req() req?: { user?: { id?: number; sub?: number; role?: string } },
+  ) {
+    return this.service.listVisibleActiveHolders(
+      req?.user || {},
+      Number(page) || 1,
+      Number(pageSize) || 20,
+    );
+  }
+
+  @Get('visible-history')
+  @Roles('EMPLOYEE', 'SERVICE')
+  visibleHistory(
+    @Query('customerId') customerId?: string,
+    @Req() req?: { user?: { id?: number; sub?: number; role?: string } },
+  ) {
+    const id = Number(customerId);
+    if (!Number.isInteger(id) || id < 1) {
+      throw new BadRequestException('شناسه مشتری نامعتبر است');
+    }
+    return this.service.listVisiblePackageHistory(req?.user || {}, id);
   }
 
   @Get('history')
@@ -105,9 +137,16 @@ export class PackagesController {
   }
 
   @Post('assign')
+  @HttpCode(HttpStatus.OK)
   @Roles('ADMIN', 'EMPLOYEE', 'SERVICE')
   assign(@Body() dto: AssignPackageDto) {
     return this.service.assignPackage(dto);
+  }
+
+  @Get('my-packages')
+  @Roles('CUSTOMER')
+  myPackages(@Req() req: { user: { id: number } }) {
+    return this.service.myPackages(req.user.id);
   }
 
   @Post(':id/consume')
@@ -119,11 +158,5 @@ export class PackagesController {
   ) {
     const actorId = Number(req.user?.id ?? req.user?.sub) || null;
     return this.service.consumePackageSession(id, dto, actorId);
-  }
-
-  @Get('my-packages')
-  @Roles('CUSTOMER')
-  myPackages(@Req() req: { user: { id: number } }) {
-    return this.service.myPackages(req.user.id);
   }
 }

@@ -10,6 +10,7 @@ import { CalendarService } from '../calendar/calendar.service';
 import { SmsOutboundService } from '../sms/sms-outbound.service';
 import { SmsTemplateService } from '../sms/sms-template.service';
 import { TipAlertService } from '../sms/tip-alert.service';
+import { PackagesService } from '../packages/packages.service';
 import { APPOINTMENT_NOT_FOUND_FA } from './appointment-access.util';
 import { PRICE_OVERRIDE_REASON_REQUIRED_FA } from './appointments.service';
 
@@ -66,6 +67,9 @@ describe('AppointmentsService', () => {
     transaction: {
       findFirst: jest.fn(),
     },
+    customerDebt: {
+      groupBy: jest.fn().mockResolvedValue([]),
+    },
     $transaction: jest.fn(),
   };
 
@@ -113,6 +117,7 @@ describe('AppointmentsService', () => {
         { provide: SmsOutboundService, useValue: mockSmsOutbound },
         { provide: SmsTemplateService, useValue: mockSmsTemplates },
         { provide: TipAlertService, useValue: { notify: jest.fn() } },
+        { provide: PackagesService, useValue: {} },
       ],
     }).compile();
 

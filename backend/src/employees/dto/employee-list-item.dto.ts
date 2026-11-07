@@ -33,6 +33,7 @@ export interface EmployeeListItemDto {
   specialty: string | null;
   baseSalary: number;
   commissionRate: number;
+  isSpecialCommission?: boolean;
   isDefault: boolean;
   isActive: boolean;
   status: 'active' | 'inactive';

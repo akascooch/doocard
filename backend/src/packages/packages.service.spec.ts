@@ -12,7 +12,8 @@ describe('PackagesService', () => {
       create: jest.fn(),
       update: jest.fn(),
     },
-    customer: { findUnique: jest.fn() },
+    customer: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn() },
+    employee: { findUnique: jest.fn() },
     loyaltyPointTransaction: { aggregate: jest.fn() },
     customerServicePackage: {
       findUnique: jest.fn(),
@@ -21,7 +22,7 @@ describe('PackagesService', () => {
       update: jest.fn(),
       updateMany: jest.fn(),
     },
-    customerPackageConsumption: { create: jest.fn() },
+    customerPackageConsumption: { create: jest.fn(), findMany: jest.fn() },
     customerWalletLedger: { aggregate: jest.fn(), create: jest.fn() },
     appointment: { findFirst: jest.fn() },
     $transaction: jest.fn(),
@@ -157,5 +158,72 @@ describe('PackagesService', () => {
       service.assignPackage({ customerId: 7, packageTemplateId: 't1', paymentMethod: 'WALLET' }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.customerServicePackage.create).not.toHaveBeenCalled();
+  });
+
+  it('keeps an unlimited package active after consume and does not decrement', async () => {
+    const owned = {
+      id: 'p-unlim',
+      customerId: 7,
+      status: CustomerPackageStatus.ACTIVE,
+      totalSessions: 0,
+      remainingSessions: 0,
+      expiresAt: new Date(Date.now() + 86400000),
+      template: { serviceId: 3, title: 'نامحدود', templateServices: [{ serviceId: 3, service: { name: 'اصلاح' } }] },
+    };
+    prisma.customerServicePackage.findUnique.mockResolvedValue(owned);
+    prisma.appointment.findFirst.mockResolvedValue({
+      id: 21,
+      customerId: 7,
+      serviceId: 3,
+      appointmentServices: [{ serviceId: 3 }, { serviceId: 8 }],
+      status: 'SETTLED',
+      deletedAt: null,
+    });
+    prisma.customerPackageConsumption.create.mockResolvedValue({ id: 'c1' });
+
+    const result = await service.consumePackageSession('p-unlim', { appointmentId: 21 });
+
+    expect(prisma.customerServicePackage.updateMany).not.toHaveBeenCalled();
+    expect(result.unlimited).toBe(true);
+    expect(result.status).toBe(CustomerPackageStatus.ACTIVE);
+    expect(result.remainingSessions).toBe(0);
+  });
+
+  it('lists only the barber preferred customers who hold an active package', async () => {
+    prisma.employee.findUnique.mockResolvedValue({ id: 4, userId: 9, isActive: true });
+    prisma.customer.count.mockResolvedValue(1);
+    prisma.customer.findMany.mockResolvedValue([]);
+
+    await service.listVisibleActiveHolders({ id: 9, role: 'EMPLOYEE' }, 1, 20);
+
+    const where = prisma.customer.findMany.mock.calls[0][0].where;
+    expect(where.preferredEmployeeId).toBe(4);
+    expect(where.OR).toBeUndefined();
+    expect(where.servicePackages.some.OR).toEqual([
+      { totalSessions: 0 },
+      { remainingSessions: { gt: 0 } },
+    ]);
+  });
+
+  it('history excludes cancelled and deleted appointments', async () => {
+    prisma.employee.findUnique.mockResolvedValue({ id: 4, userId: 9, isActive: true });
+    prisma.customer.findFirst.mockResolvedValue({ id: 7 });
+    prisma.customerPackageConsumption.findMany.mockResolvedValue([]);
+
+    await service.listVisiblePackageHistory({ id: 9, role: 'EMPLOYEE' }, 7);
+
+    expect(prisma.customer.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: 7, preferredEmployeeId: 4 }),
+      }),
+    );
+    expect(prisma.customerPackageConsumption.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          customerPackage: { customerId: 7 },
+          appointment: { deletedAt: null, status: { not: 'CANCELLED' } },
+        },
+      }),
+    );
   });
 });

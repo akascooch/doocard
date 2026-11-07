@@ -32,33 +32,22 @@ export class EmployeeSalaryController {
     @Query('employeeId') employeeIdStr: string,
     @Query('from') from: string,
     @Query('to') to: string,
-    @Query('percentage') percentageStr?: string,
+    @Query('percentage') _percentageStr?: string,
   ) {
     const employeeId = parseInt(employeeIdStr || '0', 10);
     if (isNaN(employeeId) || employeeId < 1) {
       throw new BadRequestException('Invalid employeeId');
     }
 
-    const percentage =
-      percentageStr !== undefined && percentageStr !== ''
-        ? parseFloat(percentageStr)
-        : undefined;
-    if (
-      percentage !== undefined &&
-      (isNaN(percentage) || percentage < 0 || percentage > 100)
-    ) {
-      throw new BadRequestException('Percentage must be between 0 and 100');
-    }
-
     if (!from || !to) {
       throw new BadRequestException('from and to (Jalali dates) are required');
     }
 
+    // Saved Employee.commissionRate is the only rate. Query overrides are ignored.
     return this.employeeSalaryService.preview({
       employeeId,
       fromJalali: from,
       toJalali: to,
-      percentage,
     });
   }
 
