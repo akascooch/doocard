@@ -279,18 +279,20 @@ export class CustomersService {
   }
 
   /**
-   * Real customer headcount for admin milestone widget.
-   * Excludes public walk-in customer (id=1) and non-CUSTOMER user roles.
+   * Admin customer KPI widget.
+   * Primary `count` / milestone progress use every customer row (same as totalCustomerRecords).
+   * `realCustomerCount` remains the narrower CUSTOMER-role headcount for compatibility.
    */
   async getMilestoneStats() {
     const realCustomerWhere = {
       id: { not: PUBLIC_CUSTOMER_ID },
       user: { role: UserRole.CUSTOMER },
     };
-    const [count, totalCustomerRecords] = await Promise.all([
+    const [realCustomerCount, totalCustomerRecords] = await Promise.all([
       this.prisma.customer.count({ where: realCustomerWhere }),
       this.prisma.customer.count(),
     ]);
+    const count = totalCustomerRecords;
     let target = MILESTONE_TARGETS.find((candidate) => count < candidate);
     if (target == null) {
       target = Math.ceil((count + 1) / 500) * 500;
@@ -306,11 +308,12 @@ export class CustomersService {
       reachedMilestones,
       latestReachedMilestone:
         reachedMilestones.length > 0 ? reachedMilestones[reachedMilestones.length - 1] : null,
-      definition: 'customers.user.role=CUSTOMER AND customers.id<>1',
-      realCustomerCount: count,
+      definition: 'all customer rows (customers table)',
+      realCustomerCount,
       totalCustomerRecords,
-      excludedFromRealCount: Math.max(totalCustomerRecords - count, 0),
+      excludedFromRealCount: Math.max(totalCustomerRecords - realCustomerCount, 0),
       totalDefinition: 'all customer rows, including the public customer and non-CUSTOMER user roles',
+      realDefinition: 'customers.user.role=CUSTOMER AND customers.id<>1',
     };
   }
 

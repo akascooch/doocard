@@ -467,10 +467,10 @@ export default function AdminCustomersPage() {
                   <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30">
                     <Target className="h-4.5 w-4.5 h-4 w-4" />
                   </span>
-                  هدف تعداد مشتریان واقعی
+                  هدف تعداد مشتریان
                 </CardTitle>
                 <CardDescription className="text-sm text-muted-foreground">
-                  شمارش خالص سرور — بدون مشتری عمومی و بدون اکانت پرسنل
+                  شمارش پویای همهٔ ردیف‌های جدول مشتریان (همان کل رکوردها)
                 </CardDescription>
               </div>
               {confettiActive ? (
@@ -489,7 +489,7 @@ export default function AdminCustomersPage() {
                 </p>
                 <p className="flex items-baseline gap-2 font-semibold tabular-nums tracking-tight">
                   <span className="text-4xl text-foreground">
-                    {milestone.count.toLocaleString('fa-IR')}
+                    {(milestone.totalCustomerRecords ?? milestone.count).toLocaleString('fa-IR')}
                   </span>
                   <span className="text-xl text-muted-foreground">/</span>
                   <span className="text-2xl text-muted-foreground">
@@ -507,7 +507,11 @@ export default function AdminCustomersPage() {
                 <p className="text-2xl font-semibold tabular-nums text-emerald-400">
                   {Math.min(
                     100,
-                    Math.round((milestone.count / Math.max(milestone.target, 1)) * 100),
+                    Math.round(
+                      ((milestone.totalCustomerRecords ?? milestone.count) /
+                        Math.max(milestone.target, 1)) *
+                        100,
+                    ),
                   ).toLocaleString('fa-IR')}
                   ٪
                 </p>
@@ -518,7 +522,14 @@ export default function AdminCustomersPage() {
                 <div
                   className="h-full rounded-full bg-gradient-to-l from-emerald-500 to-teal-400 transition-all duration-500"
                   style={{
-                    width: `${Math.min(100, Math.round((milestone.count / Math.max(milestone.target, 1)) * 100))}%`,
+                    width: `${Math.min(
+                      100,
+                      Math.round(
+                        ((milestone.totalCustomerRecords ?? milestone.count) /
+                          Math.max(milestone.target, 1)) *
+                          100,
+                      ),
+                    )}%`,
                   }}
                 />
               </div>
@@ -543,12 +554,12 @@ export default function AdminCustomersPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {milestone?.totalCustomerRecords != null
-                ? milestone.totalCustomerRecords.toLocaleString('fa-IR')
+              {milestone?.totalCustomerRecords != null || milestone?.count != null
+                ? (milestone.totalCustomerRecords ?? milestone.count).toLocaleString('fa-IR')
                 : '—'}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              همه ردیف‌های مشتری، شامل مشتری عمومی و اکانت‌های غیرمشتری
+              همان شمارش هدف — همه ردیف‌های مشتری، شامل مشتری عمومی و اکانت‌های غیرمشتری
             </p>
           </CardContent>
         </Card>

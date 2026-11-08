@@ -179,10 +179,10 @@ const adminMenuItems = [
     description: 'سلامت سرور، دیتابیس و Redis'
   },
   {
-    title: 'صندوق همکاران',
+    title: 'صندوق و وام همکاران',
     href: '/dashboard/admin/lottery',
     icon: Ticket,
-    description: 'قرعه‌کشی و اقساط صندوق'
+    description: 'گروه وام و اقساط ماهانه'
   },
   {
     title: 'تنظیمات',

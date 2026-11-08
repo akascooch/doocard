@@ -1,9 +1,20 @@
 export const LOTTERY_CONTRIBUTION_SOURCE_TYPE = 'LOTTERY_CONTRIBUTION';
 export const LOTTERY_PAYOUT_SOURCE_TYPE = 'LOTTERY_PAYOUT';
+/** Payroll-linked monthly loan installment (employee repayment). */
+export const EMPLOYEE_LOAN_INSTALLMENT_SOURCE_TYPE = 'EMPLOYEE_LOAN_INSTALLMENT';
 export const LOTTERY_SOURCE_TYPES = [
   LOTTERY_CONTRIBUTION_SOURCE_TYPE,
   LOTTERY_PAYOUT_SOURCE_TYPE,
+  EMPLOYEE_LOAN_INSTALLMENT_SOURCE_TYPE,
 ] as const;
+
+export function loanInstallmentIdempotencyKey(
+  groupId: number,
+  employeeId: number,
+  periodKey: string,
+): string {
+  return `loan:installment:${groupId}:${employeeId}:${periodKey}`;
+}
 
 export const MAIN_TILL_ACCOUNT_NAME = 'حساب صندوق';
 

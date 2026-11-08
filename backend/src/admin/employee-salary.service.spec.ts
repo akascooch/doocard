@@ -80,26 +80,31 @@ function mockPrisma(overrides: Record<string, unknown> = {}) {
       update: jest.fn(),
     },
     transaction: {
-      findMany: jest.fn().mockResolvedValue([
-        {
-          id: 99,
-          type: TransactionType.EXPENSE,
-          amount: 1_000_000n,
-          occurredAt: new Date('2024-06-10T06:30:00.000Z'),
-          description: 'برداشت',
-          category: { name: 'برداشت کارمند' },
-          sourceType: 'MANUAL',
-        },
-        {
-          id: 100,
-          type: TransactionType.TIP,
-          amount: 2_000_000n,
-          occurredAt: new Date('2024-06-11T06:30:00.000Z'),
-          description: 'tip',
-          category: null,
-          sourceType: 'TIP',
-        },
-      ]),
+      findMany: jest.fn().mockImplementation((args: { where?: { sourceType?: string } }) => {
+        if (args?.where?.sourceType === 'EMPLOYEE_LOAN_INSTALLMENT') {
+          return Promise.resolve([]);
+        }
+        return Promise.resolve([
+          {
+            id: 99,
+            type: TransactionType.EXPENSE,
+            amount: 1_000_000n,
+            occurredAt: new Date('2024-06-10T06:30:00.000Z'),
+            description: 'برداشت',
+            category: { name: 'برداشت کارمند' },
+            sourceType: 'MANUAL',
+          },
+          {
+            id: 100,
+            type: TransactionType.TIP,
+            amount: 2_000_000n,
+            occurredAt: new Date('2024-06-11T06:30:00.000Z'),
+            description: 'tip',
+            category: null,
+            sourceType: 'TIP',
+          },
+        ]);
+      }),
       create: jest.fn(),
     },
     $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(defaults)),
@@ -534,6 +539,148 @@ describe('calculateEmployeeSalaryPreview', () => {
 
     expect(result.commissionPercentageUsed).toBe(25);
     expect(result.employeeShare).toBe('2500000');
+  });
+
+  it('deducts applied loan installments from barber net payable after tips', async () => {
+    const prisma = mockPrisma({
+      appointment: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 1,
+            amount: 10_000_000n,
+            scheduledAt: new Date('2024-06-15T06:30:00.000Z'),
+            status: AppointmentStatus.SETTLED,
+            customer: { user: { name: 'Customer' } },
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      transaction: {
+        findMany: jest.fn().mockImplementation((args: { where?: { sourceType?: string } }) => {
+          if (args?.where?.sourceType === 'EMPLOYEE_LOAN_INSTALLMENT') {
+            return Promise.resolve([
+              {
+                id: 501,
+                type: TransactionType.EXPENSE,
+                amount: 500_000n,
+                occurredAt: new Date('2024-06-15T08:30:00.000Z'),
+                description: 'قسط وام',
+                sourceType: 'EMPLOYEE_LOAN_INSTALLMENT',
+              },
+            ]);
+          }
+          return Promise.resolve([]);
+        }),
+      },
+    });
+
+    const result = await calculateEmployeeSalaryPreview(prisma, {
+      employeeId: 1,
+      fromJalali: '1403/03/15',
+      toJalali: '1403/03/15',
+    });
+
+    expect(result.loanInstallmentTotal).toBe('500000');
+    expect(BigInt(result.netPayable)).toBe(BigInt(result.payoutNetAfterDeduction) - 500_000n);
+  });
+
+  it('preserves negative netPayable when loan installments exceed payable (no clamp)', async () => {
+    const prisma = mockPrisma({
+      appointment: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 1,
+            amount: 10_000_000n,
+            scheduledAt: new Date('2024-06-15T06:30:00.000Z'),
+            status: AppointmentStatus.SETTLED,
+            customer: { user: { name: 'Customer' } },
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      transaction: {
+        findMany: jest.fn().mockImplementation((args: { where?: { sourceType?: string } }) => {
+          if (args?.where?.sourceType === 'EMPLOYEE_LOAN_INSTALLMENT') {
+            return Promise.resolve([
+              {
+                id: 701,
+                type: TransactionType.EXPENSE,
+                amount: 50_000_000n,
+                occurredAt: new Date('2024-06-15T08:30:00.000Z'),
+                description: 'قسط بزرگ',
+                sourceType: 'EMPLOYEE_LOAN_INSTALLMENT',
+              },
+            ]);
+          }
+          return Promise.resolve([]);
+        }),
+      },
+    });
+
+    const result = await calculateEmployeeSalaryPreview(prisma, {
+      employeeId: 1,
+      fromJalali: '1403/03/15',
+      toJalali: '1403/03/15',
+    });
+
+    expect(result.loanInstallmentTotal).toBe('50000000');
+    expect(BigInt(result.netPayable)).toBe(
+      BigInt(result.payoutNetAfterDeduction) - 50_000_000n,
+    );
+    expect(BigInt(result.netPayable) < 0n).toBe(true);
+  });
+
+  it('sums loan installments from two distinct groups for the same employee/period', async () => {
+    const prisma = mockPrisma({
+      appointment: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 1,
+            amount: 10_000_000n,
+            scheduledAt: new Date('2024-06-15T06:30:00.000Z'),
+            status: AppointmentStatus.SETTLED,
+            customer: { user: { name: 'Customer' } },
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      transaction: {
+        findMany: jest.fn().mockImplementation((args: { where?: { sourceType?: string } }) => {
+          if (args?.where?.sourceType === 'EMPLOYEE_LOAN_INSTALLMENT') {
+            return Promise.resolve([
+              {
+                id: 801,
+                type: TransactionType.EXPENSE,
+                amount: 300_000n,
+                occurredAt: new Date('2024-06-15T08:00:00.000Z'),
+                description: 'قسط گروه الف',
+                sourceType: 'EMPLOYEE_LOAN_INSTALLMENT',
+              },
+              {
+                id: 802,
+                type: TransactionType.EXPENSE,
+                amount: 200_000n,
+                occurredAt: new Date('2024-06-15T09:00:00.000Z'),
+                description: 'قسط گروه ب',
+                sourceType: 'EMPLOYEE_LOAN_INSTALLMENT',
+              },
+            ]);
+          }
+          return Promise.resolve([]);
+        }),
+      },
+    });
+
+    const result = await calculateEmployeeSalaryPreview(prisma, {
+      employeeId: 1,
+      fromJalali: '1403/03/15',
+      toJalali: '1403/03/15',
+    });
+
+    expect(result.loanInstallmentTotal).toBe('500000');
+    expect(BigInt(result.netPayable)).toBe(
+      BigInt(result.payoutNetAfterDeduction) - 500_000n,
+    );
   });
 
   it('adds a personal barber tip to net payable without changing commission', async () => {

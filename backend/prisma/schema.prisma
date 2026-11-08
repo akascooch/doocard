@@ -127,6 +127,7 @@ model Employee {
   manualTipAllocations       ManualTipAllocation[]
   chequeLeaves               ChequeLeaf[]
   lotteryMembers             LotteryMember[]
+  lotteryLoanInstallments    LotteryLoanInstallmentEvent[]
 
   @@map("employees")
 }
@@ -1501,19 +1502,26 @@ model LotteryGroup {
   id                Int                  @id @default(autoincrement())
   name              String
   monthlyAmountRial BigInt
+  /// Optional for employee-loan groups (no circle pot / cron payout).
   cronDayOfMonth    Int                  @default(1)
-  circleAccountId   Int
+  /// Null for employee-loan / installment groups that settle via payroll.
+  circleAccountId   Int?
+  /// Total principal of the group loan in rials (loan mode). Null for classic lottery.
+  totalLoanAmountRial BigInt?
+  /// First repayment period as Gregorian YYYY-MM (Asia/Tehran civil month).
+  startPeriodYm     String?
   status            LotteryGroupStatus   @default(ACTIVE)
   createdByUserId   Int
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
-  circleAccount     BankAccount          @relation(fields: [circleAccountId], references: [id])
+  circleAccount     BankAccount?         @relation(fields: [circleAccountId], references: [id])
   createdBy         User                 @relation("LotteryGroupCreatedBy", fields: [createdByUserId], references: [id])
   members           LotteryMember[]
   cycles            LotteryCycle[]
   contributions     LotteryContributionEvent[]
   payouts           LotteryPayoutEvent[]
   arrears           LotteryArrear[]
+  loanInstallments  LotteryLoanInstallmentEvent[]
 
   @@map("lottery_groups")
 }
@@ -1534,11 +1542,35 @@ model LotteryMember {
   contributions LotteryContributionEvent[]
   payouts      LotteryPayoutEvent[]
   arrears      LotteryArrear[]
+  loanInstallments LotteryLoanInstallmentEvent[]
 
   @@unique([groupId, employeeId])
   @@index([groupId, status])
   @@index([employeeId, status])
   @@map("lottery_members")
+}
+
+/// One applied loan installment per (group, employee, period). DB uniqueness is the concurrency gate.
+model LotteryLoanInstallmentEvent {
+  id             Int           @id @default(autoincrement())
+  groupId        Int
+  memberId       Int
+  employeeId     Int
+  periodKey      String
+  amountRial     BigInt
+  /// Same string as loanInstallmentIdempotencyKey(groupId, employeeId, periodKey).
+  idempotencyKey String        @unique
+  /// Ledger EXPENSE transaction id (EMPLOYEE_LOAN_INSTALLMENT). Set in the same DB transaction.
+  transactionId  Int?          @unique
+  createdAt      DateTime      @default(now())
+  group          LotteryGroup  @relation(fields: [groupId], references: [id])
+  member         LotteryMember @relation(fields: [memberId], references: [id])
+  employee       Employee      @relation(fields: [employeeId], references: [id])
+
+  @@unique([groupId, employeeId, periodKey])
+  @@index([employeeId, periodKey])
+  @@index([groupId, periodKey])
+  @@map("lottery_loan_installment_events")
 }
 
 model LotteryCycle {

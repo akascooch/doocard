@@ -40,7 +40,11 @@ export class LotteryCronService {
     const ymd = ChequeDueSmsReminderService.todayYmdTehran(now);
     const day = Number(ymd.slice(8, 10));
     const groups = await this.prisma.lotteryGroup.findMany({
-      where: { status: LotteryGroupStatus.ACTIVE },
+      where: {
+        status: LotteryGroupStatus.ACTIVE,
+        // Loan/installment groups have no circle pot and are applied manually.
+        circleAccountId: { not: null },
+      },
       select: { id: true, cronDayOfMonth: true },
     });
     for (const group of groups) {

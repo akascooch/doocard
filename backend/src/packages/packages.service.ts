@@ -407,10 +407,12 @@ export class PackagesService {
           customerId,
           ...(customerPackageId ? { id: customerPackageId } : {}),
         },
+        // Match staff-visible history: hide soft-deleted and cancelled appointments.
+        appointment: { deletedAt: null, status: { not: 'CANCELLED' } },
       },
       include: {
         service: { select: { id: true, name: true } },
-        appointment: { select: { id: true, scheduledAt: true, status: true } },
+        appointment: { select: { id: true, scheduledAt: true, status: true, deletedAt: true } },
         customerPackage: {
           select: {
             id: true,

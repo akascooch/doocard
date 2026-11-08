@@ -27,6 +27,7 @@ import {
   FIXED_SALARY_POLICY_UNAVAILABLE,
   isFixedSalaryRole,
 } from '../common/constants/staff-roles';
+import { EMPLOYEE_LOAN_INSTALLMENT_SOURCE_TYPE } from '../common/constants/lottery.constants';
 import { CommitEmployeeCommissionSettlementDto } from './dto/commit-employee-commission-settlement.dto';
 
 const TEHRAN_OFFSET_MS = (3 * 60 + 30) * 60 * 1000;
@@ -150,6 +151,11 @@ export interface EmployeeSalaryPreviewResult {
    * Always '0' for SERVICE (those tips are totalTipIncome) and fixed-salary roles.
    */
   personalTipIncome: string;
+  /**
+   * Applied employee-loan installment repayments in the preview window.
+   * Deducted from netPayable after tips; not part of commission.
+   */
+  loanInstallmentTotal: string;
   /** False only for kitchen/cashier until a fixed-salary policy exists. */
   payrollPolicyConfigured: boolean;
   isFixedSalaryRole: boolean;
@@ -400,7 +406,12 @@ async function findPriorWithdrawals(
             { sourceType: null },
             {
               sourceType: {
-                notIn: [COMMISSION_SETTLEMENT_SOURCE_TYPE, 'LOTTERY_CONTRIBUTION', 'LOTTERY_PAYOUT'],
+                notIn: [
+                  COMMISSION_SETTLEMENT_SOURCE_TYPE,
+                  'LOTTERY_CONTRIBUTION',
+                  'LOTTERY_PAYOUT',
+                  EMPLOYEE_LOAN_INSTALLMENT_SOURCE_TYPE,
+                ],
               },
             },
           ],
@@ -408,6 +419,24 @@ async function findPriorWithdrawals(
       ],
     },
     include: { category: true },
+    orderBy: { occurredAt: 'asc' },
+  });
+}
+
+async function findLoanInstallments(
+  prisma: PrismaService,
+  employeeId: number,
+  periodStartExclusive: Date,
+  periodEndInclusive: Date,
+) {
+  return prisma.transaction.findMany({
+    where: {
+      deletedAt: null,
+      type: TransactionType.EXPENSE,
+      employeeId,
+      sourceType: EMPLOYEE_LOAN_INSTALLMENT_SOURCE_TYPE,
+      occurredAt: { gt: periodStartExclusive, lte: periodEndInclusive },
+    },
     orderBy: { occurredAt: 'asc' },
   });
 }
@@ -463,6 +492,7 @@ export async function calculateEmployeeSalaryPreview(
       tipLines: [],
       isSpecialCommission: false,
       personalTipIncome: '0',
+      loanInstallmentTotal: '0',
       payrollPolicyConfigured: false,
       isFixedSalaryRole: true,
       recordedActivity: summarizeRecordedActivity([], '0', 'UNAVAILABLE'),
@@ -648,7 +678,18 @@ export async function calculateEmployeeSalaryPreview(
       priorWithdrawalsTotal += tx.amount;
     }
 
-    const netPayable = totalTipIncome - priorWithdrawalsTotal;
+    const loanInstallmentRows = await findLoanInstallments(
+      prisma,
+      employeeId,
+      periodStartExclusive,
+      periodEndInclusive,
+    );
+    let loanInstallmentTotal = 0n;
+    for (const tx of loanInstallmentRows) {
+      loanInstallmentTotal += tx.amount;
+    }
+
+    const netPayable = totalTipIncome - priorWithdrawalsTotal - loanInstallmentTotal;
     // SERVICE: settlement payout is tip-basis net — same as netPayable (do not add tips twice).
     const settlementPayable = netPayable;
     const breakdownMap = new Map<string, { count: number; revenue: bigint }>();
@@ -724,6 +765,7 @@ export async function calculateEmployeeSalaryPreview(
       tipLines,
       isSpecialCommission: false,
       personalTipIncome: '0',
+      loanInstallmentTotal: loanInstallmentTotal.toString(),
       payrollPolicyConfigured: true,
       isFixedSalaryRole: false,
       recordedActivity: summarizeRecordedActivity(
@@ -860,9 +902,22 @@ export async function calculateEmployeeSalaryPreview(
     customerName: row.tipSource.note ?? null,
   }));
 
+  const loanInstallmentRows = await findLoanInstallments(
+    prisma,
+    employeeId,
+    periodStartExclusive,
+    periodEndInclusive,
+  );
+  let loanInstallmentTotal = 0n;
+  for (const tx of loanInstallmentRows) {
+    loanInstallmentTotal += tx.amount;
+  }
+
   // Commission stays in payoutNetAfterDeduction. Personal tips are added after it.
+  // Loan installments and prior withdrawals reduce net after tips.
   // Negative commission nets stay negative and are not clamped.
-  const netPayable = payoutNetAfterDeduction + personalTipIncome - priorWithdrawalsTotal;
+  const netPayable =
+    payoutNetAfterDeduction + personalTipIncome - priorWithdrawalsTotal - loanInstallmentTotal;
   const settlementPayable = netPayable;
 
   const daysDiff =
@@ -989,6 +1044,7 @@ export async function calculateEmployeeSalaryPreview(
     tipLines: personalTipLines,
     isSpecialCommission,
     personalTipIncome: personalTipIncome.toString(),
+    loanInstallmentTotal: loanInstallmentTotal.toString(),
     payrollPolicyConfigured: true,
     isFixedSalaryRole: false,
     recordedActivity: summarizeRecordedActivity(

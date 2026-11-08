@@ -93,6 +93,7 @@ interface PreviewResult {
   tipLines?: ServiceTipLine[]
   appointments?: PreviewAppointmentItem[]
   personalTipIncome?: string
+  loanInstallmentTotal?: string
   payrollPolicyConfigured?: boolean
   isFixedSalaryRole?: boolean
   recordedActivity?: {
@@ -698,6 +699,14 @@ export default function EmployeeSalaryPage() {
                   {formatTomansFromRial(preview.priorWithdrawalsTotal)}
                 </p>
               </div>
+              {Number(preview.loanInstallmentTotal || 0) > 0 && (
+              <div className="rounded-lg border border-border dark:border-border p-4">
+                <p className="text-sm text-foreground dark:text-foreground">اقساط وام کسرشده</p>
+                <p className="text-xl font-bold text-foreground dark:text-foreground">
+                  {formatTomansFromRial(preview.loanInstallmentTotal || '0')}
+                </p>
+              </div>
+              )}
               <div className="rounded-lg border border-border dark:border-border p-4">
                 <p className="text-sm text-foreground dark:text-foreground">
                   {Number(preview.netPayable) < 0

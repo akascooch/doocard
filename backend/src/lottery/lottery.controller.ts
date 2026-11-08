@@ -118,6 +118,18 @@ export class LotteryAdminController {
     if (!userId) throw new BadRequestException('کاربر احراز هویت نشده است');
     return this.lottery.topUpPrepaid(memberId, dto, userId);
   }
+
+  @Post('groups/:id/installments/apply')
+  @Roles('ADMIN')
+  applyInstallments(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: { periodKey?: string; confirm?: boolean },
+    @Req() req: { user?: { id?: number; sub?: number } },
+  ) {
+    const userId = req.user?.id ?? req.user?.sub;
+    if (!userId) throw new BadRequestException('کاربر احراز هویت نشده است');
+    return this.lottery.applyMonthInstallments(id, dto ?? {}, userId);
+  }
 }
 
 @Controller('lottery')

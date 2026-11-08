@@ -13,6 +13,7 @@ import {
   LotteryGroupStatus,
   LotteryMemberStatus,
   LotteryPayoutStatus,
+  Prisma,
   TransactionType,
   UserRole,
 } from '@prisma/client';
@@ -22,8 +23,10 @@ import { nextCycleOrder } from './lottery-order';
 import {
   addMonthsYm,
   contribIdempotencyKey,
+  EMPLOYEE_LOAN_INSTALLMENT_SOURCE_TYPE,
   LOTTERY_CONTRIBUTION_SOURCE_TYPE,
   LOTTERY_PAYOUT_SOURCE_TYPE,
+  loanInstallmentIdempotencyKey,
   MAIN_TILL_ACCOUNT_NAME,
   payoutIdempotencyKey,
   prepaidIdempotencyKey,
@@ -73,9 +76,13 @@ export class LotteryService {
       },
     });
     if (!group) throw new NotFoundException('گروه قرعه‌کشی یافت نشد');
+    const isLoanGroup = group.circleAccountId == null;
     return {
       ...group,
+      isLoanGroup,
       monthlyAmountRial: group.monthlyAmountRial.toString(),
+      totalLoanAmountRial: group.totalLoanAmountRial?.toString() ?? null,
+      startPeriodYm: group.startPeriodYm ?? null,
       members: group.members.map((m) => ({
         id: m.id,
         employeeId: m.employeeId,
@@ -88,24 +95,84 @@ export class LotteryService {
     };
   }
 
+  private normalizePeriodYm(raw?: string | null): string {
+    const fallback = ChequeDueSmsReminderService.todayYmdTehran().slice(0, 7);
+    if (!raw || !String(raw).trim()) return fallback;
+    const value = String(raw).trim().replace(/\//g, '-');
+    if (!/^\d{4}-\d{2}$/.test(value)) {
+      throw new BadRequestException('ماه شروع باید به صورت YYYY-MM (میلادی مدنی تهران) باشد');
+    }
+    const month = Number(value.slice(5, 7));
+    if (month < 1 || month > 12) throw new BadRequestException('ماه شروع نامعتبر است');
+    return value;
+  }
+
+  private periodKeyToOccurredAt(periodKey: string): Date {
+    const [y, m] = periodKey.split('-').map(Number);
+    // Noon Asia/Tehran on the 1st of the Gregorian civil month.
+    return new Date(Date.UTC(y, m - 1, 1, 8, 30, 0));
+  }
+
   async createGroup(
-    dto: { name: string; monthlyAmountRial: string | number; cronDayOfMonth?: number; circleAccountId: number },
+    dto: {
+      name: string;
+      monthlyAmountRial: string | number;
+      totalLoanAmountRial?: string | number | null;
+      startPeriodYm?: string | null;
+      employeeIds?: number[];
+      cronDayOfMonth?: number;
+      circleAccountId?: number | null;
+    },
     userId: number,
   ) {
-    await this.assertCircleAccount(dto.circleAccountId);
-    const day = dto.cronDayOfMonth ?? 1;
-    if (day < 1 || day > 28) throw new BadRequestException('روز اجرای کرون باید بین ۱ و ۲۸ باشد');
     const monthly = BigInt(dto.monthlyAmountRial);
-    if (monthly <= 0n) throw new BadRequestException('مبلغ ماهانه نامعتبر است');
-    return this.prisma.lotteryGroup.create({
+    if (monthly <= 0n) throw new BadRequestException('مبلغ قسط ماهانه نامعتبر است');
+
+    const hasCircle =
+      dto.circleAccountId != null && Number.isFinite(Number(dto.circleAccountId)) && Number(dto.circleAccountId) > 0;
+    if (hasCircle) {
+      await this.assertCircleAccount(Number(dto.circleAccountId));
+      const day = dto.cronDayOfMonth ?? 1;
+      if (day < 1 || day > 28) throw new BadRequestException('روز اجرای کرون باید بین ۱ و ۲۸ باشد');
+      return this.prisma.lotteryGroup.create({
+        data: {
+          name: dto.name.trim(),
+          monthlyAmountRial: monthly,
+          cronDayOfMonth: day,
+          circleAccountId: Number(dto.circleAccountId),
+          createdByUserId: userId,
+        },
+      });
+    }
+
+    // Employee-loan / installment group (no circle account, no cron payout).
+    const totalRaw = dto.totalLoanAmountRial;
+    const total =
+      totalRaw == null || totalRaw === ''
+        ? null
+        : BigInt(totalRaw);
+    if (total != null && total <= 0n) {
+      throw new BadRequestException('مبلغ کل وام نامعتبر است');
+    }
+    const startPeriodYm = this.normalizePeriodYm(dto.startPeriodYm);
+    const group = await this.prisma.lotteryGroup.create({
       data: {
         name: dto.name.trim(),
         monthlyAmountRial: monthly,
-        cronDayOfMonth: day,
-        circleAccountId: dto.circleAccountId,
+        cronDayOfMonth: dto.cronDayOfMonth && dto.cronDayOfMonth >= 1 && dto.cronDayOfMonth <= 28
+          ? dto.cronDayOfMonth
+          : 1,
+        circleAccountId: null,
+        totalLoanAmountRial: total,
+        startPeriodYm,
         createdByUserId: userId,
       },
     });
+    const employeeIds = (dto.employeeIds ?? []).map(Number).filter((n) => n > 0);
+    if (employeeIds.length > 0) {
+      await this.replaceMembers(group.id, employeeIds, { allowMultiGroup: true });
+    }
+    return this.getGroup(group.id);
   }
 
   async patchGroup(
@@ -134,7 +201,11 @@ export class LotteryService {
     });
   }
 
-  async replaceMembers(groupId: number, employeeIds: number[]) {
+  async replaceMembers(
+    groupId: number,
+    employeeIds: number[],
+    opts?: { allowMultiGroup?: boolean },
+  ) {
     const group = await this.prisma.lotteryGroup.findUnique({ where: { id: groupId } });
     if (!group) throw new NotFoundException('گروه قرعه‌کشی یافت نشد');
     const uniqueIds = [...new Set(employeeIds.map(Number).filter((n) => n > 0))];
@@ -149,16 +220,19 @@ export class LotteryService {
     if (employees.length !== uniqueIds.length) {
       throw new BadRequestException('فقط پرسنل فعال آرایشگر یا خدمات قابل عضویت هستند');
     }
-    const elsewhere = await this.prisma.lotteryMember.findMany({
-      where: {
-        employeeId: { in: uniqueIds },
-        status: LotteryMemberStatus.ACTIVE,
-        groupId: { not: groupId },
-      },
-      select: { employeeId: true },
-    });
-    if (elsewhere.length) {
-      throw new ConflictException('هر پرسنل فقط می‌تواند در یک گروه فعال عضو باشد');
+    const loanMode = group.circleAccountId == null || opts?.allowMultiGroup === true;
+    if (!loanMode) {
+      const elsewhere = await this.prisma.lotteryMember.findMany({
+        where: {
+          employeeId: { in: uniqueIds },
+          status: LotteryMemberStatus.ACTIVE,
+          groupId: { not: groupId },
+        },
+        select: { employeeId: true },
+      });
+      if (elsewhere.length) {
+        throw new ConflictException('هر پرسنل فقط می‌تواند در یک گروه فعال عضو باشد');
+      }
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -203,6 +277,207 @@ export class LotteryService {
       fullName: e.user?.name ?? `کارمند #${e.id}`,
       role: e.user?.role,
     }));
+  }
+
+  /**
+   * Apply this month's installment for every active member of a loan group.
+   * Idempotent per (group, employee, periodKey) via unique
+   * lottery_loan_installment_events rows. Event + ledger EXPENSE are written
+   * in one interactive transaction per member so a uniqueness race rolls back
+   * cleanly and returns ALREADY_APPLIED.
+   */
+  async applyMonthInstallments(
+    groupId: number,
+    dto: { periodKey?: string; confirm?: boolean },
+    userId: number,
+  ) {
+    if (dto?.confirm !== true) {
+      throw new BadRequestException('confirm باید true باشد');
+    }
+    const group = await this.prisma.lotteryGroup.findUnique({ where: { id: groupId } });
+    if (!group) throw new NotFoundException('گروه یافت نشد');
+    if (group.circleAccountId != null) {
+      throw new BadRequestException('اعمال قسط وام فقط برای گروه‌های بدون حساب دایره مجاز است');
+    }
+    if (group.status !== LotteryGroupStatus.ACTIVE) {
+      throw new BadRequestException('گروه فعال نیست');
+    }
+    const periodKey = this.normalizePeriodYm(dto.periodKey ?? group.startPeriodYm);
+    if (group.startPeriodYm && periodKey < group.startPeriodYm) {
+      throw new BadRequestException('این ماه قبل از شروع بازپرداخت گروه است');
+    }
+    const members = await this.prisma.lotteryMember.findMany({
+      where: { groupId, status: LotteryMemberStatus.ACTIVE },
+      include: { employee: { include: { user: { select: { name: true } } } } },
+    });
+    if (members.length === 0) throw new BadRequestException('عضوی برای اعمال قسط نیست');
+
+    const amount = group.monthlyAmountRial;
+    const occurredAt = this.periodKeyToOccurredAt(periodKey);
+    const results: Array<{
+      employeeId: number;
+      fullName: string;
+      status: 'APPLIED' | 'ALREADY_APPLIED';
+      amountRial: string;
+      transactionId: number;
+    }> = [];
+
+    for (const member of members) {
+      const fullName = member.employee.user?.name ?? `کارمند #${member.employeeId}`;
+      results.push(
+        await this.applyOneLoanInstallment({
+          groupId,
+          groupName: group.name,
+          memberId: member.id,
+          employeeId: member.employeeId,
+          fullName,
+          periodKey,
+          amount,
+          occurredAt,
+          userId,
+        }),
+      );
+    }
+
+    return {
+      groupId,
+      periodKey,
+      monthlyAmountRial: amount.toString(),
+      appliedCount: results.filter((r) => r.status === 'APPLIED').length,
+      alreadyAppliedCount: results.filter((r) => r.status === 'ALREADY_APPLIED').length,
+      results,
+    };
+  }
+
+  private async resolveExistingLoanInstallment(params: {
+    groupId: number;
+    employeeId: number;
+    periodKey: string;
+    fullName: string;
+  }): Promise<{
+    employeeId: number;
+    fullName: string;
+    status: 'ALREADY_APPLIED';
+    amountRial: string;
+    transactionId: number;
+  } | null> {
+    const existing = await this.prisma.lotteryLoanInstallmentEvent.findUnique({
+      where: {
+        groupId_employeeId_periodKey: {
+          groupId: params.groupId,
+          employeeId: params.employeeId,
+          periodKey: params.periodKey,
+        },
+      },
+    });
+    if (!existing?.transactionId) return null;
+    return {
+      employeeId: params.employeeId,
+      fullName: params.fullName,
+      status: 'ALREADY_APPLIED',
+      amountRial: existing.amountRial.toString(),
+      transactionId: existing.transactionId,
+    };
+  }
+
+  private async applyOneLoanInstallment(params: {
+    groupId: number;
+    groupName: string;
+    memberId: number;
+    employeeId: number;
+    fullName: string;
+    periodKey: string;
+    amount: bigint;
+    occurredAt: Date;
+    userId: number;
+  }): Promise<{
+    employeeId: number;
+    fullName: string;
+    status: 'APPLIED' | 'ALREADY_APPLIED';
+    amountRial: string;
+    transactionId: number;
+  }> {
+    const {
+      groupId,
+      groupName,
+      memberId,
+      employeeId,
+      fullName,
+      periodKey,
+      amount,
+      occurredAt,
+      userId,
+    } = params;
+    const externalRef = loanInstallmentIdempotencyKey(groupId, employeeId, periodKey);
+
+    const already = await this.resolveExistingLoanInstallment({
+      groupId,
+      employeeId,
+      periodKey,
+      fullName,
+    });
+    if (already) return already;
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const event = await tx.lotteryLoanInstallmentEvent.create({
+          data: {
+            groupId,
+            memberId,
+            employeeId,
+            periodKey,
+            amountRial: amount,
+            idempotencyKey: externalRef,
+          },
+        });
+        const txn = await tx.transaction.create({
+          data: {
+            type: TransactionType.EXPENSE,
+            amount,
+            description: `قسط وام «${groupName}» دوره ${periodKey}`,
+            sourceType: EMPLOYEE_LOAN_INSTALLMENT_SOURCE_TYPE,
+            sourceId: memberId,
+            employeeId,
+            createdBy: userId,
+            occurredAt,
+            meta: {
+              externalRef,
+              lotteryGroupId: groupId,
+              lotteryMemberId: memberId,
+              employeeId,
+              periodKey,
+              installmentEventId: event.id,
+              status: 'APPLIED',
+            },
+          },
+        });
+        await tx.lotteryLoanInstallmentEvent.update({
+          where: { id: event.id },
+          data: { transactionId: txn.id },
+        });
+        return {
+          employeeId,
+          fullName,
+          status: 'APPLIED' as const,
+          amountRial: amount.toString(),
+          transactionId: txn.id,
+        };
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const raced = await this.resolveExistingLoanInstallment({
+          groupId,
+          employeeId,
+          periodKey,
+          fullName,
+        });
+        if (raced) return raced;
+      }
+      throw error;
+    }
   }
 
   async startCycle(groupId: number) {
