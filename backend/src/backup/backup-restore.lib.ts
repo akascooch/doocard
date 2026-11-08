@@ -20,6 +20,40 @@ export function assertRestoreEnvironmentAllowed(): void {
   }
 }
 
+/** Reject PostgreSQL custom dumps / SQL dumps uploaded to the JSON restore endpoint. */
+export function assertUploadedBackupLooksLikeJson(raw: string | Buffer): void {
+  if (Buffer.isBuffer(raw)) {
+    // PostgreSQL custom archive magic: "PGDMP"
+    if (
+      raw.length >= 5 &&
+      raw[0] === 0x50 &&
+      raw[1] === 0x47 &&
+      raw[2] === 0x44 &&
+      raw[3] === 0x4d &&
+      raw[4] === 0x50
+    ) {
+      throw new BadRequestException(
+        'این فایل پشتیبان باینری PostgreSQL (pg_dump -Fc) است. بازیابی JSON از تنظیمات فقط فایل‌های doocard-backup-*.json را می‌پذیرد. برای انتقال کامل دیتابیس به آفلاین از scripts/refresh-offline-snapshot استفاده کنید.',
+      );
+    }
+  }
+
+  const text = (typeof raw === 'string' ? raw : raw.toString('utf8')).trimStart();
+  if (!text) {
+    throw new BadRequestException('فایل پشتیبان خالی است');
+  }
+  if (text.startsWith('--') || text.toUpperCase().startsWith('PGDMP') || /^CREATE\s+DATABASE/i.test(text)) {
+    throw new BadRequestException(
+      'فایل شبیه SQL/dump پایگاه‌داده است، نه پشتیبان JSON. برای همگام‌سازی آفلاین از اسکریپت refresh-offline-snapshot استفاده کنید.',
+    );
+  }
+  if (!(text.startsWith('{') || text.startsWith('['))) {
+    throw new BadRequestException(
+      'فرمت فایل پشتیبانی نمی‌شود. فقط پشتیبان JSON سیستم (doocard-backup-*.json) قابل بازیابی از این صفحه است.',
+    );
+  }
+}
+
 /** Pre-flight validation — no DB mutations. */
 export function validateBackupPayloadForRestore(backup: unknown): asserts backup is BackupPayload {
   if (!backup || typeof backup !== 'object') {

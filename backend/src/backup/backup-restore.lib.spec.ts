@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { BACKUP_VERSION } from './backup.types';
 import {
   assertRestoreEnvironmentAllowed,
+  assertUploadedBackupLooksLikeJson,
   formatPreRestoreSnapshotFileName,
   orderRowsForInsert,
   sortTransactionCategoryParentFirst,
@@ -34,6 +35,25 @@ describe('backup-restore.lib', () => {
 
   afterAll(() => {
     process.env = originalEnv;
+  });
+
+  describe('assertUploadedBackupLooksLikeJson', () => {
+    it('rejects PostgreSQL custom dump magic bytes', () => {
+      const buf = Buffer.from([0x50, 0x47, 0x44, 0x4d, 0x50, 0x00, 0x01]);
+      expect(() => assertUploadedBackupLooksLikeJson(buf)).toThrow(BadRequestException);
+    });
+
+    it('rejects plain SQL dumps', () => {
+      expect(() => assertUploadedBackupLooksLikeJson('--\nCREATE TABLE x();')).toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('allows JSON object payloads', () => {
+      expect(() =>
+        assertUploadedBackupLooksLikeJson('{"metadata":{},"data":{}}'),
+      ).not.toThrow();
+    });
   });
 
   describe('validateBackupPayloadForRestore', () => {

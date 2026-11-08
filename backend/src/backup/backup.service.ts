@@ -22,6 +22,7 @@ import {
 } from './backup.types';
 import {
   assertRestoreEnvironmentAllowed,
+  assertUploadedBackupLooksLikeJson,
   formatPreRestoreSnapshotFileName,
   getExpectedRowCounts,
   isReplicationRolePermissionError,
@@ -182,6 +183,7 @@ export class BackupService {
     }
 
     try {
+      assertUploadedBackupLooksLikeJson(raw);
       const text = typeof raw === 'string' ? raw : raw.toString('utf8');
       if (!text.trim()) {
         throw new BadRequestException('فایل پشتیبان خالی است');

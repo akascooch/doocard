@@ -1,0 +1,20 @@
+# Secrets, runtime state, dumps, binaries, and build output — never commit
+tools/
+runtime/
+data/
+logs/
+*.dump
+*.tgz
+
+backend/.env
+backend/.env.*
+backend/uploads/
+backend/dist/
+
+frontend/.env
+frontend/.env.*
+frontend/.next/
+
+# Bundled tool runtime noise (belt-and-suspenders if tools/ is partially forced)
+tools/redis/*.rdb
+tools/redis/*.log

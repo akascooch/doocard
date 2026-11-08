@@ -281,7 +281,7 @@ describe('CustomersService', () => {
   });
 
   describe('getMilestoneStats', () => {
-    it('counts real customers separately from every customer row', async () => {
+    it('uses every customer row for the primary count while keeping realCustomerCount', async () => {
       mockPrismaService.customer.count
         .mockResolvedValueOnce(3)
         .mockResolvedValueOnce(5);
@@ -295,11 +295,12 @@ describe('CustomersService', () => {
         },
       });
       expect(mockPrismaService.customer.count).toHaveBeenNthCalledWith(2);
-      expect(result.count).toBe(3);
-      expect(result.realCustomerCount).toBe(3);
+      expect(result.count).toBe(5);
       expect(result.totalCustomerRecords).toBe(5);
+      expect(result.realCustomerCount).toBe(3);
       expect(result.excludedFromRealCount).toBe(2);
-      expect(result.definition).toContain('CUSTOMER');
+      expect(result.definition).toContain('all customer rows');
+      expect(result.realDefinition).toContain('CUSTOMER');
     });
   });
 

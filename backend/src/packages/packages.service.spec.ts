@@ -226,4 +226,20 @@ describe('PackagesService', () => {
       }),
     );
   });
+
+  it('admin consumption history also excludes cancelled and deleted appointments', async () => {
+    prisma.customer.findUnique.mockResolvedValue({ id: 843 });
+    prisma.customerPackageConsumption.findMany.mockResolvedValue([]);
+
+    await service.listConsumptionHistory(843);
+
+    expect(prisma.customerPackageConsumption.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          customerPackage: { customerId: 843 },
+          appointment: { deletedAt: null, status: { not: 'CANCELLED' } },
+        },
+      }),
+    );
+  });
 });

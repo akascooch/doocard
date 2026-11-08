@@ -56,6 +56,7 @@ const SCHEMA_PRISMA_DELEGATES = [
   'systemSettings',
   'productCategory',
   'product',
+  'productPackaging',
   'inventoryMovement',
   'appointmentProduct',
   'order',
@@ -66,10 +67,19 @@ const SCHEMA_PRISMA_DELEGATES = [
   'adminExpenseCategory',
   'adminPersonalExpense',
   'servicePackageTemplate',
+  'servicePackageTemplateService',
   'customerServicePackage',
   'customerPackageConsumption',
   'loyaltyPointTransaction',
   'customerWalletLedger',
+  'lotteryGroup',
+  'lotteryMember',
+  'lotteryLoanInstallmentEvent',
+  'lotteryCycle',
+  'lotterySlot',
+  'lotteryContributionEvent',
+  'lotteryPayoutEvent',
+  'lotteryArrear',
 ] as const;
 
 describe('backup coverage vs Prisma schema', () => {
@@ -100,11 +110,12 @@ describe('backup coverage vs Prisma schema', () => {
     expect(BACKUP_ALLOWED_DATA_KEYS.has('systemSettings')).toBe(false);
   });
 
-  it('includes previously missing live shop/tip/salary models', () => {
+  it('includes shop, package, lottery, and loan models', () => {
     const required = [
       'smsNotificationRule',
       'productCategory',
       'product',
+      'productPackaging',
       'appointmentProduct',
       'inventoryMovement',
       'order',
@@ -114,6 +125,15 @@ describe('backup coverage vs Prisma schema', () => {
       'manualTipAllocation',
       'appointmentTipAllocation',
       'employeeSalaryRequest',
+      'servicePackageTemplateService',
+      'lotteryGroup',
+      'lotteryMember',
+      'lotteryCycle',
+      'lotterySlot',
+      'lotteryContributionEvent',
+      'lotteryPayoutEvent',
+      'lotteryArrear',
+      'lotteryLoanInstallmentEvent',
     ];
     for (const key of required) {
       expect(insert.has(key)).toBe(true);
@@ -128,6 +148,20 @@ describe('backup coverage vs Prisma schema', () => {
     expect(insertList.indexOf('manualTipAllocation')).toBeGreaterThan(settlementIdx);
     expect(insertList.indexOf('employeeSalaryRequest')).toBeGreaterThan(
       insertList.indexOf('transaction'),
+    );
+  });
+
+  it('inserts lottery loan installments after members and transactions', () => {
+    const insertList = BACKUP_INSERT_ORDER as readonly string[];
+    expect(insertList.indexOf('lotteryLoanInstallmentEvent')).toBeGreaterThan(
+      insertList.indexOf('lotteryMember'),
+    );
+    expect(insertList.indexOf('lotteryLoanInstallmentEvent')).toBeGreaterThan(
+      insertList.indexOf('transaction'),
+    );
+    expect(insertList.indexOf('productPackaging')).toBeGreaterThan(insertList.indexOf('product'));
+    expect(insertList.indexOf('servicePackageTemplateService')).toBeGreaterThan(
+      insertList.indexOf('servicePackageTemplate'),
     );
   });
 });

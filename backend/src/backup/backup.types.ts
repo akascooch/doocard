@@ -18,34 +18,41 @@ export interface BackupPayload {
 /**
  * Prisma client delegate keys.
  *
- * Coverage vs schema (PR0):
- * ADDED (were live in schema, previously omitted from dump/restore):
- *   smsNotificationRule, productCategory, product, appointmentProduct,
- *   inventoryMovement, order, orderItem, productStockSubscription,
- *   tipSource, manualTipAllocation, appointmentTipAllocation,
- *   employeeSalaryRequest
+ * Coverage vs schema:
+ * ADDED (shop/tips/salary/packages/lottery/loan):
+ *   smsNotificationRule, productCategory, product, productPackaging,
+ *   appointmentProduct, inventoryMovement, order, orderItem,
+ *   productStockSubscription, tipSource, manualTipAllocation,
+ *   appointmentTipAllocation, employeeSalaryRequest,
+ *   servicePackageTemplateService,
+ *   lotteryGroup, lotteryMember, lotteryCycle, lotterySlot,
+ *   lotteryContributionEvent, lotteryPayoutEvent, lotteryArrear,
+ *   lotteryLoanInstallmentEvent
  *
- * DEFERRED (intentionally not in this list):
- *   otpChallenge — ephemeral hashed OTP rows (short TTL, attempt counters).
- *     Restoring them has no business value and can rehydrate expired challenges.
- *   systemSettings — already in BACKUP_FORBIDDEN_DATA_KEYS (restore must not
- *     overwrite backup path / auto-backup flags from a dump).
+ * DEFERRED:
+ *   otpChallenge — ephemeral hashed OTP rows.
+ *   systemSettings — BACKUP_FORBIDDEN_DATA_KEYS (must not overwrite backup path/flags).
  *
  * FK notes:
- *   appointmentTipAllocation.paidInSettlementId and
- *   manualTipAllocation.paidInSettlementId are optional FKs to
- *   employeeCommissionSettlement — those two models are inserted AFTER
- *   settlements so non-null paidInSettlementId does not violate FK.
- *   employeeSalaryRequest.paymentTransactionId is inserted AFTER transaction.
- *   appointmentProduct requires appointment + product.
- *   orderItem requires order + product.
- *   adminDailyFrog / adminPersonalExpense require user (inserted after user).
+ *   productPackaging before inventoryMovement / appointmentProduct / orderItem.
+ *   servicePackageTemplateService after servicePackageTemplate + service.
+ *   lotteryLoanInstallmentEvent after lotteryMember and transaction (transactionId).
+ *   lotteryContributionEvent before lotteryArrear (optional contributionEventId).
  */
 
 /** Prisma delegate keys — delete children first */
 export const BACKUP_DELETE_ORDER = [
+  'lotteryLoanInstallmentEvent',
+  'lotteryArrear',
+  'lotteryPayoutEvent',
+  'lotteryContributionEvent',
+  'lotterySlot',
+  'lotteryCycle',
+  'lotteryMember',
+  'lotteryGroup',
   'customerPackageConsumption',
   'customerServicePackage',
+  'servicePackageTemplateService',
   'servicePackageTemplate',
   'loyaltyPointTransaction',
   'customerWalletLedger',
@@ -89,6 +96,7 @@ export const BACKUP_DELETE_ORDER = [
   'employee',
   'calendarDate',
   'service',
+  'productPackaging',
   'product',
   'productCategory',
   'transactionCategory',
@@ -118,9 +126,11 @@ export const BACKUP_INSERT_ORDER = [
   'financialReportsAccess',
   'productCategory',
   'product',
+  'productPackaging',
   'employee',
   'customer',
   'servicePackageTemplate',
+  'servicePackageTemplateService',
   'loyaltyPointTransaction',
   'customerWalletLedger',
   'permission',
@@ -160,6 +170,14 @@ export const BACKUP_INSERT_ORDER = [
   'order',
   'orderItem',
   'productStockSubscription',
+  'lotteryGroup',
+  'lotteryMember',
+  'lotteryCycle',
+  'lotterySlot',
+  'lotteryContributionEvent',
+  'lotteryPayoutEvent',
+  'lotteryArrear',
+  'lotteryLoanInstallmentEvent',
 ] as const;
 
 export type BackupModelKey = (typeof BACKUP_INSERT_ORDER)[number];

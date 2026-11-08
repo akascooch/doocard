@@ -629,6 +629,22 @@ export default function SettingsPage() {
               </p>
             )}
             
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm space-y-2">
+              <p className="font-medium text-amber-200">دو نوع پشتیبان — اشتباه نگیرید</p>
+              <p>
+                <span className="font-semibold">پشتیبان داده‌های سیستم (JSON)</span>
+                {' '}— همین صفحه؛ فایل <code className="text-xs">doocard-backup-*.json</code> برای
+                سوابق منطقی اپلیکیشن. بازیابی فقط همین فرمت را می‌پذیرد.
+              </p>
+              <p>
+                <span className="font-semibold">انتقال کامل دیتابیس به آفلاین</span>
+                {' '}— نیازمند <code className="text-xs">pg_dump -Fc</code> و اسکریپت
+                <code className="text-xs"> Offline/scripts/refresh-offline-snapshot</code>. فایل‌های
+                <code className="text-xs"> .dump</code> / <code className="text-xs">.sql</code> را اینجا
+                آپلود نکنید.
+              </p>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Button 
                 variant="outline" 
@@ -637,7 +653,7 @@ export default function SettingsPage() {
                 disabled={backupRunning || restoreRunning || backupConfigLoading}
               >
                 <Icon name="Download" size={16} className="ml-2" />
-                {backupRunning ? 'در حال دانلود...' : 'ایجاد پشتیبان'}
+                {backupRunning ? 'در حال دانلود...' : 'ایجاد پشتیبان JSON'}
               </Button>
               
               <Button 
@@ -647,25 +663,25 @@ export default function SettingsPage() {
                 disabled={backupRunning || restoreRunning || backupConfigLoading}
               >
               <Icon name="Upload" size={16} className="ml-2" />
-                {restoreRunning ? 'در حال پردازش داده (لطفاً ~۳۰ ثانیه صبر کنید)...' : 'بازیابی از پشتیبان'}
+                {restoreRunning ? 'در حال پردازش داده (لطفاً ~۳۰ ثانیه صبر کنید)...' : 'بازیابی از JSON'}
             </Button>
             </div>
             
             <input
               id="restoreFile"
               type="file"
-              accept=".json"
+              accept=".json,application/json"
               className="hidden"
               onChange={handleRestoreBackup}
             />
             
             <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-              <h4 className="font-medium text-primary mb-2">📋 اطلاعات پشتیبان</h4>
+              <h4 className="font-medium text-primary mb-2">اطلاعات پشتیبان JSON</h4>
               <div className="text-sm text-primary/80 space-y-1">
-                <p>• پشتیبان شامل تمام داده‌های سیستم است</p>
-                <p>• فرمت فایل: JSON</p>
+                <p>• فرمت: JSON منطقی Prisma (نه آرشیو PostgreSQL)</p>
                 <p>• حداکثر سایز: 300 مگابایت</p>
-                <p>• شامل: کاربران، مشتریان، نوبت‌ها، مالی و...</p>
+                <p>• شامل ردیف‌های دامنه: کاربران، مشتریان، نوبت‌ها، مالی، پکیج، لاتاری/وام و…</p>
+                <p>• فایل‌های آپلود (تصاویر) و dump باینری در این پشتیبان نیستند</p>
               </div>
             </div>
           </div>
