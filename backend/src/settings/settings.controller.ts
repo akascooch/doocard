@@ -15,6 +15,7 @@ import {
   MaxFileSizeValidator,
   FileTypeValidator,
   BadRequestException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
@@ -181,6 +182,12 @@ export class SettingsController {
   @Post('reset-database')
   @Roles('ADMIN')
   async resetDatabase() {
+    // F-SEC-01: destructive endpoint stays ADMIN-gated and opt-in via env.
+    if (process.env.ALLOW_DATABASE_RESET !== 'true') {
+      throw new ForbiddenException(
+        'بازنشانی دیتابیس غیرفعال است. فقط با ALLOW_DATABASE_RESET=true در محیط نگهداری کنترل‌شده فعال می‌شود.',
+      );
+    }
     return this.settingsService.resetDatabase();
   }
 

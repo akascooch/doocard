@@ -1,8 +1,28 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  ParseIntPipe,
+  UseGuards,
+} from '@nestjs/common';
 import { SmsService } from './sms.service';
 import { UpdateSmsSettingsDto } from './dto/update-sms-settings.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { PermissionGuard } from '../common/guards/permission.guard';
 
+/**
+ * Legacy SMS controller. Module is currently not mounted in AppModule
+ * (sms-admin.controller is the live path). Guards are required so a
+ * future remount cannot expose unauthenticated SMS admin (F-SEC-07).
+ */
 @Controller('sms')
+@UseGuards(JwtAuthGuard, PermissionGuard)
+@Roles('ADMIN')
 export class SmsController {
   constructor(private readonly smsService: SmsService) {}
 
@@ -93,4 +113,4 @@ export class SmsController {
 
     return this.smsService.logSms(phone, message, type, undefined, userId);
   }
-} 
+}

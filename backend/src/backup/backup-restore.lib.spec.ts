@@ -3,7 +3,10 @@ import { BACKUP_VERSION } from './backup.types';
 import {
   assertRestoreEnvironmentAllowed,
   assertUploadedBackupLooksLikeJson,
+  canRestoreWithoutReplicationRole,
+  canSkipFailedPreRestoreSnapshot,
   formatPreRestoreSnapshotFileName,
+  isSchemaDriftExportError,
   orderRowsForInsert,
   sortTransactionCategoryParentFirst,
   validateBackupPayloadForRestore,
@@ -134,6 +137,60 @@ describe('backup-restore.lib', () => {
     it('allows development', () => {
       process.env.NODE_ENV = 'development';
       expect(() => assertRestoreEnvironmentAllowed()).not.toThrow();
+    });
+  });
+
+  describe('isSchemaDriftExportError', () => {
+    it('detects Prisma P2021/P2022', () => {
+      expect(isSchemaDriftExportError({ code: 'P2021' })).toBe(true);
+      expect(isSchemaDriftExportError({ code: 'P2022' })).toBe(true);
+      expect(isSchemaDriftExportError({ code: 'P2002' })).toBe(false);
+    });
+
+    it('detects missing column message', () => {
+      expect(
+        isSchemaDriftExportError({
+          message: 'The column `lottery_groups.totalLoanAmountRial` does not exist in the current database.',
+        }),
+      ).toBe(true);
+    });
+  });
+
+  describe('canSkipFailedPreRestoreSnapshot', () => {
+    it('allows skip in development', () => {
+      process.env.NODE_ENV = 'development';
+      delete process.env.BACKUP_RESTORE_SKIP_PRE_BACKUP;
+      delete process.env.BACKUP_RESTORE_ALLOW_PRODUCTION;
+      expect(canSkipFailedPreRestoreSnapshot()).toBe(true);
+    });
+
+    it('blocks skip in strict production', () => {
+      process.env.NODE_ENV = 'production';
+      delete process.env.BACKUP_RESTORE_SKIP_PRE_BACKUP;
+      delete process.env.BACKUP_RESTORE_ALLOW_PRODUCTION;
+      expect(canSkipFailedPreRestoreSnapshot()).toBe(false);
+    });
+
+    it('allows skip when offline allow-production or explicit skip flag', () => {
+      process.env.NODE_ENV = 'production';
+      process.env.BACKUP_RESTORE_ALLOW_PRODUCTION = 'true';
+      expect(canSkipFailedPreRestoreSnapshot()).toBe(true);
+      delete process.env.BACKUP_RESTORE_ALLOW_PRODUCTION;
+      process.env.BACKUP_RESTORE_SKIP_PRE_BACKUP = 'true';
+      expect(canSkipFailedPreRestoreSnapshot()).toBe(true);
+    });
+  });
+
+  describe('canRestoreWithoutReplicationRole', () => {
+    it('allows in development and with explicit flags', () => {
+      process.env.NODE_ENV = 'development';
+      delete process.env.BACKUP_RESTORE_ALLOW_WITHOUT_REPLICATION;
+      expect(canRestoreWithoutReplicationRole()).toBe(true);
+      process.env.NODE_ENV = 'production';
+      delete process.env.BACKUP_RESTORE_ALLOW_PRODUCTION;
+      expect(canRestoreWithoutReplicationRole()).toBe(false);
+      process.env.BACKUP_RESTORE_ALLOW_WITHOUT_REPLICATION = 'true';
+      expect(canRestoreWithoutReplicationRole()).toBe(true);
     });
   });
 

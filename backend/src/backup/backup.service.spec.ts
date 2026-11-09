@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import * as fs from 'fs';
 import { BackupService } from './backup.service';
 import { BACKUP_VERSION } from './backup.types';
@@ -40,8 +40,11 @@ describe('BackupService restore', () => {
   };
 
   beforeEach(() => {
+    jest.clearAllMocks();
     process.env = { ...originalEnv, NODE_ENV: 'development' };
     delete process.env.BACKUP_RESTORE_ALLOW_PRODUCTION;
+    delete process.env.BACKUP_RESTORE_SKIP_PRE_BACKUP;
+    delete process.env.BACKUP_RESTORE_ALLOW_WITHOUT_REPLICATION;
 
     prisma = {
       systemSettings: {
@@ -69,6 +72,36 @@ describe('BackupService restore', () => {
 
   afterAll(() => {
     process.env = originalEnv;
+  });
+
+  it('rejects concurrent restore with HTTP 409 Conflict (F-RST-04)', async () => {
+    let releaseTx!: () => void;
+    const txGate = new Promise<void>((resolve) => {
+      releaseTx = resolve;
+    });
+
+    prisma.$transaction.mockImplementation(async (fn: (client: any) => Promise<void>) => {
+      const tx = {
+        $executeRaw: jest.fn().mockResolvedValue(undefined),
+        user: {
+          deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+          createMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+      };
+      await fn(tx);
+      await txGate;
+    });
+
+    const first = service.restoreFromUploadedJson(JSON.stringify(minimalBackupPayload()));
+    // Allow first restore to acquire the mutex and enter the transaction
+    await new Promise((r) => setImmediate(r));
+
+    await expect(
+      service.restoreFromUploadedJson(JSON.stringify(minimalBackupPayload())),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    releaseTx();
+    await first;
   });
 
   it('rejects malformed JSON before any transaction', async () => {
@@ -156,5 +189,104 @@ describe('BackupService restore', () => {
     await expect(
       service.restoreFromUploadedJson(JSON.stringify(minimalBackupPayload())),
     ).rejects.toThrow(/بازیابی/);
+  });
+
+  it('skips pre-restore entirely when BACKUP_RESTORE_SKIP_PRE_BACKUP=true', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.BACKUP_RESTORE_ALLOW_PRODUCTION = 'true';
+    process.env.BACKUP_RESTORE_SKIP_PRE_BACKUP = 'true';
+    const buildSpy = jest.spyOn(service as any, 'buildBackupBuffer');
+
+    const tx = {
+      $executeRaw: jest.fn().mockResolvedValue(undefined),
+      user: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+        createMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    prisma.$transaction.mockImplementation(async (fn: (client: typeof tx) => Promise<void>) => {
+      await fn(tx);
+    });
+
+    const result = await service.restoreFromUploadedJson(JSON.stringify(minimalBackupPayload()));
+    expect(result.snapshotPath).toBe('skipped-pre-restore-by-flag');
+    expect(buildSpy).not.toHaveBeenCalled();
+    expect(tx.user.createMany).toHaveBeenCalled();
+  });
+
+  it('continues restore when pre-restore snapshot fails under allow-production', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.BACKUP_RESTORE_ALLOW_PRODUCTION = 'true';
+    delete process.env.BACKUP_RESTORE_SKIP_PRE_BACKUP;
+    (service as any).buildBackupBuffer.mockRejectedValue(new Error('schema drift'));
+
+    const tx = {
+      $executeRaw: jest.fn().mockResolvedValue(undefined),
+      user: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+        createMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    prisma.$transaction.mockImplementation(async (fn: (client: typeof tx) => Promise<void>) => {
+      await fn(tx);
+    });
+
+    const result = await service.restoreFromUploadedJson(JSON.stringify(minimalBackupPayload()));
+    expect(result.snapshotPath).toBe('skipped-pre-restore');
+    expect(result.warnings?.length ?? 0).toBeGreaterThan(0);
+    expect(tx.user.createMany).toHaveBeenCalled();
+  });
+
+  it('still blocks restoreBackupPayload when pre-restore fails in strict production', async () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.BACKUP_RESTORE_ALLOW_PRODUCTION;
+    delete process.env.BACKUP_RESTORE_SKIP_PRE_BACKUP;
+    (service as any).buildBackupBuffer.mockRejectedValue(new Error('disk full'));
+
+    // Public restoreFromUploadedJson is gated earlier by assertRestoreEnvironmentAllowed;
+    // this covers the hard pre-restore failure path inside restoreBackupPayload.
+    await expect(
+      (service as any).restoreBackupPayload(minimalBackupPayload()),
+    ).rejects.toThrow(/ایجاد نسخه پشتیبان قبل از بازیابی/);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('keeps jalaliDate as string while coercing gregorianDate DateTime strings', () => {
+    const prepared = (service as any).prepareRowForInsert(
+      {
+        id: 1,
+        gregorianDate: '2024-08-16T00:00:00.000Z',
+        jalaliDate: '1403-05-26',
+        createdAt: '2026-06-02T13:02:59.364Z',
+      },
+      'calendarDate',
+    );
+    expect(typeof prepared.jalaliDate).toBe('string');
+    expect(prepared.jalaliDate).toBe('1403-05-26');
+    expect(prepared.gregorianDate).toBeInstanceOf(Date);
+    expect(prepared.createdAt).toBeInstanceOf(Date);
+  });
+
+  it('continues restore without replication role when offline allow flags are set', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.BACKUP_RESTORE_ALLOW_PRODUCTION = 'true';
+    process.env.BACKUP_RESTORE_ALLOW_WITHOUT_REPLICATION = 'true';
+
+    const tx = {
+      $executeRaw: jest
+        .fn()
+        .mockRejectedValueOnce(new Error('permission denied to set parameter "session_replication_role"')),
+      user: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+        createMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    prisma.$transaction.mockImplementation(async (fn: (client: typeof tx) => Promise<void>) => {
+      await fn(tx);
+    });
+
+    const result = await service.restoreFromUploadedJson(JSON.stringify(minimalBackupPayload()));
+    expect(tx.user.createMany).toHaveBeenCalled();
+    expect(result.warnings.join(' ')).toMatch(/session_replication_role/i);
   });
 });

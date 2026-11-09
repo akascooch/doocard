@@ -1,12 +1,11 @@
 /**
- * Money utilities for frontend
- * 
- * NEW CONVENTION (2025-10-28):
- * - Everything in RIALS (no Toman conversion)
- * - User inputs in Rials
- * - Display shows Rials with Persian separators
- * - Backend stores/sends values in Rials
- * - Format: "15,000,000 ریال"
+ * Money utilities for frontend (canonical contract — F-MON-02)
+ *
+ * - Persistence / API / form numeric state: **Rials** (integer IRR)
+ * - User-facing MoneyInput: type **Tomans**, convert ×10 ↔ Rials; never persist commas
+ * - Primary display: `formatTomansFromRial` / `formatMoney` / `toTomans` → تومان + separators
+ * - Explicit rial label only via `formatRials` (inventory/packages that say «ریال»)
+ * - Never apply these helpers to phones, IDs, or dates
  */
 
 /**
@@ -265,12 +264,16 @@ export const formatTomansFromRialShort = (
   }
 };
 
-// Main exports (RIALS)
-export const formatMoney = formatRials;
+/** Canonical user-facing money display (تومان + 3-digit grouping). */
+export const formatMoney = formatTomansFromRial;
 
-// Aliases for convenience
-export const toTomans = toThousandTomans; // Legacy (now returns Rials)
-export const fromTomans = fromThousandTomans; // Legacy (no conversion)
+/**
+ * Display helper used across appointments UI.
+ * Always formats stored Rials as Tomans (÷10) — do not use for phones/IDs.
+ */
+export const toTomans = formatTomansFromRial;
+/** @deprecated Prefer parseRialInput; no toman conversion on parse. */
+export const fromTomans = fromThousandTomans;
 
 const moneyHelpers = {
   formatNumberWithCommas,

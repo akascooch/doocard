@@ -44,16 +44,14 @@ import { api } from '@/lib/axios'
 import MoneyInput from '@/components/ui/MoneyInput'
 import PersianDatePicker from '@/components/ui/PersianDatePicker'
 import { formatTomansFromRial } from '@/lib/money'
-import { formatToJalali, parseFromJalali, getCurrentJalaliDate, jalaliToISO } from '@/lib/date'
+import { formatToJalali, getCurrentJalaliDate, jalaliToGregorian, jalaliToISO } from '@/lib/date'
 import { Chequebooks } from '@/components/accounting/chequebooks'
 
+/** End-of-day ISO without browser-local Date getters (F-DATE-05). */
 const jalaliToISOEndOfDay = (jalaliDate: string): string | null => {
-  const date = parseFromJalali(jalaliDate)
-  if (!date) return null
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}T23:59:59.999Z`
+  const ymd = jalaliToGregorian(jalaliDate)
+  if (!ymd) return null
+  return `${ymd}T23:59:59.999Z`
 }
 
 interface Transaction {

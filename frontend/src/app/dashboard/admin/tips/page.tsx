@@ -25,6 +25,7 @@ import PersianDatePicker from '@/components/ui/PersianDatePicker'
 import { useToast } from '@/components/ui/use-toast'
 import axios from '@/lib/axios'
 import { formatTomansFromRial } from '@/lib/money'
+import { getTehranTodayJalali } from '@/lib/date'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -104,8 +105,8 @@ type PreviewResult = {
 }
 
 function todayJalaliFallback(): string {
-  // UI date pickers usually set this; fallback avoids empty submit.
-  return '1405/04/20'
+  // Asia/Tehran "today" — never hardcode a calendar day (F-DATE-01).
+  return getTehranTodayJalali() || ''
 }
 
 export default function AdminTipsPage() {
@@ -127,8 +128,8 @@ export default function AdminTipsPage() {
   const [previewing, setPreviewing] = useState(false)
 
   // Report filters
-  const [fromJalali, setFromJalali] = useState('1405/04/20')
-  const [toJalali, setToJalali] = useState('1405/04/20')
+  const [fromJalali, setFromJalali] = useState(() => todayJalaliFallback())
+  const [toJalali, setToJalali] = useState(() => todayJalaliFallback())
   const [filterType, setFilterType] = useState<'ALL' | 'TEAM' | 'INDIVIDUAL'>('ALL')
   const [filterOrigin, setFilterOrigin] = useState<'ALL' | 'APPOINTMENT' | 'MANUAL'>('ALL')
   const [filterEmployeeId, setFilterEmployeeId] = useState<string>('ALL')
@@ -342,8 +343,9 @@ export default function AdminTipsPage() {
   }
 
   const resetFilters = () => {
-    setFromJalali('1405/04/20')
-    setToJalali('1405/04/20')
+    const today = todayJalaliFallback()
+    setFromJalali(today)
+    setToJalali(today)
     setFilterType('ALL')
     setFilterOrigin('ALL')
     setFilterEmployeeId('ALL')

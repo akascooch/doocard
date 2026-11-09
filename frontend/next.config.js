@@ -202,7 +202,9 @@ const nextConfig = {
     ]
   },
 
-  // API rewrites for production and development
+  // API rewrites for production and development.
+  // NOTE: App Router handlers under src/app/api/** take precedence over these
+  // rewrites (e.g. /api/settings/backup/restore has a dedicated long-timeout proxy).
   async rewrites() {
     // Prefer 127.0.0.1 over localhost on Windows to avoid IPv6 (::1) hangs
     const backendUrl =

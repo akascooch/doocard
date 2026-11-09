@@ -53,9 +53,11 @@ import * as z from "zod"
 import api from '@/lib/axios'
 import { useRouter } from "next/navigation"
 import Cookies from 'js-cookie'
-import { PersianDatePicker, isValidJalali } from "@/components/ui/persian-date-picker"
-import { formatToJalali, jalaliToGregorian } from "@/lib/date"
+import PersianDatePicker from "@/components/ui/PersianDatePicker"
+import { formatToJalali, jalaliToGregorian, parseStrictJalaliYmd } from "@/lib/date"
 import { getCurrentUser } from '@/lib/auth'
+
+const isValidJalali = (str?: string) => Boolean(str && parseStrictJalaliYmd(str))
 
 // Schema for form validation
 const customerSchema = z.object({

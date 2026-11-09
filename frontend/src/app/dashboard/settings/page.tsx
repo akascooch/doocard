@@ -44,7 +44,10 @@ function SettingsSection({
 }
 
 const BACKUP_DOWNLOAD_TIMEOUT_MS = 300_000
-const BACKUP_RESTORE_TIMEOUT_MS = 120_000
+/** Large JSON restores routinely exceed 2 minutes (DB export + delete/insert). */
+const BACKUP_RESTORE_TIMEOUT_MS = 900_000
+/** Align with Nest MaxFileSizeValidator (300MB). Reject early to avoid OOM proxy buffer (F-RST-06). */
+const MAX_BACKUP_UPLOAD_BYTES = 300 * 1024 * 1024
 
 function logAxiosBackupDiagnostics(error: unknown): void {
   if (!isAxiosError(error)) {
@@ -365,6 +368,16 @@ export default function SettingsPage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    if (file.size > MAX_BACKUP_UPLOAD_BYTES) {
+      toast({
+        variant: "destructive",
+        title: "فایل بیش از حد بزرگ است",
+        description: "حداکثر حجم پشتیبان ۳۰۰ مگابایت است.",
+      });
+      event.target.value = '';
+      return;
+    }
+
     const pendingOffline = await hasPendingOutboxItems();
     if (pendingOffline) {
       toast({
@@ -386,9 +399,52 @@ export default function SettingsPage() {
       const formData = new FormData();
       formData.append('backupFile', file);
 
-      await axios.post('/settings/backup/restore', formData, {
-        timeout: BACKUP_RESTORE_TIMEOUT_MS,
+      // Same-origin relative URL satisfies CSP connect-src 'self' (prod + offline).
+      // Long restores are proxied by app/api/settings/backup/restore/route.ts (not next rewrite).
+      // Do NOT set Content-Type manually — browser must inject multipart boundary.
+      const restoreUrl = '/api/settings/backup/restore';
+      console.log('[backup] restore request:', {
+        restoreUrl,
+        fileName: file.name,
+        fileSize: file.size,
+        timeoutMs: BACKUP_RESTORE_TIMEOUT_MS,
       });
+
+      const token =
+        typeof window !== 'undefined' ? window.localStorage.getItem('token') : null;
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), BACKUP_RESTORE_TIMEOUT_MS);
+      let restoreResponse: Response;
+      try {
+        restoreResponse = await fetch(restoreUrl, {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          body: formData,
+          credentials: 'include',
+          signal: controller.signal,
+        });
+      } finally {
+        window.clearTimeout(timer);
+      }
+
+      if (!restoreResponse.ok) {
+        let message = 'مشکلی در بازیابی از پشتیبان پیش آمده است';
+        try {
+          const data = await restoreResponse.json();
+          message = data?.message_fa || data?.message || message;
+          console.error('[backup] restore failed', {
+            status: restoreResponse.status,
+            correlationId: data?.correlationId,
+            message,
+          });
+        } catch {
+          console.error('[backup] restore failed', {
+            status: restoreResponse.status,
+            body: await restoreResponse.text().catch(() => ''),
+          });
+        }
+        throw new Error(message);
+      }
 
       toast({
         title: "بازیابی موفق",
@@ -400,10 +456,13 @@ export default function SettingsPage() {
       }, 2000);
     } catch (error: any) {
       console.error('Error restoring backup:', error);
+      const aborted = error?.name === 'AbortError';
       toast({
         variant: "destructive",
         title: "خطا در بازیابی",
-        description: backupOperationErrorMessage(error, "مشکلی در بازیابی از پشتیبان پیش آمده است"),
+        description: aborted
+          ? 'زمان بازیابی به پایان رسید. لطفاً دوباره تلاش کنید.'
+          : (error?.message || backupOperationErrorMessage(error, "مشکلی در بازیابی از پشتیبان پیش آمده است")),
       });
     } finally {
       setRestoreRunning(false);

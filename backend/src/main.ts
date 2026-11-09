@@ -21,9 +21,10 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
 
-  // Large JSON bodies (restore uploads) — must be registered before routes
-  app.use(json({ limit: '100mb' }));
-  app.use(urlencoded({ limit: '100mb', extended: true }));
+  // Large JSON bodies / restore uploads — must be registered before routes.
+  // Multipart restore uses Multer (up to settings MAX_BACKUP_BYTES); keep JSON limit aligned.
+  app.use(json({ limit: '350mb' }));
+  app.use(urlencoded({ limit: '350mb', extended: true }));
   app.use(cookieParser());
 
   // Security middleware - disable CSP in helmet (let Nginx handle it for PWA compatibility)

@@ -9,13 +9,53 @@ import {
 } from './backup.types';
 
 export const RESTORE_REPLICATION_ROLE_ERROR =
-  'Restore requires a PostgreSQL role with permission to set session_replication_role, or run restore using a privileged local DB user.';
+  'نقش دیتابیس اجازه تنظیم session_replication_role ندارد. برای آفلاین: GRANT SET ON PARAMETER session_replication_role را به نقش اپ بدهید، یا BACKUP_RESTORE_ALLOW_WITHOUT_REPLICATION=true را فقط به‌صورت محلی فعال کنید.';
+
+/** Allow ordered FK restore without disabling triggers via session_replication_role. */
+export function canRestoreWithoutReplicationRole(): boolean {
+  if (process.env.BACKUP_RESTORE_ALLOW_WITHOUT_REPLICATION === 'true') {
+    return true;
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    return true;
+  }
+  return process.env.BACKUP_RESTORE_ALLOW_PRODUCTION === 'true';
+}
+
+/** Prisma P2021 = table missing, P2022 = column missing (schema drift vs client). */
+export function isSchemaDriftExportError(error: unknown): boolean {
+  const code = (error as { code?: string } | null)?.code;
+  if (code === 'P2021' || code === 'P2022') {
+    return true;
+  }
+  const message = String((error as { message?: string } | null)?.message ?? error ?? '');
+  return (
+    /does not exist in the current database/i.test(message) ||
+    /The table `.*` does not exist/i.test(message) ||
+    /The column `.*` does not exist/i.test(message)
+  );
+}
+
+/**
+ * When true, a failed pre-restore JSON snapshot must not block restore.
+ * Intended for local/offline (ALLOW_PRODUCTION flag) or explicit SKIP.
+ * Strict production without flags still requires a successful pre-backup.
+ */
+export function canSkipFailedPreRestoreSnapshot(): boolean {
+  if (process.env.BACKUP_RESTORE_SKIP_PRE_BACKUP === 'true') {
+    return true;
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    return true;
+  }
+  return process.env.BACKUP_RESTORE_ALLOW_PRODUCTION === 'true';
+}
 
 /** Block restore in production unless explicitly opted in. */
 export function assertRestoreEnvironmentAllowed(): void {
   if (process.env.NODE_ENV === 'production' && process.env.BACKUP_RESTORE_ALLOW_PRODUCTION !== 'true') {
     throw new ForbiddenException(
-      'Database restore is disabled in production. Set BACKUP_RESTORE_ALLOW_PRODUCTION=true only for controlled maintenance.',
+      'بازیابی دیتابیس در حالت production غیرفعال است. فقط برای نگهداری کنترل‌شده BACKUP_RESTORE_ALLOW_PRODUCTION=true را تنظیم کنید.',
     );
   }
 }

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
@@ -23,9 +24,12 @@ import {
 import {
   assertRestoreEnvironmentAllowed,
   assertUploadedBackupLooksLikeJson,
+  canRestoreWithoutReplicationRole,
+  canSkipFailedPreRestoreSnapshot,
   formatPreRestoreSnapshotFileName,
   getExpectedRowCounts,
   isReplicationRolePermissionError,
+  isSchemaDriftExportError,
   orderRowsForInsert,
   RESTORE_REPLICATION_ROLE_ERROR,
   validateBackupPayloadForRestore,
@@ -49,16 +53,40 @@ const BIGINT_FIELDS = new Set([
   'employeeShareRial',
   'appointmentDeductionRial',
   'amountRial',
+  'totalLoanAmountRial',
 ]);
+
+/** Prisma DateTime columns that may arrive as ISO strings in JSON backups. */
+const DATETIME_FIELD_KEYS = new Set([
+  'birthdate',
+  'dueDate',
+  'scheduledAt',
+  'gregorianDate',
+  'lastBackupDate',
+  'occurredAt',
+  'paidAt',
+  'settledAt',
+  'expiresAt',
+  'consumedAt',
+  'startsAt',
+  'endsAt',
+]);
+
+/** String calendar / label fields that look like dates but must NOT become Date objects. */
+const STRING_DATE_FIELDS = new Set(['jalaliDate']);
 
 @Injectable()
 export class BackupService {
   private readonly logger = new Logger(BackupService.name);
   private readonly defaultBackupDir: string;
+  /** Process-local mutex: one restore at a time (F-RST-04). Released in finally. */
+  private restoreInProgress = false;
 
   constructor(private readonly prisma: PrismaService) {
-    this.defaultBackupDir = path.normalize(
-      process.env.BACKUP_DEFAULT_PATH || path.join(process.cwd(), 'backups'),
+    this.defaultBackupDir = path.resolve(
+      path.normalize(
+        process.env.BACKUP_DEFAULT_PATH || path.join(process.cwd(), 'backups'),
+      ),
     );
   }
 
@@ -182,6 +210,16 @@ export class BackupService {
       throw new BadRequestException('فایل پشتیبان خالی است');
     }
 
+    if (this.restoreInProgress) {
+      throw new ConflictException({
+        statusCode: 409,
+        message: 'بازیابی دیگری هم‌اکنون در حال اجراست. لطفاً صبر کنید.',
+        message_fa: 'بازیابی دیگری هم‌اکنون در حال اجراست. لطفاً صبر کنید.',
+        error: 'RESTORE_IN_PROGRESS',
+      });
+    }
+
+    this.restoreInProgress = true;
     try {
       assertUploadedBackupLooksLikeJson(raw);
       const text = typeof raw === 'string' ? raw : raw.toString('utf8');
@@ -191,7 +229,11 @@ export class BackupService {
       const parsed = JSON.parse(text, this.jsonReviver) as BackupPayload;
       return await this.restoreBackupPayload(parsed);
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof ForbiddenException) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ForbiddenException ||
+        error instanceof ConflictException
+      ) {
         throw error;
       }
       if (error instanceof SyntaxError) {
@@ -199,6 +241,8 @@ export class BackupService {
       }
       this.logger.error('restoreFromUploadedJson failed', error?.stack || error);
       throw error;
+    } finally {
+      this.restoreInProgress = false;
     }
   }
 
@@ -218,12 +262,12 @@ export class BackupService {
   }
 
   private async createPreRestoreSnapshot(): Promise<string> {
-    const snapshotDir = path.join(this.defaultBackupDir, 'pre-restore');
+    const snapshotDir = path.resolve(this.defaultBackupDir, 'pre-restore');
     fs.mkdirSync(snapshotDir, { recursive: true });
 
     const { buffer } = await this.buildBackupBuffer();
     const fileName = formatPreRestoreSnapshotFileName();
-    const filePath = path.join(snapshotDir, fileName);
+    const filePath = path.resolve(snapshotDir, fileName);
 
     fs.writeFileSync(filePath, buffer);
     this.logger.log(`Pre-restore snapshot written (${buffer.length} bytes)`);
@@ -237,22 +281,44 @@ export class BackupService {
       where: { id: 1 },
     });
 
-    let snapshotPath: string;
-    try {
-      snapshotPath = await this.createPreRestoreSnapshot();
-    } catch (error) {
-      this.logger.error('Pre-restore snapshot failed', error?.stack || error);
-      throw new InternalServerErrorException(
-        'ایجاد نسخه پشتیبان قبل از بازیابی ناموفق بود — بازیابی متوقف شد',
-      );
-    }
-
     const stats: Record<string, number> = {};
     const restoredModels: BackupModelKey[] = [];
     const skippedModels: BackupModelKey[] = [
       ...BACKUP_SKIP_RESTORE_INSERT,
     ];
     const warnings: string[] = [];
+
+    let snapshotPath: string;
+    // Explicit opt-in skip (offline/local only). Do not use this to hide a failing safety backup
+    // in strict production — production without the flag still requires a successful snapshot.
+    if (process.env.BACKUP_RESTORE_SKIP_PRE_BACKUP === 'true') {
+      snapshotPath = 'skipped-pre-restore-by-flag';
+      warnings.push(
+        'Pre-restore snapshot intentionally skipped (BACKUP_RESTORE_SKIP_PRE_BACKUP=true). Ensure an external DB checkpoint exists.',
+      );
+      this.logger.warn(
+        'Skipping pre-restore snapshot by BACKUP_RESTORE_SKIP_PRE_BACKUP=true',
+      );
+    } else {
+      try {
+        snapshotPath = await this.createPreRestoreSnapshot();
+      } catch (error) {
+        this.logger.error('Pre-restore snapshot failed', error?.stack || error);
+        if (canSkipFailedPreRestoreSnapshot()) {
+          snapshotPath = 'skipped-pre-restore';
+          warnings.push(
+            'Pre-restore snapshot failed and was skipped (non-strict restore environment).',
+          );
+          this.logger.warn(
+            `Continuing restore without pre-restore snapshot: ${error instanceof Error ? error.message : error}`,
+          );
+        } else {
+          throw new InternalServerErrorException(
+            'ایجاد نسخه پشتیبان قبل از بازیابی ناموفق بود — بازیابی متوقف شد',
+          );
+        }
+      }
+    }
 
     try {
       await this.prisma.$transaction(
@@ -263,9 +329,19 @@ export class BackupService {
             replicaEnabled = true;
           } catch (error) {
             if (isReplicationRolePermissionError(error)) {
-              throw new InternalServerErrorException(RESTORE_REPLICATION_ROLE_ERROR);
+              if (canRestoreWithoutReplicationRole()) {
+                this.logger.warn(
+                  'session_replication_role unavailable — continuing with ordered delete/insert (FK-safe path)',
+                );
+                warnings.push(
+                  'Restore ran without session_replication_role; using topological delete/insert order only.',
+                );
+              } else {
+                throw new InternalServerErrorException(RESTORE_REPLICATION_ROLE_ERROR);
+              }
+            } else {
+              throw error;
             }
-            throw error;
           }
 
           try {
@@ -285,8 +361,18 @@ export class BackupService {
                 deleteMany: () => Promise<{ count: number }>;
               };
               if (delegate?.deleteMany) {
-                const result = await delegate.deleteMany();
-                this.logger.log(`Deleted ${modelKey}: ${result.count} rows`);
+                try {
+                  const result = await delegate.deleteMany();
+                  this.logger.log(`Deleted ${modelKey}: ${result.count} rows`);
+                } catch (error) {
+                  this.logger.error(
+                    `Delete failed for model=${modelKey}`,
+                    error instanceof Error ? error.stack : error,
+                  );
+                  throw new InternalServerErrorException(
+                    `خطا در حذف مدل ${modelKey} هنگام بازیابی: ${error instanceof Error ? error.message : 'نامشخص'}`,
+                  );
+                }
               }
             }
 
@@ -303,10 +389,24 @@ export class BackupService {
                 continue;
               }
 
-              const prepared = orderRowsForInsert(
-                modelKey,
-                rows.map((row) => this.prepareRowForInsert(row, modelKey)),
-              );
+              let prepared: Record<string, unknown>[];
+              try {
+                prepared = orderRowsForInsert(
+                  modelKey,
+                  rows.map((row) => this.prepareRowForInsert(row, modelKey)),
+                );
+              } catch (error) {
+                this.logger.error(
+                  `Row prepare failed for model=${modelKey}`,
+                  error instanceof Error ? error.stack : error,
+                );
+                if (error instanceof BadRequestException) {
+                  throw error;
+                }
+                throw new BadRequestException(
+                  `دادهٔ نامعتبر در مدل ${modelKey}: ${error instanceof Error ? error.message : 'نامشخص'}`,
+                );
+              }
 
               const delegate = (tx as any)[modelKey] as {
                 createMany?: (args: {
@@ -325,11 +425,22 @@ export class BackupService {
               let inserted = 0;
               for (let i = 0; i < prepared.length; i += batchSize) {
                 const batch = prepared.slice(i, i + batchSize);
-                const result = await delegate.createMany({
-                  data: batch,
-                  skipDuplicates: false,
-                });
-                inserted += result.count;
+                try {
+                  const result = await delegate.createMany({
+                    data: batch,
+                    skipDuplicates: false,
+                  });
+                  inserted += result.count;
+                } catch (error) {
+                  const sampleId = batch[0]?.id;
+                  this.logger.error(
+                    `Insert failed for model=${modelKey} offset=${i} sampleId=${sampleId}`,
+                    error instanceof Error ? error.stack : error,
+                  );
+                  throw new InternalServerErrorException(
+                    `خطا در درج مدل ${modelKey} (از ردیف ${i}${sampleId != null ? `، نمونه id=${sampleId}` : ''}): ${error instanceof Error ? error.message : 'نامشخص'}`,
+                  );
+                }
               }
               stats[modelKey] = inserted;
               restoredModels.push(modelKey);
@@ -349,7 +460,7 @@ export class BackupService {
         throw error;
       }
       throw new InternalServerErrorException(
-        `خطا در بازیابی پشتیبان: ${error?.message || 'نامشخص'}`,
+        `خطا در بازیابی پشتیبان: ${error instanceof Error ? error.message : 'نامشخص'}`,
       );
     }
 
@@ -445,6 +556,8 @@ export class BackupService {
         };
         if (!delegate?.findMany) {
           this.logger.warn(`Skipping unknown model: ${modelKey}`);
+          data[modelKey] = [];
+          stats[modelKey] = 0;
           continue;
         }
         const rows = await delegate.findMany();
@@ -452,6 +565,14 @@ export class BackupService {
         data[modelKey] = masked;
         stats[modelKey] = masked.length;
       } catch (error) {
+        if (isSchemaDriftExportError(error)) {
+          this.logger.warn(
+            `Skipping export for ${modelKey} due to schema drift (table/column missing vs Prisma client)`,
+          );
+          data[modelKey] = [];
+          stats[modelKey] = 0;
+          continue;
+        }
         this.logger.error(`Failed to export ${modelKey}`, error?.stack || error);
         throw error;
       }
@@ -505,9 +626,28 @@ export class BackupService {
     for (const key of Object.keys(record)) {
       if (record[key] === MASK_PLACEHOLDER) {
         delete record[key];
+        continue;
       }
       if (BIGINT_FIELDS.has(key) && typeof record[key] === 'string' && /^\d+$/.test(record[key] as string)) {
         record[key] = BigInt(record[key] as string);
+        continue;
+      }
+      // jalaliDate is a String label (e.g. "1403-05-26"), never a DateTime.
+      if (STRING_DATE_FIELDS.has(key)) {
+        continue;
+      }
+      // Normalize ISO strings only for known DateTime columns (and *At timestamps).
+      if (
+        typeof record[key] === 'string' &&
+        (key.endsWith('At') || DATETIME_FIELD_KEYS.has(key))
+      ) {
+        const raw = record[key] as string;
+        if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+          const parsed = new Date(raw);
+          if (!Number.isNaN(parsed.getTime())) {
+            record[key] = parsed;
+          }
+        }
       }
     }
 

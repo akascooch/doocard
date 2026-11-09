@@ -23,6 +23,8 @@ import {
   getTehranGregorianDateParts,
   getTehranTodayJalali,
   isValidJalaliValue,
+  jalaliToGregorian,
+  jalaliToISO,
   parseFromJalali,
   safeToGregorian,
   safeToJalaali,
@@ -107,6 +109,14 @@ describe('Safari / malformed date hardening', () => {
     expect(parseFromJalali('NaN-NaN-NaN')).toBeNull();
     expect(isValidJalaliValue('۱۴۰۳/۰۶/۲۷')).toBe(true);
     expect(parseFromJalali('۱۴۰۳/۰۶/۲۷')).toBeInstanceOf(Date);
+  });
+
+  it('jalaliToISO uses calendar YMD at noon UTC without local Date getters (F-DATE-05)', () => {
+    const ymd = jalaliToGregorian('1400/01/01');
+    expect(ymd).toBe('2021-03-21');
+    expect(jalaliToISO('1400/01/01')).toBe('2021-03-21T12:00:00.000Z');
+    expect(jalaliToISO('۱۴۰۰/۰۱/۰۱')).toBe('2021-03-21T12:00:00.000Z');
+    expect(jalaliToISO('')).toBeNull();
   });
 
   it('getTehranTodayJalali and month range never throw and return predictable shapes', () => {

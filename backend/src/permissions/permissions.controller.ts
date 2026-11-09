@@ -1,7 +1,27 @@
-import { Controller, Get, Post, Body, Query, Param, ParseIntPipe, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  Param,
+  ParseIntPipe,
+  Req,
+  UseGuards,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PermissionsService } from './permissions.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { PermissionGuard } from '../common/guards/permission.guard';
 
+/**
+ * Legacy permissions controller. Module is currently not mounted in AppModule.
+ * Class-level ADMIN guard prevents accidental open remount (F-SEC-07).
+ */
 @Controller('permissions')
+@UseGuards(JwtAuthGuard, PermissionGuard)
+@Roles('ADMIN')
 export class PermissionsController {
   constructor(private readonly permissionsService: PermissionsService) {}
 
@@ -21,7 +41,7 @@ export class PermissionsController {
   @Post('user/:userId')
   async setUserPermissions(
     @Param('userId', ParseIntPipe) userId: number,
-    @Body() body: { permissions: any[] }
+    @Body() body: { permissions: any[] },
   ) {
     return this.permissionsService.setUserPermissions(userId, body.permissions);
   }
@@ -30,7 +50,7 @@ export class PermissionsController {
   async checkPermission(
     @Param('userId', ParseIntPipe) userId: number,
     @Param('page') page: string,
-    @Param('feature') feature: string
+    @Param('feature') feature: string,
   ) {
     const hasPermission = await this.permissionsService.checkPermission(userId, page, feature);
     return { hasPermission };
@@ -54,23 +74,26 @@ export class PermissionsController {
   @Get('user/:userId/summary')
   async getUserPermissionsSummary(@Param('userId', ParseIntPipe) userId: number) {
     const permissions = await this.permissionsService.getPermissionsByUser(userId);
-    
-    // گروه‌بندی دسترسی‌ها بر اساس صفحه
-    const summary = {};
-    
-    permissions.forEach(perm => {
+
+    const summary: Record<
+      string,
+      { view: boolean; create: boolean; edit: boolean; delete: boolean }
+    > = {};
+
+    permissions.forEach((perm) => {
       if (!summary[perm.page]) {
         summary[perm.page] = {
           view: false,
           create: false,
           edit: false,
-          delete: false
+          delete: false,
         };
       }
-      
-      summary[perm.page][perm.feature] = perm[`can${perm.feature.charAt(0).toUpperCase() + perm.feature.slice(1)}`];
+
+      summary[perm.page][perm.feature] =
+        perm[`can${perm.feature.charAt(0).toUpperCase() + perm.feature.slice(1)}`];
     });
-    
+
     return summary;
   }
 
@@ -78,27 +101,30 @@ export class PermissionsController {
   async getCurrentUserPermissionsSummary(@Req() req: any) {
     const userId = req.user?.userId || req.user?.id;
     if (!userId) {
-      throw new Error('کاربر یافت نشد');
+      throw new ForbiddenException('کاربر یافت نشد');
     }
-    
+
     const permissions = await this.permissionsService.getPermissionsByUser(userId);
-    
-    // گروه‌بندی دسترسی‌ها بر اساس صفحه
-    const summary = {};
-    
-    permissions.forEach(perm => {
+
+    const summary: Record<
+      string,
+      { view: boolean; create: boolean; edit: boolean; delete: boolean }
+    > = {};
+
+    permissions.forEach((perm) => {
       if (!summary[perm.page]) {
         summary[perm.page] = {
           view: false,
           create: false,
           edit: false,
-          delete: false
+          delete: false,
         };
       }
-      
-      summary[perm.page][perm.feature] = perm[`can${perm.feature.charAt(0).toUpperCase() + perm.feature.slice(1)}`];
+
+      summary[perm.page][perm.feature] =
+        perm[`can${perm.feature.charAt(0).toUpperCase() + perm.feature.slice(1)}`];
     });
-    
+
     return summary;
   }
-} 
+}

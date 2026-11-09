@@ -204,22 +204,23 @@ export function formatTehranJalaliValue(value: unknown, format: string = 'YYYY/M
 /**
  * Parse a Jalali date string to Gregorian Date object
  * @param jalaliDate - Jalali date string (e.g., '1400/01/01')
- * @param format - Input format (default: 'YYYY/MM/DD')
- * @returns JavaScript Date object (midnight local time)
+ * @param format - Input format (default: 'YYYY/MM/DD') — reserved for callers; YMD slash/dash normalized
+ * @returns JavaScript Date at UTC midnight for the Gregorian calendar day (not browser-local)
  * @example
- * parseFromJalali('1400/01/01') // Returns Date object for 2021-03-21 00:00:00 local time
+ * parseFromJalali('1400/01/01') // Date.UTC(2021, 2, 21)
  */
 export const parseFromJalali = (
   jalaliDate: string,
   format: string = 'YYYY/MM/DD'
 ): Date | null => {
   if (!jalaliDate) return null;
-  
+  void format;
+
   try {
     // Normalize: convert Persian digits and / to -
     const normalized = persianToEnglishDigits(jalaliDate).replace(/\//g, '-');
     const [jy, jm, jd] = normalized.split('-').map(Number);
-    
+
     const gregorian = safeToGregorian(jy, jm, jd);
     if (!gregorian) return null;
     const { gy, gm, gd } = gregorian;
@@ -231,19 +232,15 @@ export const parseFromJalali = (
 };
 
 /**
- * Convert Jalali date string to ISO string for API calls
- * @param jalaliDate - Jalali date string
- * @returns ISO 8601 string at noon UTC (to avoid timezone issues)
+ * Convert Jalali date string to ISO string for API calls.
+ * Uses calendar conversion only (no local Date getters) so Asia/Tehran and
+ * other browser TZs do not shift the civil day (F-DATE-05).
+ * @returns ISO 8601 at noon UTC for the Gregorian Y-M-D of the Jalali input
  */
 export const jalaliToISO = (jalaliDate: string): string | null => {
-  const date = parseFromJalali(jalaliDate);
-  if (!date) return null;
-  
-  // Format as YYYY-MM-DD at noon UTC to avoid timezone shifting
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}T12:00:00.000Z`;
+  const ymd = jalaliToGregorian(jalaliDate);
+  if (!ymd) return null;
+  return `${ymd}T12:00:00.000Z`;
 };
 
 /**

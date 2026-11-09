@@ -18,8 +18,9 @@ import {
   TrendingUp,
   TrendingDown
 } from 'lucide-react'
-import { PersianDatePicker } from '@/components/ui/persian-date-picker'
+import PersianDatePicker from '@/components/ui/PersianDatePicker'
 import { formatTomansFromRial } from '@/lib/money'
+import { getTehranTodayJalali, jalaliToGregorian, formatToJalali } from '@/lib/date'
 
 interface DayClosingData {
   id: number
@@ -40,22 +41,26 @@ interface DayClosingData {
 }
 
 export default function DayClosingPage() {
-  const [selectedDate, setSelectedDate] = useState(new Date())
+  // F-DATE-02: Jalali civil day in Asia/Tehran — never local Date + toISOString UTC.
+  const [selectedJalali, setSelectedJalali] = useState(() => getTehranTodayJalali() || '')
   const [dayClosingData, setDayClosingData] = useState<DayClosingData | null>(null)
   const [loading, setLoading] = useState(false)
   const [closing, setClosing] = useState(false)
   const [reopening, setReopening] = useState(false)
   const { toast } = useToast()
 
+  const apiDateKey = () => jalaliToGregorian(selectedJalali) || ''
+
   useEffect(() => {
     fetchDayClosingData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only / debounce-gated; function identity is not a data input
-  }, [selectedDate])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- remount fetch when Jalali day changes
+  }, [selectedJalali])
 
   const fetchDayClosingData = async () => {
+    const dateStr = apiDateKey()
+    if (!dateStr) return
     try {
       setLoading(true)
-      const dateStr = selectedDate.toISOString().split('T')[0]
       const token = localStorage.getItem('token')
       
       const response = await fetch(`/api/day-closing/${dateStr}`, {
@@ -83,9 +88,10 @@ export default function DayClosingPage() {
   }
 
   const handleCloseDay = async () => {
+    const dateStr = apiDateKey()
+    if (!dateStr) return
     try {
       setClosing(true)
-      const dateStr = selectedDate.toISOString().split('T')[0]
       const token = localStorage.getItem('token')
       
       const response = await fetch(`/api/day-closing/${dateStr}/close`, {
@@ -117,9 +123,10 @@ export default function DayClosingPage() {
   }
 
   const handleReopenDay = async () => {
+    const dateStr = apiDateKey()
+    if (!dateStr) return
     try {
       setReopening(true)
-      const dateStr = selectedDate.toISOString().split('T')[0]
       const token = localStorage.getItem('token')
       
       const response = await fetch(`/api/day-closing/${dateStr}/reopen`, {
@@ -151,9 +158,7 @@ export default function DayClosingPage() {
   }
 
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('fa-IR')
-  }
+  const formatDate = (date: string) => formatToJalali(date) || date
 
   if (loading) {
     return (
@@ -198,10 +203,10 @@ export default function DayClosingPage() {
         <CardContent>
           <div className="flex items-center gap-4">
             <PersianDatePicker
-              value={selectedDate}
+              value={selectedJalali}
               onChange={(date) => {
                 if (date) {
-                  setSelectedDate(date)
+                  setSelectedJalali(date)
                 }
               }}
             />
